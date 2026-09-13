@@ -262,15 +262,15 @@ func workflowLocation(dir string) (workflowDir, workingDirectory string) {
 	if err != nil {
 		return dir, "."
 	}
-	local := dir
-	if resolved, err := filepath.EvalSymlinks(local); err == nil {
-		local = resolved
-	}
-	rel, err := filepath.Rel(top, local)
-	if err != nil || rel == "." {
+	// git is asked where this directory sits inside the repository rather than
+	// the answer being computed from two paths obtained different ways. The
+	// workflow runs on a checkout, so the value has to be relative to the
+	// repository root and nothing else; a local path could never resolve there.
+	prefix, err := g.Prefix()
+	if err != nil || prefix == "" {
 		return top, "."
 	}
-	return top, filepath.ToSlash(rel)
+	return top, filepath.ToSlash(prefix)
 }
 
 // renderOrCopy renders a template, or copies it verbatim when it carries no

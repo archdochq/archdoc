@@ -275,6 +275,8 @@ func (s stubGit) ListFiles(string) ([]string, error) { return nil, nil }
 func (s stubGit) CurrentBranch() (string, error)     { return "main", nil }
 func (s stubGit) RepoRoot() (string, error)          { return "/", nil }
 
+func (s stubGit) Prefix() (string, error) { return "", nil }
+
 func TestL11ReportsAGitFailureRatherThanTreatingItAsUnfrozen(t *testing.T) {
 	findings := lint.Run(lint.NewContext(
 		repotest.Fixture(t, "repo"),

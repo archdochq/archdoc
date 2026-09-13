@@ -459,6 +459,8 @@ func (g *countingGit) FilesAt(_ string, p []string) (map[string][]byte, error) {
 func (g *countingGit) CurrentBranch() (string, error) { return "main", nil }
 func (g *countingGit) RepoRoot() (string, error)      { return "/", nil }
 
+func (g *countingGit) Prefix() (string, error) { return "", nil }
+
 func TestResolveDoesNotBuildABranchSnapshotItNeverReads(t *testing.T) {
 	// Resolve consults the branch only to decide whether a document that
 	// contains a wiki link is frozen. When none does, the answer is never

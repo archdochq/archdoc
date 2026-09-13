@@ -53,6 +53,17 @@ type Repository interface {
 	CurrentBranch() (string, error)
 	// RepoRoot is the absolute path of the repository's top level.
 	RepoRoot() (string, error)
+	// Prefix is the path from the repository root down to the directory this
+	// Repository was opened in, slash-separated, empty when they are the same.
+	//
+	// Asked of git rather than computed with filepath.Rel, because that
+	// compares two paths obtained by different means: git reports a name as it
+	// is written on disk and os.Getwd reports what the caller typed. On a
+	// case-insensitive filesystem the two spellings of one directory diverge,
+	// and Rel then walks out of the repository and back in. That produced a
+	// generated workflow naming a path no checkout could contain, so the job
+	// failed before archdoc ran.
+	Prefix() (string, error)
 }
 
 // shell runs the git binary. It is the only implementation; the interface
@@ -351,4 +362,14 @@ func (s *shell) RepoRoot() (string, error) {
 	}
 	s.root = strings.TrimSpace(string(out))
 	return s.root, nil
+}
+
+// Prefix implements Repository.
+func (s *shell) Prefix() (string, error) {
+	out, _, err := s.run("rev-parse", "--show-prefix")
+	if err != nil {
+		return "", err
+	}
+	// git prints "spec/" with a trailing slash, and nothing at all at the root.
+	return strings.TrimSuffix(strings.TrimSpace(string(out)), "/"), nil
 }

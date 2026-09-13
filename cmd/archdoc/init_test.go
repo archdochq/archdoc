@@ -537,3 +537,109 @@ func TestRenumberTakesAPathWithoutManglingIt(t *testing.T) {
 		t.Errorf("the lower-case identifier was not accepted: %v", err)
 	}
 }
+
+// caseInsensitive reports whether the filesystem under dir treats names
+// case-insensitively, which macOS and Windows do by default.
+func caseInsensitive(t *testing.T, dir string) bool {
+	t.Helper()
+	probe := filepath.Join(dir, "CaseProbe")
+	if err := os.MkdirAll(probe, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	defer os.RemoveAll(probe)
+	_, err := os.Stat(filepath.Join(dir, "caseprobe"))
+	return err == nil
+}
+
+// TestTheWorkflowNeverNamesAPathOutsideTheRepository pins the invariant the
+// generated workflow depends on. It runs on a GitHub runner, where the only
+// meaningful location is relative to the checkout, so a working-directory that
+// climbs above the repository root can never resolve and the job dies before
+// archdoc runs at all.
+//
+// The way it used to escape: working-directory was computed as
+// filepath.Rel(gitRoot, cwd), git reports the name as it is on disk and Getwd
+// reports what the caller typed, and on a case-insensitive filesystem those two
+// spellings of the same directory diverge, so Rel walks out and back in.
+func TestTheWorkflowNeverNamesAPathOutsideTheRepository(t *testing.T) {
+	parent := t.TempDir()
+	if !caseInsensitive(t, parent) {
+		t.Skip("filesystem is case-sensitive, so the two spellings are different directories")
+	}
+	real := filepath.Join(parent, "SpecRepo")
+	if err := os.MkdirAll(real, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if out, err := exec.Command("git", "-C", real, "init").CombinedOutput(); err != nil {
+		t.Fatalf("git init: %v: %s", err, out)
+	}
+
+	// Enter through a differently-cased spelling of the same directory.
+	mixed := filepath.Join(parent, "specrepo")
+	out, code := run(t, mixed, "init", "--name", "T")
+	if code != exitOK {
+		t.Fatalf("init exited %d: %s", code, out)
+	}
+
+	workflow, err := os.ReadFile(filepath.Join(real, ".github", "workflows", "archdoc-lint.yml"))
+	if err != nil {
+		t.Fatalf("the workflow was not written: %v", err)
+	}
+	for _, line := range strings.Split(string(workflow), "\n") {
+		if !strings.Contains(line, "working-directory:") {
+			continue
+		}
+		value := strings.TrimSpace(strings.SplitN(line, ":", 2)[1])
+		if strings.Contains(value, "..") || strings.HasPrefix(value, "/") {
+			t.Errorf("working-directory names a path outside the checkout: %q", value)
+		}
+		if strings.Contains(value, parent) {
+			t.Errorf("working-directory leaks a local filesystem path: %q", value)
+		}
+	}
+}
+
+// TestTheWorkflowRunsInTheConfigDirectory covers the case the value exists for:
+// a specification repository nested inside the code repository it documents, so
+// the workflow sits at the root and archdoc has to run below it.
+func TestTheWorkflowRunsInTheConfigDirectory(t *testing.T) {
+	root := t.TempDir()
+	if out, err := exec.Command("git", "-C", root, "init").CombinedOutput(); err != nil {
+		t.Fatalf("git init: %v: %s", err, out)
+	}
+	nested := filepath.Join(root, "spec")
+	if err := os.MkdirAll(nested, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if out, code := run(t, nested, "init", "--name", "T"); code != exitOK {
+		t.Fatalf("init exited %d: %s", code, out)
+	}
+	workflow, err := os.ReadFile(filepath.Join(root, ".github", "workflows", "archdoc-lint.yml"))
+	if err != nil {
+		t.Fatalf("the workflow was not written at the repository root: %v", err)
+	}
+	if !strings.Contains(string(workflow), "working-directory: spec") {
+		t.Errorf("expected working-directory: spec\n%s", workflow)
+	}
+}
+
+// TestTheWorkflowOmitsWorkingDirectoryAtTheRoot pins the other half of the
+// prefix. When the configuration sits at the repository root there is nowhere
+// to change to, and the template drops the key entirely rather than writing an
+// empty value, which GitHub rejects.
+func TestTheWorkflowOmitsWorkingDirectoryAtTheRoot(t *testing.T) {
+	root := t.TempDir()
+	if out, err := exec.Command("git", "-C", root, "init").CombinedOutput(); err != nil {
+		t.Fatalf("git init: %v: %s", err, out)
+	}
+	if out, code := run(t, root, "init", "--name", "T"); code != exitOK {
+		t.Fatalf("init exited %d: %s", code, out)
+	}
+	workflow, err := os.ReadFile(filepath.Join(root, ".github", "workflows", "archdoc-lint.yml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(string(workflow), "working-directory") {
+		t.Errorf("the workflow names a working-directory at the repository root:\n%s", workflow)
+	}
+}
