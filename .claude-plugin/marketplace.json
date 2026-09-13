@@ -1,0 +1,19 @@
+{
+  "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
+  "name": "archdoc",
+  "description": "Skills for documenting a project with ArchDoc, a CLI that manages a specification repository of RFCs, ADRs, spec pages and refs.",
+  "owner": {
+    "name": "Ollie Read"
+  },
+  "plugins": [
+    {
+      "name": "archdoc",
+      "description": "Classify documents, backfill decisions from real evidence rather than recollection, and keep a specification repository lint-clean.",
+      "author": {
+        "name": "Ollie Read"
+      },
+      "category": "development",
+      "source": "./plugin"
+    }
+  ]
+}

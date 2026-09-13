@@ -1,6 +1,7 @@
 package template_test
 
 import (
+	"encoding/json"
 	"flag"
 	"os"
 	"path/filepath"
@@ -104,6 +105,61 @@ func TestThePluginManifestIsPresentAndNamesTheRightSkills(t *testing.T) {
 		}
 		if _, err := os.Stat(filepath.Join(pluginSkills, e.Name(), "SKILL.md")); err != nil {
 			t.Errorf("%s has no SKILL.md, so a host will ignore it", e.Name())
+		}
+	}
+}
+
+// TestTheMarketplaceManifestResolves guards the file that makes the repository
+// installable at all. A plugin is not installed directly: a host adds the
+// repository as a marketplace, reads .claude-plugin/marketplace.json at its
+// root, and follows each entry's source. A wrong path or a mismatched name
+// fails at install time with nothing here to have caught it.
+func TestTheMarketplaceManifestResolves(t *testing.T) {
+	const manifestPath = "../../.claude-plugin/marketplace.json"
+	raw, err := os.ReadFile(manifestPath)
+	if err != nil {
+		t.Fatalf("the marketplace manifest is missing: %v", err)
+	}
+	var market struct {
+		Name    string `json:"name"`
+		Plugins []struct {
+			Name   string `json:"name"`
+			Source string `json:"source"`
+		} `json:"plugins"`
+	}
+	if err := json.Unmarshal(raw, &market); err != nil {
+		t.Fatalf("the marketplace manifest is not valid JSON: %v", err)
+	}
+	if market.Name == "" {
+		t.Error("the marketplace declares no name; it is half of the plugin@marketplace argument")
+	}
+	if len(market.Plugins) == 0 {
+		t.Fatal("the marketplace lists no plugins")
+	}
+
+	for _, p := range market.Plugins {
+		// source is relative to the repository root, which is two levels up.
+		dir := filepath.Join("../..", p.Source)
+		own, err := os.ReadFile(filepath.Join(dir, ".claude-plugin", "plugin.json"))
+		if err != nil {
+			t.Errorf("plugin %q names source %q, which has no .claude-plugin/plugin.json: %v", p.Name, p.Source, err)
+			continue
+		}
+		var plugin struct {
+			Name string `json:"name"`
+		}
+		if err := json.Unmarshal(own, &plugin); err != nil {
+			t.Errorf("the plugin.json at %s is not valid JSON: %v", p.Source, err)
+			continue
+		}
+		if plugin.Name != p.Name {
+			t.Errorf("the marketplace calls it %q and its own plugin.json calls it %q; the install argument is built from the marketplace entry",
+				p.Name, plugin.Name)
+		}
+		// A plugin that packages no skills installs cleanly and does nothing.
+		entries, err := os.ReadDir(filepath.Join(dir, "skills"))
+		if err != nil || len(entries) == 0 {
+			t.Errorf("plugin %q packages no skills", p.Name)
 		}
 	}
 }
