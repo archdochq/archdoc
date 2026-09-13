@@ -147,7 +147,7 @@ func askForRename(cmd *cobra.Command, args []string, terms []string) (from, to s
 // askForScaffold confirms the values init records in archdoc.json. They are
 // optional flags, but every one of them is written to a file, so the
 // interaction rule offers them.
-func askForScaffold(cmd *cobra.Command, settings *config.Config, licence *string) error {
+func askForScaffold(cmd *cobra.Command, settings *config.Config, licence *string, agents *bool) error {
 	if !interactive(cmd) {
 		return nil
 	}
@@ -193,6 +193,11 @@ func askForScaffold(cmd *cobra.Command, settings *config.Config, licence *string
 			huh.NewOption("None", "none"),
 			huh.NewOption("MIT", "mit"),
 		).Value(licence))
+
+	// Also a file, so the same rule covers it.
+	unless("agents", huh.NewConfirm().Title("Write guidance for coding agents?").
+		Description("AGENTS.md and agents/, describing the process to an agent working here.").
+		Value(agents))
 
 	if len(fields) == 0 {
 		return nil

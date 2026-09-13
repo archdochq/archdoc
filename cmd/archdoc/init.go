@@ -61,6 +61,7 @@ func newInitCommand() *cobra.Command {
 		RefStaleDays: config.DefaultRefStaleDays,
 	}
 	var licence string
+	var agents bool
 
 	cmd := &cobra.Command{
 		Use:   "init",
@@ -75,7 +76,7 @@ func newInitCommand() *cobra.Command {
 				return fmt.Errorf("%s already exists here", config.Filename)
 			}
 
-			if err := applyDefaults(cmd, &settings, dir, &licence); err != nil {
+			if err := applyDefaults(cmd, &settings, dir, &licence, &agents); err != nil {
 				return err
 			}
 			// After the prompts, not before: a root typed at the prompt was
@@ -86,7 +87,7 @@ func newInitCommand() *cobra.Command {
 			if err := config.Validate(&settings); err != nil {
 				return err
 			}
-			files, unpinned, err := plan(dir, settings, licence)
+			files, unpinned, err := plan(dir, settings, licence, agents)
 			if err != nil {
 				return err
 			}
@@ -106,11 +107,12 @@ func newInitCommand() *cobra.Command {
 	cmd.Flags().Bool("no-strict", false, "permit any transition between statuses; the opposite of --strict")
 	cmd.Flags().IntVar(&settings.RefStaleDays, "ref-stale-days", config.DefaultRefStaleDays, "how old a ref's verified date may be")
 	cmd.Flags().StringVar(&licence, "license", "none", "licence to write: none or mit")
+	cmd.Flags().BoolVar(&agents, "agents", false, "write AGENTS.md and the agents/ guides, for coding agents working in the repository")
 	return cmd
 }
 
 // applyDefaults fills in what the user did not supply, prompting on a terminal.
-func applyDefaults(cmd *cobra.Command, settings *config.Config, dir string, licence *string) error {
+func applyDefaults(cmd *cobra.Command, settings *config.Config, dir string, licence *string, agents *bool) error {
 	if *licence != "none" && *licence != "mit" {
 		return fmt.Errorf("--license %q is not one of none, mit", *licence)
 	}
@@ -148,12 +150,12 @@ func applyDefaults(cmd *cobra.Command, settings *config.Config, dir string, lice
 			}
 		}
 	}
-	return askForScaffold(cmd, settings, licence)
+	return askForScaffold(cmd, settings, licence, agents)
 }
 
 // plan assembles every file init would write, so that nothing is written when
 // any of them is already there.
-func plan(dir string, settings config.Config, licence string) (files []scaffold, unpinned bool, err error) {
+func plan(dir string, settings config.Config, licence string, agents bool) (files []scaffold, unpinned bool, err error) {
 	data := template.Data{
 		Name:    settings.Name,
 		Version: resolveVersion(),
@@ -205,6 +207,23 @@ func plan(dir string, settings config.Config, licence string) (files []scaffold,
 			return nil, false, err
 		}
 		files = append(files, scaffold{root, "LICENSE", rendered})
+	}
+
+	if agents {
+		// Shipped verbatim, like PROCESS.md: they describe the process rather
+		// than this repository, so they carry no substitutions.
+		paths, contents, err := agentGuides()
+		if err != nil {
+			return nil, false, err
+		}
+		index, err := template.Files.ReadFile(agentsIndex)
+		if err != nil {
+			return nil, false, err
+		}
+		files = append(files, scaffold{root, agentsIndex, index})
+		for i, path := range paths {
+			files = append(files, scaffold{root, path, contents[i]})
+		}
 	}
 
 	// The workflow goes at the git repository root, wherever that is, and is

@@ -16,7 +16,7 @@ import (
 // Files is every embedded file, exposed so that init can write out the ones it
 // scaffolds without rendering them.
 //
-//go:embed *.md *.yml LICENSE.mit
+//go:embed *.md *.yml LICENSE.mit agents
 var Files embed.FS
 
 // Data is the substitution set. A field left empty renders as absent rather
@@ -64,7 +64,8 @@ var funcs = template.FuncMap{
 // at start turns "this fails for someone, one day, on one subcommand" into
 // "this fails in CI, always". PROCESS.md and glossary.md are parsed too; they
 // contain no template syntax, and a future file that does must either escape
-// its braces or move out of the glob.
+// its braces or move out of the glob. The agents/ guides are embedded but not
+// in the glob: they ship verbatim, so a brace in one is literal text.
 var templates = template.Must(template.New("archdoc").Funcs(funcs).ParseFS(Files, "*.md", "*.yml", "LICENSE.mit"))
 
 // Render substitutes data into the named embedded template. A document is

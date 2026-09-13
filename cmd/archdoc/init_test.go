@@ -2,6 +2,7 @@ package main
 
 import (
 	"github.com/ollieread/archdoc/internal/config"
+	"github.com/ollieread/archdoc/internal/template"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -374,5 +375,134 @@ func TestChdirRunsInAnotherDirectory(t *testing.T) {
 	}
 	if !strings.Contains(out, "chdir") {
 		t.Errorf("the error does not name the flag:\n%s", out)
+	}
+}
+
+// TestAgentsIsOptAndWritesTheGuides pins both halves of the flag: absent by
+// default, so a repository whose owner does not use agents carries nothing it
+// ignores, and complete when asked, with AGENTS.md at the top of the tree where
+// the convention puts it rather than beside the guides it indexes.
+func TestAgentsIsOptAndWritesTheGuides(t *testing.T) {
+	t.Run("absent by default", func(t *testing.T) {
+		dir := t.TempDir()
+		out, code := run(t, dir, "init", "--name", "T")
+		if code != exitOK {
+			t.Fatalf("init exited %d: %s", code, out)
+		}
+		for _, unwanted := range []string{"AGENTS.md", "agents"} {
+			if _, err := os.Stat(filepath.Join(dir, unwanted)); err == nil {
+				t.Errorf("%s was written without --agents", unwanted)
+			}
+		}
+		if strings.Contains(out, "AGENTS.md") {
+			t.Errorf("init reported AGENTS.md without --agents:\n%s", out)
+		}
+	})
+
+	t.Run("written when asked", func(t *testing.T) {
+		dir := t.TempDir()
+		out, code := run(t, dir, "init", "--name", "T", "--agents")
+		if code != exitOK {
+			t.Fatalf("init exited %d: %s", code, out)
+		}
+		// Every embedded guide reaches the repository, so adding one to the
+		// templates cannot silently fail to ship.
+		entries, err := template.Files.ReadDir("agents")
+		if err != nil {
+			t.Fatalf("ReadDir(agents): %v", err)
+		}
+		if len(entries) < 2 {
+			t.Fatalf("expected several guides, found %d", len(entries))
+		}
+		for _, e := range entries {
+			want := "agents/" + e.Name()
+			if e.Name() == "AGENTS.md" {
+				want = "AGENTS.md"
+			}
+			if _, err := os.Stat(filepath.Join(dir, filepath.FromSlash(want))); err != nil {
+				t.Errorf("%s was not written: %v", want, err)
+			}
+			if !strings.Contains(out, want) {
+				t.Errorf("%s was written but not reported:\n%s", want, out)
+			}
+		}
+		// The index is what an agent reads first, so it has to be at the top.
+		if _, err := os.Stat(filepath.Join(dir, "AGENTS.md")); err != nil {
+			t.Errorf("AGENTS.md is not at the root of the repository: %v", err)
+		}
+	})
+}
+
+// TestAgentsRefreshesGuidesButNeverTheIndex pins the ownership split. The
+// guides ship with the binary and change as ArchDoc does, so re-running must
+// replace them; AGENTS.md is where a project writes its own instructions, so
+// re-running must not touch it.
+func TestAgentsRefreshesGuidesButNeverTheIndex(t *testing.T) {
+	dir := t.TempDir()
+	if out, code := run(t, dir, "init", "--name", "T", "--agents"); code != exitOK {
+		t.Fatalf("init exited %d: %s", code, out)
+	}
+
+	guide := filepath.Join(dir, "agents", "triage.md")
+	index := filepath.Join(dir, "AGENTS.md")
+	if err := os.WriteFile(guide, []byte("stale, from an older archdoc\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	const mine = "\nProject rule: every RFC links its discussion thread.\n"
+	before, err := os.ReadFile(index)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(index, append(before, mine...), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	out, code := run(t, dir, "agents")
+	if code != exitOK {
+		t.Fatalf("agents exited %d: %s", code, out)
+	}
+
+	got, err := os.ReadFile(guide)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(string(got), "stale, from an older archdoc") {
+		t.Error("agents left a stale guide in place")
+	}
+	if !strings.Contains(string(got), "archdoc-triage") {
+		t.Errorf("the refreshed guide is not the shipped one:\n%s", got)
+	}
+
+	kept, err := os.ReadFile(index)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(kept), mine) {
+		t.Error("agents overwrote AGENTS.md, discarding the project's own instructions")
+	}
+	if !strings.Contains(out, "kept") {
+		t.Errorf("agents did not report keeping AGENTS.md:\n%s", out)
+	}
+}
+
+// TestAgentsCreatesTheIndexWhenItIsMissing covers the other half: a repository
+// scaffolded before --agents existed, or one whose AGENTS.md was deleted, gets
+// one rather than being left with guides nothing points at.
+func TestAgentsCreatesTheIndexWhenItIsMissing(t *testing.T) {
+	dir := t.TempDir()
+	if out, code := run(t, dir, "init", "--name", "T"); code != exitOK {
+		t.Fatalf("init exited %d: %s", code, out)
+	}
+	out, code := run(t, dir, "agents")
+	if code != exitOK {
+		t.Fatalf("agents exited %d: %s", code, out)
+	}
+	for _, want := range []string{"AGENTS.md", filepath.Join("agents", "working.md")} {
+		if _, err := os.Stat(filepath.Join(dir, want)); err != nil {
+			t.Errorf("%s was not created: %v", want, err)
+		}
+	}
+	if !strings.Contains(out, "written") {
+		t.Errorf("agents did not report writing AGENTS.md:\n%s", out)
 	}
 }

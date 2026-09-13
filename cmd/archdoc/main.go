@@ -85,6 +85,7 @@ func newRoot(out, errOut io.Writer) *cobra.Command {
 		newLinkCommand(),
 		newNewCommand(),
 		newTermCommand(),
+		newAgentsCommand(),
 	)
 	root.AddCommand(transitionCommands()...)
 	return root

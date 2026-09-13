@@ -182,9 +182,10 @@ Options:
 - `--strict` / `--no-strict`: defaults to strict.
 - `--ref-stale-days=<int>`: defaults to 180.
 - `--license=<none|mit>`: defaults to `none`.
+- `--agents`: write `AGENTS.md` and the `agents/` guides. Defaults to off.
 - `--no-interaction`: never prompt; fail if a required value has no default.
 
-Writes `archdoc.json` in the current directory; `README.md`, `PROCESS.md`, `INDEX.md`, `rfc/.gitkeep`, `adr/.gitkeep`, `ref/.gitkeep`, `spec/glossary.md`, and `LICENSE` if requested, under `root`; and `.github/workflows/archdoc-lint.yml` at the git repository root, or in the current directory when there is no repository. Prints every path written. Refuses to run if `archdoc.json` already exists, and refuses to overwrite any other existing file. Does not initialise git and does not commit.
+Writes `archdoc.json` in the current directory; `README.md`, `PROCESS.md`, `INDEX.md`, `rfc/.gitkeep`, `adr/.gitkeep`, `ref/.gitkeep`, `spec/glossary.md`, `LICENSE` if requested, and `AGENTS.md` with `agents/` if requested, under `root`; and `.github/workflows/archdoc-lint.yml` at the git repository root, or in the current directory when there is no repository. Prints every path written. Refuses to run if `archdoc.json` already exists, and refuses to overwrite any other existing file. Does not initialise git and does not commit.
 
 `README.md` is short: the project name, one sentence per document type, and a link to PROCESS.md.
 
@@ -310,6 +311,12 @@ Suggestion handling:
 - If stdin is not a TTY and `--apply` is not given: print suggestions, exit 2 if any.
 - With `--apply`: apply all without prompting.
 
+### `archdoc agents`
+
+Writes the guides for coding agents under `agents/`, replacing what is there, and creates `AGENTS.md` only when it is absent.
+
+The two halves are owned by different parties. The guides ship with the binary and change as ArchDoc changes, so a repository scaffolded by an older version carries older guidance and re-running must replace it. `AGENTS.md` is where a project adds its own instructions, so re-running must not touch it; the command says which it did for each path. Creates `agents/` when the repository was scaffolded without it.
+
 ### `archdoc term <add|rename|remove|list|show>`
 
 Manages `spec/glossary.md`.
@@ -322,7 +329,9 @@ Manages `spec/glossary.md`.
 
 ## Templates
 
-Embedded under `internal/template`: `rfc.md`, `adr.md`, `ref.md`, `glossary.md`, `PROCESS.md`, `README.md`, `archdoc-lint.yml`, `LICENSE.mit`. Substitution uses `text/template` with `.ID`, `.Title`, `.Date`, `.Name`, `.Version`, `.Status`, `.Decided`, `.Backfilled`, `.Year` and `.WorkingDirectory` as applicable.
+Embedded under `internal/template`: `rfc.md`, `adr.md`, `ref.md`, `glossary.md`, `PROCESS.md`, `README.md`, `archdoc-lint.yml`, `LICENSE.mit`, and `agents/`. Substitution uses `text/template` with `.ID`, `.Title`, `.Date`, `.Name`, `.Version`, `.Status`, `.Decided`, `.Backfilled`, `.Year` and `.WorkingDirectory` as applicable.
+
+`AGENTS.md`, `PROCESS.md` and everything under `agents/` ship verbatim rather than being rendered, so a brace in one is literal text. The `agents/` guides carry `name` and `description` front matter, which makes each one a valid skill file as written, so the same file serves as a shipped guide and as a packaged skill without a second copy. Each guide cites `PROCESS.md` by section name, never by line number, and a test resolves every citation against the headings that actually exist.
 
 One function is registered: `yaml`, which encodes a value as a YAML scalar, quoting and escaping only where the encoding requires it. Front matter uses `title: {{ yaml .Title }}`, so a title containing a colon or any other YAML-significant character produces a document that parses. The H1 uses `.Title` raw and is read back by splitting on the first `": "`.
 
@@ -341,7 +350,7 @@ archdoc/
 │   ├── glossary/        glossary parsing and editing
 │   ├── git/             interface with a shell-out implementation
 │   ├── repotest/        throwaway repositories for tests
-│   └── template/        embedded files
+│   └── template/        embedded files, including agents/
 ```
 
 `cmd/archdoc` is the only package that imports cobra. Every other package is usable without a terminal, so a later desktop or TUI frontend calls them directly, and nothing under `internal/` calls `os.Exit`.
