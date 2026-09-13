@@ -341,6 +341,8 @@ Embedded under `internal/template`: `rfc.md`, `adr.md`, `ref.md`, `glossary.md`,
 
 `AGENTS.md`, `PROCESS.md` and everything under `agents/` ship verbatim rather than being rendered, so a brace in one is literal text. The `agents/` guides carry `name` and `description` front matter, which makes each one a valid skill file as written, so the same file serves as a shipped guide and as a packaged skill without a second copy. Each guide cites `PROCESS.md` by section name, never by line number, and a test resolves every citation against the headings that actually exist.
 
+The same guides are delivered three ways: written into a repository by `init --agents`, refreshed there by `agents`, and packaged under `plugin/skills/` for hosts that discover skills by name. The packaged copies are generated rather than written, with `go test ./internal/template -update-plugin`, and a test compares them byte for byte against the embedded originals, so the guidance has one source and cannot drift between deliveries.
+
 One function is registered: `yaml`, which encodes a value as a YAML scalar, quoting and escaping only where the encoding requires it. Front matter uses `title: {{ yaml .Title }}`, so a title containing a colon or any other YAML-significant character produces a document that parses. The H1 uses `.Title` raw and is read back by splitting on the first `": "`.
 
 ## Package layout
@@ -359,6 +361,7 @@ archdoc/
 │   ├── git/             interface with a shell-out implementation
 │   ├── repotest/        throwaway repositories for tests
 │   └── template/        embedded files, including agents/
+├── plugin/              the guides packaged as skills, generated from internal/template/agents
 ```
 
 `cmd/archdoc` is the only package that imports cobra. Every other package is usable without a terminal, so a later desktop or TUI frontend calls them directly, and nothing under `internal/` calls `os.Exit`.
