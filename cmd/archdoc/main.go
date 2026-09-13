@@ -57,6 +57,26 @@ func newRoot(out, errOut io.Writer) *cobra.Command {
 	root.SetErr(errOut)
 	root.SetVersionTemplate("{{.Version}}\n")
 	root.PersistentFlags().Bool("no-interaction", false, "never prompt; use defaults and fail if a required value is missing")
+	root.PersistentFlags().StringP("chdir", "C", "", "run as if archdoc had been started in this directory")
+	// Applied before anything reads the working directory, because config.Find
+	// walks up from it and every command's notion of "here" follows. A spec
+	// repository is commonly a sibling of the code repository it documents, so
+	// without this an agent working in the code has to wrap every invocation in
+	// a cd, which a fresh shell per command makes unreliable.
+	root.PersistentPreRunE = func(cmd *cobra.Command, _ []string) error {
+		dir, err := cmd.Flags().GetString("chdir")
+		if err != nil || dir == "" {
+			return err
+		}
+		info, err := os.Stat(dir)
+		if err != nil {
+			return fmt.Errorf("--chdir %s: %w", dir, err)
+		}
+		if !info.IsDir() {
+			return fmt.Errorf("--chdir %s: not a directory", dir)
+		}
+		return os.Chdir(dir)
+	}
 
 	root.AddCommand(
 		newInitCommand(),

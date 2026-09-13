@@ -339,3 +339,40 @@ func TestInitDoesNotRecordHEADAsABranch(t *testing.T) {
 		t.Errorf("init recorded HEAD as the branch:\n%s", settings)
 	}
 }
+
+// TestChdirRunsInAnotherDirectory pins the flag that makes the two-repository
+// workflow usable: a spec repository is commonly a sibling of the code it
+// documents, so config.Find walking up from the working directory never reaches
+// it, and an agent working in the code has no way to run archdoc without it.
+func TestChdirRunsInAnotherDirectory(t *testing.T) {
+	parent := t.TempDir()
+	spec := filepath.Join(parent, "spec")
+	code := filepath.Join(parent, "code")
+	for _, d := range []string{spec, code} {
+		if err := os.MkdirAll(d, 0o755); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if out, code := run(t, spec, "init", "--name", "T"); code != exitOK {
+		t.Fatalf("init exited %d: %s", code, out)
+	}
+
+	// From the sibling, with no archdoc.json above it, lint is only reachable
+	// through the flag.
+	out, exit := run(t, code, "lint")
+	if exit == exitOK {
+		t.Fatalf("lint succeeded from a directory with no repository above it:\n%s", out)
+	}
+	out, exit = run(t, code, "--chdir", spec, "lint")
+	if exit != exitOK {
+		t.Errorf("lint with --chdir exited %d:\n%s", exit, out)
+	}
+
+	out, exit = run(t, code, "-C", "/does/not/exist", "lint")
+	if exit == exitOK {
+		t.Error("--chdir accepted a directory that does not exist")
+	}
+	if !strings.Contains(out, "chdir") {
+		t.Errorf("the error does not name the flag:\n%s", out)
+	}
+}
