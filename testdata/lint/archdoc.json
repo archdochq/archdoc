@@ -1,0 +1,7 @@
+{
+  "name": "Fixture",
+  "branch": "main",
+  "root": ".",
+  "strict": true,
+  "ref_stale_days": 180
+}

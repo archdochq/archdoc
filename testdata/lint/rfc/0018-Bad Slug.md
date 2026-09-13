@@ -1,0 +1,38 @@
+---
+id: RFC-0018
+title: Bad slug
+status: draft
+created: 2026-09-01
+decided:
+depends: []
+updates: []
+obsoletes: []
+---
+
+# RFC-0018: Bad slug
+
+## Abstract
+
+A fixture document for the lint rules.
+
+## Motivation
+
+To make a rule fire.
+
+## Proposal
+
+Described here.
+
+## Alternatives considered
+
+None worth recording.
+
+## Backwards compatibility
+
+Nothing breaks.
+
+## Open questions
+
+## Changelog
+
+- 2026-09-01: written.

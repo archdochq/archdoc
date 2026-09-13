@@ -1,0 +1,42 @@
+name: release
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  # Required to create the release and upload its assets.
+  contents: write
+
+jobs:
+  goreleaser:
+    name: Build and publish
+    runs-on: ubuntu-latest
+    steps:
+      # Full history and tags: goreleaser resolves .Tag from them and builds the
+      # changelog from the commits since the previous one. A shallow checkout
+      # produces a release labelled from nothing.
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+
+      # Every repository archdoc scaffolds pins itself to a release, and cannot
+      # easily be moved off a broken one. The suite runs again here rather than
+      # trusting that it ran on the commit before the tag.
+      - name: go test
+        run: go test ./...
+
+      # Publishes archdoc_<version>_<os>_<arch> archives and checksums.txt. The
+      # scaffolded lint workflow reconstructs those exact names to download and
+      # verify the binary, so renaming either side breaks every existing
+      # repository. release_test.go pins the agreement.
+      - uses: goreleaser/goreleaser-action@v7
+        with:
+          version: '~> v2'
+          args: release --clean
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

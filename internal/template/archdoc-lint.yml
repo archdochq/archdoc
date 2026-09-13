@@ -1,0 +1,69 @@
+name: archdoc lint
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  archdoc:
+    name: Check the specification
+    runs-on: ubuntu-latest
+    steps:
+      # The full history is needed: the frozen-document rule compares every
+      # terminal document against the branch, and a shallow checkout has no
+      # commits to compare against. On a pull request the checkout is detached
+      # with no local branch at all, which archdoc handles by falling back to
+      # the remote-tracking ref, but the objects still have to be present.
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      # Pinned to the version that scaffolded this repository, so the rules it
+      # is held to do not change underneath it. Raise it deliberately.
+      - name: Install ArchDoc {{ .Version }}
+        env:
+          ARCHDOC_VERSION: {{ .Version }}
+        run: |
+          set -euo pipefail
+          if [ "$ARCHDOC_VERSION" = "latest" ]; then
+            base="https://github.com/ollieread/archdoc/releases/latest/download"
+            tag="$(curl -fsSL -o /dev/null -w '%{url_effective}' \
+              https://github.com/ollieread/archdoc/releases/latest | sed 's#.*/tag/##')"
+          else
+            base="https://github.com/ollieread/archdoc/releases/download/$ARCHDOC_VERSION"
+            tag="$ARCHDOC_VERSION"
+          fi
+          archive="archdoc_${tag#v}_linux_amd64.tar.gz"
+
+          # Downloaded outside the checkout. curl -O writes into the working
+          # directory, which is the tree actions/checkout just populated, and it
+          # opens with fopen("wb"), which writes through an existing symlink: a
+          # committed symlink named after the archive would have redirected it.
+          tmp="$(mktemp -d)"
+          cd "$tmp"
+
+          curl -fsSL -O "$base/$archive"
+          curl -fsSL -O "$base/checksums.txt"
+          # The binary is about to run over the repository, so check it is the
+          # one the release published.
+          grep " $archive\$" checksums.txt | sha256sum -c -
+
+          tar -xzf "$archive" archdoc
+          install -m 0755 archdoc /usr/local/bin/archdoc
+          cd - >/dev/null
+          rm -rf "$tmp"
+
+      - name: Lint
+{{- if ne .WorkingDirectory "." }}
+        working-directory: {{ yaml .WorkingDirectory }}
+{{- end }}
+        run: archdoc lint
+
+      - name: Check the index is current
+{{- if ne .WorkingDirectory "." }}
+        working-directory: {{ yaml .WorkingDirectory }}
+{{- end }}
+        run: archdoc index --check

@@ -1,0 +1,66 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+# A superseded run tells you nothing, and the suite is the slowest thing here.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: Build and test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-go@v7
+        with:
+          # Tracks the toolchain in go.mod rather than pinning a second copy of
+          # the version here, which would drift.
+          go-version-file: go.mod
+
+      # gofmt -l exits 0 whether or not it found anything, so the output has to
+      # be the test. Without this the step passes on an unformatted tree.
+      - name: gofmt
+        run: |
+          unformatted="$(gofmt -l .)"
+          if [ -n "$unformatted" ]; then
+            echo "not gofmt'd:"
+            echo "$unformatted"
+            exit 1
+          fi
+
+      - name: go vet
+        run: go vet ./...
+
+      # This runs each fuzz target against its seed corpus as an ordinary test.
+      # It does not fuzz; docs/TESTING.md has the command for that.
+      - name: go test
+        run: go test ./...
+
+  goreleaser:
+    name: Validate the release config
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+
+      # The archive and checksum names in .goreleaser.yaml are a contract with
+      # every repository archdoc has ever scaffolded, because their workflows
+      # are pinned to the release they were written for. A config that does not
+      # parse is found here rather than at tag time, when the tag is already
+      # pushed.
+      - uses: goreleaser/goreleaser-action@v7
+        with:
+          version: '~> v2'
+          args: check

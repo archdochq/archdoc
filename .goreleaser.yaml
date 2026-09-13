@@ -1,0 +1,56 @@
+version: 2
+
+project_name: archdoc
+
+before:
+  hooks:
+    - go mod tidy
+
+builds:
+  - id: archdoc
+    main: ./cmd/archdoc
+    binary: archdoc
+    env:
+      - CGO_ENABLED=0
+    goos: [linux, darwin, windows]
+    goarch: [amd64, arm64]
+    # main.version falls back to the module's build info and then to "dev", so
+    # this is what makes a release binary report its tag. The tag is used
+    # rather than the bare version, because `archdoc --version` prints the tag.
+    ldflags:
+      - -s -w -X main.version={{ .Tag }}
+
+archives:
+  # The generated workflow downloads archdoc_<version>_linux_amd64.tar.gz and
+  # extracts a binary called archdoc from the root of it. Changing this name
+  # breaks every repository already scaffolded, because those workflows are
+  # pinned to the release they were written for.
+  - id: archdoc
+    name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+    formats: [tar.gz]
+    format_overrides:
+      - goos: windows
+        formats: [zip]
+    # Globs only: goreleaser warns on a glob that matches nothing but hard
+    # errors on a literal name, so a missing LICENSE must not fail a release.
+    files:
+      - LICENSE*
+      - README*
+
+checksum:
+  # The workflow verifies its download against this, so the name is part of the
+  # contract with every scaffolded repository.
+  name_template: checksums.txt
+  algorithm: sha256
+
+changelog:
+  sort: asc
+  filters:
+    exclude:
+      - "^docs:"
+      - "^test:"
+      - "^chore:"
+
+release:
+  draft: false
+  prerelease: auto
