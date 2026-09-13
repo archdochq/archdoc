@@ -506,3 +506,34 @@ func TestAgentsCreatesTheIndexWhenItIsMissing(t *testing.T) {
 		t.Errorf("agents did not report writing AGENTS.md:\n%s", out)
 	}
 }
+
+// TestRenumberTakesAPathWithoutMangingIt covers a defect the package tests
+// could not: repo.Renumber is called directly there, so the command's own
+// argument handling is unexercised. Upper-casing the selector is right for an
+// identifier and destroys a path, and a path is the only unambiguous way to
+// name a document during the collision this command exists to resolve.
+func TestRenumberTakesAPathWithoutManglingIt(t *testing.T) {
+	dir := t.TempDir()
+	if out, code := run(t, dir, "init", "--name", "T"); code != exitOK {
+		t.Fatalf("init exited %d: %s", code, out)
+	}
+	if out, code := run(t, dir, "new", "rfc", "Retry policy"); code != exitOK {
+		t.Fatalf("new exited %d: %s", code, out)
+	}
+
+	out, code := run(t, dir, "renumber", "rfc/0001-retry-policy.md", "RFC-0004")
+	if code != exitOK {
+		t.Fatalf("renumber by path exited %d: %s", code, out)
+	}
+	if _, err := os.Stat(filepath.Join(dir, "rfc", "0004-retry-policy.md")); err != nil {
+		t.Errorf("the document was not renumbered: %v", err)
+	}
+
+	// The identifier form still works, in either case.
+	if out, code := run(t, dir, "renumber", "rfc-0004", "RFC-0007"); code != exitOK {
+		t.Fatalf("renumber by lower-case identifier exited %d: %s", code, out)
+	}
+	if _, err := os.Stat(filepath.Join(dir, "rfc", "0007-retry-policy.md")); err != nil {
+		t.Errorf("the lower-case identifier was not accepted: %v", err)
+	}
+}

@@ -182,6 +182,7 @@ ArchDoc provides:
 - `archdoc propose <id>`, `accept <id>`, `reject <id>`, `withdraw <id>`: move a document through its lifecycle. Each validates the transition, edits the file, and stops. Committing is left to you. `accept` and `reject` refuse a document with an empty required section or an unresolved `[[...]]` link, because the next push freezes it and lint would then report a fault nobody is permitted to repair.
 - `archdoc lint`: check the repository against the rules in this document.
 - `archdoc link`: resolve `[[...]]` links. With `--suggest`, offer new ones.
+- `archdoc renumber <id|path> [new-id]`: change a document's number, rewriting the filename, the `id`, the heading and every reference to it. Takes the next free number when no target is given. Refuses when the document is frozen, or when a frozen document refers to it.
 - `archdoc term add|rename|remove|list|show`: maintain the glossary.
 - `archdoc index`: regenerate `INDEX.md`. With `--check`, fail if the committed index is out of date.
 

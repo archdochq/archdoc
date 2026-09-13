@@ -311,6 +311,14 @@ Suggestion handling:
 - If stdin is not a TTY and `--apply` is not given: print suggestions, exit 2 if any.
 - With `--apply`: apply all without prompting.
 
+### `archdoc renumber <id|path> [new-id]`
+
+Changes a numbered document's identifier. Rewrites the filename keeping the slug, the front matter `id`, the H1, and every reference to the old identifier: the `depends`, `updates`, `obsoletes` and `includes` lists of every other document, `[[...]]` links naming it, and link destinations pointing at the renamed file. With no target the next free number for the type is taken.
+
+The selector is an identifier or a path. A path is required when the identifier is ambiguous, which is the case the command exists for: two branches taken from the same commit both call `archdoc new` and both receive the same number, and after both merge two documents carry it. Given an ambiguous identifier the command lists the candidates and refuses, because acting on either would rename a document the caller did not mean.
+
+Refuses a frozen document, and refuses when any frozen document references the one being renamed, since that reference could never be corrected afterwards. Nothing is written unless everything can be. The index is not regenerated; the command says so.
+
 ### `archdoc agents`
 
 Writes the guides for coding agents under `agents/`, replacing what is there, and creates `AGENTS.md` only when it is absent.
