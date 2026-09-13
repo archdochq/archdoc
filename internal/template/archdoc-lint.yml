@@ -17,7 +17,7 @@ jobs:
       # commits to compare against. On a pull request the checkout is detached
       # with no local branch at all, which archdoc handles by falling back to
       # the remote-tracking ref, but the objects still have to be present.
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
 
