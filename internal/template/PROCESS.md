@@ -186,6 +186,7 @@ ArchDoc provides:
 - `archdoc term add|rename|remove|list|show`: maintain the glossary.
 - `archdoc index`: regenerate `INDEX.md`. With `--check`, fail if the committed index is out of date.
 - `archdoc export`: write the repository as JSON, for anything that renders or indexes it elsewhere. `--schema` prints the schema the output conforms to.
+- `archdoc update`: refresh the files ArchDoc generates, including this one, after upgrading it. Shows what would change and asks first.
 
 Lint enforces:
 

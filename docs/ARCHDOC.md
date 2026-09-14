@@ -335,6 +335,16 @@ The selector is an identifier or a path. A path is required when the identifier 
 
 Refuses a frozen document, and refuses when any frozen document references the one being renamed, since that reference could never be corrected afterwards. Nothing is written unless everything can be. The index is not regenerated; the command says so.
 
+### `archdoc update [--check] [--yes]`
+
+Regenerates the files ArchDoc writes and a repository then owns: `PROCESS.md`, the workflow, and the `agents/` guides where that directory exists. These ship with the binary and change as ArchDoc changes, so a repository scaffolded by an older version carries older copies, including any that were wrong. A defect in ArchDoc otherwise leaves every repository it scaffolded needing the same edit by hand.
+
+Shows a unified diff of everything that would change and asks before writing, because "are you sure" cannot be answered without seeing it. `--check` shows and exits 2 without writing. `--yes` applies without asking. With neither, and no terminal to ask at, it refuses rather than overwriting: a script running over a workflow somebody customised is the realistic way this loses work.
+
+Nothing the repository owns is touched: `AGENTS.md`, `README.md`, `archdoc.json`, `LICENSE`, `INDEX.md` and every document. `agents/` is refreshed but never created, because installing it is opting in and `archdoc agents` is that; the command says so rather than skipping silently.
+
+The workflow's `ARCHDOC_VERSION` is preserved rather than rewritten. It records which ArchDoc a repository's CI runs and the template asks for it to be raised deliberately; regenerating a file is not consent to change it. This matters most when the binary doing the update is not itself a published release, since the value it would otherwise write is `latest`.
+
 ### `archdoc agents`
 
 Writes the guides for coding agents under `agents/`, replacing what is there, and creates `AGENTS.md` only when it is absent.
