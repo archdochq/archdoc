@@ -88,6 +88,7 @@ func newRoot(out, errOut io.Writer) *cobra.Command {
 		newAgentsCommand(),
 		newRenumberCommand(),
 		newUpdateCommand(),
+		newExportCommand(),
 	)
 	root.AddCommand(transitionCommands()...)
 	return root

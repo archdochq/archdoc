@@ -603,6 +603,12 @@ func parseHeadings(body string, bodyLine int) []Heading {
 // text, everything but letters, numbers, underscores, hyphens and spaces
 // removed, lowercased, spaces hyphenated, and a numeric suffix when the same
 // anchor has already been used in this document. taken is updated in place.
+// Anchor is the fragment GitHub would generate for a heading standing on its
+// own. Headings inside a document take their anchors from a walk that numbers
+// repeats, so this is only for naming the anchor a heading would have had when
+// the heading is not there to ask.
+func Anchor(text string) string { return anchor(text, map[string]int{}) }
+
 func anchor(text string, taken map[string]int) string {
 	rendered := linkPattern.ReplaceAllString(text, "$1")
 

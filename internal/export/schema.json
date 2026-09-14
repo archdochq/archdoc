@@ -1,0 +1,109 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/ollieread/archdoc/schema/export/v1.json",
+  "title": "ArchDoc export",
+  "description": "A specification repository and the relationships ArchDoc derives from it. This shape may only ever gain optional fields.",
+  "type": "object",
+  "required": ["schema", "name", "documents"],
+  "additionalProperties": false,
+  "properties": {
+    "schema": {"type": "integer", "const": 1},
+    "name": {"type": "string"},
+    "documents": {"type": "array", "items": {"$ref": "#/$defs/document"}},
+    "glossary": {"type": "array", "items": {"$ref": "#/$defs/term"}}
+  },
+  "$defs": {
+    "document": {
+      "type": "object",
+      "required": ["type", "path", "title", "depends", "updates", "obsoletes", "includes",
+                   "updated_by", "obsoleted_by", "depended_on_by", "included_in",
+                   "effectively_obsolete", "implemented", "stale",
+                   "required_sections", "sections", "links"],
+      "additionalProperties": false,
+      "properties": {
+        "type": {"enum": ["rfc", "adr", "spec", "ref"]},
+        "id": {"type": "string", "pattern": "^(RFC|ADR|REF)-[0-9]{4}$",
+               "description": "Absent for spec pages, which are named rather than numbered."},
+        "number": {"type": "integer", "minimum": 1, "maximum": 9999},
+        "page": {"type": "string", "description": "A spec page's path below spec/ without the extension."},
+        "path": {"type": "string", "description": "Slash-separated, relative to root."},
+        "title": {"type": "string"},
+        "status": {"enum": ["draft", "proposed", "accepted", "rejected", "withdrawn"],
+                   "description": "Absent for spec pages and refs, which have no lifecycle."},
+        "created": {"type": "string", "format": "date"},
+        "decided": {"type": "string", "format": "date"},
+        "backfilled": {"type": "string", "format": "date",
+                       "description": "The date the document was written to record a decision taken earlier."},
+        "verified": {"type": "string", "format": "date", "description": "Refs only."},
+
+        "depends": {"$ref": "#/$defs/identifiers"},
+        "updates": {"$ref": "#/$defs/identifiers"},
+        "obsoletes": {"$ref": "#/$defs/identifiers"},
+        "includes": {"$ref": "#/$defs/identifiers"},
+
+        "updated_by": {"$ref": "#/$defs/identifiers"},
+        "obsoleted_by": {"$ref": "#/$defs/identifiers"},
+        "depended_on_by": {"$ref": "#/$defs/identifiers"},
+        "included_in": {"type": "array", "items": {"type": "string"},
+                        "description": "Names of the spec pages including this document."},
+
+        "effectively_obsolete": {"type": "boolean",
+                                 "description": "An accepted document obsoletes this one."},
+        "implemented": {"type": "boolean",
+                        "description": "An accepted RFC or ADR that some spec page includes."},
+        "stale": {"type": "boolean",
+                  "description": "A spec page including something effectively obsolete."},
+
+        "required_sections": {
+          "type": "array",
+          "description": "The sections this type calls for, in order. Checked by lint rather than guaranteed, so any of them may be missing from sections.",
+          "items": {
+            "type": "object",
+            "required": ["title", "anchor"],
+            "additionalProperties": false,
+            "properties": {"title": {"type": "string"}, "anchor": {"type": "string"}}
+          }
+        },
+        "sections": {
+          "type": "object",
+          "description": "Keyed by anchor, which is unique within a document because a repeated heading gains a -1 suffix. Every section is level two.",
+          "additionalProperties": {"$ref": "#/$defs/section"}
+        },
+        "body": {"type": "string", "description": "Raw Markdown. Absent when bodies were excluded."},
+        "links": {"type": "array", "items": {"$ref": "#/$defs/link"}}
+      }
+    },
+    "section": {
+      "type": "object",
+      "required": ["title", "body"],
+      "additionalProperties": false,
+      "properties": {"title": {"type": "string"}, "body": {"type": "string"}}
+    },
+    "link": {
+      "type": "object",
+      "required": ["text", "destination", "line"],
+      "additionalProperties": false,
+      "properties": {
+        "text": {"type": "string"},
+        "destination": {"type": "string", "description": "As written in the document."},
+        "path": {"type": "string", "description": "Resolved against the repository root. Absent when it leaves the repository."},
+        "resolves_to": {"type": "string", "description": "The identifier, or a spec page's name. Absent when the destination is not a document."},
+        "anchor": {"type": "string"},
+        "line": {"type": "integer", "minimum": 1}
+      }
+    },
+    "term": {
+      "type": "object",
+      "required": ["name", "anchor", "definition"],
+      "additionalProperties": false,
+      "properties": {
+        "name": {"type": "string"},
+        "anchor": {"type": "string"},
+        "definition": {"type": "string"},
+        "formerly": {"type": "array", "items": {"type": "string"},
+                     "description": "Previous names, oldest first."}
+      }
+    },
+    "identifiers": {"type": "array", "items": {"type": "string", "pattern": "^(RFC|ADR|REF)-[0-9]{4}$"}}
+  }
+}

@@ -185,6 +185,7 @@ ArchDoc provides:
 - `archdoc renumber <id|path> [new-id]`: change a document's number, rewriting the filename, the `id`, the heading and every reference to it. Takes the next free number when no target is given. Refuses when the document is frozen, or when a frozen document refers to it.
 - `archdoc term add|rename|remove|list|show`: maintain the glossary.
 - `archdoc index`: regenerate `INDEX.md`. With `--check`, fail if the committed index is out of date.
+- `archdoc export`: write the repository as JSON, for anything that renders or indexes it elsewhere. `--schema` prints the schema the output conforms to.
 
 Lint enforces:
 
