@@ -27,7 +27,7 @@ func Generate(r *repo.Repo) []byte {
 	numbered := []string{"ID", "Title", "Status", "Decided", "Updates", "Updated by", "Obsoletes", "Obsoleted by", "Implemented in"}
 	section(&b, "RFCs", numbered, decisionRows(r, repo.TypeRFC))
 	section(&b, "ADRs", numbered, decisionRows(r, repo.TypeADR))
-	section(&b, "Spec", []string{"Page", "Includes", "Stale"}, specRows(r))
+	section(&b, "Spec", []string{"Page", "Title", "Includes", "Stale"}, specRows(r))
 	section(&b, "Refs", []string{"ID", "Title", "Verified"}, refRows(r))
 
 	return b.Bytes()
@@ -75,7 +75,14 @@ func specRows(r *repo.Repo) [][]string {
 		if d.Stale {
 			stale = "yes"
 		}
-		rows = append(rows, []string{link(d.Page, d.Path), links(d.FrontMatter.Includes, r.ByID), stale})
+		// The slug is the identity, as an identifier is for the other
+		// types, so it stays in the first column and the title joins it.
+		rows = append(rows, []string{
+			link(d.Page, d.Path),
+			escape(d.FrontMatter.Title),
+			links(d.FrontMatter.Includes, r.ByID),
+			stale,
+		})
 	}
 	return rows
 }

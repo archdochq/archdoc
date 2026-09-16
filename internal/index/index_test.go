@@ -138,9 +138,11 @@ func TestGenerateEncodesEveryCharacterThatWouldEndTheDestination(t *testing.T) {
 		})
 
 		got := string(index.Generate(r))
+		// Page, Title, Includes, Stale. The count is asserted because a
+		// character escaping its cell shows up as an extra one.
 		row := cellsIn(t, got, "](spec/")
-		if len(row) != 3 {
-			t.Errorf("%q produced %d cells, want 3:\n%s", name, len(row), got)
+		if len(row) != 4 {
+			t.Errorf("%q produced %d cells, want 4:\n%s", name, len(row), got)
 		}
 		if strings.Contains(got, "evil.example)") && !strings.Contains(got, "%3E") {
 			t.Errorf("%q rendered a live hyperlink:\n%s", name, got)
@@ -189,8 +191,10 @@ func TestGenerateKeepsAPipeInsideItsCell(t *testing.T) {
 		"spec/a|b.md": "---\ntitle: Piped\nincludes: []\n---\n\n# Piped\n\nProse.\n",
 	})
 
-	if got := len(cellsIn(t, string(index.Generate(r)), "](spec/")); got != 3 {
-		t.Errorf("the Spec row has %d cells, want 3", got)
+	// Page, Title, Includes, Stale. A pipe escaping its cell shows up as a
+	// fifth.
+	if got := len(cellsIn(t, string(index.Generate(r)), "](spec/")); got != 4 {
+		t.Errorf("the Spec row has %d cells, want 4", got)
 	}
 }
 
@@ -295,5 +299,66 @@ func TestImplementedInOmitsTheGlossary(t *testing.T) {
 	}
 	if strings.Contains(row, "glossary") {
 		t.Errorf("RFC-0002 still lists the glossary as implementing it:\n%s", row)
+	}
+}
+
+// TestTheSpecTableCarriesATitle gives a reader the page's name. The slug stays
+// as the identity, the way an identifier does for the other types, so this is
+// the column the table was missing rather than a change to what it renders.
+func TestTheSpecTableCarriesATitle(t *testing.T) {
+	r := repotest.New(t, map[string]string{
+		"spec/glossary.md": "---\ntitle: Glossary\nincludes: []\n---\n\n# Glossary\n\n" +
+			"## Binding\n\nA registered resolution.\n",
+	})
+	generated := string(index.Generate(r))
+
+	var header, row string
+	for _, line := range strings.Split(generated, "\n") {
+		if strings.HasPrefix(line, "| Page |") {
+			header = line
+		}
+		if strings.HasPrefix(line, "| [glossary]") {
+			row = line
+		}
+	}
+	if header == "" {
+		t.Fatalf("no Spec table header:\n%s", generated)
+	}
+	if !strings.Contains(header, "| Title |") {
+		t.Errorf("the Spec table has no Title column:\n%s", header)
+	}
+	if row == "" {
+		t.Fatalf("no glossary row, so the slug is no longer the identity:\n%s", generated)
+	}
+	if !strings.Contains(row, "| Glossary |") {
+		t.Errorf("the row carries no title:\n%s", row)
+	}
+}
+
+// TestASpecPageTitleCannotBreakItsRow covers the column added alongside the
+// slug. A title is free text a person writes, and the existing pipe and
+// encoding tests exercise the path rather than the title, so the new cell was
+// rendering unescaped with nothing to notice.
+func TestASpecPageTitleCannotBreakItsRow(t *testing.T) {
+	for _, title := range []string{
+		`Piped | Title`,
+		`Brackets [here](https://evil.example)`,
+		`Angle <b>bold</b>`,
+	} {
+		r := repotest.NewWith(t, `{"name":"Titles"}`, map[string]string{
+			"spec/page.md": "---\ntitle: " + `"` + strings.ReplaceAll(title, `"`, `\"`) + `"` +
+				"\nincludes: []\n---\n\n# " + title + "\n\nProse.\n",
+		})
+		got := string(index.Generate(r))
+
+		if cells := len(cellsIn(t, got, "](spec/")); cells != 4 {
+			t.Errorf("title %q produced %d cells, want 4:\n%s", title, cells, got)
+		}
+		if strings.Contains(got, "evil.example)") && !strings.Contains(got, `\[`) {
+			t.Errorf("title %q rendered a live hyperlink:\n%s", title, got)
+		}
+		if strings.Contains(got, "<b>") {
+			t.Errorf("title %q reached the index as live markup:\n%s", title, got)
+		}
 	}
 }
