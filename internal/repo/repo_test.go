@@ -1,6 +1,7 @@
 package repo_test
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"slices"
@@ -1171,5 +1172,39 @@ func TestWriteFileRefusesASymlinkedDirectory(t *testing.T) {
 	}
 	if err := repo.Contains(dir, filepath.Join(dir, "rfc", "0001-a.md")); err != nil {
 		t.Errorf("an ordinary path was refused: %v", err)
+	}
+}
+
+// TestTheGlossaryDoesNotImplementAnything separates terminology from
+// implementation.
+//
+// ArchDoc's own glossary template asks for the RFC that named a term to go in
+// includes, so the tool instructs the inclusion that then reported the RFC as
+// built. PROCESS.md is explicit that this list records implementation: an
+// accepted RFC included by no spec page is not yet implemented. Defining a word
+// is not describing behaviour.
+func TestTheGlossaryDoesNotImplementAnything(t *testing.T) {
+	const accepted = "---\nid: %s\ntitle: %s\nstatus: accepted\ncreated: 2026-01-01\n" +
+		"decided: 2026-01-02\ndepends: []\nupdates: []\nobsoletes: []\n---\n\n# %s: %s\n\n## Abstract\n\nWords.\n"
+	r := repotest.New(t, map[string]string{
+		"rfc/0001-named.md": fmt.Sprintf(accepted, "RFC-0001", "Named", "RFC-0001", "Named"),
+		"rfc/0002-built.md": fmt.Sprintf(accepted, "RFC-0002", "Built", "RFC-0002", "Built"),
+		"spec/glossary.md": "---\ntitle: Glossary\nincludes: [RFC-0001]\n---\n\n# Glossary\n\n" +
+			"## Binding\n\nA registered resolution.\n",
+		"spec/container.md": "---\ntitle: Container\nincludes: [RFC-0002]\n---\n\n# Container\n\nWhat it does.\n",
+	})
+
+	named := r.ByID("RFC-0001")
+	if named.Implemented {
+		t.Error("an RFC included only by the glossary is reported as implemented")
+	}
+	// The relationship itself is still a fact worth keeping: the export answers
+	// "which spec pages reference this", and the glossary does.
+	if got := named.IncludedIn; len(got) != 1 || got[0] != "glossary" {
+		t.Errorf("included_in = %v, want [glossary]; the inclusion still happened", got)
+	}
+
+	if built := r.ByID("RFC-0002"); !built.Implemented {
+		t.Error("an RFC included by an ordinary spec page is not reported as implemented")
 	}
 }

@@ -59,7 +59,10 @@ func decisionRows(r *repo.Repo, t repo.Type) [][]string {
 			links(d.UpdatedBy, r.ByID),
 			links(d.FrontMatter.Obsoletes, r.ByID),
 			links(d.ObsoletedBy, r.ByID),
-			links(d.IncludedIn, r.ByPage),
+			// Not IncludedIn: the glossary names terms, it does not
+			// implement anything, and this column has to agree with the
+			// Implemented fact derived from the same list.
+			links(repo.ImplementedIn(d.IncludedIn), r.ByPage),
 		})
 	}
 	return rows

@@ -2,6 +2,7 @@ package index_test
 
 import (
 	"flag"
+	"fmt"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -254,5 +255,45 @@ func TestGenerateLeavesADanglingIdentifierAsText(t *testing.T) {
 	}
 	if strings.Contains(got, "[RFC-9999](") {
 		t.Errorf("a dangling identifier was rendered as a link:\n%s", got)
+	}
+}
+
+// TestImplementedInOmitsTheGlossary keeps the column honest. The boolean and
+// the column have to agree: a document the glossary merely names is not
+// implemented, so listing the glossary under "Implemented in" would contradict
+// the fact the same row is reporting.
+func TestImplementedInOmitsTheGlossary(t *testing.T) {
+	const accepted = "---\nid: %s\ntitle: %s\nstatus: accepted\ncreated: 2026-01-01\n" +
+		"decided: 2026-01-02\ndepends: []\nupdates: []\nobsoletes: []\n---\n\n# %s: %s\n\n## Abstract\n\nWords.\n"
+	r := repotest.New(t, map[string]string{
+		"rfc/0001-named.md": fmt.Sprintf(accepted, "RFC-0001", "Named", "RFC-0001", "Named"),
+		"rfc/0002-both.md":  fmt.Sprintf(accepted, "RFC-0002", "Both", "RFC-0002", "Both"),
+		"spec/glossary.md": "---\ntitle: Glossary\nincludes: [RFC-0001, RFC-0002]\n---\n\n# Glossary\n\n" +
+			"## Binding\n\nA registered resolution.\n",
+		"spec/container.md": "---\ntitle: Container\nincludes: [RFC-0002]\n---\n\n# Container\n\nWhat it does.\n",
+	})
+	generated := string(index.Generate(r))
+
+	for _, line := range strings.Split(generated, "\n") {
+		if !strings.Contains(line, "RFC-0001") || !strings.HasPrefix(line, "| [RFC-0001]") {
+			continue
+		}
+		if strings.Contains(line, "glossary") {
+			t.Errorf("RFC-0001 is listed as implemented in the glossary:\n%s", line)
+		}
+	}
+	// A document in both is still implemented, by the page that is not the
+	// glossary.
+	var row string
+	for _, line := range strings.Split(generated, "\n") {
+		if strings.HasPrefix(line, "| [RFC-0002]") {
+			row = line
+		}
+	}
+	if !strings.Contains(row, "container") {
+		t.Errorf("RFC-0002 lost the page that does implement it:\n%s", row)
+	}
+	if strings.Contains(row, "glossary") {
+		t.Errorf("RFC-0002 still lists the glossary as implementing it:\n%s", row)
 	}
 }
