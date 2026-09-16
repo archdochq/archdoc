@@ -17,7 +17,13 @@ relationship, and a CI workflow it scaffolds for you.
 
 ## Installing
 
-Download a binary for your platform from the
+With Homebrew, on macOS or Linux:
+
+```
+brew install ollieread/tap/archdoc
+```
+
+Or download a binary for your platform from the
 [releases page](https://github.com/ollieread/archdoc/releases), or with Go:
 
 ```

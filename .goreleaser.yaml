@@ -54,3 +54,31 @@ changelog:
 release:
   draft: false
   prerelease: auto
+
+homebrew_casks:
+  # Writes Casks/archdoc.rb into the tap. The cask downloads the archives
+  # above and checks them against their sha256, so it depends on the archive
+  # name template as much as the scaffolded workflow does.
+  - repository:
+      owner: ollieread
+      name: homebrew-tap
+      # GITHUB_TOKEN is scoped to this repository and cannot push to the tap.
+      token: "{{ .Env.HOMEBREW_TAP_GITHUB_TOKEN }}"
+    homepage: https://github.com/ollieread/archdoc
+    description: Manage a specification repository of RFCs, ADRs, spec pages and refs
+    # Prereleases are not written to the tap: brew install gives the latest
+    # stable release, and alphas stay on the releases page.
+    skip_upload: auto
+    commit_author:
+      name: goreleaser
+      email: bot@goreleaser.com
+    commit_msg_template: "feat(archdoc): Release {{ .Tag }}"
+    # The binaries are not notarised, so Gatekeeper kills the quarantined one
+    # Homebrew downloads. This is GoReleaser's documented workaround for
+    # unsigned binaries. Signing and notarising them would make it unnecessary.
+    hooks:
+      post:
+        install: |
+          if OS.mac?
+            system_command "/usr/bin/xattr", args: ["-dr", "com.apple.quarantine", "#{staged_path}/archdoc"]
+          end
