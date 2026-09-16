@@ -2,6 +2,9 @@ package export_test
 
 import (
 	"encoding/json"
+	"flag"
+	"os"
+	"path/filepath"
 	"reflect"
 	"strings"
 	"testing"
@@ -311,5 +314,56 @@ func TestArrayFieldsAreNeverNull(t *testing.T) {
 		if string(doc["sections"]) == "null" {
 			t.Error("sections serialised as null; the schema declares it an object")
 		}
+	}
+}
+
+// updateSchema republishes the schema outside internal/. Run
+// `go test ./internal/export -update-schema` after changing it.
+var updateSchema = flag.Bool("update-schema", false, "rewrite schema/export/v1.json from the embedded copy")
+
+const publishedSchema = "../../schema/export/v1.json"
+
+// TestThePublishedSchemaMatchesTheEmbeddedOne gives the contract an address.
+//
+// The schema is embedded so `archdoc export --schema` can print it without a
+// repository, and go:embed cannot reach outside the package, so the copy a
+// consumer fetches has to be generated. Its $id names that copy's URL, and a
+// $id pointing at something that does not exist is worse than an obviously
+// abstract one: a tool that resolves it gets an error page.
+//
+// internal/ also means "you may not import this" in Go. That is true of the
+// package and irrelevant to the file, but it reads as private for something
+// published on purpose.
+func TestThePublishedSchemaMatchesTheEmbeddedOne(t *testing.T) {
+	if *updateSchema {
+		if err := os.MkdirAll(filepath.Dir(publishedSchema), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(publishedSchema, export.JSONSchema, 0o644); err != nil {
+			t.Fatal(err)
+		}
+		t.Logf("wrote %s", publishedSchema)
+		return
+	}
+	got, err := os.ReadFile(publishedSchema)
+	if err != nil {
+		t.Fatalf("%s is missing: %v (run go test ./internal/export -update-schema)", publishedSchema, err)
+	}
+	if string(got) != string(export.JSONSchema) {
+		t.Errorf("%s differs from the embedded schema; run go test ./internal/export -update-schema", publishedSchema)
+	}
+
+	// The $id has to name the published copy, or it names nothing.
+	var schema struct {
+		ID string `json:"$id"`
+	}
+	if err := json.Unmarshal(export.JSONSchema, &schema); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.HasSuffix(schema.ID, "/schema/export/v1.json") {
+		t.Errorf("$id is %q, which does not name the published copy", schema.ID)
+	}
+	if strings.Contains(schema.ID, "/internal/") {
+		t.Errorf("$id points inside internal/: %q", schema.ID)
 	}
 }

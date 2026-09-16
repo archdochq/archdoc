@@ -97,6 +97,7 @@ One source, three deliveries, compared byte for byte by a test.
 - `docs/DECISIONS.md` records why the tool works the way it does, grouped by
   subject, including the alternatives that were tried and rejected.
 - `docs/TESTING.md` covers how the suite is built and how to run it.
+- `docs/EXPORT.md` describes the JSON `archdoc export` produces.
 
 ## Licence
 
