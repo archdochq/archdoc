@@ -1,0 +1,7 @@
+{
+  "name": "ArchDoc",
+  "branch": "spec",
+  "root": ".",
+  "strict": true,
+  "ref_stale_days": 180
+}
