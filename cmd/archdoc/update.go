@@ -121,15 +121,19 @@ func plannedRefresh(r *repo.Repo) (files []refresh, notes []string, err error) {
 
 	workflowDir, workingDirectory := workflowLocation(configDir)
 	data := template.Data{Name: c.Name, WorkingDirectory: workingDirectory}
-	// The pin says which ArchDoc this repository's CI runs, and the template
-	// asks for it to be raised deliberately. Regenerating the workflow fixes
-	// what ArchDoc generates; it is not consent to change that. Preserved
-	// especially because a binary that is not itself a published release would
-	// otherwise write "latest" over a perfectly good version.
-	data.Version = pinnedVersion(filepath.Join(workflowDir, filepath.FromSlash(workflowPath)))
-	if data.Version == "" {
-		data.Version = resolveVersion()
-		if !pinnable(data.Version) {
+	// The pin says which ArchDoc this repository's CI runs. Raising it is the
+	// point: this command also rewrites PROCESS.md, which describes what lint
+	// enforces, so leaving CI on an older ArchDoc would leave the repository
+	// documenting one set of rules while enforcing another.
+	//
+	// It is only held back when this binary has nothing better to offer. An
+	// unreleased build resolves to a version that names no downloadable asset,
+	// and writing "latest" over a real version unpins the repository rather
+	// than updating it.
+	data.Version = resolveVersion()
+	if !pinnable(data.Version) {
+		data.Version = pinnedVersion(filepath.Join(workflowDir, filepath.FromSlash(workflowPath)))
+		if data.Version == "" {
 			data.Version = "latest"
 		}
 	}

@@ -209,15 +209,11 @@ func TestUpdateRefusesToRunUnattendedWithoutConsent(t *testing.T) {
 	}
 }
 
-// TestUpdateKeepsTheExistingVersionPin stops the command from changing which
-// ArchDoc a repository's CI runs as a side effect of fixing something else.
-//
-// The template's own comment says to raise the pin deliberately. Regenerating
-// the workflow is about the generated content; moving the pin is a separate
-// decision. It matters most when the binary doing the update is not itself a
-// published release, because then the value it would write is "latest", and a
-// repository pinned to a real version would be silently unpinned.
-func TestUpdateKeepsTheExistingVersionPin(t *testing.T) {
+// TestUpdateKeepsThePinWhenItHasNothingBetter covers an unreleased binary. Its
+// own version is not a published release, so the value it would write is
+// "latest", and writing that over a real version unpins the repository. There
+// is nothing better to offer, so the existing pin stands.
+func TestUpdateKeepsThePinWhenItHasNothingBetter(t *testing.T) {
 	dir := scaffolded(t)
 	workflow := filepath.Join(dir, ".github", "workflows", "archdoc-lint.yml")
 	body, err := os.ReadFile(workflow)
@@ -245,5 +241,44 @@ func TestUpdateKeepsTheExistingVersionPin(t *testing.T) {
 	}
 	if strings.Contains(string(got), "local/path") {
 		t.Error("update did not regenerate the workflow, so the pin was preserved by doing nothing")
+	}
+}
+
+// TestUpdateRaisesThePinToTheRunningRelease is the other half, and the reason
+// the command exists.
+//
+// update refreshes PROCESS.md, which describes what lint enforces. Leaving CI
+// on an older ArchDoc would leave the repository documenting one set of rules
+// while enforcing another, which is worse than either being stale alone. The
+// diff shows the change and the prompt asks before applying it.
+func TestUpdateRaisesThePinToTheRunningRelease(t *testing.T) {
+	// resolveVersion prefers the linker's value, which is empty under test.
+	t.Cleanup(func(v string) func() { return func() { version = v } }(version))
+	version = "v9.9.9"
+
+	dir := scaffolded(t)
+	workflow := filepath.Join(dir, ".github", "workflows", "archdoc-lint.yml")
+	body, err := os.ReadFile(workflow)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(workflow, []byte(strings.ReplaceAll(string(body),
+		"ARCHDOC_VERSION: v9.9.9", "ARCHDOC_VERSION: v0.0.1")), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	out, code := run(t, dir, "update", "--yes")
+	if code != exitOK {
+		t.Fatalf("update exited %d: %s", code, out)
+	}
+	got, err := os.ReadFile(workflow)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(got), "ARCHDOC_VERSION: v9.9.9") {
+		t.Errorf("the pin was not raised to the running release:\n%s", got)
+	}
+	if strings.Contains(string(got), "ARCHDOC_VERSION: v0.0.1") {
+		t.Error("the old pin survived")
 	}
 }

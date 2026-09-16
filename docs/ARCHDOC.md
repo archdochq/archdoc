@@ -343,7 +343,7 @@ Shows a unified diff of everything that would change and asks before writing, be
 
 Nothing the repository owns is touched: `AGENTS.md`, `README.md`, `archdoc.json`, `LICENSE`, `INDEX.md` and every document. `agents/` is refreshed but never created, because installing it is opting in and `archdoc agents` is that; the command says so rather than skipping silently.
 
-The workflow's `ARCHDOC_VERSION` is preserved rather than rewritten. It records which ArchDoc a repository's CI runs and the template asks for it to be raised deliberately; regenerating a file is not consent to change it. This matters most when the binary doing the update is not itself a published release, since the value it would otherwise write is `latest`.
+The workflow's `ARCHDOC_VERSION` is raised to the version doing the update, which is the point: this command also rewrites `PROCESS.md`, which describes what lint enforces, so leaving CI on an older ArchDoc would leave a repository documenting one set of rules while enforcing another. The change appears in the diff like any other. It is held back only when the binary running has nothing better to offer, because an unreleased build resolves to a version naming no downloadable asset and writing `latest` over a real one unpins the repository rather than updating it.
 
 ### `archdoc agents`
 
