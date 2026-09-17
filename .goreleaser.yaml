@@ -74,11 +74,24 @@ homebrew_casks:
       email: bot@goreleaser.com
     commit_msg_template: "feat(archdoc): Release {{ .Tag }}"
     # The binaries are not notarised, so Gatekeeper kills the quarantined one
-    # Homebrew downloads. This is GoReleaser's documented workaround for
-    # unsigned binaries. Signing and notarising them would make it unnecessary.
-    hooks:
-      post:
-        install: |
-          if OS.mac?
-            system_command "/usr/bin/xattr", args: ["-dr", "com.apple.quarantine", "#{staged_path}/archdoc"]
-          end
+    # Homebrew downloads. Clearing the attribute after install is GoReleaser's
+    # documented workaround for unsigned binaries. Signing and notarising them
+    # would make it unnecessary.
+    #
+    # This is a custom_block rather than hooks.post.install. GoReleaser 2.18
+    # writes that hook as Homebrew's deprecated `postflight` stanza, which warns
+    # on every brew command that touches the cask. The replacement,
+    # postflight_steps, takes Homebrew's install steps DSL rather than Ruby.
+    # GoReleaser adds a hooks.post.install_steps option for it in
+    # https://github.com/goreleaser/goreleaser/pull/6873. Move this block there
+    # once a release includes it. custom_block is placed before `version`, so
+    # `brew style` reports stanza order. Homebrew loads the cask regardless.
+    #
+    # GoReleaser templates the whole rendered cask, so Homebrew's {{staged_path}}
+    # token has to be written as a quoted Go template string to survive it.
+    custom_block: |
+      postflight_steps do
+        on_macos do
+          run "/usr/bin/xattr", args: ["-dr", "com.apple.quarantine", "{{ "{{staged_path}}" }}/archdoc"]
+        end
+      end
