@@ -1,9 +1,9 @@
 ---
 id: RFC-0006
 title: The export publishes what it parsed
-status: proposed
+status: accepted
 created: 2026-09-20
-decided:
+decided: 2026-09-20
 depends: []
 updates: [RFC-0004]
 obsoletes: []

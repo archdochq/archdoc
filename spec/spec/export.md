@@ -1,6 +1,6 @@
 ---
 title: Export
-includes: [RFC-0004]
+includes: [RFC-0004, RFC-0006]
 ---
 
 # Export
@@ -34,7 +34,11 @@ Bodies are raw Markdown. Nothing is rendered. `source` is the file exactly as it
 └── <document path>.json   one per document, with bodies
 ```
 
-`index.json` omits bodies and source whatever else was asked, keeping the full outline. Each document's file sits at the document's own path with `.md` replaced by `.json`. Every path written is printed. Nothing is removed.
+`index.json` omits bodies and source whatever else was asked, keeping the full outline. Each document's file sits at the document's own path with `.md` replaced by `.json`. Every path written is printed on stdout.
+
+The command also removes what an earlier export left and this one does not write. It reads the `index.json` already in the directory before overwriting it, and takes the previous run's files from it: `index.json` itself, one file per document it lists, and `glossary.json` where it recorded a glossary. Each removal is reported on stderr, leaving stdout the list of files that now exist.
+
+It therefore only ever removes a file an ArchDoc export wrote there. Where the directory holds no `index.json`, or holds one that is not an ArchDoc export, nothing is removed and the command says so. A path in that index that is not local to the directory is ignored: the index is input, and input naming somewhere else must not reach a delete. Directories left empty are not removed.
 
 ## Schema
 

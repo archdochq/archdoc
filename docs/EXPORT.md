@@ -219,9 +219,15 @@ page rendering one RFC should not fetch the whole specification. It keeps the
 full outline, so a sidebar or a search index still works from it alone. Each
 document's file sits at the document's own path with `.md` swapped for `.json`.
 
-Nothing is removed. Exporting into a directory that already holds an older
-export leaves any file this run did not write, so a document deleted from the
-repository is still served from the tree.
+Exporting into a directory that already holds an export removes what that
+export wrote and this one does not, so a document deleted from the repository
+stops being served. The manifest is the `index.json` already there, read before
+it is overwritten, which means the command only ever removes files an ArchDoc
+export wrote. Point `--out` somewhere unexpected and it removes nothing, because
+there is no index there to read, and it says so.
+
+Removals are reported on stderr, so stdout stays the list of files that now
+exist. Directories left empty are not removed.
 
 ## Stability
 
