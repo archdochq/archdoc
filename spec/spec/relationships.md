@@ -1,6 +1,6 @@
 ---
 title: Relationships
-includes: [ADR-0003]
+includes: [ADR-0003, ADR-0014]
 ---
 
 # Relationships
