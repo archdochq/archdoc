@@ -120,18 +120,33 @@ func TestExportOutWritesATree(t *testing.T) {
 		}
 	}
 
-	// The per-document file is the one that does carry them.
+	// The per-document file is the one that does carry them. Section bodies as
+	// well as the document body: index.json is built by copying each document,
+	// and a copy shares its Sections map, so blanking the bodies for the index
+	// emptied them here too. The document body survived that, so asserting it
+	// alone passed while every section came out empty.
 	one, err := os.ReadFile(filepath.Join(target, "rfc", "0001-a-design.json"))
 	if err != nil {
 		t.Fatal(err)
 	}
 	var doc struct {
-		Body string `json:"body"`
+		Body     string `json:"body"`
+		Sections map[string]struct {
+			Body string `json:"body"`
+		} `json:"sections"`
 	}
 	if err := json.Unmarshal(one, &doc); err != nil {
 		t.Fatal(err)
 	}
 	if doc.Body == "" {
 		t.Error("the per-document file carries no body, so nothing does")
+	}
+	if len(doc.Sections) == 0 {
+		t.Fatal("the per-document file lists no sections, so the check below proves nothing")
+	}
+	for anchor, s := range doc.Sections {
+		if s.Body == "" {
+			t.Errorf("the per-document file carries no body for section %s", anchor)
+		}
 	}
 }
