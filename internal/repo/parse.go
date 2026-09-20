@@ -87,7 +87,7 @@ func isDelimiter(line []byte) bool {
 // with a front matter block.
 func splitFrontMatter(source []byte) (block, body []byte, bodyLine int, ok bool) {
 	lines := bytes.Split(source, []byte("\n"))
-	if len(lines) == 0 || !isDelimiter(lines[0]) {
+	if !isDelimiter(lines[0]) {
 		return nil, source, 1, false
 	}
 	for i := 1; i < len(lines); i++ {

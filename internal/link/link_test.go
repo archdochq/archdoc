@@ -444,9 +444,8 @@ func TestResolveEscapesAGlossaryTermUsedAsALabel(t *testing.T) {
 // that work nobody asked for is not done.
 type countingGit struct{ listed, read int }
 
-func (g *countingGit) FileAt(string, string) ([]byte, bool, error) { g.read++; return nil, false, nil }
-func (g *countingGit) ListFiles(string) ([]string, error)          { g.listed++; return nil, nil }
-func (g *countingGit) BranchExists(string) (bool, error)           { return true, nil }
+func (g *countingGit) ListFiles(string) ([]string, error) { g.listed++; return nil, nil }
+func (g *countingGit) BranchExists(string) (bool, error)  { return true, nil }
 
 func (g *countingGit) HasCommits() (bool, error) { return true, nil }
 

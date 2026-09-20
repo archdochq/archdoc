@@ -54,47 +54,6 @@ func TestOpenRejectsADirectoryOutsideAnyRepository(t *testing.T) {
 	}
 }
 
-func TestFileAtReturnsTheContentCommittedOnTheBranch(t *testing.T) {
-	dir := newRepo(t)
-	commit(t, dir, "rfc/0001-x.md", "committed contents\n")
-	// The working tree diverging must not affect what FileAt reports.
-	if err := os.WriteFile(filepath.Join(dir, "rfc", "0001-x.md"), []byte("edited\n"), 0o644); err != nil {
-		t.Fatal(err)
-	}
-
-	g, err := git.Open(dir)
-	if err != nil {
-		t.Fatalf("Open: %v", err)
-	}
-	content, ok, err := g.FileAt("main", "rfc/0001-x.md")
-	if err != nil {
-		t.Fatalf("FileAt: %v", err)
-	}
-	if !ok {
-		t.Fatal("FileAt reported the file absent from main")
-	}
-	if string(content) != "committed contents\n" {
-		t.Errorf("content = %q, want the committed version", content)
-	}
-}
-
-func TestFileAtReportsAPathAbsentFromTheBranch(t *testing.T) {
-	dir := newRepo(t)
-	commit(t, dir, "rfc/0001-x.md", "x\n")
-
-	g, err := git.Open(dir)
-	if err != nil {
-		t.Fatalf("Open: %v", err)
-	}
-	_, ok, err := g.FileAt("main", "rfc/0002-new.md")
-	if err != nil {
-		t.Fatalf("FileAt: %v", err)
-	}
-	if ok {
-		t.Error("FileAt reported a file that was never committed as present")
-	}
-}
-
 func TestBranchExistsDistinguishesAMissingBranch(t *testing.T) {
 	dir := newRepo(t)
 	commit(t, dir, "a.md", "a\n")
@@ -215,9 +174,12 @@ func TestBranchResolvesThroughTheRemoteTrackingRef(t *testing.T) {
 	if exists, err := g.BranchExists("main"); err != nil || !exists {
 		t.Errorf("BranchExists(main) = %v, %v; want true: it exists as origin/main", exists, err)
 	}
-	content, ok, err := g.FileAt("main", "rfc/0001-x.md")
-	if err != nil || !ok {
-		t.Fatalf("FileAt = %v, %v, %v", content, ok, err)
+	blobs, err := g.FilesAt("main", []string{"rfc/0001-x.md"})
+	if err != nil {
+		t.Fatalf("FilesAt: %v", err)
+	}
+	if string(blobs["rfc/0001-x.md"]) != "committed\n" {
+		t.Errorf("FilesAt = %q, want the contents reached through origin/main", blobs["rfc/0001-x.md"])
 	}
 	if files, err := g.ListFiles("main"); err != nil || len(files) == 0 {
 		t.Errorf("ListFiles = %v, %v; want the committed paths", files, err)
@@ -233,6 +195,12 @@ func TestFilesAtReadsManyBlobsInOneOperation(t *testing.T) {
 	commit(t, dir, "rfc/0001-x.md", "first\ncontents\n")
 	commit(t, dir, "rfc/0002 spaced.md", "second contents, no trailing newline")
 	commit(t, dir, "rfc/0003-empty.md", "")
+	// The working tree diverging must not change what is read. L11 compares the
+	// branch against the tree, so a read that picked up the file on disk would
+	// be comparing the tree against itself and could never report a change.
+	if err := os.WriteFile(filepath.Join(dir, "rfc", "0001-x.md"), []byte("edited\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
 
 	g, err := git.Open(dir)
 	if err != nil {
@@ -260,29 +228,6 @@ func TestFilesAtReadsManyBlobsInOneOperation(t *testing.T) {
 	}
 	if _, present := got["rfc/0004-absent.md"]; present {
 		t.Error("a path absent from the branch came back with contents")
-	}
-}
-
-func TestFilesAtAgreesWithFileAt(t *testing.T) {
-	// The two read the same thing by different routes, and only one of them is
-	// exercised by the rules.
-	dir := newRepo(t)
-	commit(t, dir, "rfc/0001-x.md", "contents\n")
-
-	g, err := git.Open(dir)
-	if err != nil {
-		t.Fatalf("Open: %v", err)
-	}
-	one, ok, err := g.FileAt("main", "rfc/0001-x.md")
-	if err != nil || !ok {
-		t.Fatalf("FileAt: %v, ok=%v", err, ok)
-	}
-	many, err := g.FilesAt("main", []string{"rfc/0001-x.md"})
-	if err != nil {
-		t.Fatalf("FilesAt: %v", err)
-	}
-	if string(many["rfc/0001-x.md"]) != string(one) {
-		t.Errorf("FilesAt gave %q and FileAt gave %q", many["rfc/0001-x.md"], one)
 	}
 }
 

@@ -261,8 +261,7 @@ func TestL14IsAnErrorWhileFreezingAndAWarningOnceFrozen(t *testing.T) {
 // unreadable partway through a run.
 type stubGit struct{ err error }
 
-func (s stubGit) FileAt(string, string) ([]byte, bool, error) { return nil, false, s.err }
-func (s stubGit) BranchExists(string) (bool, error)           { return true, nil }
+func (s stubGit) BranchExists(string) (bool, error) { return true, nil }
 
 func (s stubGit) HasCommits() (bool, error) { return true, nil }
 
@@ -270,7 +269,7 @@ func (s stubGit) Changed(string, []string) (map[string]bool, error) { return nil
 
 func (s stubGit) FilesAt(string, []string) (map[string][]byte, error) { return nil, s.err }
 
-// ListFiles succeeds, so only the FileAt path is under test.
+// ListFiles succeeds, so the failure under test is the blob read, not the listing.
 func (s stubGit) ListFiles(string) ([]string, error) { return nil, nil }
 func (s stubGit) CurrentBranch() (string, error)     { return "main", nil }
 func (s stubGit) RepoRoot() (string, error)          { return "/", nil }

@@ -19,9 +19,6 @@ var ErrNotARepository = errors.New("not inside a git repository")
 // Repository is every git operation archdoc performs, and nothing else until
 // something needs more.
 type Repository interface {
-	// FileAt returns the contents of path as committed on branch. ok is false
-	// when the path does not exist there.
-	FileAt(branch, path string) (content []byte, ok bool, err error)
 	// FilesAt returns the contents of many paths as committed on branch, in one
 	// operation. A path absent from the branch is absent from the result rather
 	// than an error. Reading a document at a time cost a subprocess per
@@ -169,28 +166,6 @@ func (s *shell) rev(branch string) string {
 	}
 	s.resolved[branch] = resolved
 	return resolved
-}
-
-func (s *shell) FileAt(branch, path string) ([]byte, bool, error) {
-	rev := s.rev(branch) + ":" + path
-
-	// One subprocess in the common case. cat-file reports a missing path itself,
-	// so the rev-parse probe that used to precede every read is needed only to
-	// tell "absent" from "unreadable", and only when the read has already
-	// failed. The caller that reads a document per document was paying for both
-	// on every one of them. cat-file blob also refuses a directory, where show
-	// would have printed a tree listing as though it were content.
-	content, _, err := s.run("cat-file", "blob", rev)
-	if err == nil {
-		return content, true, nil
-	}
-	switch ok, probeErr := s.exists(rev); {
-	case probeErr != nil:
-		return nil, false, probeErr
-	case !ok:
-		return nil, false, nil
-	}
-	return nil, false, err
 }
 
 // FilesAt reads every requested blob in a single `git cat-file --batch`.

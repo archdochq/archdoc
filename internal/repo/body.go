@@ -77,8 +77,9 @@ var (
 	MarkdownLinkPattern  = linkPattern
 	ReferenceLinkPattern = regexp.MustCompile(`!?\[[^\]]*\]\[[^\]]*\]`)
 	WikiLinkPattern      = wikiLinkPattern
-	// WikiLinkSubmatchPattern is the same rule with the name captured, for a
-	// caller that needs to read the name out rather than only blank the span.
+	// WikiLinkSubmatchPattern is the same compiled rule under a second name, for
+	// a caller that reads the name out rather than only blanking the span. One
+	// declaration, as above: the two names mark the two uses.
 	WikiLinkSubmatchPattern = wikiLinkPattern
 )
 
