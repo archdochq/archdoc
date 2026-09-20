@@ -1,4 +1,4 @@
-module github.com/ollieread/archdoc
+module github.com/archdochq/archdoc
 
 go 1.26.2
 

@@ -6,8 +6,8 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/ollieread/archdoc/internal/repo"
-	"github.com/ollieread/archdoc/internal/template"
+	"github.com/archdochq/archdoc/internal/repo"
+	"github.com/archdochq/archdoc/internal/template"
 	"github.com/spf13/cobra"
 )
 

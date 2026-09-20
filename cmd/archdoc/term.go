@@ -8,9 +8,9 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/ollieread/archdoc/internal/glossary"
-	"github.com/ollieread/archdoc/internal/repo"
-	"github.com/ollieread/archdoc/internal/template"
+	"github.com/archdochq/archdoc/internal/glossary"
+	"github.com/archdochq/archdoc/internal/repo"
+	"github.com/archdochq/archdoc/internal/template"
 	"github.com/spf13/cobra"
 )
 

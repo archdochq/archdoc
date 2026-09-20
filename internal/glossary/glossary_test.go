@@ -5,9 +5,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/ollieread/archdoc/internal/glossary"
-	"github.com/ollieread/archdoc/internal/repo"
-	"github.com/ollieread/archdoc/internal/repotest"
+	"github.com/archdochq/archdoc/internal/glossary"
+	"github.com/archdochq/archdoc/internal/repo"
+	"github.com/archdochq/archdoc/internal/repotest"
 )
 
 const page = `---

@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/ollieread/archdoc/internal/config"
+	"github.com/archdochq/archdoc/internal/config"
 )
 
 // writeConfig puts an archdoc.json in a fresh directory and returns its path.

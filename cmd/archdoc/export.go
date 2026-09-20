@@ -7,8 +7,8 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/ollieread/archdoc/internal/export"
-	"github.com/ollieread/archdoc/internal/repo"
+	"github.com/archdochq/archdoc/internal/export"
+	"github.com/archdochq/archdoc/internal/repo"
 	"github.com/spf13/cobra"
 )
 

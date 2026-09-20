@@ -1,7 +1,7 @@
 # {{ .Name }}
 
 The design record and current specification for {{ .Name }}, managed with
-[ArchDoc](https://github.com/ollieread/archdoc).
+[ArchDoc](https://github.com/archdochq/archdoc).
 
 - **`rfc/`** proposes how something should work, and has a page in the spec once built.
 - **`adr/`** records a decision that constrains designs across the spec.

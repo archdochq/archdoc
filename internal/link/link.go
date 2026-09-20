@@ -13,8 +13,8 @@ import (
 	"unicode"
 	"unicode/utf8"
 
-	"github.com/ollieread/archdoc/internal/lint"
-	"github.com/ollieread/archdoc/internal/repo"
+	"github.com/archdochq/archdoc/internal/lint"
+	"github.com/archdochq/archdoc/internal/repo"
 )
 
 // Changes maps a document path to its rewritten source. A document that needed

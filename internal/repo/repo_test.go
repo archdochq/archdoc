@@ -8,8 +8,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/ollieread/archdoc/internal/repo"
-	"github.com/ollieread/archdoc/internal/repotest"
+	"github.com/archdochq/archdoc/internal/repo"
+	"github.com/archdochq/archdoc/internal/repotest"
 )
 
 // fixturePath is the shared fixture repository, used by every package that

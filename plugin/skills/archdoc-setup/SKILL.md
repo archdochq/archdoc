@@ -29,9 +29,9 @@ archdoc --version
 If that fails, install it. No Go toolchain needed for the first option:
 
 ```
-# a release binary, from https://github.com/ollieread/archdoc/releases
+# a release binary, from https://github.com/archdochq/archdoc/releases
 # or, with Go:
-go install github.com/ollieread/archdoc/cmd/archdoc@latest
+go install github.com/archdochq/archdoc/cmd/archdoc@latest
 ```
 
 `go install` puts it in `$(go env GOPATH)/bin`, which is often not on PATH. If the command is

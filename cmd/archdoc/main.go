@@ -11,10 +11,10 @@ import (
 	"os"
 	"runtime/debug"
 
+	"github.com/archdochq/archdoc/internal/config"
+	"github.com/archdochq/archdoc/internal/git"
+	"github.com/archdochq/archdoc/internal/repo"
 	"github.com/charmbracelet/x/term"
-	"github.com/ollieread/archdoc/internal/config"
-	"github.com/ollieread/archdoc/internal/git"
-	"github.com/ollieread/archdoc/internal/repo"
 	"github.com/spf13/cobra"
 )
 

@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/ollieread/archdoc/internal/repo"
+	"github.com/archdochq/archdoc/internal/repo"
 )
 
 func TestSetFieldReplacesTheWholeValueWhenItSpansLines(t *testing.T) {

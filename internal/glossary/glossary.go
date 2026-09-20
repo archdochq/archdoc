@@ -9,7 +9,7 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/ollieread/archdoc/internal/repo"
+	"github.com/archdochq/archdoc/internal/repo"
 )
 
 // truncated refuses to edit a page whose parse stops short of the file. Every

@@ -4,7 +4,7 @@ Tool specification. This describes what ArchDoc does in enough detail to build i
 
 ## Overview
 
-ArchDoc is a Go CLI distributed as a static binary per platform via GitHub releases and `go install github.com/ollieread/archdoc/cmd/archdoc@latest`. It manages a spec repository: a directory containing `archdoc.json` and the four document directories.
+ArchDoc is a Go CLI distributed as a static binary per platform via GitHub releases and `go install github.com/archdochq/archdoc/cmd/archdoc@latest`. It manages a spec repository: a directory containing `archdoc.json` and the four document directories.
 
 The process is fixed. Configuration is limited to the five fields in `archdoc.json`.
 

@@ -1,6 +1,6 @@
 # ArchDoc skills
 
-Guidance for agents documenting a project with [ArchDoc](https://github.com/ollieread/archdoc).
+Guidance for agents documenting a project with [ArchDoc](https://github.com/archdochq/archdoc).
 
 These skills are for working **from the code repository** and writing across into the
 specification repository, which is where the evidence for backfilling lives.

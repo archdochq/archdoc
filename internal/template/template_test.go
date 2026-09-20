@@ -4,9 +4,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/ollieread/archdoc/internal/repo"
-	"github.com/ollieread/archdoc/internal/repotest"
-	"github.com/ollieread/archdoc/internal/template"
+	"github.com/archdochq/archdoc/internal/repo"
+	"github.com/archdochq/archdoc/internal/repotest"
+	"github.com/archdochq/archdoc/internal/template"
 )
 
 // renderInto writes a rendered document into a throwaway repository and parses

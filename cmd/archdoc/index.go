@@ -8,9 +8,9 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/ollieread/archdoc/internal/index"
-	"github.com/ollieread/archdoc/internal/lint"
-	"github.com/ollieread/archdoc/internal/repo"
+	"github.com/archdochq/archdoc/internal/index"
+	"github.com/archdochq/archdoc/internal/lint"
+	"github.com/archdochq/archdoc/internal/repo"
 	"github.com/spf13/cobra"
 )
 

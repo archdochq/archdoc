@@ -20,14 +20,14 @@ relationship, and a CI workflow it scaffolds for you.
 With Homebrew, on macOS or Linux:
 
 ```
-brew install ollieread/tap/archdoc
+brew install archdochq/tap/archdoc
 ```
 
 Or download a binary for your platform from the
-[releases page](https://github.com/ollieread/archdoc/releases), or with Go:
+[releases page](https://github.com/archdochq/archdoc/releases), or with Go:
 
 ```
-go install github.com/ollieread/archdoc/cmd/archdoc@latest
+go install github.com/archdochq/archdoc/cmd/archdoc@latest
 ```
 
 `go install` puts it in `$(go env GOPATH)/bin`, which is often not on `PATH`. If
@@ -88,7 +88,7 @@ The same guides are packaged as skills under `plugin/`, for hosts that discover
 them by name:
 
 ```
-/plugin marketplace add ollieread/archdoc
+/plugin marketplace add archdochq/archdoc
 /plugin install archdoc@archdoc
 ```
 

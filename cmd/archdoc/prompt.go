@@ -5,9 +5,9 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/archdochq/archdoc/internal/config"
+	"github.com/archdochq/archdoc/internal/repo"
 	"github.com/charmbracelet/huh"
-	"github.com/ollieread/archdoc/internal/config"
-	"github.com/ollieread/archdoc/internal/repo"
 	"github.com/spf13/cobra"
 )
 

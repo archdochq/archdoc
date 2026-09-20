@@ -16,8 +16,8 @@ a spec page once built; an ADR records a constraint that applies across the spec
 wrong wastes the review. See `classifying.md`.
 
 You need `archdoc` on your PATH. Either download the binary for your platform from the
-[releases page](https://github.com/ollieread/archdoc/releases), or, with Go installed, run
-`go install github.com/ollieread/archdoc/cmd/archdoc@latest`.
+[releases page](https://github.com/archdochq/archdoc/releases), or, with Go installed, run
+`go install github.com/archdochq/archdoc/cmd/archdoc@latest`.
 
 ## Writing it
 

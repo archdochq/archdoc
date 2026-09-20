@@ -10,10 +10,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/ollieread/archdoc/internal/config"
-	"github.com/ollieread/archdoc/internal/link"
-	"github.com/ollieread/archdoc/internal/repo"
-	"github.com/ollieread/archdoc/internal/repotest"
+	"github.com/archdochq/archdoc/internal/config"
+	"github.com/archdochq/archdoc/internal/link"
+	"github.com/archdochq/archdoc/internal/repo"
+	"github.com/archdochq/archdoc/internal/repotest"
 	"github.com/spf13/cobra"
 )
 

@@ -10,8 +10,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/ollieread/archdoc/internal/git"
-	"github.com/ollieread/archdoc/internal/repo"
+	"github.com/archdochq/archdoc/internal/git"
+	"github.com/archdochq/archdoc/internal/repo"
 )
 
 // Severity is how much a finding matters. A rule never reports an error against

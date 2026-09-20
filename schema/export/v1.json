@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://raw.githubusercontent.com/ollieread/archdoc/main/schema/export/v1.json",
+  "$id": "https://raw.githubusercontent.com/archdochq/archdoc/main/schema/export/v1.json",
   "title": "ArchDoc export",
   "description": "A specification repository and the relationships ArchDoc derives from it. This shape may only ever gain optional fields.",
   "type": "object",

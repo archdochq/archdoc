@@ -10,10 +10,10 @@ import (
 	"unicode"
 	"unicode/utf8"
 
-	"github.com/ollieread/archdoc/internal/link"
-	"github.com/ollieread/archdoc/internal/lint"
-	"github.com/ollieread/archdoc/internal/repo"
-	"github.com/ollieread/archdoc/internal/repotest"
+	"github.com/archdochq/archdoc/internal/link"
+	"github.com/archdochq/archdoc/internal/lint"
+	"github.com/archdochq/archdoc/internal/repo"
+	"github.com/archdochq/archdoc/internal/repotest"
 )
 
 var now = time.Date(2026, 9, 11, 0, 0, 0, 0, time.UTC)

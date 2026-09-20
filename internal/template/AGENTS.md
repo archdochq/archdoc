@@ -1,7 +1,7 @@
 # Agent instructions
 
 This repository is a specification repository managed by
-[ArchDoc](https://github.com/ollieread/archdoc).
+[ArchDoc](https://github.com/archdochq/archdoc).
 
 **Before changing anything here, read `agents/working.md`.** It lists the rules that must not
 be broken and points at a guide for each kind of task. `PROCESS.md` is authoritative wherever

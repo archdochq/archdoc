@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/ollieread/archdoc/internal/lint"
+	"github.com/archdochq/archdoc/internal/lint"
 )
 
 // Exit codes, as specified: a usage or validation problem is distinct from a

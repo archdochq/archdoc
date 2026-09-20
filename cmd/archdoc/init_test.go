@@ -1,8 +1,8 @@
 package main
 
 import (
-	"github.com/ollieread/archdoc/internal/config"
-	"github.com/ollieread/archdoc/internal/template"
+	"github.com/archdochq/archdoc/internal/config"
+	"github.com/archdochq/archdoc/internal/template"
 	"os"
 	"os/exec"
 	"path/filepath"

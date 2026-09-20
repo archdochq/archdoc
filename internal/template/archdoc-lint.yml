@@ -29,11 +29,11 @@ jobs:
         run: |
           set -euo pipefail
           if [ "$ARCHDOC_VERSION" = "latest" ]; then
-            base="https://github.com/ollieread/archdoc/releases/latest/download"
+            base="https://github.com/archdochq/archdoc/releases/latest/download"
             tag="$(curl -fsSL -o /dev/null -w '%{url_effective}' \
-              https://github.com/ollieread/archdoc/releases/latest | sed 's#.*/tag/##')"
+              https://github.com/archdochq/archdoc/releases/latest | sed 's#.*/tag/##')"
           else
-            base="https://github.com/ollieread/archdoc/releases/download/$ARCHDOC_VERSION"
+            base="https://github.com/archdochq/archdoc/releases/download/$ARCHDOC_VERSION"
             tag="$ARCHDOC_VERSION"
           fi
           archive="archdoc_${tag#v}_linux_amd64.tar.gz"

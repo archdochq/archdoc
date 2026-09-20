@@ -5,7 +5,7 @@ description: Use when making any change in an ArchDoc specification repository, 
 
 # Working in this repository
 
-This is a specification repository managed by [ArchDoc](https://github.com/ollieread/archdoc).
+This is a specification repository managed by [ArchDoc](https://github.com/archdochq/archdoc).
 It holds RFCs, ADRs, spec pages and refs as Markdown with YAML front matter, and enforces a
 fixed process with a linter.
 

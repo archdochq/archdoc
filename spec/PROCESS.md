@@ -1,6 +1,6 @@
 # Process
 
-This repository is the design record and current specification for the project. It is managed with [ArchDoc](https://github.com/ollieread/archdoc). This document describes the document types, their lifecycle, how they relate to one another, and the rules the tooling enforces.
+This repository is the design record and current specification for the project. It is managed with [ArchDoc](https://github.com/archdochq/archdoc). This document describes the document types, their lifecycle, how they relate to one another, and the rules the tooling enforces.
 
 ## Document types
 

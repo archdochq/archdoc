@@ -12,11 +12,11 @@ import (
 	"strings"
 	"time"
 
-	"github.com/ollieread/archdoc/internal/config"
-	"github.com/ollieread/archdoc/internal/git"
-	"github.com/ollieread/archdoc/internal/index"
-	"github.com/ollieread/archdoc/internal/repo"
-	"github.com/ollieread/archdoc/internal/template"
+	"github.com/archdochq/archdoc/internal/config"
+	"github.com/archdochq/archdoc/internal/git"
+	"github.com/archdochq/archdoc/internal/index"
+	"github.com/archdochq/archdoc/internal/repo"
+	"github.com/archdochq/archdoc/internal/template"
 	"github.com/spf13/cobra"
 )
 

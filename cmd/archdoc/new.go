@@ -9,9 +9,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/ollieread/archdoc/internal/lifecycle"
-	"github.com/ollieread/archdoc/internal/repo"
-	"github.com/ollieread/archdoc/internal/template"
+	"github.com/archdochq/archdoc/internal/lifecycle"
+	"github.com/archdochq/archdoc/internal/repo"
+	"github.com/archdochq/archdoc/internal/template"
 	"github.com/spf13/cobra"
 )
 

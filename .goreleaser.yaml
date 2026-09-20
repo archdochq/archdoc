@@ -60,11 +60,11 @@ homebrew_casks:
   # above and checks them against their sha256, so it depends on the archive
   # name template as much as the scaffolded workflow does.
   - repository:
-      owner: ollieread
+      owner: archdochq
       name: homebrew-tap
       # GITHUB_TOKEN is scoped to this repository and cannot push to the tap.
       token: "{{ .Env.HOMEBREW_TAP_GITHUB_TOKEN }}"
-    homepage: https://github.com/ollieread/archdoc
+    homepage: https://github.com/archdochq/archdoc
     description: Manage a specification repository of RFCs, ADRs, spec pages and refs
     # Prereleases are not written to the tap: brew install gives the latest
     # stable release, and alphas stay on the releases page.
