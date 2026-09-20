@@ -1,6 +1,6 @@
 ---
 title: Release
-includes: [ADR-0012, ADR-0013]
+includes: [ADR-0012, ADR-0013, ADR-0015]
 ---
 
 # Release
@@ -16,5 +16,7 @@ Asset names are fixed by `.goreleaser.yaml`. A test resolves the archive name, t
 The repository's own continuous integration runs `gofmt`, `go vet`, `go test ./...` and `goreleaser check` on push to `main` and on every pull request, and the release workflow runs the test suite before publishing.
 
 The specification under `spec/` is checked by a second workflow, which builds `archdoc` from the commit under test rather than downloading a release, then runs `archdoc lint` and `archdoc index --check` against it. It carries no `ARCHDOC_VERSION`.
+
+ArchDoc is published from the `archdochq` organisation. The repository and the Homebrew tap were published under `ollieread` before that, and neither of those names is reused.
 
 The licence is the GNU Affero General Public License, version 3 or later, and its text ships in every archive.
