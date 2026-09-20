@@ -40,8 +40,6 @@ func glossaryRepo(t *testing.T, source string) *repo.Repo {
 	})
 }
 
-// terms reparses rewritten output and returns its terms, so the tests assert on
-// what archdoc would read back rather than on the text it happened to emit.
 // decision renders a minimal RFC or ADR, enough for Include to resolve it.
 func decision(id, title, status string) string {
 	decided := ""
@@ -53,6 +51,8 @@ func decision(id, title, status string) string {
 		"\ndepends: []\nupdates: []\nobsoletes: []\n---\n\n# " + id + ": " + title + "\n"
 }
 
+// terms reparses rewritten output and returns its terms, so the tests assert on
+// what archdoc would read back rather than on the text it happened to emit.
 func terms(t *testing.T, source []byte) []string {
 	t.Helper()
 	entries, ok := glossaryRepo(t, string(source)).Glossary()

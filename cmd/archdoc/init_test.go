@@ -507,7 +507,7 @@ func TestAgentsCreatesTheIndexWhenItIsMissing(t *testing.T) {
 	}
 }
 
-// TestRenumberTakesAPathWithoutMangingIt covers a defect the package tests
+// TestRenumberTakesAPathWithoutManglingIt covers a defect the package tests
 // could not: repo.Renumber is called directly there, so the command's own
 // argument handling is unexercised. Upper-casing the selector is right for an
 // identifier and destroys a path, and a path is the only unambiguous way to

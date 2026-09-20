@@ -13,10 +13,6 @@ import (
 	"github.com/ollieread/archdoc/internal/repo"
 )
 
-// page finds the glossary and its entries together, so that the lines being
-// spliced and the positions they are spliced at can never come from different
-// files. Taking a *repo.Document instead would let a caller hand in any page,
-// which would splice one file using another's line numbers.
 // truncated refuses to edit a page whose parse stops short of the file. Every
 // writer here splices on a line range derived from that parse, so when the page
 // ends inside an unterminated comment or an unclosed fence the range runs past
@@ -30,6 +26,10 @@ func truncated(d *repo.Document) error {
 			"so archdoc reads less of it than you wrote and cannot edit it safely; close the marker first", d.Path)
 }
 
+// page finds the glossary and its entries together, so that the lines being
+// spliced and the positions they are spliced at can never come from different
+// files. Taking a *repo.Document instead would let a caller hand in any page,
+// which would splice one file using another's line numbers.
 func page(r *repo.Repo) (*repo.Document, []repo.GlossaryEntry, error) {
 	d := r.ByPage(repo.GlossaryPage)
 	if d == nil {
@@ -231,9 +231,11 @@ func recordFormerly(lines []string, previous string) []string {
 	return slices.Insert(lines, last+1, "", note)
 }
 
-// formerlyLine matches the note a rename leaves behind.
+// blankLinePattern separates paragraphs, matching CRLF as well as LF so that a
+// definition saved on Windows does not read as one unbroken paragraph.
 var blankLinePattern = regexp.MustCompile(`\r?\n[ \t]*\r?\n`)
 
+// formerlyLine matches the note a rename leaves behind.
 var formerlyLine = regexp.MustCompile(`^Formerly \*.+\*\.$`)
 
 // Include appends identifiers to the page's includes list, in the order given,

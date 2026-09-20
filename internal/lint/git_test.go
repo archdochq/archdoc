@@ -565,8 +565,8 @@ func TestL11IsQuietForAnUnchangedNestedDocument(t *testing.T) {
 	}
 }
 
-// resolveOnBranch runs link.Resolve against a real repository so that the
-// frozen softening, which needs a branch snapshot, is actually exercised.
+// Runs link.Resolve against a real repository so that the frozen softening,
+// which needs a branch snapshot, is actually exercised.
 func TestResolveSoftensToAWarningOnceADocumentIsFrozen(t *testing.T) {
 	// docs/ARCHDOC.md: a frozen document containing [[...]] produces a warning, not
 	// an error, because L11 forbids the edit that would clear it. Only the

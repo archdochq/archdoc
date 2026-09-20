@@ -14,7 +14,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// IndexFile is the generated index, written under root.
+// indexFile is the generated index, written under root.
 const indexFile = "INDEX.md"
 
 func newIndexCommand() *cobra.Command {

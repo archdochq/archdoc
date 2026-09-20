@@ -149,12 +149,6 @@ func link(text, path string) string {
 	return fmt.Sprintf("[%s](%s)", escape(text), repo.LinkDestination(path))
 }
 
-// target renders a path as a markdown link destination. A filename is as
-// unconstrained as a title, and a space or a bracket in one would end the
-// destination early and leave the rest as prose. Percent-encoding is wrong
-// here: it would escape the separators too. CommonMark's angle-bracket form
-// takes the path as it is, so an ordinary path stays readable.
-
 // links renders names as markdown links to the documents lookup finds for
 // them. A name that resolves to nothing is left as text; L04 reports it.
 func links(names []string, lookup func(string) *repo.Document) string {

@@ -22,14 +22,14 @@ func accepted(id, title string, depends string) string {
 		"# " + id + ": " + title + "\n\n## Abstract\n\nWords.\n"
 }
 
-// nothingFrozen is the predicate for a repository with no history, where every
-// document is still editable.
 func accepted2(id, title, depends string) string {
 	return "---\nid: " + id + "\ntitle: " + title + "\nstatus: draft\n" +
 		"created: 2026-01-01\ndecided:\ndepends: [" + depends + "]\nupdates: []\nobsoletes: []\n---\n\n" +
 		"# " + id + ": " + title + "\n\n## Abstract\n\nWords.\n"
 }
 
+// nothingFrozen is the predicate for a repository with no history, where every
+// document is still editable.
 func nothingFrozen(*repo.Document) bool { return false }
 
 // frozenIDs builds a predicate freezing exactly the named documents, standing in
