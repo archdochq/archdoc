@@ -8,9 +8,14 @@ import (
 // GlossaryPage is the spec page name the glossary always has.
 const GlossaryPage = "glossary"
 
-// formerlyPattern matches the line a rename leaves behind. It is not a
+// FormerlyPattern matches the line a rename leaves behind. It is not a
 // paragraph, and several may accumulate as a term is renamed repeatedly.
-var formerlyPattern = regexp.MustCompile(`^Formerly \*(.+)\*\.$`)
+//
+// Exported because internal/glossary asks the same question when it decides
+// where to put a new note. A second spelling of the rule there could drift from
+// this one with nothing to notice, which is why the link patterns are exported
+// too.
+var FormerlyPattern = regexp.MustCompile(`^Formerly \*(.+)\*\.$`)
 
 // GlossaryEntry is one term in spec/glossary.md.
 type GlossaryEntry struct {
@@ -110,10 +115,11 @@ func (d *Document) glossaryEntries() []GlossaryEntry {
 	return entries
 }
 
-// blankLinePattern separates paragraphs. It matches CRLF as well as LF, because
+// BlankLinePattern separates paragraphs. It matches CRLF as well as LF, because
 // a file saved on Windows would otherwise read as one unbroken paragraph and
-// L15 would pass anything.
-var blankLinePattern = regexp.MustCompile(`\r?\n[ \t]*\r?\n`)
+// L15 would pass anything. Exported for the same reason as FormerlyPattern:
+// internal/glossary refuses a definition that contains one.
+var BlankLinePattern = regexp.MustCompile(`\r?\n[ \t]*\r?\n`)
 
 // entryBlocks splits an entry into its paragraphs and its recorded former
 // names. Formerly lines are pulled out line by line rather than as blocks, so
@@ -126,14 +132,14 @@ func entryBlocks(masked string) (paragraphs, formerly []string) {
 	// would read the stray closing marker as a paragraph.
 	var kept []string
 	for _, line := range strings.Split(masked, "\n") {
-		if m := formerlyPattern.FindStringSubmatch(strings.TrimSpace(line)); m != nil {
+		if m := FormerlyPattern.FindStringSubmatch(strings.TrimSpace(line)); m != nil {
 			formerly = append(formerly, m[1])
 			continue
 		}
 		kept = append(kept, line)
 	}
 
-	for _, block := range blankLinePattern.Split(strings.Join(kept, "\n"), -1) {
+	for _, block := range BlankLinePattern.Split(strings.Join(kept, "\n"), -1) {
 		if trimmed := strings.TrimSpace(block); trimmed != "" {
 			paragraphs = append(paragraphs, trimmed)
 		}

@@ -262,7 +262,7 @@ func date(t time.Time) string {
 	if t.IsZero() {
 		return ""
 	}
-	return t.Format("2006-01-02")
+	return t.Format(repo.DateLayout)
 }
 
 // list never returns nil, so every relationship field is an array in the JSON

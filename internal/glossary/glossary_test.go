@@ -160,6 +160,17 @@ func TestRenameAccumulatesFormerNames(t *testing.T) {
 			t.Errorf("%q missing after two renames:\n%s", want, twice)
 		}
 	}
+
+	// Grouped, not scattered, which is the whole of what recordFormerly
+	// promises. Presence alone was satisfied either way, so the branch that
+	// groups them was pinned by nothing and could be deleted with the suite
+	// green, leaving each rename another blank line further from the last.
+	lines := strings.Split(string(twice), "\n")
+	first := slices.Index(lines, "Formerly *Cache*.")
+	second := slices.Index(lines, "Formerly *Store*.")
+	if first < 0 || second != first+1 {
+		t.Errorf("the notes are on lines %d and %d, want consecutive:\n%s", first, second, twice)
+	}
 	entries, _ := glossaryRepo(t, string(twice)).Glossary()
 	i := slices.IndexFunc(entries, func(e repo.GlossaryEntry) bool { return e.Term == "Vault" })
 	if i < 0 {

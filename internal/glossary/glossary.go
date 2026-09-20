@@ -6,7 +6,6 @@ package glossary
 import (
 	"errors"
 	"fmt"
-	"regexp"
 	"slices"
 	"strings"
 
@@ -121,7 +120,7 @@ func Add(r *repo.Repo, term, definition string) ([]byte, error) {
 	if !repo.HeadingSurvives(term) {
 		return nil, fmt.Errorf("%q is not usable as a term: markdown would read it back as something else", term)
 	}
-	if blankLinePattern.MatchString(definition) {
+	if repo.BlankLinePattern.MatchString(definition) {
 		return nil, fmt.Errorf("a definition is one paragraph; this one has a blank line in it")
 	}
 	out := insert(d.Source, entries, term, body(definition))
@@ -225,18 +224,11 @@ func recordFormerly(lines []string, previous string) []string {
 	if last < 0 {
 		return append(lines, note)
 	}
-	if formerlyLine.MatchString(strings.TrimSpace(lines[last])) {
+	if repo.FormerlyPattern.MatchString(strings.TrimSpace(lines[last])) {
 		return slices.Insert(lines, last+1, note)
 	}
 	return slices.Insert(lines, last+1, "", note)
 }
-
-// blankLinePattern separates paragraphs, matching CRLF as well as LF so that a
-// definition saved on Windows does not read as one unbroken paragraph.
-var blankLinePattern = regexp.MustCompile(`\r?\n[ \t]*\r?\n`)
-
-// formerlyLine matches the note a rename leaves behind.
-var formerlyLine = regexp.MustCompile(`^Formerly \*.+\*\.$`)
 
 // Include appends identifiers to the page's includes list, in the order given,
 // skipping any already present. It takes source separately so that it can be
