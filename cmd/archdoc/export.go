@@ -59,10 +59,16 @@ func writeTree(cmd *cobra.Command, r *repo.Repo, dir string, noBodies bool) erro
 	index.Documents = make([]export.Document, len(full.Documents))
 	for i, d := range full.Documents {
 		d.Body = ""
+		// Into a new map. A Document copied by value shares its caller's
+		// Sections map, so blanking the bodies here wrote through to the
+		// documents the per-document files are rendered from below, and
+		// --out emitted every section body empty however it was invoked.
+		sections := make(map[string]export.Section, len(d.Sections))
 		for anchor, section := range d.Sections {
 			section.Body = ""
-			d.Sections[anchor] = section
+			sections[anchor] = section
 		}
+		d.Sections = sections
 		index.Documents[i] = d
 	}
 	index.Glossary = nil

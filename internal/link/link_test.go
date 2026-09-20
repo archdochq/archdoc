@@ -544,9 +544,10 @@ func TestSuggestStillOffersOrdinaryProse(t *testing.T) {
 	}
 }
 
-// frozenRepo is a repository whose one RFC is accepted and on the branch, with
-// a wiki link left in it.
-func frozenRepo(t *testing.T) (*repo.Repo, *countingGit) {
+// terminalRepo is a repository whose one RFC is accepted in the working tree,
+// with a wiki link left in it. countingGit reports nothing on the branch, so
+// the document is terminal but not frozen.
+func terminalRepo(t *testing.T) (*repo.Repo, *countingGit) {
 	t.Helper()
 	r := repotest.New(t, map[string]string{
 		"rfc/0001-a.md": "---\nid: RFC-0001\ntitle: Alpha\nstatus: accepted\n---\n\n# RFC-0001: Alpha\n\n" +
@@ -557,10 +558,11 @@ func frozenRepo(t *testing.T) (*repo.Repo, *countingGit) {
 	return r, &countingGit{}
 }
 
-func TestResolveNeverRewritesAFrozenDocument(t *testing.T) {
-	// editable() is the only thing stopping Resolve from rewriting a document
-	// L11 forbids anyone modifying. If it went, `archdoc link` would edit it and
-	// the repository would fail lint permanently until someone hand-reverted.
+func TestResolveLeavesATerminalDocumentAloneWhenItCannotTellWhetherItIsFrozen(t *testing.T) {
+	// No git, so whether the document is frozen cannot be settled. Resolve is
+	// not entitled to assume it is editable: if it were wrong, `archdoc link`
+	// would edit a document L11 forbids anyone modifying and the repository
+	// would fail lint permanently until someone hand-reverted.
 	r := repotest.New(t, map[string]string{
 		"rfc/0001-a.md": "---\nid: RFC-0001\ntitle: Alpha\nstatus: accepted\n---\n\n# RFC-0001: Alpha\n\n" +
 			"## Abstract\n\nSee [[RFC-0002]].\n",
@@ -576,8 +578,23 @@ func TestResolveNeverRewritesAFrozenDocument(t *testing.T) {
 	}
 }
 
+func TestResolveRewritesATerminalDocumentThatIsNotYetOnTheBranch(t *testing.T) {
+	// The freeze is the push, so a document accepted in the working tree and
+	// absent from the branch is still editable. `archdoc new --backfill`
+	// creates an accepted document without passing the accept gate, so a wiki
+	// link written into one afterwards is the ordinary backfilling case: L16
+	// reports it as an error reading "run archdoc link", and refusing it here
+	// left the tool naming a command that could not act.
+	r, g := terminalRepo(t)
+
+	changes, findings := link.Resolve(lint.NewContext(r, g, now))
+	if _, rewritten := changes["rfc/0001-a.md"]; !rewritten {
+		t.Errorf("Resolve refused a terminal document that is not frozen: %v", findings)
+	}
+}
+
 func TestSuggestSkipsATerminalDocument(t *testing.T) {
-	r, _ := frozenRepo(t)
+	r, _ := terminalRepo(t)
 
 	for _, s := range link.Suggest(r) {
 		if s.Path == "rfc/0001-a.md" {

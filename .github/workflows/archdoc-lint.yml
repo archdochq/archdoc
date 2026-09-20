@@ -1,0 +1,41 @@
+name: archdoc lint
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  archdoc:
+    name: Check the specification
+    runs-on: ubuntu-latest
+    steps:
+      # The full history is needed: the frozen-document rule compares every
+      # terminal document against the branch, and a shallow checkout has no
+      # commits to compare against. On a pull request the checkout is detached
+      # with no local branch at all, which archdoc handles by falling back to
+      # the remote-tracking ref, but the objects still have to be present.
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      # This is ArchDoc's own specification, so it is checked by the binary
+      # built from the same commit rather than by a downloaded release. A spec
+      # change landing with the code change it describes would otherwise be
+      # checked by a tool that predates both. archdoc update will offer to
+      # restore the download step; decline it. See ADR-0013.
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - name: Build ArchDoc from this commit
+        run: go build -o /usr/local/bin/archdoc ./cmd/archdoc
+
+      - name: Lint
+        working-directory: spec
+        run: archdoc lint
+
+      - name: Check the index is current
+        working-directory: spec
+        run: archdoc index --check

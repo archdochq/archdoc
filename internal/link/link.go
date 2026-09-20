@@ -71,15 +71,7 @@ func Resolve(ctx lint.Context) (Changes, []lint.Finding) {
 		if len(links) == 0 {
 			continue
 		}
-		if !editable(d) {
-			// A terminal document is never rewritten. Its severity follows
-			// L16's exactly, so the two commands cannot disagree about the same
-			// fact: an error while the document is still fixable, a warning
-			// once it is frozen on the branch and no edit could clear it.
-			severity, state := lint.Error, "terminal"
-			if ctx.Frozen(d) {
-				severity, state = lint.Warning, "frozen on "+ctx.Repo().Config().Branch
-			}
+		if state, severity, ok := rewritable(ctx, d); !ok {
 			findings = append(findings, lint.Finding{
 				Path: d.Path, Line: links[0].Line, Severity: severity, Rule: "link",
 				Message: fmt.Sprintf("%s document contains [[%s]] and is not rewritten", state, links[0].Name),
@@ -139,7 +131,7 @@ func Suggest(r *repo.Repo) []Suggestion {
 	var suggestions []Suggestion
 
 	for _, d := range r.Documents() {
-		if !editable(d) || d.Page == repo.GlossaryPage {
+		if !open(d) || d.Page == repo.GlossaryPage {
 			continue
 		}
 		offered := map[string]bool{}
@@ -476,9 +468,45 @@ func segments(dir string) []string {
 	return strings.Split(dir, "/")
 }
 
-// editable is every document a rewrite may touch: non-terminal RFCs and ADRs,
-// every spec page, every ref.
-func editable(d *repo.Document) bool {
+// rewritable reports whether Resolve may write to a document, and where it may
+// not, how to describe why and at what severity.
+//
+// Frozen, not merely terminal. PROCESS.md puts the freeze at the push, so a
+// document that is terminal in the working tree and not yet on the branch is
+// still editable. Refusing it left `archdoc new --backfill`, which creates an
+// accepted document without passing the accept gate, in a state where L16
+// reported an error reading "run archdoc link" and this command then refused
+// the document: the tool named a command that could not act, on the ordinary
+// backfilling path.
+//
+// The severity follows L16's exactly, so the two cannot disagree about the
+// same fact: a warning once no permitted edit could clear the finding.
+//
+// Outside a git repository the question cannot be settled, so a terminal
+// document is left alone rather than assumed editable, which is what this did
+// before it could tell the two apart. The branch is consulted only for a
+// terminal document, so a repository whose wiki links all sit in open
+// documents still never builds the snapshot.
+func rewritable(ctx lint.Context, d *repo.Document) (state string, severity lint.Severity, ok bool) {
+	switch {
+	case open(d):
+		return "", "", true
+	case ctx.Git() == nil:
+		return "terminal", lint.Error, false
+	case ctx.Frozen(d):
+		return "frozen on " + ctx.Repo().Config().Branch, lint.Warning, false
+	}
+	return "", "", true
+}
+
+// open is a document still being worked on: a spec page, a ref, or an RFC or
+// ADR that has not reached a terminal status in the working tree.
+//
+// Suggest keys on this rather than on frozen. Resolving a [[...]] repairs
+// something lint reports as an error, so it is done to anything not frozen.
+// Offering a new link over prose already written is an addition, and is not
+// pressed on a document whose author has called it decided.
+func open(d *repo.Document) bool {
 	if d.Type.HasLifecycle() {
 		return !d.FrontMatter.Status.Terminal()
 	}
