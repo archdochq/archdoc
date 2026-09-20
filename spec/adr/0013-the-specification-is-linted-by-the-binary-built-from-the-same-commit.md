@@ -1,9 +1,9 @@
 ---
 id: ADR-0013
 title: The specification is linted by the binary built from the same commit
-status: draft
+status: accepted
 created: 2026-09-16
-decided:
+decided: 2026-09-20
 depends: []
 updates: []
 obsoletes: []
@@ -37,4 +37,4 @@ Harder:
 Constrained:
 
 - The workflow needs a Go toolchain on the runner, which no other scaffolded repository does.
-- `ARCHDOC_VERSION` in this workflow means nothing and is not maintained.
+- The workflow carries no `ARCHDOC_VERSION`, so `archdoc update` finds no pin here to read or raise.
