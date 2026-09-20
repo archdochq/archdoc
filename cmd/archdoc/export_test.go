@@ -32,11 +32,15 @@ func TestExportEmitsJSONAndNothingElse(t *testing.T) {
 		t.Fatalf("new exited %d: %s", code, out)
 	}
 	got := exported(t, dir)
-	if got["schema"] != float64(1) {
-		t.Errorf("schema = %v, want 1", got["schema"])
+	if got["schema"] != float64(2) {
+		t.Errorf("schema = %v, want 2", got["schema"])
 	}
-	if got["name"] != "T" {
-		t.Errorf("name = %v, want T", got["name"])
+	config, _ := got["config"].(map[string]any)
+	if config["name"] != "T" {
+		t.Errorf("config.name = %v, want T", config["name"])
+	}
+	if _, present := got["name"]; present {
+		t.Error("name is still at the top level, where it was before it moved into config")
 	}
 	docs, _ := got["documents"].([]any)
 	if len(docs) == 0 {
@@ -60,8 +64,10 @@ func TestExportSchemaPrintsTheContract(t *testing.T) {
 		t.Error("the output does not declare $schema, so it is not a JSON Schema")
 	}
 	// It must work without a repository: a consumer reads the contract before
-	// it has anything to validate.
-	if strings.Contains(out, "archdoc.json") {
+	// it has anything to validate. Matched against the error's own words
+	// rather than the bare filename, which the schema itself now mentions when
+	// describing where the config object comes from.
+	if strings.Contains(out, "no archdoc.json found") {
 		t.Errorf("--schema failed for want of a repository:\n%s", out)
 	}
 }
@@ -100,53 +106,61 @@ func TestExportOutWritesATree(t *testing.T) {
 	}
 	var index struct {
 		Documents []struct {
-			Body     string `json:"body"`
-			Sections map[string]struct {
-				Body string `json:"body"`
-			} `json:"sections"`
+			Source   string `json:"source"`
+			Contents []struct {
+				Anchor string  `json:"anchor"`
+				Body   *string `json:"body"`
+			} `json:"contents"`
 		} `json:"documents"`
 	}
 	if err := json.Unmarshal(body, &index); err != nil {
 		t.Fatal(err)
 	}
 	for _, d := range index.Documents {
-		if d.Body != "" {
-			t.Error("index.json carries document bodies")
+		if d.Source != "" {
+			t.Error("index.json carries the file itself")
 		}
-		for anchor, s := range d.Sections {
-			if s.Body != "" {
-				t.Errorf("index.json carries the body of section %s", anchor)
+		if len(d.Contents) == 0 {
+			t.Error("index.json dropped the outline along with the bodies")
+		}
+		for _, e := range d.Contents {
+			if e.Body != nil {
+				t.Errorf("index.json carries the body of %s", e.Anchor)
 			}
 		}
 	}
 
-	// The per-document file is the one that does carry them. Section bodies as
-	// well as the document body: index.json is built by copying each document,
-	// and a copy shares its Sections map, so blanking the bodies for the index
-	// emptied them here too. The document body survived that, so asserting it
-	// alone passed while every section came out empty.
+	// The per-document file is the one that does carry them. index.json is
+	// built by copying each document, and a copy shares its caller's Contents
+	// backing array, so dropping the bodies for the index emptied them here
+	// too until the slice was cloned.
 	one, err := os.ReadFile(filepath.Join(target, "rfc", "0001-a-design.json"))
 	if err != nil {
 		t.Fatal(err)
 	}
 	var doc struct {
-		Body     string `json:"body"`
-		Sections map[string]struct {
-			Body string `json:"body"`
-		} `json:"sections"`
+		Contents []struct {
+			Anchor string  `json:"anchor"`
+			Body   *string `json:"body"`
+		} `json:"contents"`
 	}
 	if err := json.Unmarshal(one, &doc); err != nil {
 		t.Fatal(err)
 	}
-	if doc.Body == "" {
-		t.Error("the per-document file carries no body, so nothing does")
+	if len(doc.Contents) == 0 {
+		t.Fatal("the per-document file lists no contents, so the check below proves nothing")
 	}
-	if len(doc.Sections) == 0 {
-		t.Fatal("the per-document file lists no sections, so the check below proves nothing")
-	}
-	for anchor, s := range doc.Sections {
-		if s.Body == "" {
-			t.Errorf("the per-document file carries no body for section %s", anchor)
+	carried := 0
+	for _, e := range doc.Contents {
+		if e.Body == nil {
+			t.Errorf("the per-document file carries no body for %s", e.Anchor)
+			continue
 		}
+		if *e.Body != "" {
+			carried++
+		}
+	}
+	if carried == 0 {
+		t.Error("every body in the per-document file is empty, so nothing carries the prose")
 	}
 }

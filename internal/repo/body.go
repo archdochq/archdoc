@@ -255,6 +255,34 @@ func (d *Document) sectionAt(i int) Section {
 	}
 }
 
+// Entry is one heading and the lines beneath it, up to the next heading of any
+// level, whatever that heading's level is.
+//
+// A Section is a different unit and stays one: it is an H2 and everything under
+// it, subsections included, which is what the required-section rules mean by the
+// word. An entry's body holds no other entry's prose, so walking the entries
+// reads every line of a body exactly once.
+type Entry struct {
+	Heading Heading
+	// Text is the body as written, from the line after the heading to the line
+	// before the next one, so Heading.Line plus one is its first line.
+	Text string
+}
+
+// Contents is the document as a flat list of its headings, in document order.
+func (d *Document) Contents() []Entry {
+	lines := d.bodyLines()
+	out := make([]Entry, 0, len(d.headings))
+	for i, h := range d.headings {
+		end := len(lines)
+		if i+1 < len(d.headings) {
+			end = d.headings[i+1].index
+		}
+		out = append(out, Entry{Heading: h, Text: strings.Join(lines[h.index+1:end], "\n")})
+	}
+	return out
+}
+
 // Sections returns every H2 with exactly this text.
 func (d *Document) Sections(title string) []Section {
 	var found []Section
@@ -642,10 +670,22 @@ func anchor(text string, taken map[string]int) string {
 	}
 }
 
+// LinkType is the form a link was written in. An image resolves like any other
+// link and renders as something else entirely, so a consumer rewriting
+// destinations has to tell them apart.
+type LinkType string
+
+const (
+	LinkInline     LinkType = "inline"
+	LinkImage      LinkType = "image"
+	LinkDefinition LinkType = "definition"
+)
+
 // Link is a relative markdown link found in a body.
 type Link struct {
 	Text   string
 	Target string
+	Type   LinkType
 	// Line is 1-based within the file.
 	Line int
 }
@@ -663,20 +703,43 @@ func (d *Document) Links() []Link {
 	var links []Link
 	opensBlock := true
 	for line := range d.Prose() {
-		for _, m := range mdLinkPattern.FindAllStringSubmatch(line.Masked, -1) {
-			links = append(links, Link{Text: m[1], Target: destination(m[2], m[3]), Line: line.Number})
+		for _, m := range mdLinkPattern.FindAllStringSubmatchIndex(line.Masked, -1) {
+			// The pattern starts at the "[", so an image is recognised by the
+			// "!" in front of it rather than by the match itself.
+			form := LinkInline
+			if m[0] > 0 && line.Masked[m[0]-1] == '!' {
+				form = LinkImage
+			}
+			links = append(links, Link{
+				Text:   group(line.Masked, m, 1),
+				Target: destination(group(line.Masked, m, 2), group(line.Masked, m, 3)),
+				Type:   form,
+				Line:   line.Number,
+			})
 		}
 		// A definition cannot interrupt a paragraph, so it only counts after a
 		// blank line or another definition.
 		if opensBlock {
 			if m := definitionPattern.FindStringSubmatch(line.Masked); m != nil {
-				links = append(links, Link{Text: m[1], Target: destination(m[2], m[3]), Line: line.Number})
+				links = append(links, Link{
+					Text: m[1], Target: destination(m[2], m[3]),
+					Type: LinkDefinition, Line: line.Number,
+				})
 				continue
 			}
 		}
 		opensBlock = strings.TrimSpace(line.Masked) == ""
 	}
 	return links
+}
+
+// group is submatch n of an index-form match, or the empty string where that
+// group did not participate.
+func group(s string, m []int, n int) string {
+	if 2*n+1 >= len(m) || m[2*n] < 0 {
+		return ""
+	}
+	return s[m[2*n]:m[2*n+1]]
 }
 
 // destination is a link's target, from whichever of the two forms matched, with

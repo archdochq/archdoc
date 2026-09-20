@@ -13,8 +13,8 @@ import (
 )
 
 func newExportCommand() *cobra.Command {
-	var out string
-	var noBodies, schema bool
+	var out, commit string
+	var noBodies, schema, source bool
 
 	cmd := &cobra.Command{
 		Use:   "export",
@@ -37,38 +37,42 @@ func newExportCommand() *cobra.Command {
 			if err != nil {
 				return err
 			}
+			opts := export.Options{NoBodies: noBodies, Source: source, Commit: commit}
 			if out == "" {
-				return encode(cmd.OutOrStdout(), export.Build(r, export.Options{NoBodies: noBodies}))
+				return encode(cmd.OutOrStdout(), export.Build(r, opts))
 			}
-			return writeTree(cmd, r, out, noBodies)
+			return writeTree(cmd, r, out, opts)
 		},
 	}
 	cmd.Flags().StringVar(&out, "out", "", "write a tree of files into this directory instead of one document")
-	cmd.Flags().BoolVar(&noBodies, "no-bodies", false, "omit document and section bodies")
+	cmd.Flags().BoolVar(&noBodies, "no-bodies", false, "omit every contents body, keeping the outline")
+	cmd.Flags().BoolVar(&source, "source", false, "include each document's file as it is on disk, front matter included")
+	cmd.Flags().StringVar(&commit, "commit", "", "record this revision as the one the export describes")
 	cmd.Flags().BoolVar(&schema, "schema", false, "print the JSON Schema the output conforms to and exit")
 	return cmd
 }
 
 // writeTree splits the export so a consumer fetches only what it renders.
-func writeTree(cmd *cobra.Command, r *repo.Repo, dir string, noBodies bool) error {
-	full := export.Build(r, export.Options{NoBodies: noBodies})
+func writeTree(cmd *cobra.Command, r *repo.Repo, dir string, opts export.Options) error {
+	full := export.Build(r, opts)
 
 	// index.json never carries bodies whatever was asked: it exists to be the
 	// small one, and the bodies are in the per-document files beside it.
 	index := full
 	index.Documents = make([]export.Document, len(full.Documents))
 	for i, d := range full.Documents {
-		d.Body = ""
-		// Into a new map. A Document copied by value shares its caller's
-		// Sections map, so blanking the bodies here wrote through to the
-		// documents the per-document files are rendered from below, and
-		// --out emitted every section body empty however it was invoked.
-		sections := make(map[string]export.Section, len(d.Sections))
-		for anchor, section := range d.Sections {
-			section.Body = ""
-			sections[anchor] = section
+		d.Source = ""
+		// Into a new slice. A Document copied by value shares its caller's
+		// Contents backing array, so dropping the bodies here would write
+		// through to the documents the per-document files are rendered from
+		// below, which is how --out came to emit every section body empty
+		// however it was invoked.
+		contents := make([]export.Entry, len(d.Contents))
+		for j, e := range d.Contents {
+			e.Body = nil
+			contents[j] = e
 		}
-		d.Sections = sections
+		d.Contents = contents
 		index.Documents[i] = d
 	}
 	index.Glossary = nil

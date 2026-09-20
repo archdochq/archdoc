@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"slices"
 	"strings"
 	"testing"
 
@@ -57,29 +58,71 @@ func TestTheDerivedGraphIsExported(t *testing.T) {
 	}
 }
 
-// TestSectionsAreKeyedByAnchorSoNothingIsLost pins the reason the map is keyed
-// by anchor rather than title. Nothing forbids a repeated heading, and anchors
-// are made unique by the walk that assigns them.
-func TestSectionsAreKeyedByAnchorSoNothingIsLost(t *testing.T) {
+// TestContentsIsInDocumentOrderAndExclusive pins the two properties the object
+// keyed by anchor could not carry. A Go map marshals its keys sorted, so a
+// document arrived alphabetical with nothing recording the order it was
+// written in, and a heading below level two arrived not at all.
+func TestContentsIsInDocumentOrderAndExclusive(t *testing.T) {
+	r := repotest.New(t, map[string]string{
+		"rfc/0001-order.md": rfc("RFC-0001", "Order", "draft",
+			"## Zulu\n\nOne.\n\n## Alpha\n\nTwo.\n\n### Deep\n\nThree.\n"),
+	})
+	d := export.Build(r, export.Options{}).Documents[0]
+
+	if got, want := anchorsOf(d.Contents), []string{"rfc-0001-order", "zulu", "alpha", "deep"}; !slices.Equal(got, want) {
+		t.Fatalf("contents = %v, want the headings in document order", got)
+	}
+	if got := d.Contents[2]; got.Level != 2 || strings.Contains(*got.Body, "Three") {
+		t.Errorf("the level two entry carries its subsection's prose: %q", *got.Body)
+	}
+	if got := d.Contents[3]; got.Level != 3 || !strings.Contains(*got.Body, "Three") {
+		t.Errorf("the level three entry is wrong: level %d, body %q", got.Level, *got.Body)
+	}
+}
+
+// TestAnEmptyBodyIsNotAnAbsentOne is why Entry.Body is a pointer. A heading
+// directly followed by another has a genuinely empty body, and omitempty on a
+// string would make that indistinguishable from an export carrying no bodies.
+func TestAnEmptyBodyIsNotAnAbsentOne(t *testing.T) {
+	r := repotest.New(t, map[string]string{
+		"rfc/0001-bare.md": rfc("RFC-0001", "Bare", "draft", "## Abstract\n## Motivation\n\nWords.\n"),
+	})
+	d := export.Build(r, export.Options{}).Documents[0]
+
+	abstract, ok := entryAt(d.Contents, "abstract")
+	if !ok {
+		t.Fatalf("no entry anchored abstract: %v", anchorsOf(d.Contents))
+	}
+	if abstract.Body == nil {
+		t.Fatal("an empty body was reported as absent, which is what --no-bodies means")
+	}
+	if *abstract.Body != "" {
+		t.Errorf("body = %q, want empty", *abstract.Body)
+	}
+}
+
+// TestARepeatedHeadingKeepsBothEntries pins the reason anchors are made unique
+// by the walk that assigns them. Nothing forbids a repeated heading.
+func TestARepeatedHeadingKeepsBothEntries(t *testing.T) {
 	r := repotest.New(t, map[string]string{
 		"rfc/0001-two.md": rfc("RFC-0001", "Two", "draft",
 			"## Abstract\n\nFirst.\n\n## Abstract\n\nSecond.\n"),
 	})
 	d := export.Build(r, export.Options{}).Documents[0]
 
-	first, ok := d.Sections["abstract"]
+	first, ok := entryAt(d.Contents, "abstract")
 	if !ok {
-		t.Fatalf("no section keyed abstract: %v", keys(d.Sections))
+		t.Fatalf("no entry anchored abstract: %v", anchorsOf(d.Contents))
 	}
-	second, ok := d.Sections["abstract-1"]
+	second, ok := entryAt(d.Contents, "abstract-1")
 	if !ok {
-		t.Fatalf("the repeated heading was dropped: %v", keys(d.Sections))
+		t.Fatalf("the repeated heading was dropped: %v", anchorsOf(d.Contents))
 	}
-	if !strings.Contains(first.Body, "First") || !strings.Contains(second.Body, "Second") {
-		t.Errorf("the two sections carry the wrong bodies:\n%q\n%q", first.Body, second.Body)
+	if !strings.Contains(*first.Body, "First") || !strings.Contains(*second.Body, "Second") {
+		t.Errorf("the two entries carry the wrong bodies:\n%q\n%q", *first.Body, *second.Body)
 	}
-	if first.Title != "Abstract" || second.Title != "Abstract" {
-		t.Error("the original title is not preserved alongside the anchor")
+	if first.Text != "Abstract" || second.Text != "Abstract" {
+		t.Error("the heading as written is not preserved alongside the anchor")
 	}
 }
 
@@ -107,7 +150,7 @@ func TestRequiredSectionsSurviveTheirAbsence(t *testing.T) {
 	if proposal.Anchor != "proposal" {
 		t.Errorf("a missing section has anchor %q, want the anchor it would have had", proposal.Anchor)
 	}
-	if _, present := d.Sections[proposal.Anchor]; present {
+	if _, present := entryAt(d.Contents, proposal.Anchor); present {
 		t.Error("a section that does not exist was exported as present")
 	}
 }
@@ -151,24 +194,61 @@ func TestLinksResolveToDocuments(t *testing.T) {
 	}
 }
 
+// TestALinkKnowsWhichFormWroteIt covers the defect the type field exists for.
+// An image was emitted as an ordinary link, so a consumer rewriting
+// destinations turned an img source into an anchor, and a list of a document's
+// outgoing links included its diagrams.
+func TestALinkKnowsWhichFormWroteIt(t *testing.T) {
+	r := repotest.New(t, map[string]string{
+		"rfc/0001-forms.md": rfc("RFC-0001", "Forms", "draft",
+			"## Abstract\n\nAn ![diagram](d.png) and a [page](../spec/glossary.md) and [a][r].\n\n[r]: ../spec/glossary.md\n"),
+		"spec/glossary.md": "---\ntitle: Glossary\nincludes: []\n---\n\n# Glossary\n",
+	})
+	d := export.Build(r, export.Options{}).Documents[0]
+
+	byText := map[string]export.Link{}
+	for _, l := range d.Links {
+		byText[l.Text] = l
+	}
+	for text, want := range map[string]string{
+		"diagram": "image",
+		"page":    "inline",
+		"r":       "definition",
+	} {
+		got, ok := byText[text]
+		if !ok {
+			t.Errorf("no link with text %q: %v", text, byText)
+			continue
+		}
+		if got.Type != want {
+			t.Errorf("%q has type %q, want %q", text, got.Type, want)
+		}
+	}
+	// The reference use carries a label rather than a destination, and
+	// rewriting the definition carries it, so it is deliberately not listed.
+	if _, listed := byText["a"]; listed {
+		t.Error("a reference use was extracted; only its definition should be")
+	}
+}
+
 // TestNoBodiesKeepsEverythingButTheProse covers the listing-page case.
 func TestNoBodiesKeepsEverythingButTheProse(t *testing.T) {
 	r := repotest.New(t, map[string]string{
 		"rfc/0001-a.md": rfc("RFC-0001", "A", "accepted", "## Abstract\n\nProse here.\n"),
 	})
 	d := export.Build(r, export.Options{NoBodies: true}).Documents[0]
-	if d.Body != "" {
-		t.Error("the document body was included")
-	}
-	section, ok := d.Sections["abstract"]
+	entry, ok := entryAt(d.Contents, "abstract")
 	if !ok {
-		t.Fatal("the section was dropped along with its body")
+		t.Fatal("the entry was dropped along with its body")
 	}
-	if section.Body != "" {
-		t.Error("the section body was included")
+	if entry.Body != nil {
+		t.Error("the body was included")
 	}
-	if section.Title != "Abstract" {
-		t.Error("the section title was lost")
+	if entry.Text != "Abstract" {
+		t.Error("the heading text was lost")
+	}
+	if d.Source != "" {
+		t.Error("the file was included without --source")
 	}
 	if d.Title != "A" || d.Status != "accepted" {
 		t.Error("metadata was dropped")
@@ -224,7 +304,8 @@ func TestEveryFieldIsInThePublishedSchema(t *testing.T) {
 	}{
 		{"", export.Repository{}},
 		{"document", export.Document{}},
-		{"section", export.Section{}},
+		{"config", export.Config{}},
+		{"entry", export.Entry{}},
 		{"link", export.Link{}},
 		{"term", export.Term{}},
 	} {
@@ -264,10 +345,21 @@ func TestEveryFieldIsInThePublishedSchema(t *testing.T) {
 	}
 }
 
-func keys(m map[string]export.Section) []string {
-	out := make([]string, 0, len(m))
-	for k := range m {
-		out = append(out, k)
+// entryAt finds a contents entry by anchor.
+func entryAt(entries []export.Entry, anchor string) (export.Entry, bool) {
+	for _, e := range entries {
+		if e.Anchor == anchor {
+			return e, true
+		}
+	}
+	return export.Entry{}, false
+}
+
+// anchorsOf lists a contents array's anchors, in order, for a failure message.
+func anchorsOf(entries []export.Entry) []string {
+	out := make([]string, 0, len(entries))
+	for _, e := range entries {
+		out = append(out, e.Anchor)
 	}
 	return out
 }
@@ -321,7 +413,7 @@ func TestArrayFieldsAreNeverNull(t *testing.T) {
 // `go test ./internal/export -update-schema` after changing it.
 var updateSchema = flag.Bool("update-schema", false, "rewrite schema/export/v1.json from the embedded copy")
 
-const publishedSchema = "../../schema/export/v1.json"
+const publishedSchema = "../../schema/export/v2.json"
 
 // TestThePublishedSchemaMatchesTheEmbeddedOne gives the contract an address.
 //
@@ -360,8 +452,10 @@ func TestThePublishedSchemaMatchesTheEmbeddedOne(t *testing.T) {
 	if err := json.Unmarshal(export.JSONSchema, &schema); err != nil {
 		t.Fatal(err)
 	}
-	if !strings.HasSuffix(schema.ID, "/schema/export/v1.json") {
-		t.Errorf("$id is %q, which does not name the published copy", schema.ID)
+	// Derived from publishedSchema rather than written out a second time, so
+	// the two cannot come to name different versions of the shape.
+	if want := "/" + strings.TrimPrefix(publishedSchema, "../../"); !strings.HasSuffix(schema.ID, want) {
+		t.Errorf("$id is %q, which does not name the published copy at %s", schema.ID, want)
 	}
 	if strings.Contains(schema.ID, "/internal/") {
 		t.Errorf("$id points inside internal/: %q", schema.ID)
