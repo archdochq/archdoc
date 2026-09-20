@@ -1,0 +1,140 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/archdochq/archdoc/main/schema/export/v2.json",
+  "title": "ArchDoc export",
+  "description": "A specification repository, the relationships ArchDoc derives from it, and every document as a flat ordered list of its headings. From schema 2 onwards this shape only ever gains optional fields.",
+  "type": "object",
+  "required": ["schema", "config", "has_glossary", "documents"],
+  "additionalProperties": false,
+  "properties": {
+    "schema": {"type": "integer", "const": 2},
+    "commit": {"type": "string",
+               "description": "The revision this export describes, as given to --commit. Absent when it was not given. Taken as written and not checked against a repository."},
+    "config": {"$ref": "#/$defs/config"},
+    "has_glossary": {"type": "boolean",
+                     "description": "Whether the repository has a glossary page. Present even where glossary is not, so a tree's index.json still answers it."},
+    "documents": {"type": "array", "items": {"$ref": "#/$defs/document"}},
+    "glossary": {"type": "array", "items": {"$ref": "#/$defs/term"}}
+  },
+  "$defs": {
+    "config": {
+      "type": "object",
+      "description": "Every setting archdoc.json holds. The location it was read from is not among them: it describes the machine that ran the command.",
+      "required": ["name", "branch", "root", "strict", "ref_stale_days"],
+      "additionalProperties": false,
+      "properties": {
+        "name": {"type": "string"},
+        "branch": {"type": "string", "description": "The branch frozen documents are compared against."},
+        "root": {"type": "string", "description": "Relative to the directory holding archdoc.json."},
+        "strict": {"type": "boolean", "description": "False also permits draft to accepted and draft to rejected."},
+        "ref_stale_days": {"type": "integer", "minimum": 0,
+                           "description": "How old a ref's verified date may be. 0 disables the check."}
+      }
+    },
+    "document": {
+      "type": "object",
+      "required": ["type", "path", "title", "depends", "updates", "obsoletes", "includes",
+                   "updated_by", "obsoleted_by", "depended_on_by", "included_in",
+                   "effectively_obsolete", "implemented", "stale",
+                   "required_sections", "contents", "links"],
+      "additionalProperties": false,
+      "properties": {
+        "type": {"enum": ["rfc", "adr", "spec", "ref"]},
+        "id": {"type": "string", "pattern": "^(RFC|ADR|REF)-[0-9]{4}$",
+               "description": "Absent for spec pages, which are named rather than numbered."},
+        "number": {"type": "integer", "minimum": 1, "maximum": 9999},
+        "page": {"type": "string", "description": "A spec page's path below spec/ without the extension."},
+        "path": {"type": "string", "description": "Slash-separated, relative to root."},
+        "title": {"type": "string"},
+        "status": {"enum": ["draft", "proposed", "accepted", "rejected", "withdrawn"],
+                   "description": "Absent for spec pages and refs, which have no lifecycle."},
+        "created": {"type": "string", "format": "date"},
+        "decided": {"type": "string", "format": "date"},
+        "backfilled": {"type": "string", "format": "date",
+                       "description": "The date the document was written to record a decision taken earlier."},
+        "verified": {"type": "string", "format": "date", "description": "Refs only."},
+
+        "depends": {"$ref": "#/$defs/identifiers"},
+        "updates": {"$ref": "#/$defs/identifiers"},
+        "obsoletes": {"$ref": "#/$defs/identifiers"},
+        "includes": {"$ref": "#/$defs/identifiers"},
+
+        "updated_by": {"$ref": "#/$defs/identifiers"},
+        "obsoleted_by": {"$ref": "#/$defs/identifiers"},
+        "depended_on_by": {"$ref": "#/$defs/identifiers"},
+        "included_in": {"type": "array", "items": {"type": "string"},
+                        "description": "Names of the spec pages including this document."},
+
+        "effectively_obsolete": {"type": "boolean",
+                                 "description": "An accepted document obsoletes this one."},
+        "implemented": {"type": "boolean",
+                        "description": "An accepted RFC or ADR that some spec page other than the glossary includes."},
+        "stale": {"type": "boolean",
+                  "description": "A spec page including something effectively obsolete."},
+
+        "required_sections": {
+          "type": "array",
+          "description": "The level two headings this type calls for, in order. Checked by lint rather than guaranteed, so any of them may be missing from contents. A section is that unit and is not the same as a contents entry.",
+          "items": {
+            "type": "object",
+            "required": ["title", "anchor"],
+            "additionalProperties": false,
+            "properties": {"title": {"type": "string"}, "anchor": {"type": "string"}}
+          }
+        },
+        "contents": {
+          "type": "array",
+          "description": "Every heading in document order, each with the prose beneath it. Content before the first heading belongs to no entry and appears only in source.",
+          "items": {"$ref": "#/$defs/entry"}
+        },
+        "source": {"type": "string",
+                   "description": "The file exactly as it is on disk, front matter included. Present only with --source. The one field that reproduces the document."},
+        "links": {"type": "array", "items": {"$ref": "#/$defs/link"}}
+      }
+    },
+    "entry": {
+      "type": "object",
+      "description": "One heading and the lines beneath it, up to the next heading of any level. No entry holds another's prose, so walking them reads every line of a body once.",
+      "required": ["level", "text", "anchor", "line"],
+      "additionalProperties": false,
+      "properties": {
+        "level": {"type": "integer", "minimum": 1, "maximum": 6,
+                  "description": "Carried rather than implied by nesting, because heading levels need not descend one at a time."},
+        "text": {"type": "string", "description": "The heading as written, without its marker."},
+        "anchor": {"type": "string", "description": "As GitHub computes it. A repeat within a document gains a numbered suffix. Set your heading ids from this rather than generating your own."},
+        "line": {"type": "integer", "minimum": 1,
+                 "description": "1-based in the file. The body begins on the next line, so a position inside it needs no further arithmetic."},
+        "body": {"type": "string",
+                 "description": "The lines as written, untrimmed. Empty where one heading follows another directly. Absent where bodies were excluded."}
+      }
+    },
+    "link": {
+      "type": "object",
+      "required": ["text", "type", "destination", "line"],
+      "additionalProperties": false,
+      "properties": {
+        "text": {"type": "string", "description": "A definition's text is its label."},
+        "type": {"enum": ["inline", "image", "definition"],
+                 "description": "inline is [text](destination), image is ![text](destination), definition is [label]: destination. A reference use carries a label rather than a destination and is not listed: rewriting the definition carries its uses."},
+        "destination": {"type": "string", "description": "As written in the document."},
+        "path": {"type": "string", "description": "Resolved against the repository root. Absent when it leaves the repository."},
+        "resolves_to": {"type": "string", "description": "The identifier, or a spec page's name. Absent when the destination is not a document."},
+        "anchor": {"type": "string"},
+        "line": {"type": "integer", "minimum": 1}
+      }
+    },
+    "term": {
+      "type": "object",
+      "required": ["name", "anchor", "definition"],
+      "additionalProperties": false,
+      "properties": {
+        "name": {"type": "string"},
+        "anchor": {"type": "string"},
+        "definition": {"type": "string"},
+        "formerly": {"type": "array", "items": {"type": "string"},
+                     "description": "Previous names, oldest first."}
+      }
+    },
+    "identifiers": {"type": "array", "items": {"type": "string", "pattern": "^(RFC|ADR|REF)-[0-9]{4}$"}}
+  }
+}
