@@ -1,6 +1,6 @@
 ---
 title: Glossary
-includes: [ADR-0001, ADR-0003, ADR-0002]
+includes: [ADR-0001, ADR-0002, ADR-0003]
 ---
 
 # Glossary

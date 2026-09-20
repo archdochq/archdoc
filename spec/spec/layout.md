@@ -72,7 +72,7 @@ Unknown keys are an error. A missing key takes the default shown, except `name`,
 
 ## Templates
 
-Embedded under `internal/template`: `rfc.md`, `adr.md`, `ref.md`, `glossary.md`, `PROCESS.md`, `README.md`, `AGENTS.md`, `archdoc-lint.yml`, `LICENSE.mit`, and the guides under `agents/`. Rendered templates substitute `.ID`, `.Title`, `.Date`, `.Name`, `.Version`, `.Status`, `.Decided`, `.Backfilled`, `.Year` and `.WorkingDirectory` as applicable, through `text/template`. `AGENTS.md`, `PROCESS.md` and everything under `agents/` ship verbatim; a brace in one is literal text.
+Embedded under `internal/template`: `rfc.md`, `adr.md`, `ref.md`, `glossary.md`, `PROCESS.md`, `README.md`, `AGENTS.md`, `archdoc-lint.yml`, `LICENSE.mit`, and the guides under `agents/`. Rendered templates substitute `.ID`, `.Title`, `.Date`, `.Name`, `.Version`, `.Status`, `.Decided`, `.Backfilled`, `.Year` and `.WorkingDirectory` as applicable, through `text/template`. `AGENTS.md`, `PROCESS.md` and everything under `agents/` ship verbatim. Only `agents/` sits outside the parse glob, so a brace there is literal text; every other embedded `.md` file is parsed as a template whether or not it carries substitutions, and one that does not parse fails the build.
 
 One template function is registered: `yaml`, which encodes a value as a YAML scalar, quoting and escaping only where the encoding requires it. Front matter uses `title: {{ yaml .Title }}`. The H1 uses `.Title` raw and is read back by splitting on the first `": "`.
 

@@ -31,12 +31,12 @@ Non-strict mode adds `draft → accepted` and `draft → rejected`. No other tra
 
 1. Load the document. Fail if the identifier is unknown or the type is not RFC or ADR.
 2. Check the transition is permitted from the current status under the `strict` setting. Fail naming the transitions permitted from the current status.
-3. For `accept` and `reject`: fail if any required section is empty, other than `Open questions` and `Changelog`; fail if any unresolved `[[...]]` remains. For `accept`: fail if the document has an `Open questions` section and it is non-empty. `withdraw` performs no content checks.
+3. For `accept` and `reject`: fail if there is no H1, or it does not read as the front matter gives it; fail if a required section is missing, or appears before one it must follow; fail if any required section is empty, other than `Open questions` and `Changelog`; fail if any unresolved `[[...]]` remains. For `accept`: fail if the document has an `Open questions` section and it is non-empty. `withdraw` performs no content checks.
 4. Rewrite `status` and, for a terminal transition, `decided` to today. Front matter is rewritten field by field, preserving order and comments. The body is not touched except in step 5.
 5. For `reject`: append `## Rejection rationale` to the end of the body with an HTML comment prompting for the rationale. The step 3 checks run before this append.
 6. Print the new status.
 
-A transition refuses to write a `decided` date earlier than `created`, refuses a status the graph does not know, and refuses a document whose parse stops short of the end of the file. None of the transition commands commits.
+A transition refuses to write a `decided` date earlier than `created`, and refuses a status the graph does not know. `reject` refuses a document whose parse stops short of the end of the file. None of the transition commands commits.
 
 ## Backfilling
 
