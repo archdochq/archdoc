@@ -41,7 +41,10 @@ func pinnable(version string) bool {
 var (
 	releaseTag = regexp.MustCompile(`^v?\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$`)
 	// The trailing timestamp and commit prefix Go appends to a pseudo-version.
-	pseudoVersion = regexp.MustCompile(`-\d{14}-[0-9a-f]{12}$`)
+	// What precedes the timestamp depends on the nearest tag: a hyphen when
+	// there is none, a dot once a release exists and the pseudo-version builds
+	// on it. Matching only the hyphen held while this repository was untagged.
+	pseudoVersion = regexp.MustCompile(`(?:^|[-.])\d{14}-[0-9a-f]{12}$`)
 )
 
 // scaffold is one file init writes, with the directory it is written relative

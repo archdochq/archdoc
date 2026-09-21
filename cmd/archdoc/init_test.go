@@ -290,7 +290,11 @@ func TestOnlyAPublishedReleaseTagCountsAsPinnable(t *testing.T) {
 		{"1.2.3", true},
 		{"v1.2.3-rc.1", true},
 		{"dev", false},
+		// The three shapes Go gives a pseudo-version, which differ by what
+		// tag they build on: none, a release, and a prerelease.
 		{"v0.0.0-20260912120000-aaaaaaaaaaaa", false},
+		{"v0.2.1-0.20260912120000-aaaaaaaaaaaa", false},
+		{"v0.1.0-alpha.7.0.20260912120000-aaaaaaaaaaaa", false},
 		{"", false},
 		{"main", false},
 	} {
