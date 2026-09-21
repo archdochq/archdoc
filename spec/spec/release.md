@@ -15,7 +15,7 @@ Asset names are fixed by `.goreleaser.yaml` and reconstructed by `archdochq/setu
 
 The repository's own continuous integration runs `gofmt`, `go vet`, `go test ./...` and `goreleaser check` on push to `main` and on every pull request, and the release workflow runs the test suite before publishing.
 
-The specification under `spec/` is checked by a second workflow, which builds `archdoc` from the commit under test rather than downloading a release, then runs `archdoc lint` and `archdoc index --check` against it. It carries no version pin.
+The specification under `spec/` is checked by a second workflow, which builds `archdoc` from the commit under test rather than downloading a release. It lints through `archdochq/lint` with no `version` input, which leaves the binary just built on `PATH` in place and annotates each finding on the line that caused it, then runs `archdoc index --check` against the same binary. It carries no version pin.
 
 ArchDoc is published from the `archdochq` organisation. The repository and the Homebrew tap were published under `ollieread` before that, and neither of those names is reused.
 

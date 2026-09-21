@@ -32,9 +32,12 @@ jobs:
       - name: Build ArchDoc from this commit
         run: go build -o /usr/local/bin/archdoc ./cmd/archdoc
 
-      - name: Lint
-        working-directory: spec
-        run: archdoc lint
+      # No version input, so the action uses the archdoc already on PATH and
+      # installs nothing: the commit still lints itself. What it adds is an
+      # annotation on the line of the document that caused each finding.
+      - uses: archdochq/lint@v1
+        with:
+          path: spec
 
       - name: Check the index is current
         working-directory: spec
