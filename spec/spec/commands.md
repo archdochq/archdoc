@@ -1,6 +1,6 @@
 ---
 title: Commands
-includes: [RFC-0001, RFC-0002, RFC-0003, RFC-0005]
+includes: [RFC-0001, RFC-0002, RFC-0003, RFC-0005, ADR-0016]
 ---
 
 # Commands
