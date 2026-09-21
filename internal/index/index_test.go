@@ -9,8 +9,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/archdochq/archdoc/internal/index"
-	"github.com/archdochq/archdoc/internal/repotest"
+	"archdoc.dev/internal/index"
+	"archdoc.dev/internal/repotest"
 )
 
 // update rewrites the golden file. Run `go test ./internal/index -update` after

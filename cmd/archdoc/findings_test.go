@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/archdochq/archdoc/internal/lint"
+	"archdoc.dev/internal/lint"
 )
 
 var sample = []lint.Finding{

@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/archdochq/archdoc/internal/template"
+	"archdoc.dev/internal/template"
 )
 
 // guides reads every shipped agent guide, keyed by its filename.

@@ -14,7 +14,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/archdochq/archdoc/internal/config"
+	"archdoc.dev/internal/config"
 )
 
 // Type is one of the four kinds of document, and also the directory each kind

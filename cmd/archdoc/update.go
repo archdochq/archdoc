@@ -7,8 +7,8 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/archdochq/archdoc/internal/repo"
-	"github.com/archdochq/archdoc/internal/template"
+	"archdoc.dev/internal/repo"
+	"archdoc.dev/internal/template"
 	"github.com/charmbracelet/huh"
 	"github.com/spf13/cobra"
 )

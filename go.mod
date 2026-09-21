@@ -1,4 +1,4 @@
-module github.com/archdochq/archdoc
+module archdoc.dev
 
 go 1.26.2
 

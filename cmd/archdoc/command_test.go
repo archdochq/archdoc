@@ -10,10 +10,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/archdochq/archdoc/internal/config"
-	"github.com/archdochq/archdoc/internal/link"
-	"github.com/archdochq/archdoc/internal/repo"
-	"github.com/archdochq/archdoc/internal/repotest"
+	"archdoc.dev/internal/config"
+	"archdoc.dev/internal/link"
+	"archdoc.dev/internal/repo"
+	"archdoc.dev/internal/repotest"
 	"github.com/spf13/cobra"
 )
 

@@ -11,8 +11,8 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/archdochq/archdoc/internal/config"
-	"github.com/archdochq/archdoc/internal/repo"
+	"archdoc.dev/internal/config"
+	"archdoc.dev/internal/repo"
 )
 
 // DefaultConfig is the archdoc.json used when a test does not care about the

@@ -10,12 +10,12 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/archdochq/archdoc/internal/config"
-	"github.com/archdochq/archdoc/internal/git"
-	"github.com/archdochq/archdoc/internal/link"
-	"github.com/archdochq/archdoc/internal/lint"
-	"github.com/archdochq/archdoc/internal/repo"
-	"github.com/archdochq/archdoc/internal/repotest"
+	"archdoc.dev/internal/config"
+	"archdoc.dev/internal/git"
+	"archdoc.dev/internal/link"
+	"archdoc.dev/internal/lint"
+	"archdoc.dev/internal/repo"
+	"archdoc.dev/internal/repotest"
 )
 
 // rfc renders a complete RFC, so that the only rule under test is the one the

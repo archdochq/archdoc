@@ -10,9 +10,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/archdochq/archdoc/internal/lint"
-	"github.com/archdochq/archdoc/internal/repo"
-	"github.com/archdochq/archdoc/internal/repotest"
+	"archdoc.dev/internal/lint"
+	"archdoc.dev/internal/repo"
+	"archdoc.dev/internal/repotest"
 )
 
 // now is a fixed date so that rules comparing against today are stable.

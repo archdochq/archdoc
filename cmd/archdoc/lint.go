@@ -3,7 +3,7 @@ package main
 import (
 	"time"
 
-	"github.com/archdochq/archdoc/internal/lint"
+	"archdoc.dev/internal/lint"
 	"github.com/spf13/cobra"
 )
 

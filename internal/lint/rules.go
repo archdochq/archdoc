@@ -8,7 +8,7 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/archdochq/archdoc/internal/repo"
+	"archdoc.dev/internal/repo"
 )
 
 // report collects the findings of one rule. Every rule builds one, records

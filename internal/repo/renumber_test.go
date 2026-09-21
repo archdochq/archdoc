@@ -6,8 +6,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/archdochq/archdoc/internal/repo"
-	"github.com/archdochq/archdoc/internal/repotest"
+	"archdoc.dev/internal/repo"
+	"archdoc.dev/internal/repotest"
 )
 
 func draft(id, title string) string {

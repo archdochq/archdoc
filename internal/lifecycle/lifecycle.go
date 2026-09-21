@@ -9,7 +9,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/archdochq/archdoc/internal/repo"
+	"archdoc.dev/internal/repo"
 )
 
 // rationale is appended to a document when it is rejected. Lint reports the

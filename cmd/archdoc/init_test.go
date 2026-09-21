@@ -1,8 +1,8 @@
 package main
 
 import (
-	"github.com/archdochq/archdoc/internal/config"
-	"github.com/archdochq/archdoc/internal/template"
+	"archdoc.dev/internal/config"
+	"archdoc.dev/internal/template"
 	"os"
 	"os/exec"
 	"path/filepath"

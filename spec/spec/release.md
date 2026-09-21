@@ -1,6 +1,6 @@
 ---
 title: Release
-includes: [ADR-0012, ADR-0013, ADR-0015]
+includes: [ADR-0012, ADR-0013, ADR-0015, ADR-0018]
 ---
 
 # Release
@@ -16,6 +16,8 @@ Asset names are fixed by `.goreleaser.yaml` and reconstructed by `archdochq/setu
 The repository's own continuous integration runs `gofmt`, `go vet`, `go test ./...` and `goreleaser check` on push to `main` and on every pull request, and the release workflow runs the test suite before publishing.
 
 The specification under `spec/` is checked by a second workflow, which builds `archdoc` from the commit under test rather than downloading a release. It lints through `archdochq/lint` with no `version` input, which leaves the binary just built on `PATH` in place and annotates each finding on the line that caused it, then runs `archdoc index --check` against the same binary. It carries no version pin.
+
+The module path is `archdoc.dev`, which is not where the code is hosted. `archdoc.dev` serves a `go-import` meta tag naming the GitHub repository, and the Go tool reads it to find the source: it asks for the full package path first and then shorter prefixes, so a tag at the site's root answers for `archdoc.dev/cmd/archdoc` too. Releases made before the path changed declare `github.com/archdochq/archdoc` and are installable only under that path.
 
 ArchDoc is published from the `archdochq` organisation. The repository and the Homebrew tap were published under `ollieread` before that, and neither of those names is reused.
 

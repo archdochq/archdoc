@@ -8,7 +8,7 @@ import (
 	"slices"
 	"testing"
 
-	"github.com/archdochq/archdoc/internal/git"
+	"archdoc.dev/internal/git"
 )
 
 // newRepo makes a real repository in a temporary directory. Identity is set

@@ -10,8 +10,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/archdochq/archdoc/internal/export"
-	"github.com/archdochq/archdoc/internal/repotest"
+	"archdoc.dev/internal/export"
+	"archdoc.dev/internal/repotest"
 )
 
 func rfc(id, title, status, body string) string {

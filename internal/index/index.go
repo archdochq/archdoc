@@ -11,7 +11,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/archdochq/archdoc/internal/repo"
+	"archdoc.dev/internal/repo"
 )
 
 // Generate renders the index for a repository. The output is deterministic:

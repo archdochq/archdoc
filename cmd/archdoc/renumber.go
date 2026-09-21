@@ -5,8 +5,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/archdochq/archdoc/internal/lint"
-	"github.com/archdochq/archdoc/internal/repo"
+	"archdoc.dev/internal/lint"
+	"archdoc.dev/internal/repo"
 	"github.com/spf13/cobra"
 )
 

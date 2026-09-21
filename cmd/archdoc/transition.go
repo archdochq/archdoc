@@ -5,8 +5,8 @@ import (
 	"slices"
 	"time"
 
-	"github.com/archdochq/archdoc/internal/lifecycle"
-	"github.com/archdochq/archdoc/internal/repo"
+	"archdoc.dev/internal/lifecycle"
+	"archdoc.dev/internal/repo"
 	"github.com/spf13/cobra"
 )
 

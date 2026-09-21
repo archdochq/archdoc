@@ -12,8 +12,8 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/archdochq/archdoc/internal/export"
-	"github.com/archdochq/archdoc/internal/repo"
+	"archdoc.dev/internal/export"
+	"archdoc.dev/internal/repo"
 	"github.com/spf13/cobra"
 )
 

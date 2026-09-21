@@ -6,9 +6,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/archdochq/archdoc/internal/lifecycle"
-	"github.com/archdochq/archdoc/internal/repo"
-	"github.com/archdochq/archdoc/internal/repotest"
+	"archdoc.dev/internal/lifecycle"
+	"archdoc.dev/internal/repo"
+	"archdoc.dev/internal/repotest"
 )
 
 var now = time.Date(2026, 9, 11, 0, 0, 0, 0, time.UTC)

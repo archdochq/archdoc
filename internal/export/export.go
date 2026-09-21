@@ -14,7 +14,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/archdochq/archdoc/internal/repo"
+	"archdoc.dev/internal/repo"
 )
 
 // schemePattern matches a URI scheme at the start of a destination, per RFC

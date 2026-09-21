@@ -11,9 +11,9 @@ import (
 	"os"
 	"runtime/debug"
 
-	"github.com/archdochq/archdoc/internal/config"
-	"github.com/archdochq/archdoc/internal/git"
-	"github.com/archdochq/archdoc/internal/repo"
+	"archdoc.dev/internal/config"
+	"archdoc.dev/internal/git"
+	"archdoc.dev/internal/repo"
 	"github.com/charmbracelet/x/term"
 	"github.com/spf13/cobra"
 )
