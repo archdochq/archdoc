@@ -75,22 +75,35 @@ func newInitCommand() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			if _, err := os.Stat(filepath.Join(dir, config.Filename)); err == nil {
-				return fmt.Errorf("%s already exists here", config.Filename)
+			// The configuration belongs at the git repository root, so that
+			// root is the one thing saying where the documents live. Run below
+			// that root, init writes it up there and sets root to the distance
+			// back down, rather than leaving a second configuration nested in
+			// the repository for commands to find by walking up.
+			configDir, prefix := repoLocation(dir)
+			if _, err := os.Stat(filepath.Join(configDir, config.Filename)); err == nil {
+				where := "here"
+				if configDir != dir {
+					where = "at the repository root"
+				}
+				return fmt.Errorf("%s already exists %s", config.Filename, where)
 			}
 
 			if err := applyDefaults(cmd, &settings, dir, &licence, &agents); err != nil {
 				return err
 			}
+			// Joined after the flag was checked on its own spelling, so the
+			// error names what the user typed rather than what it became.
+			settings.Root = path.Join(prefix, settings.Root)
 			// After the prompts, not before: a root typed at the prompt was
 			// checked by nothing, and every check here was otherwise first
 			// reached by loading the archdoc.json that had already been
 			// written, which left a dead configuration behind.
-			settings.Path = filepath.Join(dir, config.Filename)
+			settings.Path = filepath.Join(configDir, config.Filename)
 			if err := config.Validate(&settings); err != nil {
 				return err
 			}
-			files, unpinned, err := plan(dir, settings, licence, agents)
+			files, unpinned, err := plan(configDir, settings, licence, agents)
 			if err != nil {
 				return err
 			}
@@ -257,21 +270,33 @@ func plan(dir string, settings config.Config, licence string, agents bool) (file
 // holding archdoc.json. Outside a repository the current directory serves as
 // both.
 func workflowLocation(dir string) (workflowDir, workingDirectory string) {
+	top, prefix := repoLocation(dir)
+	if prefix == "" {
+		return top, "."
+	}
+	return top, prefix
+}
+
+// repoLocation answers where the git repository root is and how far dir sits
+// below it, as a slash path. Outside a repository there is nothing to anchor
+// to and the directory stands on its own.
+//
+// git is asked where this directory sits inside the repository rather than the
+// answer being computed from two paths obtained different ways. The workflow
+// runs on a checkout, so the value has to be relative to the repository root
+// and nothing else; a local path could never resolve there.
+func repoLocation(dir string) (top, prefix string) {
 	g, err := git.Open(dir)
 	if err != nil {
-		return dir, "."
+		return dir, ""
 	}
-	top, err := g.RepoRoot()
+	top, err = g.RepoRoot()
 	if err != nil {
-		return dir, "."
+		return dir, ""
 	}
-	// git is asked where this directory sits inside the repository rather than
-	// the answer being computed from two paths obtained different ways. The
-	// workflow runs on a checkout, so the value has to be relative to the
-	// repository root and nothing else; a local path could never resolve there.
-	prefix, err := g.Prefix()
-	if err != nil || prefix == "" {
-		return top, "."
+	prefix, err = g.Prefix()
+	if err != nil {
+		return top, ""
 	}
 	return top, filepath.ToSlash(prefix)
 }

@@ -211,7 +211,9 @@ the result can delete content it never read.
 - **The workflow is written at the git repository root**, never under `root`, because GitHub runs
   workflows only from there and writing it elsewhere fails silently: no error, and enforcement simply
   never happens. It carries a `working-directory` pointing back at the directory holding
-  `archdoc.json`, since commands find their configuration by walking up.
+  `archdoc.json`, since commands find their configuration by walking up. `init` writes
+  `archdoc.json` at that same root, so the value is empty for anything it scaffolds and names a
+  path only for repositories scaffolded before it did.
 - **`init` prints every path it writes**, because it can write outside the current directory and that is
   surprising without a record of it.
 - **`README.md`, `PROCESS.md` and `INDEX.md` are not documents** under the discovery rule, so no rule

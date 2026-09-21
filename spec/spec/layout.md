@@ -1,6 +1,6 @@
 ---
 title: Layout
-includes: [RFC-0001]
+includes: [RFC-0001, ADR-0017]
 ---
 
 # Layout
@@ -44,7 +44,7 @@ A specification repository is a directory containing `archdoc.json` and, under `
     └── ref/
 ```
 
-## With `archdoc.json` below the repository root
+## With `archdoc.json` below the repository root, as scaffolded before ADR-0017
 
 ```
 <repo>/
@@ -62,7 +62,7 @@ A specification repository is a directory containing `archdoc.json` and, under `
     └── ref/
 ```
 
-The specification is self-contained under `spec/`, and every command runs below the repository root. The workflow's `working-directory` is the path from that root to the directory holding `archdoc.json`.
+`init` does not write this shape. It writes `archdoc.json` at the git repository root, with `root` naming the path down to the directory it was run in, so the second arrangement above is what running `init` inside `docs/` produces. A repository scaffolded before that keeps this one, and works unchanged: every command finds the configuration by walking up, and the workflow's `working-directory` is the path from the repository root to the directory holding it.
 
 `root` is relative to `archdoc.json` and defaults to `.`. The document directories, `README.md`, `PROCESS.md`, `INDEX.md`, `LICENSE`, `AGENTS.md` and `agents/` are all resolved under it. `root` names the directory holding `archdoc.json` or one below it; an absolute `root`, or one leading outside that directory, is a configuration error. The check is applied to the spelling and again to the resolved path.
 

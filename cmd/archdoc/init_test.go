@@ -107,7 +107,7 @@ func TestInitRefusesToRunTwiceAndWritesNothingOnACollision(t *testing.T) {
 	}
 }
 
-func TestInitPutsTheWorkflowAtTheGitRootWithAWorkingDirectory(t *testing.T) {
+func TestInitWritesTheConfigAtTheRepositoryRoot(t *testing.T) {
 	top := t.TempDir()
 	for _, args := range [][]string{{"init", "-b", "main"}, {"config", "user.email", "t@e.invalid"}, {"config", "user.name", "T"}} {
 		cmd := exec.Command("git", args...)
@@ -125,13 +125,28 @@ func TestInitPutsTheWorkflowAtTheGitRootWithAWorkingDirectory(t *testing.T) {
 		t.Fatalf("init exited %d: %s", code, out)
 	}
 
+	c, err := config.Load(filepath.Join(top, config.Filename))
+	if err != nil {
+		t.Fatalf("the configuration is not at the repository root: %v", err)
+	}
+	if c.Root != "docs" {
+		t.Errorf("root = %q, want docs: it has to name the distance back down", c.Root)
+	}
+	if _, err := os.Stat(filepath.Join(docs, config.Filename)); err == nil {
+		t.Error("a second configuration was left in the directory init ran in")
+	}
+	// The documents still land where init was run, which is what root says.
+	if _, err := os.Stat(filepath.Join(docs, "rfc")); err != nil {
+		t.Errorf("the document directories are not under root: %v", err)
+	}
+
 	// GitHub only runs workflows from the top of the repository.
 	workflow, err := os.ReadFile(filepath.Join(top, ".github", "workflows", "archdoc-lint.yml"))
 	if err != nil {
 		t.Fatalf("the workflow is not at the git root: %v", err)
 	}
-	if !strings.Contains(string(workflow), "working-directory: docs") {
-		t.Errorf("the workflow does not tell archdoc where to run:\n%s", workflow)
+	if strings.Contains(string(workflow), "working-directory") {
+		t.Errorf("the configuration is at the root, so there is nowhere to change to:\n%s", workflow)
 	}
 	if _, err := os.Stat(filepath.Join(docs, ".github")); err == nil {
 		t.Error("a .github directory was also created under the spec directory")
@@ -603,22 +618,38 @@ func TestTheWorkflowNeverNamesAPathOutsideTheRepository(t *testing.T) {
 	}
 }
 
-// TestTheWorkflowRunsInTheConfigDirectory covers the case the value exists for:
-// a specification repository nested inside the code repository it documents, so
-// the workflow sits at the root and archdoc has to run below it.
+// TestTheWorkflowRunsInTheConfigDirectory covers a repository scaffolded
+// before init wrote the configuration at the repository root. The
+// configuration sits below that root with a root of ".", and update has to
+// regenerate a workflow that changes down into it: every command finds its
+// configuration by walking up, and the workflow is the one place that cannot.
 func TestTheWorkflowRunsInTheConfigDirectory(t *testing.T) {
-	root := t.TempDir()
-	if out, err := exec.Command("git", "-C", root, "init").CombinedOutput(); err != nil {
-		t.Fatalf("git init: %v: %s", err, out)
-	}
-	nested := filepath.Join(root, "spec")
-	if err := os.MkdirAll(nested, 0o755); err != nil {
+	// Scaffolded outside a repository, which is the only way to reach this
+	// shape now, then a repository put around it.
+	top := t.TempDir()
+	nested := filepath.Join(top, "spec")
+	if err := os.Mkdir(nested, 0o755); err != nil {
 		t.Fatal(err)
 	}
 	if out, code := run(t, nested, "init", "--name", "T"); code != exitOK {
 		t.Fatalf("init exited %d: %s", code, out)
 	}
-	workflow, err := os.ReadFile(filepath.Join(root, ".github", "workflows", "archdoc-lint.yml"))
+	if out, err := exec.Command("git", "-C", top, "init").CombinedOutput(); err != nil {
+		t.Fatalf("git init: %v: %s", err, out)
+	}
+	c, err := config.Load(filepath.Join(nested, config.Filename))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if c.Root != "." {
+		t.Fatalf("the fixture is not the nested shape: root = %q", c.Root)
+	}
+
+	if out, code := run(t, nested, "update", "--yes"); code != exitOK {
+		t.Fatalf("update exited %d: %s", code, out)
+	}
+
+	workflow, err := os.ReadFile(filepath.Join(top, ".github", "workflows", "archdoc-lint.yml"))
 	if err != nil {
 		t.Fatalf("the workflow was not written at the repository root: %v", err)
 	}
