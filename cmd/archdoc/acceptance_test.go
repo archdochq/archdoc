@@ -9,7 +9,7 @@ import (
 	"testing"
 )
 
-// TestTheDocumentedWorkflowWorksEndToEnd walks the whole journey docs/ARCHDOC.md
+// TestTheDocumentedWorkflowWorksEndToEnd walks the whole journey spec/spec/commands.md
 // describes, in one real git repository, and fails if any step stops working.
 //
 // Every other test in this module pins one rule, one function or one defect.

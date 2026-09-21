@@ -81,7 +81,7 @@ func TestGenerateProtectsTheTableFromTitleContent(t *testing.T) {
 }
 
 func TestStatusRendersBothQualifiers(t *testing.T) {
-	// docs/ARCHDOC.md specifies accepted (backfilled, obsolete); nothing in the
+	// spec/spec/index.md specifies accepted (backfilled, obsolete); nothing in the
 	// fixture produces it, so the comma-joining branch is otherwise untested.
 	got := index.StatusOf("accepted", true, true)
 	if want := "accepted (backfilled, obsolete)"; got != want {

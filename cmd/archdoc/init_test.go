@@ -178,7 +178,7 @@ func TestInitRefusesAnExistingIndex(t *testing.T) {
 }
 
 func TestInitOmitsTheWorkingDirectoryAtTheRoot(t *testing.T) {
-	// docs/ARCHDOC.md: working-directory is "omitted when they are the same".
+	// spec/spec/commands.md: working-directory is "omitted when the two are the same".
 	dir := t.TempDir()
 	if out, code := run(t, dir, "init", "--name", "X"); code != exitOK {
 		t.Fatalf("init exited %d: %s", code, out)
@@ -219,7 +219,7 @@ func TestInitCanBeRetriedAfterAFailedWrite(t *testing.T) {
 }
 
 func TestInitAcceptsNoStrict(t *testing.T) {
-	// docs/ARCHDOC.md documents "--strict / --no-strict". pflag does not synthesise
+	// spec/spec/commands.md documents "--strict / --no-strict". pflag does not synthesise
 	// the negative spelling, so it has to be registered.
 	dir := t.TempDir()
 	out, code := run(t, dir, "init", "--name", "Negative", "--no-strict")
@@ -256,7 +256,7 @@ func TestInitSaysWhenItCannotPinTheWorkflow(t *testing.T) {
 	// The generated file carries "Pinned to the version that scaffolded this
 	// repository... Raise it deliberately" directly above the action's version input, so
 	// when a dev build writes "latest" the artefact asserts something untrue and
-	// nothing said so. Both docs/ARCHDOC.md and docs/DECISIONS.md claimed a warning that
+	// nothing said so. Both the tool specification and docs/DECISIONS.md claimed a warning that
 	// did not exist.
 	dir := t.TempDir()
 

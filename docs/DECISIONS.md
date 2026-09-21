@@ -1,6 +1,6 @@
 # Decisions
 
-Why ArchDoc works the way it does. `ARCHDOC.md` describes what the tool does; this file records the
+Why ArchDoc works the way it does. `spec/spec/` describes what the tool does; this file records the
 choices behind it and the reasoning, including the alternatives that were tried and rejected. Decisions
 about the test suite are in `TESTING.md`. `internal/template/PROCESS.md` is authoritative where any of
 them disagree.

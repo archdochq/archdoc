@@ -36,7 +36,7 @@ func Generate(r *repo.Repo) []byte {
 func section(b *bytes.Buffer, title string, headers []string, rows [][]string) {
 	fmt.Fprintf(b, "\n## %s\n\n", title)
 	row(b, headers)
-	// The separator carries no padding, matching the format in docs/ARCHDOC.md.
+	// The separator carries no padding, matching the format in spec/spec/index.md.
 	fmt.Fprintf(b, "|%s\n", strings.Repeat("---|", len(headers)))
 	for _, cells := range rows {
 		row(b, cells)

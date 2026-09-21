@@ -32,8 +32,8 @@ const workflowPath = ".github/workflows/archdoc-lint.yml"
 //
 // A pseudo-version has to be excluded by name: it is a valid semantic version
 // with a prerelease field, so it passes the tag test, and `go install ...@main`
-// produces one. Local patterns rather than golang.org/x/mod, because docs/ARCHDOC.md
-// closes the dependency list.
+// produces one. Local patterns rather than golang.org/x/mod, because ADR-0005 closes the
+// dependency list.
 func pinnable(version string) bool {
 	return releaseTag.MatchString(version) && !pseudoVersion.MatchString(version)
 }
@@ -102,7 +102,7 @@ func newInitCommand() *cobra.Command {
 	cmd.Flags().StringVar(&settings.Branch, "branch", "", "branch frozen documents are compared against")
 	cmd.Flags().StringVar(&settings.Root, "root", config.DefaultRoot, "directory holding the document directories")
 	cmd.Flags().BoolVar(&settings.Strict, "strict", config.DefaultStrict, "keep the transition graph as PROCESS.md describes it")
-	// pflag has no notion of a negative flag, so the spelling docs/ARCHDOC.md
+	// pflag has no notion of a negative flag, so the spelling spec/spec/commands.md
 	// documents has to be registered as one of its own.
 	cmd.Flags().Bool("no-strict", false, "permit any transition between statuses; the opposite of --strict")
 	cmd.Flags().IntVar(&settings.RefStaleDays, "ref-stale-days", config.DefaultRefStaleDays, "how old a ref's verified date may be")

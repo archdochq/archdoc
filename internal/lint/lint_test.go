@@ -392,7 +392,7 @@ func TestL14ChecksSourcesOnABackfilledDocument(t *testing.T) {
 }
 
 func TestL14ChecksTheRejectionRationale(t *testing.T) {
-	// docs/ARCHDOC.md says the rejection prompt left in place is reported as an empty
+	// spec/spec/lint.md says the rejection prompt left in place is reported as an empty
 	// section: that is the whole mechanism stopping a rejected document from
 	// being frozen with "Why?" as its permanent rationale.
 	got := forRule(t, "lint", "L14")
@@ -834,7 +834,7 @@ func TestL01DoesNotCallAKeyEmptyWhenItCouldNotParseIt(t *testing.T) {
 }
 
 func TestL15RequiresEveryHeadingAfterThePreambleToBeAnEntry(t *testing.T) {
-	// docs/ARCHDOC.md gives L15 four clauses and three were implemented. A page with
+	// spec/spec/lint.md gives L15 four clauses and three were implemented. A page with
 	// an H1 among the entries lints clean while the prose under it is silently
 	// not a term, and that same shape is what made term remove destructive
 	// before the entry extents were fixed.

@@ -656,7 +656,7 @@ func L15(ctx Context) []Finding {
 
 	var rep report
 
-	// Every heading from the first entry onwards must be an entry. docs/ARCHDOC.md
+	// Every heading from the first entry onwards must be an entry. spec/spec/lint.md
 	// says so and nothing checked it: a page with an ordinary H1 among the
 	// entries linted clean while the prose beneath it was silently not a term,
 	// and that is the same shape that used to make `term remove` destructive.

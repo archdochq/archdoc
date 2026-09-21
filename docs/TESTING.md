@@ -1,6 +1,6 @@
 # Testing
 
-How ArchDoc is tested, and why in this shape. `ARCHDOC.md` describes what the tool does and
+How ArchDoc is tested, and why in this shape. `spec/spec/` describes what the tool does and
 `DECISIONS.md` records the choices behind it; this file covers the ones about the test suite.
 
 ## Running them

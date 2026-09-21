@@ -96,7 +96,8 @@ One source, three deliveries, compared byte for byte by a test.
 
 ## Documents
 
-- `docs/ARCHDOC.md` specifies what the tool does.
+- `spec/` is ArchDoc's own specification, written with ArchDoc. `spec/spec/` describes what the
+  tool does, and the RFCs and ADRs beside it record why.
 - `internal/template/PROCESS.md` specifies the process it enforces, and is
   authoritative where the two disagree. It is also the copy shipped inside the
   binary and written by `archdoc init`.
