@@ -275,3 +275,38 @@ func TestOutIgnoresAPathLeavingTheDirectory(t *testing.T) {
 		t.Errorf("a path leaving the directory was followed and the file removed: %v", err)
 	}
 }
+
+// TestOutRefusesToWriteThroughASymbolicLink covers the defect archdoc index
+// already had. An export tree is a directory a repository commonly commits, so
+// a symlink committed into it followed the write out of the tree and onto any
+// file the user could write, while the command reported the path inside it.
+func TestOutRefusesToWriteThroughASymbolicLink(t *testing.T) {
+	dir := t.TempDir()
+	if out, code := run(t, dir, "init", "--name", "T"); code != exitOK {
+		t.Fatalf("init exited %d: %s", code, out)
+	}
+	target := filepath.Join(dir, "dist")
+	if err := os.MkdirAll(target, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	precious := filepath.Join(dir, "precious.txt")
+	const content = "content the user wrote\n"
+	if err := os.WriteFile(precious, []byte(content), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(precious, filepath.Join(target, "index.json")); err != nil {
+		t.Fatal(err)
+	}
+
+	out, code := run(t, dir, "export", "--out", target)
+	if code == exitOK {
+		t.Errorf("export wrote through a symbolic link and reported success:\n%s", out)
+	}
+	got, err := os.ReadFile(precious)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(got) != content {
+		t.Errorf("the file the link pointed at was overwritten:\n%s", got)
+	}
+}

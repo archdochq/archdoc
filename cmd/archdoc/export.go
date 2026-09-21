@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -89,12 +90,18 @@ func writeTree(cmd *cobra.Command, r *repo.Repo, dir string, opts export.Options
 		if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
 			return err
 		}
-		f, err := os.Create(path)
-		if err != nil {
+		// Through repo.WriteFile, which refuses a symbolic link, rather than
+		// os.Create, which follows one and truncates whatever is on the other
+		// end. An export tree is a directory a repository commonly commits, so
+		// a symlink committed into it redirected this onto any file the user
+		// could write while the command reported a path inside the tree. That
+		// is the defect archdoc index had, and every other writer comes
+		// through here for the same reason.
+		var buf bytes.Buffer
+		if err := encode(&buf, v); err != nil {
 			return err
 		}
-		defer f.Close()
-		if err := encode(f, v); err != nil {
+		if err := repo.WriteFile(path, buf.Bytes(), rel); err != nil {
 			return err
 		}
 		written = append(written, rel)
