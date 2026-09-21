@@ -36,9 +36,6 @@ jobs:
       # installs nothing: the commit still lints itself. What it adds is an
       # annotation on the line of the document that caused each finding.
       - uses: archdochq/lint@v1
-        with:
-          path: spec
 
       - name: Check the index is current
-        working-directory: spec
         run: archdoc index --check
