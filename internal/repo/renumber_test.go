@@ -22,7 +22,9 @@ func accepted(id, title string, depends string) string {
 		"# " + id + ": " + title + "\n\n## Abstract\n\nWords.\n"
 }
 
-func accepted2(id, title, depends string) string {
+// draftDepending is a draft that rests on another document, which is what the
+// rename has to follow. It was called accepted2 and builds nothing of the sort.
+func draftDepending(id, title, depends string) string {
 	return "---\nid: " + id + "\ntitle: " + title + "\nstatus: draft\n" +
 		"created: 2026-01-01\ndecided:\ndepends: [" + depends + "]\nupdates: []\nobsoletes: []\n---\n\n" +
 		"# " + id + ": " + title + "\n\n## Abstract\n\nWords.\n"
@@ -150,7 +152,7 @@ func TestRenumberTakesTheNextFreeNumber(t *testing.T) {
 func TestRenumberUpdatesReferencesInEditableDocuments(t *testing.T) {
 	r := repotest.New(t, map[string]string{
 		"rfc/0001-base.md":  draft("RFC-0001", "Base"),
-		"rfc/0002-later.md": accepted2("RFC-0002", "Later", "RFC-0001"),
+		"rfc/0002-later.md": draftDepending("RFC-0002", "Later", "RFC-0001"),
 		"spec/thing.md":     "---\ntitle: Thing\nincludes: [RFC-0001]\n---\n\n# Thing\n\nWords.\n",
 	})
 	if _, err := repo.Renumber(r, "RFC-0001", "RFC-0009", nothingFrozen); err != nil {
