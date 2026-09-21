@@ -96,7 +96,7 @@ func newInitCommand() *cobra.Command {
 			}
 			if unpinned {
 				fmt.Fprintf(cmd.ErrOrStderr(),
-					"%s is not a published release, so the workflow is set to ARCHDOC_VERSION: latest rather than pinned; pin it before relying on it\n", resolveVersion())
+					"%s is not a published release, so the workflow is set to version: latest rather than pinned; pin it before relying on it\n", resolveVersion())
 			}
 			return write(cmd, files)
 		},

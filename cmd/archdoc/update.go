@@ -34,7 +34,7 @@ func newUpdateCommand() *cobra.Command {
 			"scaffolded by an older version carries older copies, including any that were wrong.\n\n" +
 			"Nothing the repository owns is touched: AGENTS.md, README.md, archdoc.json, LICENSE and " +
 			"every document. agents/ is refreshed but never created; archdoc agents installs it.\n\n" +
-			"Regenerating the workflow moves the ARCHDOC_VERSION pin to the binary running now, which " +
+			"Regenerating the workflow moves the version pin to the binary running now, which " +
 			"changes the ArchDoc your CI uses. The diff shows it.",
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {

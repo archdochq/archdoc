@@ -9,13 +9,13 @@ Tagged versions build with goreleaser for linux, darwin and windows on amd64 and
 
 `archdoc --version` prints the tag. The version resolves in order: the ldflag goreleaser sets at build time; the module version from `runtime/debug.ReadBuildInfo`, which `go install ...@version` and `@latest` populate; `dev`.
 
-`init` records the resolved version in the generated workflow as `ARCHDOC_VERSION`. A version that is not a release tag, including `dev` and a pseudo-version, is written as `latest` with a warning that the workflow is unpinned. The workflow downloads `archdoc_<version>_linux_amd64.tar.gz` and `checksums.txt` from the release into a temporary directory, verifies the archive against the checksums, and installs the binary. With `latest`, the tag is read from the redirect of the releases page's `latest` URL.
+`init` records the resolved version in the generated workflow as the `version` input of `archdochq/lint`. A version that is not a release tag, including `dev` and a pseudo-version in any of the three shapes Go produces, is written as `latest` with a warning that the workflow is unpinned. `archdochq/setup` downloads the archive for the runner's platform and `checksums.txt` from the release into a temporary directory, verifies the archive against the checksums, and puts the binary on `PATH`. With `latest`, the tag is read from the redirect of the releases page's `latest` URL.
 
 Asset names are fixed by `.goreleaser.yaml` and reconstructed by `archdochq/setup`, which the scaffolded workflow reaches through `archdochq/lint`. A test renders the archive name, the archive format, the checksum filename and the binary name from that file and compares them against the names the action expects. The action's own repository checks the other side, by downloading a real release on every run.
 
 The repository's own continuous integration runs `gofmt`, `go vet`, `go test ./...` and `goreleaser check` on push to `main` and on every pull request, and the release workflow runs the test suite before publishing.
 
-The specification under `spec/` is checked by a second workflow, which builds `archdoc` from the commit under test rather than downloading a release, then runs `archdoc lint` and `archdoc index --check` against it. It carries no `ARCHDOC_VERSION`.
+The specification under `spec/` is checked by a second workflow, which builds `archdoc` from the commit under test rather than downloading a release, then runs `archdoc lint` and `archdoc index --check` against it. It carries no version pin.
 
 ArchDoc is published from the `archdochq` organisation. The repository and the Homebrew tap were published under `ollieread` before that, and neither of those names is reused.
 
