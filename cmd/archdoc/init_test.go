@@ -147,10 +147,10 @@ func TestInitPinsTheWorkflowToAVersion(t *testing.T) {
 	workflow, _ := os.ReadFile(filepath.Join(dir, ".github", "workflows", "archdoc-lint.yml"))
 	// A dev build has no release to pin to, so it writes latest rather than a
 	// tag that does not exist.
-	if !strings.Contains(string(workflow), "ARCHDOC_VERSION: latest") {
+	if !strings.Contains(string(workflow), "version: latest") {
 		t.Errorf("a dev build should pin latest:\n%s", workflow)
 	}
-	for _, want := range []string{"archdoc lint", "archdoc index --check", "checksums.txt"} {
+	for _, want := range []string{"archdochq/lint@v1", "archdoc index --check"} {
 		if !strings.Contains(string(workflow), want) {
 			t.Errorf("the workflow is missing %q:\n%s", want, workflow)
 		}
@@ -191,7 +191,7 @@ func TestInitOmitsTheWorkingDirectoryAtTheRoot(t *testing.T) {
 	if strings.Contains(string(workflow), "working-directory: .") {
 		t.Errorf("the key should be omitted when archdoc.json is at the root:\n%s", workflow)
 	}
-	if !strings.Contains(string(workflow), "run: archdoc lint") {
+	if !strings.Contains(string(workflow), "archdochq/lint@v1") {
 		t.Errorf("the workflow lost its steps:\n%s", workflow)
 	}
 }
@@ -254,7 +254,7 @@ func TestInitRefusesBothSpellingsAtOnce(t *testing.T) {
 
 func TestInitSaysWhenItCannotPinTheWorkflow(t *testing.T) {
 	// The generated file carries "Pinned to the version that scaffolded this
-	// repository... Raise it deliberately" directly above ARCHDOC_VERSION, so
+	// repository... Raise it deliberately" directly above the action's version input, so
 	// when a dev build writes "latest" the artefact asserts something untrue and
 	// nothing said so. Both docs/ARCHDOC.md and docs/DECISIONS.md claimed a warning that
 	// did not exist.
@@ -269,7 +269,7 @@ func TestInitSaysWhenItCannotPinTheWorkflow(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(string(workflow), "ARCHDOC_VERSION: latest") {
+	if !strings.Contains(string(workflow), "version: latest") {
 		t.Skip("this build reports a real version, so there is nothing to warn about")
 	}
 	if !strings.Contains(out, "latest") {

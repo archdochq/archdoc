@@ -31,7 +31,7 @@ jobs:
         run: go test ./...
 
       # Publishes archdoc_<version>_<os>_<arch> archives and checksums.txt. The
-      # scaffolded lint workflow reconstructs those exact names to download and
+      # archdochq/setup reconstructs those exact names to download and
       # verify the binary, so renaming either side breaks every existing
       # repository. release_test.go pins the agreement.
       - uses: goreleaser/goreleaser-action@v7

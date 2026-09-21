@@ -39,7 +39,7 @@ func TestUpdateRefreshesWhatArchdocGenerates(t *testing.T) {
 		t.Fatal(err)
 	}
 	if err := os.WriteFile(workflow, []byte(strings.Replace(string(broken),
-		"run: archdoc lint", "working-directory: ../../../somewhere/local\n        run: archdoc lint", 1)), 0o644); err != nil {
+		"run: archdoc index --check", "working-directory: ../../../somewhere/local\n        run: archdoc index --check", 1)), 0o644); err != nil {
 		t.Fatal(err)
 	}
 
@@ -222,8 +222,8 @@ func TestUpdateKeepsThePinWhenItHasNothingBetter(t *testing.T) {
 	}
 	// A repository pinned to a real release, with something else about the
 	// workflow out of date so there is a reason to regenerate it.
-	pinned := strings.ReplaceAll(string(body), "ARCHDOC_VERSION: latest", "ARCHDOC_VERSION: v9.9.9")
-	pinned = strings.Replace(pinned, "run: archdoc lint", "working-directory: ../../../local/path\n        run: archdoc lint", 1)
+	pinned := strings.ReplaceAll(string(body), "version: latest", "version: v9.9.9")
+	pinned = strings.Replace(pinned, "run: archdoc index --check", "working-directory: ../../../local/path\n        run: archdoc index --check", 1)
 	if err := os.WriteFile(workflow, []byte(pinned), 0o644); err != nil {
 		t.Fatal(err)
 	}
@@ -236,7 +236,7 @@ func TestUpdateKeepsThePinWhenItHasNothingBetter(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(string(got), "ARCHDOC_VERSION: v9.9.9") {
+	if !strings.Contains(string(got), "version: v9.9.9") {
 		t.Errorf("update changed the version pin:\n%s", got)
 	}
 	if strings.Contains(string(got), "local/path") {
@@ -263,7 +263,7 @@ func TestUpdateRaisesThePinToTheRunningRelease(t *testing.T) {
 		t.Fatal(err)
 	}
 	if err := os.WriteFile(workflow, []byte(strings.ReplaceAll(string(body),
-		"ARCHDOC_VERSION: v9.9.9", "ARCHDOC_VERSION: v0.0.1")), 0o644); err != nil {
+		"version: v9.9.9", "version: v0.0.1")), 0o644); err != nil {
 		t.Fatal(err)
 	}
 
@@ -275,10 +275,10 @@ func TestUpdateRaisesThePinToTheRunningRelease(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(string(got), "ARCHDOC_VERSION: v9.9.9") {
+	if !strings.Contains(string(got), "version: v9.9.9") {
 		t.Errorf("the pin was not raised to the running release:\n%s", got)
 	}
-	if strings.Contains(string(got), "ARCHDOC_VERSION: v0.0.1") {
+	if strings.Contains(string(got), "version: v0.0.1") {
 		t.Error("the old pin survived")
 	}
 }

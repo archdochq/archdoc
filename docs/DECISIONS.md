@@ -343,7 +343,7 @@ the result can delete content it never read.
   `go install ...@main` reports, names an asset that can never be published, so the workflow is written
   as `latest` and the command says so. Testing for the literal string `dev` alone wrote a workflow whose
   first CI run could only fail.
-- **The workflow verifies its download against the published checksums**, and downloads into a temporary
+- **The download is verified against the published checksums**, and downloads into a temporary
   directory rather than the checkout it is about to lint.
 - **The asset names in `.goreleaser.yaml` and the generated workflow are a contract**, because every
   scaffolded repository is pinned to the release it was written for. Both sides are resolved from their

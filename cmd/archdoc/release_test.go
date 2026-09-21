@@ -7,17 +7,25 @@ import (
 	"testing"
 )
 
-// The generated workflow downloads a named asset from a release that
-// .goreleaser.yaml produces, and every scaffolded repository is pinned to the
-// release it was written for. So the two names are a contract, and a rename on
-// either side breaks repositories already in the wild.
+// The archive and checksum names .goreleaser.yaml produces are a contract with
+// archdochq/setup, which builds them from the runner's platform and downloads
+// them. A rename here breaks that action, and through it every repository whose
+// scaffolded workflow uses it.
 //
-// docs/DECISIONS.md recorded that nothing could verify this until a real release
-// existed. That was wrong: both names are static text in this repository.
+// Both sides of that contract used to be static text in this repository, when
+// the generated workflow reconstructed the names itself. One side now lives in
+// another repository, so what follows pins the names that action expects as
+// literals. The other side is checked by that repository's own CI, which
+// downloads a real release on every run, so a break there is caught after a
+// release rather than before one.
 
+const goreleaserConfig = "../../.goreleaser.yaml"
+
+// What archdochq/setup builds, for the one platform this can render.
 const (
-	goreleaserConfig = "../../.goreleaser.yaml"
-	workflowTemplate = "../../internal/template/archdoc-lint.yml"
+	setupArchive  = "archdoc_{Version}_linux_amd64.tar.gz"
+	setupChecksum = "checksums.txt"
+	setupBinary   = "archdoc"
 )
 
 func read(t *testing.T, path string) string {
@@ -44,13 +52,10 @@ func scalar(t *testing.T, config, key string, indented bool) string {
 	return strings.Trim(m[1], `"'`)
 }
 
-func TestTheWorkflowAndGoreleaserAgreeOnAssetNames(t *testing.T) {
-	// Both sides are resolved from their own file and then compared. The
-	// previous version substituted the literal "archdoc" into the workflow's
-	// filename and never read project_name at all, which made it exactly
-	// backwards: renaming the project alone passed, and renaming both sides
-	// together, which keeps the contract, failed.
-	config, workflow := read(t, goreleaserConfig), read(t, workflowTemplate)
+func TestGoreleaserPublishesTheNamesSetupDownloads(t *testing.T) {
+	// Rendered from the config's own template rather than spelled out again,
+	// so renaming the project fails here rather than passing quietly.
+	config := read(t, goreleaserConfig)
 
 	project := scalar(t, config, "project_name", false)
 	binary := scalar(t, config, "binary", true)
@@ -59,67 +64,38 @@ func TestTheWorkflowAndGoreleaserAgreeOnAssetNames(t *testing.T) {
 	if template == nil {
 		t.Fatal("no archive name_template in .goreleaser.yaml")
 	}
-	format := scalar(t, config, "formats", true)
-	format = strings.Trim(format, "[],")
+	format := strings.Trim(scalar(t, config, "formats", true), "[],")
 
-	// The filename goreleaser would write for the platform the workflow asks
-	// for, rendered from the config's own template.
-	want := strings.NewReplacer(
+	got := strings.NewReplacer(
 		"{{ .ProjectName }}", project,
 		"{{ .Version }}", "{Version}",
 		"{{ .Os }}", "linux",
 		"{{ .Arch }}", "amd64",
 	).Replace(template[1]) + "." + format
-	if strings.Contains(want, "{{") {
+	if strings.Contains(got, "{{") {
 		t.Fatalf("name_template uses a field this test does not render: %q", template[1])
 	}
-
-	// The filename the workflow builds, with only its shell expansion reduced.
-	archive := regexp.MustCompile(`archive="([^"]+)"`).FindStringSubmatch(workflow)
-	if archive == nil {
-		t.Fatal("the workflow does not build an archive name")
+	if got != setupArchive {
+		t.Errorf("goreleaser publishes %q but archdochq/setup downloads %q", got, setupArchive)
 	}
-	if got := strings.ReplaceAll(archive[1], "${tag#v}", "{Version}"); got != want {
-		t.Errorf("the workflow downloads %q but goreleaser publishes %q", got, want)
-	}
-
-	// And the binary inside it, which the workflow extracts and installs by
-	// name. The name is captured and compared, not matched as a prefix:
-	// "archdoc" is a substring of "archdoc-cli", so a Contains check passes on
-	// a rename that breaks the install step.
-	for _, step := range []struct {
-		what    string
-		pattern *regexp.Regexp
-	}{
-		{"extracts", regexp.MustCompile(`tar -xzf "\$archive" (\S+)`)},
-		{"installs", regexp.MustCompile(`install -m 0755 (\S+) /usr/local/bin/(\S+)`)},
-	} {
-		m := step.pattern.FindStringSubmatch(workflow)
-		if m == nil {
-			t.Errorf("the workflow no longer %s the binary", step.what)
-			continue
-		}
-		for _, got := range m[1:] {
-			if got != binary {
-				t.Errorf("the workflow %s %q, but goreleaser builds %q", step.what, got, binary)
-			}
-		}
+	if binary != setupBinary {
+		t.Errorf("goreleaser builds %q but archdochq/setup extracts %q", binary, setupBinary)
 	}
 }
 
-func TestTheWorkflowDownloadsTheChecksumFileGoreleaserWrites(t *testing.T) {
-	config, workflow := read(t, goreleaserConfig), read(t, workflowTemplate)
+func TestGoreleaserWritesTheChecksumFileSetupDownloads(t *testing.T) {
+	config := read(t, goreleaserConfig)
 
 	checksum := regexp.MustCompile(`checksum:\s*(?:#[^\n]*\n\s*)*name_template:\s*(\S+)`).FindStringSubmatch(config)
 	if checksum == nil {
 		t.Fatal("no checksum name_template in .goreleaser.yaml")
 	}
 	name := strings.Trim(checksum[1], `"'`)
-	if !strings.Contains(workflow, name) {
-		t.Errorf("goreleaser writes %q but the workflow does not download it", name)
-	}
 	if strings.Contains(name, "{{") {
-		t.Errorf("checksum name_template = %q; the workflow needs a fixed name", name)
+		t.Errorf("checksum name_template = %q; archdochq/setup needs a fixed name", name)
+	}
+	if name != setupChecksum {
+		t.Errorf("goreleaser writes %q but archdochq/setup downloads %q", name, setupChecksum)
 	}
 }
 

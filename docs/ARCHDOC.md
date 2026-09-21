@@ -189,7 +189,7 @@ Writes `archdoc.json` in the current directory; `README.md`, `PROCESS.md`, `INDE
 
 `README.md` is short: the project name, one sentence per document type, and a link to PROCESS.md.
 
-`archdoc-lint.yml` runs on push and pull request, downloads the `archdoc` binary at the version that ran `init`, and runs `archdoc lint` then `archdoc index --check`. Its `working-directory` is the path from the git repository root to the directory holding `archdoc.json`, omitted when they are the same, because commands locate `archdoc.json` by walking up.
+`archdoc-lint.yml` runs on push and pull request. It checks out the full history, uses `archdochq/lint` pinned to the version that ran `init`, and then runs `archdoc index --check`. The action installs `archdoc`, leaves it on `PATH`, and turns each finding into an annotation against the document that caused it.
 
 ### `archdoc new <rfc|adr|ref> <title>`
 
@@ -419,4 +419,4 @@ Tagged versions build with goreleaser for linux, darwin and windows on amd64 and
 
 The version resolves in order: the ldflag goreleaser sets at build time; failing that the module version from `runtime/debug.ReadBuildInfo`, which is populated for `go install ...@version` and for `@latest`; failing that `dev`. `init` records the resolved version in the generated `archdoc-lint.yml` so a repository pins the tool that scaffolded it. When it resolves to `dev`, `init` writes `latest` instead and warns that the workflow is unpinned: a workflow that works unpinned is better than one pinned to a release that does not exist.
 
-The workflow downloads the release asset and verifies it against the published checksums file. Asset names are fixed by `.goreleaser.yaml`; the two must agree. The agreement is tested: the archive name, the archive format, the checksum filename and the binary's name are each resolved from `.goreleaser.yaml` and compared against what the workflow builds, so a rename of one side alone fails the suite and a coordinated rename of both does not.
+`archdochq/setup`, which `archdochq/lint` wraps, downloads the release asset and verifies it against the published checksums file. Asset names are fixed by `.goreleaser.yaml`, and that action reconstructs them from the runner's platform, so a rename on either side breaks it and through it every scaffolded repository. Only one side of that agreement is in this repository now, so a test pins the names the action expects as literals; the other side is checked by that action's own CI, which downloads a real release on every run.

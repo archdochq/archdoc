@@ -11,7 +11,7 @@ Tagged versions build with goreleaser for linux, darwin and windows on amd64 and
 
 `init` records the resolved version in the generated workflow as `ARCHDOC_VERSION`. A version that is not a release tag, including `dev` and a pseudo-version, is written as `latest` with a warning that the workflow is unpinned. The workflow downloads `archdoc_<version>_linux_amd64.tar.gz` and `checksums.txt` from the release into a temporary directory, verifies the archive against the checksums, and installs the binary. With `latest`, the tag is read from the redirect of the releases page's `latest` URL.
 
-Asset names are fixed by `.goreleaser.yaml`. A test resolves the archive name, the archive format, the checksum filename and the binary name from that file and from the generated workflow independently and compares them.
+Asset names are fixed by `.goreleaser.yaml` and reconstructed by `archdochq/setup`, which the scaffolded workflow reaches through `archdochq/lint`. A test renders the archive name, the archive format, the checksum filename and the binary name from that file and compares them against the names the action expects. The action's own repository checks the other side, by downloading a real release on every run.
 
 The repository's own continuous integration runs `gofmt`, `go vet`, `go test ./...` and `goreleaser check` on push to `main` and on every pull request, and the release workflow runs the test suite before publishing.
 

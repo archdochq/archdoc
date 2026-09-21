@@ -23,44 +23,15 @@ jobs:
 
       # Pinned to the version that scaffolded this repository, so the rules it
       # is held to do not change underneath it. Raise it deliberately.
-      - name: Install ArchDoc {{ .Version }}
-        env:
-          ARCHDOC_VERSION: {{ .Version }}
-        run: |
-          set -euo pipefail
-          if [ "$ARCHDOC_VERSION" = "latest" ]; then
-            base="https://github.com/archdochq/archdoc/releases/latest/download"
-            tag="$(curl -fsSL -o /dev/null -w '%{url_effective}' \
-              https://github.com/archdochq/archdoc/releases/latest | sed 's#.*/tag/##')"
-          else
-            base="https://github.com/archdochq/archdoc/releases/download/$ARCHDOC_VERSION"
-            tag="$ARCHDOC_VERSION"
-          fi
-          archive="archdoc_${tag#v}_linux_amd64.tar.gz"
-
-          # Downloaded outside the checkout. curl -O writes into the working
-          # directory, which is the tree actions/checkout just populated, and it
-          # opens with fopen("wb"), which writes through an existing symlink: a
-          # committed symlink named after the archive would have redirected it.
-          tmp="$(mktemp -d)"
-          cd "$tmp"
-
-          curl -fsSL -O "$base/$archive"
-          curl -fsSL -O "$base/checksums.txt"
-          # The binary is about to run over the repository, so check it is the
-          # one the release published.
-          grep " $archive\$" checksums.txt | sha256sum -c -
-
-          tar -xzf "$archive" archdoc
-          install -m 0755 archdoc /usr/local/bin/archdoc
-          cd - >/dev/null
-          rm -rf "$tmp"
-
-      - name: Lint
+      #
+      # The action reports each finding as an annotation on the line of the
+      # document that caused it, and leaves archdoc on PATH for the step below.
+      - uses: archdochq/lint@v1
+        with:
+          version: {{ .Version }}
 {{- if ne .WorkingDirectory "." }}
-        working-directory: {{ yaml .WorkingDirectory }}
+          path: {{ yaml .WorkingDirectory }}
 {{- end }}
-        run: archdoc lint
 
       - name: Check the index is current
 {{- if ne .WorkingDirectory "." }}
