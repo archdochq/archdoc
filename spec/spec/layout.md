@@ -44,6 +44,26 @@ A specification repository is a directory containing `archdoc.json` and, under `
     └── ref/
 ```
 
+## With `archdoc.json` below the repository root
+
+```
+<repo>/
+├── .github/workflows/archdoc-lint.yml    working-directory: spec
+├── README.md             the code repository's own
+└── spec/
+    ├── archdoc.json      root: "."
+    ├── README.md
+    ├── PROCESS.md
+    ├── INDEX.md          generated
+    ├── rfc/
+    ├── adr/
+    ├── spec/
+    │   └── glossary.md
+    └── ref/
+```
+
+The specification is self-contained under `spec/`, and every command runs below the repository root. The workflow's `working-directory` is the path from that root to the directory holding `archdoc.json`.
+
 `root` is relative to `archdoc.json` and defaults to `.`. The document directories, `README.md`, `PROCESS.md`, `INDEX.md`, `LICENSE`, `AGENTS.md` and `agents/` are all resolved under it. `root` names the directory holding `archdoc.json` or one below it; an absolute `root`, or one leading outside that directory, is a configuration error. The check is applied to the spelling and again to the resolved path.
 
 `.github/workflows/archdoc-lint.yml` is written at the root of the git repository, never under `root`. GitHub runs workflows from there only. Where there is no git repository it is written in the current directory.
