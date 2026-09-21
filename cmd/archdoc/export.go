@@ -75,12 +75,10 @@ func writeTree(cmd *cobra.Command, r *repo.Repo, dir string, opts export.Options
 		// through to the documents the per-document files are rendered from
 		// below, which is how --out came to emit every section body empty
 		// however it was invoked.
-		contents := make([]export.Entry, len(d.Contents))
-		for j, e := range d.Contents {
-			e.Body = nil
-			contents[j] = e
+		d.Contents = slices.Clone(d.Contents)
+		for j := range d.Contents {
+			d.Contents[j].Body = nil
 		}
-		d.Contents = contents
 		index.Documents[i] = d
 	}
 	index.Glossary = nil

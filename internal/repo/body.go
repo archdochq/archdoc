@@ -50,7 +50,7 @@ var (
 	closingHashes   = regexp.MustCompile(`[ \t]+#+$`)
 	wikiLinkPattern = regexp.MustCompile(`\[\[([^\[\]]+)\]\]`)
 	// Two destination forms: <...>, which may hold spaces, and a bare run.
-	mdLinkPattern = regexp.MustCompile(`\[([^\]]*)\]\(\s*(?:<([^<>\n]*)>|([^)\s]+))[^)]*\)`)
+	mdLinkPattern = regexp.MustCompile(`(!?)\[([^\]]*)\]\(\s*(?:<([^<>\n]*)>|([^)\s]+))[^)]*\)`)
 	// A link reference definition, whose destination is a link target like any
 	// other and was checked by nothing.
 	//
@@ -703,16 +703,16 @@ func (d *Document) Links() []Link {
 	var links []Link
 	opensBlock := true
 	for line := range d.Prose() {
-		for _, m := range mdLinkPattern.FindAllStringSubmatchIndex(line.Masked, -1) {
-			// The pattern starts at the "[", so an image is recognised by the
-			// "!" in front of it rather than by the match itself.
+		for _, m := range mdLinkPattern.FindAllStringSubmatch(line.Masked, -1) {
+			// The pattern captures the leading "!" so that an image is told
+			// from a link by the match itself.
 			form := LinkInline
-			if m[0] > 0 && line.Masked[m[0]-1] == '!' {
+			if m[1] == "!" {
 				form = LinkImage
 			}
 			links = append(links, Link{
-				Text:   group(line.Masked, m, 1),
-				Target: destination(group(line.Masked, m, 2), group(line.Masked, m, 3)),
+				Text:   m[2],
+				Target: destination(m[3], m[4]),
 				Type:   form,
 				Line:   line.Number,
 			})
@@ -731,15 +731,6 @@ func (d *Document) Links() []Link {
 		opensBlock = strings.TrimSpace(line.Masked) == ""
 	}
 	return links
-}
-
-// group is submatch n of an index-form match, or the empty string where that
-// group did not participate.
-func group(s string, m []int, n int) string {
-	if 2*n+1 >= len(m) || m[2*n] < 0 {
-		return ""
-	}
-	return s[m[2*n]:m[2*n+1]]
 }
 
 // destination is a link's target, from whichever of the two forms matched, with
