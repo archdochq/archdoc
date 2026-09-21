@@ -244,6 +244,42 @@ func TestUpdateKeepsThePinWhenItHasNothingBetter(t *testing.T) {
 	}
 }
 
+// TestUpdateCarriesThePinAcrossTheWorkflowRename covers the upgrade every
+// repository scaffolded before the workflow changed has to take. The pin was
+// an ARCHDOC_VERSION env var while the workflow installed archdoc itself, and
+// is the version input of archdochq/lint now. Reading only the new name finds
+// nothing in the old workflow and writes latest over a real pin, unpinning the
+// repository under the guise of updating it.
+func TestUpdateCarriesThePinAcrossTheWorkflowRename(t *testing.T) {
+	dir := scaffolded(t)
+	workflow := filepath.Join(dir, ".github", "workflows", "archdoc-lint.yml")
+	body, err := os.ReadFile(workflow)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Standing in for the old workflow, where only the pin's spelling matters
+	// to what is read back off the disk.
+	old := strings.Replace(string(body), "version: latest", "ARCHDOC_VERSION: v9.9.9", 1)
+	if old == string(body) {
+		t.Fatal("the scaffolded workflow no longer carries an unpinned version input")
+	}
+	if err := os.WriteFile(workflow, []byte(old), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	if out, code := run(t, dir, "update", "--yes"); code != exitOK {
+		t.Fatalf("update exited %d: %s", code, out)
+	}
+
+	got, err := os.ReadFile(workflow)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(got), "version: v9.9.9") {
+		t.Errorf("the pin was not carried across the rename:\n%s", got)
+	}
+}
+
 // TestUpdateRaisesThePinToTheRunningRelease is the other half, and the reason
 // the command exists.
 //

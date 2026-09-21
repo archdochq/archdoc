@@ -171,11 +171,15 @@ func pinnedVersion(path string) string {
 	}
 	// The pin is the version input of the action the workflow uses. It was an
 	// ARCHDOC_VERSION env var while the workflow installed archdoc itself, and
-	// reading the old name after the workflow changed would have found nothing
-	// and quietly rewritten a pinned repository to latest.
+	// both names are read: a repository scaffolded before the workflow changed
+	// still carries the old one, and reading only the new name would find
+	// nothing there and quietly rewrite a pinned repository to latest.
 	for _, line := range strings.Split(string(body), "\n") {
-		if after, ok := strings.CutPrefix(strings.TrimSpace(line), "version:"); ok {
-			return strings.TrimSpace(after)
+		line = strings.TrimSpace(line)
+		for _, key := range []string{"version:", "ARCHDOC_VERSION:"} {
+			if after, ok := strings.CutPrefix(line, key); ok {
+				return strings.TrimSpace(after)
+			}
 		}
 	}
 	return ""

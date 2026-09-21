@@ -61,7 +61,7 @@ Regenerates `PROCESS.md`, the workflow, and the guides under `agents/` where tha
 
 `AGENTS.md`, `README.md`, `archdoc.json`, `LICENSE`, `INDEX.md` and every document are not touched. `agents/` is refreshed and never created; where it is absent the command says that `archdoc agents` installs it.
 
-The workflow's `version` pin is raised to the version doing the update. It is kept as it is only when the running binary's version is not a published release.
+The workflow's `version` pin is raised to the version doing the update. It is kept as it is only when the running binary's version is not a published release. A repository scaffolded before the workflow used `archdochq/lint` names its pin `ARCHDOC_VERSION`, and that spelling is read too, so the pin survives the change.
 
 ## `archdoc agents`
 
