@@ -1,8 +1,11 @@
 name: publish specification
 
+# Not `on: release`. goreleaser creates the release with GITHUB_TOKEN, and
+# GitHub raises no workflow events for anything that token does, so a release
+# trigger here would never fire. release.yml calls this workflow instead, once
+# goreleaser has succeeded.
 on:
-  release:
-    types: [published]
+  workflow_call:
   workflow_dispatch:
 
 permissions:
@@ -15,14 +18,16 @@ jobs:
     name: Export and publish to archdoc.dev
     runs-on: ubuntu-latest
     steps:
-      # A published release's default ref is the branch the tag was cut from,
-      # not the tag: left unset, this would publish whatever the default
-      # branch has moved to since, not the commit that was released.
-      # workflow_dispatch carries no release payload, so it falls back to
-      # whichever ref the dispatch ran against. Full history for the same
-      # reason as archdoc-lint.yml's checkout, even though export itself
-      # never calls git: both workflows build the same binary from the same
-      # commit, and there is no reason for their checkouts to differ.
+      # Called from release.yml, github.ref is the tag being released, which
+      # is the commit to publish. Dispatched by hand, it is whichever ref the
+      # dispatch ran against. The release payload is read first so that a
+      # release trigger, if one is ever added back, names the tag rather than
+      # the branch it was cut from.
+      #
+      # Full history for the same reason as archdoc-lint.yml's checkout, even
+      # though export itself never calls git: both workflows build the same
+      # binary from the same commit, and there is no reason for their
+      # checkouts to differ.
       - uses: actions/checkout@v7
         with:
           fetch-depth: 0
@@ -53,6 +58,7 @@ jobs:
           cat <<EOF > auth.cfg
           header = "Authorization: Bearer $ARCHDOCDEV_TOKEN"
           EOF
+          trap 'rm -f auth.cfg' EXIT
 
           # The token alone selects the project on archdoc.dev; there is no
           # project name or id to send alongside it.
@@ -61,7 +67,6 @@ jobs:
             -H 'Content-Type: application/json' \
             --data-binary @export.json \
             https://archdoc.dev/api/publish)"
-          rm -f auth.cfg
 
           # 202 means the export was stored and queued, not that it rendered:
           # the site processes the snapshot on a queue afterwards, so a green

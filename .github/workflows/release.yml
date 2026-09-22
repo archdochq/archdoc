@@ -42,3 +42,12 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           # Fine-grained token with contents write on archdochq/homebrew-tap.
           HOMEBREW_TAP_GITHUB_TOKEN: ${{ secrets.HOMEBREW_TAP_GITHUB_TOKEN }}
+
+  # The specification is published from the same tag, once the release exists.
+  # It is a separate job calling the workflow that already knows how, rather
+  # than a copy of its steps that could drift from them.
+  publish-spec:
+    name: Publish the specification
+    needs: goreleaser
+    uses: ./.github/workflows/publish-spec.yml
+    secrets: inherit
