@@ -56,9 +56,11 @@ A term carries no status. There is no decision in a definition to record, and no
 
 ### Generation
 
-`archdoc glossary` writes `GLOSSARY.md` from `term/*.md`, and `archdoc glossary --check` fails when it is out of date, matching `archdoc index`. Entries are written in ascending case-insensitive order of `title`.
+`archdoc glossary` writes `GLOSSARY.md` from `term/*.md`, and `archdoc glossary --check` fails when it is out of date, matching `archdoc index`. The scaffolded workflow runs both checks: a stale glossary is not cosmetic, because every link to a term resolves to an anchor on it, so one that has not been regenerated leaves those links pointing at nothing. Entries are written in ascending case-insensitive order of `title`.
 
-Every name in `formerly` gets an anchor in the generated page, so a link written before a rename still resolves. This is what makes rename safe and is not optional.
+Every name in `formerly` gets an anchor in the generated page, written as `<a id="...">` before the term's heading, so a link written before a rename still resolves. This is what makes rename safe and is not optional.
+
+An explicit anchor is not a heading, and anchors were read from headings alone, so L17 would have reported every link to a renamed term and a frozen document holding one could never have been repaired. Anchors are therefore read from explicit `<a id>` and `<a name>` as well. Writing former names as headings instead was rejected: they would read as terms of their own.
 
 ### Links
 
@@ -104,5 +106,7 @@ The export gains `path` and `named_by` on each term and stops emitting the gloss
 None.
 
 ## Changelog
+
+- 2026-09-22: Recorded that reading anchors from explicit `<a id>` is part of this design. Generation writes former names as explicit anchors, and L17 reads anchors from headings alone, so without it every link to a renamed term is reported and one inside a frozen document can never be repaired. Found while building it. Recorded at the same time that the scaffolded workflow checks both generated files, for the same reason.
 
 - 2026-09-22: Resolved the three open questions. `term add` refuses a case-insensitively colliding slug, because `Anchor` lowercases, so two such terms compete for one anchor and the loser's position depends on document order; L15 already refuses the pair, and a case-insensitive filesystem cannot hold both files. A leftover `spec/glossary.md` is reported as a warning. ADR-0014 is left standing rather than superseded: once page level `includes` is gone its exception is unreachable, but the reasoning that made it necessary is what stops the rule returning.
