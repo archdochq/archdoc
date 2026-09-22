@@ -1,6 +1,6 @@
 ---
 title: Links and the glossary
-includes: []
+includes: [RFC-0007]
 ---
 
 # Links and the glossary

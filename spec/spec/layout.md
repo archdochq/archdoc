@@ -1,6 +1,6 @@
 ---
 title: Layout
-includes: [RFC-0001, ADR-0017]
+includes: [RFC-0001, RFC-0007, ADR-0017]
 ---
 
 # Layout

@@ -1,9 +1,9 @@
 ---
 id: RFC-0007
 title: The glossary is a type of its own
-status: proposed
+status: accepted
 created: 2026-09-22
-decided:
+decided: 2026-09-22
 depends: [ADR-0003]
 updates: [RFC-0004, RFC-0006]
 obsoletes: []
@@ -102,8 +102,6 @@ No document in this repository links to the glossary, so no link breaks here. A 
 The export gains `path` and `named_by` on each term and stops emitting the glossary as a document. A consumer reading terms from `documents` rather than `glossary` stops seeing them.
 
 ## Open questions
-
-None.
 
 ## Changelog
 
