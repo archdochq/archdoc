@@ -1,0 +1,73 @@
+name: publish specification
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+
+permissions:
+  # Only reads the checked-out repository and calls an external HTTPS
+  # endpoint; it never pushes, tags, or touches the release itself.
+  contents: read
+
+jobs:
+  publish:
+    name: Export and publish to archdoc.dev
+    runs-on: ubuntu-latest
+    steps:
+      # A published release's default ref is the branch the tag was cut from,
+      # not the tag: left unset, this would publish whatever the default
+      # branch has moved to since, not the commit that was released.
+      # workflow_dispatch carries no release payload, so it falls back to
+      # whichever ref the dispatch ran against. Full history for the same
+      # reason as archdoc-lint.yml's checkout, even though export itself
+      # never calls git: both workflows build the same binary from the same
+      # commit, and there is no reason for their checkouts to differ.
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.release.tag_name || github.ref }}
+
+      # This is ArchDoc's own specification, so it is exported by the binary
+      # built from the commit being released rather than a downloaded
+      # release, for the same reason archdoc-lint.yml builds its own binary
+      # (ADR-0013).
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+      - name: Build archdoc from this commit
+        run: go build -o /usr/local/bin/archdoc ./cmd/archdoc
+
+      - name: Export and publish
+        env:
+          ARCHDOCDEV_TOKEN: ${{ secrets.ARCHDOCDEV_TOKEN }}
+        run: |
+          set -euo pipefail
+
+          archdoc export --commit "$(git rev-parse HEAD)" > export.json
+
+          # The token is written to a curl config file via a heredoc, which
+          # bash expands internally rather than passing on any process's
+          # command line: it never reaches argv (so it can't be read from the
+          # process list) and never appears in a `set -x` trace.
+          cat <<EOF > auth.cfg
+          header = "Authorization: Bearer $ARCHDOCDEV_TOKEN"
+          EOF
+
+          # The token alone selects the project on archdoc.dev; there is no
+          # project name or id to send alongside it.
+          status="$(curl -sS -o response.json -w '%{http_code}' \
+            -K auth.cfg \
+            -H 'Content-Type: application/json' \
+            --data-binary @export.json \
+            https://archdoc.dev/api/publish)"
+          rm -f auth.cfg
+
+          # 202 means the export was stored and queued, not that it rendered:
+          # the site processes the snapshot on a queue afterwards, so a green
+          # job here proves delivery, not a correct specification page.
+          if [ "$status" != "202" ]; then
+            echo "archdoc.dev returned HTTP $status"
+            cat response.json
+            exit 1
+          fi
