@@ -1,7 +1,7 @@
 ---
 title: slug
 formerly: []
-named_by:
+named_by: ADR-0002
 ---
 
 # slug

@@ -1,7 +1,7 @@
 ---
 title: stale
 formerly: []
-named_by:
+named_by: ADR-0003
 ---
 
 # stale

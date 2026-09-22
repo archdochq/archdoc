@@ -1,7 +1,7 @@
 ---
 title: identifier
 formerly: []
-named_by:
+named_by: ADR-0002
 ---
 
 # identifier

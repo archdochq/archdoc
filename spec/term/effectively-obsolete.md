@@ -1,7 +1,7 @@
 ---
 title: effectively obsolete
 formerly: []
-named_by:
+named_by: ADR-0003
 ---
 
 # effectively obsolete
