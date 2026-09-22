@@ -68,13 +68,15 @@ Every name in `formerly` gets an anchor in the generated page, so a link written
 
 | Command | Effect |
 |---|---|
-| `archdoc term add` | Writes `term/<slug>.md`. Ordering stops being the command's business and becomes generation's. |
+| `archdoc term add` | Writes `term/<slug>.md`. Refuses a term whose slug matches an existing one case-insensitively. Ordering stops being the command's business and becomes generation's. |
 | `archdoc term list` | Unchanged. |
 | `archdoc term show` | Unchanged. |
 | `archdoc term rename` | Renames the file, appends the old name to `formerly`. Links keep resolving, because the old anchor is generated. |
 | `archdoc term remove` | Deletes the file. Refuses when any frozen document links to the term, as `renumber` refuses a document a frozen document references. |
 
 ### Lint
+
+A repository still carrying `spec/glossary.md` is reported as a warning naming the file and saying that terms now live under `term/`. Not an error: the page is valid Markdown and the repository is otherwise sound. Silence would let a repository upgrade, keep a page of terms that are no longer terms, and have every `[[...]]` stop resolving with nothing saying why.
 
 L15 loses the three clauses that exist only because terms share a file: uniqueness becomes filename uniqueness, ordering becomes a property of generation, and every heading being an entry stops being a concept. What it keeps is the one paragraph rule, now applied per file.
 
@@ -99,8 +101,8 @@ The export gains `path` and `named_by` on each term and stops emitting the gloss
 
 ## Open questions
 
-- Whether `archdoc term add` should refuse a slug that collides with an existing term only case-insensitively, or accept it and let generation report the anchor collision.
-- Whether a repository that still has `spec/glossary.md` should be reported by lint, or left alone as an ordinary spec page.
-- Whether ADR-0014 needs an ADR superseding it once page level `includes` is gone, or whether an exception to a rule that can no longer be reached is better left standing as the record of why it existed.
+None.
 
 ## Changelog
+
+- 2026-09-22: Resolved the three open questions. `term add` refuses a case-insensitively colliding slug, because `Anchor` lowercases, so two such terms compete for one anchor and the loser's position depends on document order; L15 already refuses the pair, and a case-insensitive filesystem cannot hold both files. A leftover `spec/glossary.md` is reported as a warning. ADR-0014 is left standing rather than superseded: once page level `includes` is gone its exception is unreachable, but the reasoning that made it necessary is what stops the rule returning.
