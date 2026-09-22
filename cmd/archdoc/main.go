@@ -82,6 +82,7 @@ func newRoot(out, errOut io.Writer) *cobra.Command {
 		newInitCommand(),
 		newLintCommand(),
 		newIndexCommand(),
+		newGlossaryCommand(),
 		newLinkCommand(),
 		newNewCommand(),
 		newTermCommand(),

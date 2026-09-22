@@ -38,8 +38,8 @@ func TestInitWritesEverythingItPromises(t *testing.T) {
 	}
 
 	for _, want := range []string{
-		"archdoc.json", "README.md", "PROCESS.md", "INDEX.md", "LICENSE",
-		"spec/glossary.md", "rfc/.gitkeep", "adr/.gitkeep", "ref/.gitkeep",
+		"archdoc.json", "README.md", "PROCESS.md", "INDEX.md", "GLOSSARY.md", "LICENSE",
+		"rfc/.gitkeep", "adr/.gitkeep", "ref/.gitkeep", "term/.gitkeep",
 		".github/workflows/archdoc-lint.yml",
 	} {
 		if _, err := os.Stat(filepath.Join(dir, filepath.FromSlash(want))); err != nil {

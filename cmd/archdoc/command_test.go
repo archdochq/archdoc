@@ -62,7 +62,7 @@ func repository(t *testing.T) string {
 	r := repotest.New(t, map[string]string{
 		"rfc/0001-queues.md": rfc("RFC-0001", "Job queues", "accepted", " 2026-02-01"),
 		"rfc/0002-cache.md":  rfc("RFC-0002", "Caching", "proposed", ""),
-		"spec/glossary.md":   "---\ntitle: Glossary\nincludes: []\n---\n\n# Glossary\n\n## Wings\n\nThe node daemon.\n",
+		"term/wings.md":      "---\ntitle: Wings\nformerly: []\nnamed_by:\n---\n\n# Wings\n\nThe node daemon.\n",
 	})
 	return r.Config().Dir()
 }
@@ -319,7 +319,7 @@ func TestLinkResolvesWikiLinksAndWritesThem(t *testing.T) {
 	}
 	for _, want := range []string{
 		"[RFC-0001: Job queues](../rfc/0001-queues.md)",
-		"[Wings](glossary.md#wings)",
+		"[Wings](../GLOSSARY.md#wings)",
 	} {
 		if !strings.Contains(string(written), want) {
 			t.Errorf("the document is missing %q:\n%s", want, written)
@@ -481,7 +481,7 @@ func TestIndexCheckSaysSomethingWhenOnlyTheNewlineDiffers(t *testing.T) {
 	}
 }
 
-func TestTermAddCreatesTheGlossaryWhenThereIsNone(t *testing.T) {
+func TestTermAddCreatesTheTermDirectoryWhenThereIsNone(t *testing.T) {
 	r := repotest.New(t, map[string]string{
 		"rfc/0001-queues.md": rfc("RFC-0001", "Job queues", "accepted", " 2026-02-01"),
 	})
@@ -491,17 +491,17 @@ func TestTermAddCreatesTheGlossaryWhenThereIsNone(t *testing.T) {
 	if code != exitOK {
 		t.Fatalf("exit = %d: %s", code, out)
 	}
-	written, err := os.ReadFile(filepath.Join(dir, "spec", "glossary.md"))
+	written, err := os.ReadFile(filepath.Join(dir, "term", "widget.md"))
 	if err != nil {
-		t.Fatalf("the glossary was not created: %v", err)
+		t.Fatalf("the term was not written: %v", err)
 	}
-	for _, want := range []string{"title: Glossary", "## Widget", "A thing."} {
+	for _, want := range []string{"title: Widget", "# Widget", "A thing."} {
 		if !strings.Contains(string(written), want) {
-			t.Errorf("the created glossary is missing %q:\n%s", want, written)
+			t.Errorf("the written term is missing %q:\n%s", want, written)
 		}
 	}
 	if _, code := run(t, dir, "lint"); code != exitOK {
-		t.Error("the created glossary does not pass lint")
+		t.Error("the written term does not pass lint")
 	}
 }
 
@@ -639,8 +639,14 @@ func TestTermRenameAndRemove(t *testing.T) {
 	if out, code := run(t, dir, "term", "rename", "Wings", "Node daemon"); code != exitOK {
 		t.Fatalf("rename exited %d: %s", code, out)
 	}
-	written, _ := os.ReadFile(filepath.Join(dir, "spec", "glossary.md"))
-	if !strings.Contains(string(written), "## Node daemon") || !strings.Contains(string(written), "Formerly *Wings*.") {
+	if _, err := os.Stat(filepath.Join(dir, "term", "wings.md")); err == nil {
+		t.Error("the file the term was renamed from is still there")
+	}
+	written, err := os.ReadFile(filepath.Join(dir, "term", "node-daemon.md"))
+	if err != nil {
+		t.Fatalf("the renamed term is missing: %v", err)
+	}
+	if !strings.Contains(string(written), "title: Node daemon") || !strings.Contains(string(written), "formerly: [Wings]") {
 		t.Errorf("rename did not record the change:\n%s", written)
 	}
 
@@ -652,19 +658,19 @@ func TestTermRenameAndRemove(t *testing.T) {
 	}
 }
 
-func TestTermAddFromExtendsIncludes(t *testing.T) {
+func TestTermAddRecordsWhatNamedIt(t *testing.T) {
 	dir := repository(t)
 
-	out, code := run(t, dir, "term", "add", "Queue", "A place work waits.", "--from", "RFC-0001")
+	out, code := run(t, dir, "term", "add", "Queue", "A place work waits.", "--named-by", "RFC-0001")
 	if code != exitOK {
 		t.Fatalf("exit = %d: %s", code, out)
 	}
-	written, _ := os.ReadFile(filepath.Join(dir, "spec", "glossary.md"))
-	if !strings.Contains(string(written), "includes: [RFC-0001]") {
-		t.Errorf("--from did not extend includes:\n%s", written)
+	written, _ := os.ReadFile(filepath.Join(dir, "term", "queue.md"))
+	if !strings.Contains(string(written), "named_by: RFC-0001") {
+		t.Errorf("--named-by was not recorded:\n%s", written)
 	}
 	if _, code := run(t, dir, "lint"); code != exitOK {
-		t.Error("the rewritten glossary does not pass lint")
+		t.Error("the written term does not pass lint")
 	}
 }
 
@@ -709,35 +715,32 @@ func TestNewBackfillRejectedWritesEverySectionItRequires(t *testing.T) {
 	}
 }
 
-func TestEnsureGlossaryRefusesAFileTheIndexMissed(t *testing.T) {
-	// The existence test asked the in-memory document index, which is keyed on
-	// the page name taken verbatim from the filename. On a case-insensitive
-	// filesystem, and both release targets are, spec/Glossary.md is invisible
-	// to that lookup while naming the same file on disk, so the write truncated
-	// a glossary the user could plainly see. Asked of the filesystem instead,
-	// the answer does not depend on the filename's case.
-	// The index is built without a glossary, and one then appears on disk. That
-	// is the shape a case-differing filename produces: the file is there and
-	// the lookup cannot see it.
+// TestTermAddRefusesAFileTheIndexCannotSee covers a filesystem that folds
+// case. The index is keyed on the filename as discovered, so term/Dave.md is
+// invisible to a lookup for "dave" while naming the same file on disk, and a
+// plain write would truncate a term the user can plainly see. The write asks
+// the kernel instead, whose answer does not fold.
+func TestTermAddRefusesAFileTheIndexCannotSee(t *testing.T) {
 	r := repotest.New(t, map[string]string{
 		"rfc/0001-queues.md": rfc("RFC-0001", "Job queues", "accepted", " 2026-02-01"),
 	})
 	dir := r.Config().Dir()
 	t.Chdir(dir)
 
-	existing := "---\ntitle: Glossary\nincludes: []\n---\n\n# Glossary\n\n## Widget\n\nA small thing.\n"
-	repotest.Write(t, dir, "spec/glossary.md", existing)
+	existing := "---\ntitle: Dave\nformerly: []\nnamed_by:\n---\n\n# Dave\n\nA term.\n"
+	repotest.Write(t, dir, "term/Dave.md", existing)
 
-	if _, err := ensureGlossary(r); err == nil {
-		t.Error("ensureGlossary reported success over a file that already existed")
+	out, code := run(t, dir, "term", "add", "Dave", "Another definition.")
+	if code == exitOK {
+		t.Errorf("term add reported success over a file that already existed: %s", out)
 	}
 
-	after, err := os.ReadFile(filepath.Join(dir, "spec", "glossary.md"))
+	after, err := os.ReadFile(filepath.Join(dir, "term", "Dave.md"))
 	if err != nil {
 		t.Fatal(err)
 	}
 	if string(after) != existing {
-		t.Errorf("the existing glossary was overwritten:\n%s", after)
+		t.Errorf("the existing term was overwritten:\n%s", after)
 	}
 }
 
@@ -755,8 +758,8 @@ func TestTermAddWritesNothingWhenItsArgumentsAreMissing(t *testing.T) {
 		t.Fatalf("exit = %d, want a failure: %s", code, out)
 	}
 
-	if _, err := os.Stat(filepath.Join(dir, "spec", "glossary.md")); err == nil {
-		t.Error("a usage error left a glossary behind")
+	if _, err := os.Stat(filepath.Join(dir, "term")); err == nil {
+		t.Error("a usage error left a term directory behind")
 	}
 }
 
@@ -766,8 +769,8 @@ func TestApplySuggestionsSkipsAFileThatChangedUnderneath(t *testing.T) {
 	// in another window is silently discarded: the file is rebuilt from the
 	// bytes read at open time.
 	r := repotest.New(t, map[string]string{
-		"spec/glossary.md": "---\ntitle: Glossary\nincludes: []\n---\n\n# Glossary\n\n## Widget\n\nA small thing.\n",
-		"spec/page.md":     "---\ntitle: Page\nincludes: []\n---\n\n# Page\n\nThe widget matters.\n",
+		"term/widget.md": "---\ntitle: Widget\nformerly: []\nnamed_by:\n---\n\n# Widget\n\nA small thing.\n",
+		"spec/page.md":   "---\ntitle: Page\nincludes: []\n---\n\n# Page\n\nThe widget matters.\n",
 	})
 	dir := r.Config().Dir()
 	t.Chdir(dir)
@@ -855,10 +858,7 @@ func TestInitRefusesADanglingSymlinkInTheWay(t *testing.T) {
 	// refuse and nothing would have been written either way.
 	dir := t.TempDir()
 	outside := filepath.Join(t.TempDir(), "elsewhere.md")
-	if err := os.MkdirAll(filepath.Join(dir, "spec"), 0o755); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.Symlink(outside, filepath.Join(dir, "spec", "glossary.md")); err != nil {
+	if err := os.Symlink(outside, filepath.Join(dir, "PROCESS.md")); err != nil {
 		t.Skipf("symlinks unavailable: %v", err)
 	}
 

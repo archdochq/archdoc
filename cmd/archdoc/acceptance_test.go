@@ -43,6 +43,7 @@ func TestTheDocumentedWorkflowWorksEndToEnd(t *testing.T) {
 	// does and it must not fail.
 	step("lint a fresh scaffold", exitOK, "lint")
 	step("index --check on a fresh scaffold", exitOK, "index", "--check")
+	step("glossary --check on a fresh scaffold", exitOK, "glossary", "--check")
 
 	runGit(t, dir, "add", "-A")
 	runGit(t, dir, "commit", "-m", "scaffold")
@@ -70,6 +71,11 @@ func TestTheDocumentedWorkflowWorksEndToEnd(t *testing.T) {
 		t.Errorf("link left a wiki link unresolved:\n%s", body)
 	}
 
+	// Both generated files, and the check each one's workflow runs. The
+	// glossary has to be regenerated before lint: the link above resolves to an
+	// anchor on it, and L17 reports a link whose anchor is not there.
+	step("glossary", exitOK, "glossary")
+	step("glossary --check after glossary", exitOK, "glossary", "--check")
 	step("index", exitOK, "index")
 	step("index --check after index", exitOK, "index", "--check")
 	step("lint after all of it", exitOK, "lint")

@@ -1,7 +1,9 @@
 package main
 
 import (
+	"errors"
 	"fmt"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
@@ -187,7 +189,19 @@ func writeTerm(cmd *cobra.Command, r *repo.Repo, was, docPath string, source []b
 	if err := os.MkdirAll(filepath.Dir(full), 0o755); err != nil {
 		return err
 	}
-	if err := r.WriteFile(docPath, source); err != nil {
+	// writeNew, not WriteFile, whenever the destination is a new file. The
+	// index is keyed on the filename as discovered, so on a filesystem that
+	// folds case an existing term/Dave.md is invisible to a lookup for "dave"
+	// while naming the same file on disk, and a plain write would truncate a
+	// term the user can plainly see. The kernel's answer does not fold.
+	if was == docPath {
+		if err := r.WriteFile(docPath, source); err != nil {
+			return err
+		}
+	} else if err := writeNew(full, source); err != nil {
+		if errors.Is(err, fs.ErrExist) {
+			return fmt.Errorf("%s already exists; check the filename's case", docPath)
+		}
 		return err
 	}
 	if was != "" && was != docPath {

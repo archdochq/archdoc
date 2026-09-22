@@ -14,6 +14,7 @@ import (
 
 	"archdoc.dev/internal/config"
 	"archdoc.dev/internal/git"
+	"archdoc.dev/internal/glossary"
 	"archdoc.dev/internal/index"
 	"archdoc.dev/internal/repo"
 	"archdoc.dev/internal/template"
@@ -207,15 +208,11 @@ func plan(dir string, settings config.Config, licence string, agents bool) (file
 		}
 		files = append(files, scaffold{root, name, rendered})
 	}
-	glossary, err := template.Render("glossary.md", template.Data{})
-	if err != nil {
-		return nil, false, err
-	}
 	files = append(files,
-		scaffold{root, "spec/glossary.md", glossary},
 		scaffold{root, "rfc/.gitkeep", nil},
 		scaffold{root, "adr/.gitkeep", nil},
 		scaffold{root, "ref/.gitkeep", nil},
+		scaffold{root, "term/.gitkeep", nil},
 	)
 	if licence == "mit" {
 		rendered, err := template.Render("LICENSE.mit", data)
@@ -346,13 +343,15 @@ func write(cmd *cobra.Command, files []scaffold) error {
 		fmt.Fprintln(out, printable(f.dir, f.rel))
 	}
 
-	// The index is generated rather than templated: a scaffolded repository
-	// must pass the check its own workflow runs.
-	written, err := generateIndex(configDir(files))
+	// Generated rather than templated: a scaffolded repository must pass the
+	// checks its own workflow runs, and both files are checked there.
+	generated, err := generateFiles(configDir(files))
 	if err != nil {
 		return err
 	}
-	fmt.Fprintln(out, written)
+	for _, written := range generated {
+		fmt.Fprintln(out, written)
+	}
 	return nil
 }
 
@@ -367,20 +366,31 @@ func configDir(files []scaffold) string {
 	return "."
 }
 
-// generateIndex writes INDEX.md for the repository just scaffolded.
-func generateIndex(dir string) (string, error) {
+// generateFiles writes INDEX.md and GLOSSARY.md for the repository just
+// scaffolded, and reports the paths written.
+func generateFiles(dir string) ([]string, error) {
 	c, err := config.Load(filepath.Join(dir, config.Filename))
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 	r, err := repo.Open(c)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
-	if err := repo.WriteFile(filepath.Join(c.RootDir(), indexFile), index.Generate(r), indexFile); err != nil {
-		return "", err
+	var written []string
+	for _, f := range []struct {
+		name     string
+		contents []byte
+	}{
+		{indexFile, index.Generate(r)},
+		{glossary.File, glossary.Generate(r)},
+	} {
+		if err := repo.WriteFile(filepath.Join(c.RootDir(), f.name), f.contents, f.name); err != nil {
+			return nil, err
+		}
+		written = append(written, path.Join(c.Root, f.name))
 	}
-	return path.Join(c.Root, indexFile), nil
+	return written, nil
 }
 
 // printable renders a written path for a human: relative to the current
