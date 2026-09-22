@@ -1,16 +1,15 @@
 package main
 
 import (
-	"errors"
 	"fmt"
-	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"archdoc.dev/internal/glossary"
+	"archdoc.dev/internal/lint"
 	"archdoc.dev/internal/repo"
-	"archdoc.dev/internal/template"
 	"github.com/spf13/cobra"
 )
 
@@ -24,10 +23,10 @@ func newTermCommand() *cobra.Command {
 }
 
 func termAdd() *cobra.Command {
-	var from []string
+	var namedBy string
 	cmd := &cobra.Command{
 		Use:   "add <term> <definition>",
-		Short: "Insert a term, in alphabetical order",
+		Short: "Write a term under term/",
 		Args:  cobra.MaximumNArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			r, err := openRepo()
@@ -35,35 +34,30 @@ func termAdd() *cobra.Command {
 				return err
 			}
 			// The arguments are settled before anything is written, so that a
-			// usage error does not leave a glossary behind.
+			// usage error does not leave a term directory behind.
 			term, definition, err := askForTerm(cmd, args, true, "add")
 			if err != nil {
 				return err
 			}
-			if r, err = ensureGlossary(r); err != nil {
-				return err
-			}
-			if from, err = askForIncludes(cmd, from, acceptedDocuments(r)); err != nil {
-				return err
-			}
-
-			source, err := glossary.Add(r, term, definition)
+			docPath, source, err := glossary.Add(r, term, definition, namedBy)
 			if err != nil {
 				return err
 			}
-			return writeGlossary(cmd, r, source, from, fmt.Sprintf("added %q", term))
+			return writeTerm(cmd, r, "", docPath, source, fmt.Sprintf("added %q", term))
 		},
 	}
-	cmd.Flags().StringSliceVar(&from, "from", nil, "accepted documents this term comes from, added to the page's includes")
+	cmd.Flags().StringVar(&namedBy, "named-by", "", "the document that introduced this term")
 	return cmd
 }
 
 func termRename() *cobra.Command {
-	var from []string
 	cmd := &cobra.Command{
 		Use:   "rename <old> <new>",
 		Short: "Retitle a term, recording the previous name",
-		Args:  cobra.MaximumNArgs(2),
+		Long: "Retitle a term, recording the previous name.\n\n" +
+			"The old name keeps an anchor in the generated glossary, so a link written before the " +
+			"rename still resolves, including one inside a frozen document that could never be corrected.",
+		Args: cobra.MaximumNArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			r, err := openRepo()
 			if err != nil {
@@ -73,28 +67,31 @@ func termRename() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			if from, err = askForIncludes(cmd, from, acceptedDocuments(r)); err != nil {
-				return err
-			}
-			source, err := glossary.Rename(r, old, replacement)
+			was, docPath, source, err := glossary.Rename(r, old, replacement)
 			if err != nil {
 				return err
 			}
-			return writeGlossary(cmd, r, source, from, fmt.Sprintf("renamed %q to %q", old, replacement))
+			return writeTerm(cmd, r, was, docPath, source,
+				fmt.Sprintf("renamed %q to %q", old, replacement))
 		},
 	}
-	cmd.Flags().StringSliceVar(&from, "from", nil, "accepted documents this rename comes from")
 	return cmd
 }
 
 func termRemove() *cobra.Command {
-	var from []string
 	cmd := &cobra.Command{
 		Use:   "remove <term>",
 		Short: "Delete a term",
-		Args:  cobra.MaximumNArgs(1),
+		Long: "Delete a term.\n\n" +
+			"Refuses when a frozen document links to it: the link would be left pointing at an anchor " +
+			"that no longer exists, and the document holding it could never be corrected.",
+		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			r, err := openRepo()
+			if err != nil {
+				return err
+			}
+			g, err := openGit(r)
 			if err != nil {
 				return err
 			}
@@ -102,20 +99,21 @@ func termRemove() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			// --from writes to the page's front matter, so the interaction rule
-			// covers it here exactly as it does for add and rename. This was
-			// the one of the three that never asked.
-			if from, err = askForIncludes(cmd, from, acceptedDocuments(r)); err != nil {
-				return err
-			}
-			source, err := glossary.Remove(r, term)
+			// NewContext rather than a literal, for the reason renumber gives:
+			// without the branch snapshot every document looks editable, and
+			// the guard this command exists for would never fire.
+			frozen := lint.NewContext(r, g, time.Now()).Frozen
+			docPath, err := glossary.Remove(r, term, frozen)
 			if err != nil {
 				return err
 			}
-			return writeGlossary(cmd, r, source, from, fmt.Sprintf("removed %q", term))
+			if err := os.Remove(r.File(docPath)); err != nil {
+				return err
+			}
+			fmt.Fprintf(cmd.OutOrStdout(), "%s: removed %q\n", docPath, term)
+			return nil
 		},
 	}
-	cmd.Flags().StringSliceVar(&from, "from", nil, "accepted documents this removal comes from")
 	return cmd
 }
 
@@ -173,86 +171,40 @@ func entries() ([]repo.GlossaryEntry, error) {
 	}
 	found, ok := r.Glossary()
 	if !ok {
-		return nil, fmt.Errorf("this repository has no spec/%s.md", repo.GlossaryPage)
+		return nil, fmt.Errorf("this repository has no %s directory", repo.TypeTerm)
 	}
 	return found, nil
 }
 
-// ensureGlossary creates spec/glossary.md from the template when the
-// repository has none, because adding the first term is how a glossary starts.
-// The repository is reopened so the new page is discovered.
-//
-// The kernel performs the existence test, as it does in `new`. Asking the
-// in-memory index instead was wrong on any filesystem that folds case: the
-// index is keyed on the page name taken verbatim from the filename, so
-// spec/Glossary.md was invisible to the lookup while naming the same file on
-// disk, and the write truncated a glossary the user could plainly see.
-func ensureGlossary(r *repo.Repo) (*repo.Repo, error) {
-	if r.ByPage(repo.GlossaryPage) != nil {
-		return r, nil
-	}
-	rendered, err := template.Render("glossary.md", template.Data{})
-	if err != nil {
-		return nil, err
-	}
-	path := "spec/" + repo.GlossaryPage + ".md"
-	full := r.File(path)
+// writeTerm writes a term file, removing the file it replaced when a rename
+// moved it. The removal comes second: a failed write leaves the old file in
+// place rather than losing the term entirely.
+func writeTerm(cmd *cobra.Command, r *repo.Repo, was, docPath string, source []byte, what string) error {
+	full := r.File(docPath)
 	if err := repo.Contains(r.Config().RootDir(), full); err != nil {
-		return nil, err
-	}
-	if err := os.MkdirAll(filepath.Dir(full), 0o755); err != nil {
-		return nil, err
-	}
-	if err := writeNew(full, rendered); err != nil {
-		if errors.Is(err, fs.ErrExist) {
-			return nil, fmt.Errorf("a glossary already exists at %s, but archdoc cannot read it as one; check the filename's case", path)
-		}
-		return nil, err
-	}
-	return openRepo()
-}
-
-// writeGlossary applies any --from identifiers to the same source, so the page
-// is written once rather than twice.
-func writeGlossary(cmd *cobra.Command, r *repo.Repo, source []byte, from []string, what string) error {
-	if len(from) > 0 {
-		extended, err := glossary.Include(r, source, from)
-		if err != nil {
-			return err
-		}
-		source = extended
-	}
-	page := r.ByPage(repo.GlossaryPage)
-	if page == nil {
-		return fmt.Errorf("this repository has no spec/%s.md", repo.GlossaryPage)
-	}
-	if err := r.WriteFile(page.Path, source); err != nil {
 		return err
 	}
-	fmt.Fprintf(cmd.OutOrStdout(), "%s: %s\n", page.Path, what)
+	if err := os.MkdirAll(filepath.Dir(full), 0o755); err != nil {
+		return err
+	}
+	if err := r.WriteFile(docPath, source); err != nil {
+		return err
+	}
+	if was != "" && was != docPath {
+		if err := os.Remove(r.File(was)); err != nil {
+			return err
+		}
+	}
+	fmt.Fprintf(cmd.OutOrStdout(), "%s: %s\n", docPath, what)
 	return nil
 }
 
-// termNames is every term in the glossary, for a chooser to offer.
+// termNames lists every term, for the prompt that offers them.
 func termNames(r *repo.Repo) []string {
-	found, ok := r.Glossary()
-	if !ok {
-		return nil
-	}
-	names := make([]string, len(found))
-	for i, e := range found {
-		names[i] = e.Term
+	entries, _ := r.Glossary()
+	names := make([]string, 0, len(entries))
+	for _, e := range entries {
+		names = append(names, e.Term)
 	}
 	return names
-}
-
-// acceptedDocuments is what a --from selection may offer.
-func acceptedDocuments(r *repo.Repo) []*repo.Document {
-	var accepted []*repo.Document
-	for _, d := range r.Documents() {
-		if d.Type.Normative() && d.FrontMatter.Status == repo.StatusAccepted {
-			accepted = append(accepted, d)
-		}
-	}
-	return accepted
 }

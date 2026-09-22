@@ -248,11 +248,9 @@ func TestL14IsNotAppliedToWithdrawnDocuments(t *testing.T) {
 func TestL15ChecksGlossaryStructure(t *testing.T) {
 	got := forRule(t, "lint", "L15")
 
-	// One finding per symptom, not three substrings scattered across the set:
-	// the out-of-order findings quote the term name, so they satisfied all
-	// three on their own and two of L15's three checks were pinned by nothing.
-	reports(t, got, "out of alphabetical order")
-	reports(t, got, "repeats the entry on line")
+	// One clause is left. Uniqueness is the filesystem's answer now, order is
+	// decided by generation, and a heading that is not a term is part of a
+	// definition rather than an intruder among entries.
 	reports(t, got, "Two paragraphs", "paragraphs, want exactly one")
 }
 
@@ -305,8 +303,8 @@ func TestEveryRuleHasAFixtureCase(t *testing.T) {
 			t.Errorf("no fixture document makes %s fire", rule.Code)
 		}
 	}
-	if len(lint.Rules) != 18 {
-		t.Errorf("registered %d rules, want 18", len(lint.Rules))
+	if len(lint.Rules) != 19 {
+		t.Errorf("registered %d rules, want 19", len(lint.Rules))
 	}
 }
 
@@ -831,26 +829,6 @@ func TestL01DoesNotCallAKeyEmptyWhenItCouldNotParseIt(t *testing.T) {
 			t.Errorf("L01 also called the key empty: %q", m)
 		}
 	}
-}
-
-func TestL15RequiresEveryHeadingAfterThePreambleToBeAnEntry(t *testing.T) {
-	// spec/spec/lint.md gives L15 four clauses and three were implemented. A page with
-	// an H1 among the entries lints clean while the prose under it is silently
-	// not a term, and that same shape is what made term remove destructive
-	// before the entry extents were fixed.
-	r := repotest.New(t, map[string]string{
-		"spec/glossary.md": "---\ntitle: Glossary\nincludes: []\n---\n\n# Glossary\n\n" +
-			"## Alpha\n\nFirst.\n\n# Interloper\n\nNot a term.\n\n## Beta\n\nSecond.\n",
-	})
-
-	var got []string
-	for _, f := range lint.Run(lint.NewContext(r, nil, now)) {
-		if f.Rule == "L15" {
-			got = append(got, f.Message)
-		}
-	}
-
-	reports(t, got, "Interloper")
 }
 
 func TestL15AllowsThePreambleAndTheTitle(t *testing.T) {

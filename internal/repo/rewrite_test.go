@@ -29,9 +29,7 @@ includes:
 	}
 
 	// It must still parse, and read back as the list we wrote.
-	entries, ok := repo.GlossaryIn(out)
-	_ = entries
-	if !ok {
+	if !repo.FrontMatterParses(out) {
 		t.Fatalf("the rewritten front matter no longer parses:\n%s", out)
 	}
 	if !strings.Contains(string(out), "includes: [RFC-0001, ADR-0002, RFC-0004]") {
@@ -111,7 +109,7 @@ func TestSetFieldHandlesEverySpellingOfAMultiLineValue(t *testing.T) {
 			if err != nil {
 				t.Fatalf("SetField: %v", err)
 			}
-			if _, ok := repo.GlossaryIn(out); !ok {
+			if !repo.FrontMatterParses(out) {
 				t.Fatalf("the rewritten front matter no longer parses:\n%s", out)
 			}
 			if strings.Contains(string(out), "- RFC-0001") || strings.Contains(string(out), "  RFC-0001,") {
@@ -149,7 +147,7 @@ func TestSetFieldNeverReturnsFrontMatterThatWillNotParse(t *testing.T) {
 		if err != nil {
 			continue // refusing is an acceptable outcome
 		}
-		if _, ok := repo.GlossaryIn(out); !ok {
+		if !repo.FrontMatterParses(out) {
 			t.Errorf("returned unparseable front matter for %q instead of an error:\n%s", front, out)
 		}
 	}

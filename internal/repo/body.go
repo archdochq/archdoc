@@ -767,9 +767,20 @@ func (d *Document) WikiLinks() []WikiLink {
 func AnchorsIn(source []byte) []string {
 	_, body, _, _ := splitFrontMatter(source)
 	headings := parseHeadings(string(body), 1)
-	anchors := make([]string, len(headings))
-	for i, h := range headings {
-		anchors[i] = h.Anchor
+	anchors := make([]string, 0, len(headings))
+	for _, h := range headings {
+		anchors = append(anchors, h.Anchor)
+	}
+	// An explicit anchor is a target too. GLOSSARY.md writes one for every
+	// former name of a term, so a link written before a rename still resolves;
+	// without this L17 would report every one of them, and a frozen document
+	// holding such a link could never be repaired.
+	for _, m := range explicitAnchor.FindAllStringSubmatch(string(body), -1) {
+		anchors = append(anchors, m[2])
 	}
 	return anchors
 }
+
+// explicitAnchor matches an HTML anchor carrying an id or a name, which is how
+// a Markdown document names a target that is not a heading.
+var explicitAnchor = regexp.MustCompile(`(?i)<a\s+[^>]*\b(id|name)\s*=\s*"([^"]+)"`)

@@ -645,49 +645,46 @@ func L11(ctx Context) []Finding {
 	return rep.findings
 }
 
-// L15 checks the glossary: unique terms, in ascending case-insensitive order,
-// one paragraph each.
+// L15 checks that each term gives exactly one paragraph.
+//
+// Three of this rule's clauses existed only because every term shared one
+// page: uniqueness, alphabetical order, and that every heading from the first
+// entry onwards had to be an entry. A term is a file now, so uniqueness is the
+// filesystem's answer, order is decided by generation, and a heading that is
+// not a term is simply part of a definition.
 func L15(ctx Context) []Finding {
 	entries, ok := ctx.Repo().Glossary()
 	if !ok {
 		return nil
 	}
-	page := ctx.Repo().ByPage(repo.GlossaryPage)
 
 	var rep report
-
-	// Every heading from the first entry onwards must be an entry. spec/spec/lint.md
-	// says so and nothing checked it: a page with an ordinary H1 among the
-	// entries linted clean while the prose beneath it was silently not a term,
-	// and that is the same shape that used to make `term remove` destructive.
-	if len(entries) > 0 {
-		for _, h := range page.Headings() {
-			if h.Line < entries[0].Line || h.Level == 2 {
-				continue // preamble, including the title, or an entry
-			}
-			rep.errorf(page, h.Line,
-				"%q is not a term entry, but everything from the first entry onwards must be one", h.Text)
-		}
-	}
-
-	seen := map[string]int{}
-	previous := ""
 	for _, e := range entries {
-		key := strings.ToLower(e.Term)
-		if line, duplicate := seen[key]; duplicate {
-			rep.errorf(page, e.Line, "term %q repeats the entry on line %d", e.Term, line)
-		} else {
-			seen[key] = e.Line
+		d := ctx.Repo().ByPath(e.Path)
+		if d == nil {
+			continue
 		}
-		if previous != "" && key < previous {
-			rep.errorf(page, e.Line, "term %q is out of alphabetical order", e.Term)
-		}
-		previous = max(previous, key)
-
 		if n := len(e.Paragraphs); n != 1 {
-			rep.errorf(page, e.Line, "term %q has %d paragraphs, want exactly one", e.Term, n)
+			rep.errorf(d, e.Line, "term %q has %d paragraphs, want exactly one", e.Term, n)
 		}
 	}
+	return rep.findings
+}
+
+// L19 reports a glossary page left behind by a repository scaffolded before
+// terms became files. A warning rather than an error: the page is valid
+// Markdown and the repository is otherwise sound. Saying nothing would let an
+// upgrade keep a page of terms that are no longer terms, with every [[...]]
+// quietly ceasing to resolve and nothing pointing at why.
+func L19(ctx Context) []Finding {
+	page := ctx.Repo().ByPage(repo.GlossaryPage)
+	if page == nil {
+		return nil
+	}
+	var rep report
+	rep.atf(Warning, page, 1,
+		"terms live in %s/ now, one file each; this page is no longer read as the glossary",
+		repo.TypeTerm)
 	return rep.findings
 }
 

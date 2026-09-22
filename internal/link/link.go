@@ -13,6 +13,7 @@ import (
 	"unicode"
 	"unicode/utf8"
 
+	"archdoc.dev/internal/glossary"
 	"archdoc.dev/internal/lint"
 	"archdoc.dev/internal/repo"
 )
@@ -131,7 +132,9 @@ func Suggest(r *repo.Repo) []Suggestion {
 	var suggestions []Suggestion
 
 	for _, d := range r.Documents() {
-		if !open(d) || d.Page == repo.GlossaryPage {
+		// A term's own file is skipped: offering to link a term to itself
+		// is noise, and the definition is where the term is established.
+		if !open(d) || d.Type == repo.TypeTerm {
 			continue
 		}
 		offered := map[string]bool{}
@@ -283,10 +286,10 @@ func termPatterns(r *repo.Repo) []termPattern {
 	}
 	terms := make([]string, 0, len(entries))
 	for _, e := range entries {
-		// An empty heading on the glossary page is a term with nothing in it,
+		// An empty term title is a term with nothing in it,
 		// and QuoteMeta("") compiles to a pattern matching the empty string at
 		// every offset, so every prose line matched at zero and --apply wrote
-		// "[](glossary.md#)" into it. L15 reports the entry separately.
+		// "[](GLOSSARY.md#)" into it. L01 reports the empty title separately.
 		if strings.TrimSpace(e.Term) == "" {
 			continue
 		}
@@ -418,7 +421,12 @@ func isWordRune(r rune) bool {
 func resolve(r *repo.Repo, from *repo.Document, name string) (target, bool) {
 	if e, ok := r.Term(name); ok {
 		{
-			href := repo.LinkDestination(relative(from.Path, r.ByPage(repo.GlossaryPage).Path)) + "#" + e.Anchor
+			// The generated glossary, not the term's own file: it is
+			// regenerated with the index, so the target is as current as the
+			// files it comes from, and a reader arrives with every other term
+			// around them. A former name keeps an anchor there, so a link
+			// written before a rename still resolves.
+			href := repo.LinkDestination(relative(from.Path, glossary.File)) + "#" + e.Anchor
 			// The case the author wrote is kept; only the destination is ours.
 			// A glossary term has no title to supply, so the two forms coincide.
 			// Escaped, as the identifier branch escapes its title. A term

@@ -1,11 +1,10 @@
 ---
-title: Glossary
-includes: []
+title: Term
+formerly: []
+named_by:
 ---
 
-# Glossary
-
-## Term
+# Term
 
 The first paragraph.
 

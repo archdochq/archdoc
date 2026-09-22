@@ -8,7 +8,9 @@ package repotest
 
 import (
 	"os"
+	"path"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"archdoc.dev/internal/config"
@@ -98,4 +100,17 @@ func Section(d *repo.Document, title string) (repo.Section, bool) {
 		return repo.Section{}, false
 	}
 	return found[0], true
+}
+
+// Term renders a term file, the shape `archdoc term add` writes. Definitions
+// are given as separate paragraphs so a fixture can exercise L15's one
+// paragraph rule.
+func Term(title string, paragraphs ...string) string {
+	return "---\ntitle: " + title + "\nformerly: []\nnamed_by:\n---\n\n# " + title + "\n\n" +
+		strings.Join(paragraphs, "\n\n") + "\n"
+}
+
+// TermPath is where Term's output belongs, relative to root.
+func TermPath(title string) string {
+	return path.Join(string(repo.TypeTerm), repo.Slug(title)+".md")
 }

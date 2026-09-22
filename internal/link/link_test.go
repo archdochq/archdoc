@@ -44,7 +44,7 @@ func TestResolveLinksAGlossaryTermPreservingTheCaseAsWritten(t *testing.T) {
 	changes, _ := link.Resolve(context(t))
 
 	got := string(changes["rfc/0002-scheduling.md"])
-	if want := "[spec page](../spec/glossary.md#spec-page)"; !strings.Contains(got, want) {
+	if want := "[spec page](../GLOSSARY.md#spec-page)"; !strings.Contains(got, want) {
 		t.Errorf("want %q in the rewritten document:\n%s", want, got)
 	}
 }
@@ -256,8 +256,8 @@ func TestApplyRewritesEverySuggestionOnALine(t *testing.T) {
 
 func TestResolveDoesNotShiftADocumentWithNoFrontMatter(t *testing.T) {
 	r := repotest.New(t, map[string]string{
-		"spec/glossary.md": "---\ntitle: Glossary\nincludes: []\n---\n\n# Glossary\n\n## Wings\n\nThe daemon.\n",
-		"spec/orphan.md":   "# Orphan\n\nSee [[Wings]] for detail.\n",
+		repotest.TermPath("Wings"): repotest.Term("Wings", "The daemon."),
+		"spec/orphan.md":           "# Orphan\n\nSee [[Wings]] for detail.\n",
 	})
 
 	changes, _ := link.Resolve(lint.NewContext(r, nil, now))
@@ -321,14 +321,13 @@ func TestSuggestOffersNothingInsideAComment(t *testing.T) {
 // is given, so a test can aim a single line at Suggest.
 func suggestable(t *testing.T, terms map[string]string, body string) *repo.Repo {
 	t.Helper()
-	page := "---\ntitle: Glossary\nincludes: []\n---\n\n# Glossary\n"
-	for _, term := range slices.Sorted(maps.Keys(terms)) {
-		page += "\n## " + term + "\n\n" + terms[term] + "\n"
+	files := map[string]string{
+		"spec/page.md": "---\ntitle: Page\nincludes: []\n---\n\n# Page\n\n" + body,
 	}
-	return repotest.New(t, map[string]string{
-		"spec/glossary.md": page,
-		"spec/page.md":     "---\ntitle: Page\nincludes: []\n---\n\n# Page\n\n" + body,
-	})
+	for _, term := range slices.Sorted(maps.Keys(terms)) {
+		files[repotest.TermPath(term)] = repotest.Term(term, terms[term])
+	}
+	return repotest.New(t, files)
 }
 
 func suggestionsFor(t *testing.T, r *repo.Repo) []string {
@@ -551,8 +550,8 @@ func terminalRepo(t *testing.T) (*repo.Repo, *countingGit) {
 	r := repotest.New(t, map[string]string{
 		"rfc/0001-a.md": "---\nid: RFC-0001\ntitle: Alpha\nstatus: accepted\n---\n\n# RFC-0001: Alpha\n\n" +
 			"## Abstract\n\nSee [[RFC-0002]] and the widget.\n",
-		"rfc/0002-b.md":    "---\nid: RFC-0002\ntitle: Beta\nstatus: accepted\n---\n\n# RFC-0002: Beta\n\n## Abstract\n\nB.\n",
-		"spec/glossary.md": "---\ntitle: Glossary\nincludes: []\n---\n\n# Glossary\n\n## Widget\n\nA small thing.\n",
+		"rfc/0002-b.md":             "---\nid: RFC-0002\ntitle: Beta\nstatus: accepted\n---\n\n# RFC-0002: Beta\n\n## Abstract\n\nB.\n",
+		repotest.TermPath("Widget"): repotest.Term("Widget", "A small thing."),
 	})
 	return r, &countingGit{}
 }
@@ -602,21 +601,20 @@ func TestSuggestSkipsATerminalDocument(t *testing.T) {
 	}
 }
 
-func TestSuggestSkipsTheGlossaryPageItself(t *testing.T) {
+func TestSuggestSkipsATermsOwnFile(t *testing.T) {
 	// Its own half, with a glossary whose entries mention each other: the
 	// previous version of this test shared one condition with the terminal
 	// check above, and its glossary fixture defined a single term that appeared
 	// nowhere in its own prose, so no suggestion could ever be offered there
 	// and this half was pinned by nothing.
 	r := repotest.New(t, map[string]string{
-		"spec/glossary.md": "---\ntitle: Glossary\nincludes: []\n---\n\n# Glossary\n\n" +
-			"## Daemon\n\nThe process a widget runs inside.\n\n" +
-			"## Widget\n\nThe unit of work a daemon carries.\n",
+		repotest.TermPath("Daemon"): repotest.Term("Daemon", "The process a widget runs inside."),
+		repotest.TermPath("Widget"): repotest.Term("Widget", "The unit of work a daemon carries."),
 	})
 
 	for _, s := range link.Suggest(r) {
-		if s.Path == "spec/glossary.md" {
-			t.Errorf("a suggestion was offered on the glossary page itself: %+v", s)
+		if strings.HasPrefix(s.Path, "term/") {
+			t.Errorf("a suggestion was offered on a term's own file: %+v", s)
 		}
 	}
 }

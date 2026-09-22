@@ -46,8 +46,10 @@ func TestOpenDiscoversDocumentsByDirectory(t *testing.T) {
 		"rfc/0010-queue-durability.md",
 		"spec/caching.md",
 		"spec/database.md",
-		"spec/glossary.md",
 		"spec/http/routing.md",
+		"term/ref.md",
+		"term/spec-page.md",
+		"term/wings.md",
 	}
 
 	if !slices.Equal(got, want) {
@@ -75,7 +77,6 @@ func TestOpenNamesSpecPagesByPathBelowSpec(t *testing.T) {
 
 	for p, want := range map[string]string{
 		"spec/database.md":     "database",
-		"spec/glossary.md":     "glossary",
 		"spec/http/routing.md": "http/routing",
 	} {
 		d := repotest.Document(t, r, p)
@@ -247,7 +248,7 @@ func TestDerivesReverseRelationships(t *testing.T) {
 		{
 			id:           "RFC-0004",
 			dependedOnBy: []string{"RFC-0005", "RFC-0007"},
-			included:     []string{"database", "glossary"},
+			included:     []string{"database"},
 		},
 	} {
 		t.Run(tc.id, func(t *testing.T) {
@@ -472,37 +473,21 @@ func glossaryEntry(t *testing.T, entries []repo.GlossaryEntry, term string, nth 
 	return repo.GlossaryEntry{}
 }
 
-func TestGlossaryReadsDuplicateTermsSeparately(t *testing.T) {
-	entries, ok := openLintFixture(t).Glossary()
+// TestGlossaryReadsFormerNamesFromFrontMatter covers what generation turns
+// into anchors. A former name that did not reach the entry would produce no
+// anchor, and every link written before the rename would break with no way to
+// repair one held by a frozen document.
+func TestGlossaryReadsFormerNamesFromFrontMatter(t *testing.T) {
+	entries, ok := openFixture(t).Glossary()
 	if !ok {
 		t.Fatal("no glossary")
 	}
-
-	// Two entries share the exact term "Cache". Looking a section up by title
-	// would hand both of them the first entry's body.
-	first := glossaryEntry(t, entries, "Cache", 0)
-	second := glossaryEntry(t, entries, "Cache", 1)
-
-	if len(first.Paragraphs) != 1 {
-		t.Errorf("first Cache has %d paragraphs, want 1: %q", len(first.Paragraphs), first.Paragraphs)
-	}
-	if len(second.Paragraphs) != 2 {
-		t.Errorf("second Cache has %d paragraphs, want 2: %q", len(second.Paragraphs), second.Paragraphs)
-	}
-}
-
-func TestGlossaryAccumulatesAdjacentFormerlyLines(t *testing.T) {
-	entries, ok := openLintFixture(t).Glossary()
-	if !ok {
-		t.Fatal("no glossary")
-	}
-	e := glossaryEntry(t, entries, "Renamed twice", 0)
-
-	if want := []string{"First Name", "Second Name"}; !slices.Equal(e.Formerly, want) {
-		t.Errorf("Formerly = %q, want %q: repeated renames accumulate lines", e.Formerly, want)
+	e := glossaryEntry(t, entries, "Spec page", 0)
+	if want := []string{"Specification page"}; !slices.Equal(e.Formerly, want) {
+		t.Errorf("Formerly = %q, want %q", e.Formerly, want)
 	}
 	if len(e.Paragraphs) != 1 {
-		t.Errorf("paragraphs = %d, want 1: a Formerly line is not a paragraph; got %q", len(e.Paragraphs), e.Paragraphs)
+		t.Errorf("paragraphs = %d, want 1: %q", len(e.Paragraphs), e.Paragraphs)
 	}
 }
 
@@ -910,8 +895,8 @@ func TestAGlossaryEntryReadsAnUnterminatedCommentAsNothing(t *testing.T) {
 	// unterminated comment counted as a second paragraph and L15 reported a
 	// fault that was not there.
 	r := repotest.New(t, map[string]string{
-		"spec/glossary.md": "---\ntitle: Glossary\n---\n\n# Glossary\n\n" +
-			"## Widget\n\nA small thing.\n\n<!-- TODO: expand this\n",
+		repotest.TermPath("Widget"): "---\ntitle: Widget\nformerly: []\nnamed_by:\n---\n\n" +
+			"# Widget\n\nA small thing.\n\n<!-- TODO: expand this\n",
 	})
 
 	entries, ok := r.Glossary()
@@ -1183,25 +1168,25 @@ func TestWriteFileRefusesASymlinkedDirectory(t *testing.T) {
 // built. PROCESS.md is explicit that this list records implementation: an
 // accepted RFC included by no spec page is not yet implemented. Defining a word
 // is not describing behaviour.
-func TestTheGlossaryDoesNotImplementAnything(t *testing.T) {
+func TestATermDoesNotImplementAnything(t *testing.T) {
 	const accepted = "---\nid: %s\ntitle: %s\nstatus: accepted\ncreated: 2026-01-01\n" +
 		"decided: 2026-01-02\ndepends: []\nupdates: []\nobsoletes: []\n---\n\n# %s: %s\n\n## Abstract\n\nWords.\n"
 	r := repotest.New(t, map[string]string{
 		"rfc/0001-named.md": fmt.Sprintf(accepted, "RFC-0001", "Named", "RFC-0001", "Named"),
 		"rfc/0002-built.md": fmt.Sprintf(accepted, "RFC-0002", "Built", "RFC-0002", "Built"),
-		"spec/glossary.md": "---\ntitle: Glossary\nincludes: [RFC-0001]\n---\n\n# Glossary\n\n" +
-			"## Binding\n\nA registered resolution.\n",
+		"term/binding.md": "---\ntitle: Binding\nformerly: []\nnamed_by: RFC-0001\n---\n\n" +
+			"# Binding\n\nA registered resolution.\n",
 		"spec/container.md": "---\ntitle: Container\nincludes: [RFC-0002]\n---\n\n# Container\n\nWhat it does.\n",
 	})
 
 	named := r.ByID("RFC-0001")
 	if named.Implemented {
-		t.Error("an RFC included only by the glossary is reported as implemented")
+		t.Error("an RFC that only named a term is reported as implemented")
 	}
-	// The relationship itself is still a fact worth keeping: the export answers
-	// "which spec pages reference this", and the glossary does.
-	if got := named.IncludedIn; len(got) != 1 || got[0] != "glossary" {
-		t.Errorf("included_in = %v, want [glossary]; the inclusion still happened", got)
+	// named_by is not an inclusion, so it contributes no reverse relationship
+	// either: a term is defined by a document, not implemented by one.
+	if got := named.IncludedIn; len(got) != 0 {
+		t.Errorf("included_in = %v, want none: naming a term is not inclusion", got)
 	}
 
 	if built := r.ByID("RFC-0002"); !built.Implemented {

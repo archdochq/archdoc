@@ -17,7 +17,7 @@ import (
 	"archdoc.dev/internal/config"
 )
 
-// Type is one of the four kinds of document, and also the directory each kind
+// Type is one of the five kinds of document, and also the directory each kind
 // lives in.
 type Type string
 
@@ -26,10 +26,11 @@ const (
 	TypeADR  Type = "adr"
 	TypeRef  Type = "ref"
 	TypeSpec Type = "spec"
+	TypeTerm Type = "term"
 )
 
 // Types is every document type, in directory order.
-var Types = []Type{TypeADR, TypeRef, TypeRFC, TypeSpec}
+var Types = []Type{TypeADR, TypeRef, TypeRFC, TypeSpec, TypeTerm}
 
 // ParseType turns user input into a Type. Type is a string type with no
 // constructor, so Type("nonsense") is otherwise a perfectly valid value and
@@ -40,8 +41,9 @@ func ParseType(s string) (Type, bool) {
 }
 
 // Numbered reports whether documents of this type carry an identifier derived
-// from a number in the filename. Spec pages are named by path instead.
-func (t Type) Numbered() bool { return t != TypeSpec }
+// from a number in the filename. Spec pages are named by path instead, and a
+// term by its slug, which is the term itself.
+func (t Type) Numbered() bool { return t != TypeSpec && t != TypeTerm }
 
 // HasLifecycle reports whether documents of this type move through statuses. A
 // spec page reflects what has already been decided and a ref records something

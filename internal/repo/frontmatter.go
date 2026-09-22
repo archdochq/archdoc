@@ -36,6 +36,12 @@ type FrontMatter struct {
 	Obsoletes []string
 	Includes  []string
 	Verified  time.Time
+	// Formerly lists a term's previous names, oldest first. Generation gives
+	// each one an anchor, so a link written before a rename still resolves.
+	Formerly []string
+	// NamedBy is the document that introduced a term. It records where the
+	// term came from and is not an inclusion: a term is not implementation.
+	NamedBy string
 	// Backfilled is the date the document was written to record a decision
 	// taken earlier. Optional, and the only optional key: created and decided
 	// carry the historical dates, this one says when they were written down.

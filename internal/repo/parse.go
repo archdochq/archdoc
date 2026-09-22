@@ -54,6 +54,8 @@ func RequiredKeys(t Type) []string {
 		return []string{"title", "includes"}
 	case TypeRef:
 		return []string{"id", "title", "verified"}
+	case TypeTerm:
+		return []string{"title", "formerly", "named_by"}
 	default:
 		return []string{"id", "title", "status", "created", "decided", "depends", "updates", "obsoletes"}
 	}
@@ -217,6 +219,8 @@ func parseFrontMatter(t Type, block []byte) (FrontMatter, []Problem) {
 	list("updates", &fm.Updates)
 	list("obsoletes", &fm.Obsoletes)
 	list("includes", &fm.Includes)
+	list("formerly", &fm.Formerly)
+	str("named_by", &fm.NamedBy)
 
 	return fm, problems
 }

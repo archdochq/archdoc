@@ -69,7 +69,7 @@ func SetField(source []byte, key string, line int, value string) ([]byte, error)
 	// must still be readable: front matter that no longer decodes takes the
 	// document's every derived relationship with it, and SetField could not
 	// repair it afterwards because it could no longer find the key.
-	if !frontMatterParses(out) {
+	if !FrontMatterParses(out) {
 		return nil, fmt.Errorf(
 			"rewriting %q would leave front matter that does not parse; the value spans lines in a shape this cannot rewrite safely", key)
 	}
@@ -80,7 +80,11 @@ func SetField(source []byte, key string, line int, value string) ([]byte, error)
 // asks only whether the structure is intact, not whether the fields are valid:
 // a document with a bad date is lint's business, not a reason to refuse an
 // unrelated edit.
-func frontMatterParses(source []byte) bool {
+// FrontMatterParses reports whether source still carries front matter that
+// parses. SetField checks it after every rewrite, and so do its tests: a
+// rewrite that produced something unreadable would otherwise reach disk and be
+// noticed only by the next command to open the file.
+func FrontMatterParses(source []byte) bool {
 	block, _, _, ok := splitFrontMatter(source)
 	if !ok {
 		return false
