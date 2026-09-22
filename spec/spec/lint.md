@@ -27,7 +27,8 @@ Every rule reports an error unless stated. A finding that no permitted edit to t
 - **L12** A spec page includes no document that is effectively obsolete. Warning.
 - **L13** A ref's `verified` date is not older than `ref_stale_days`. Warning.
 - **L14** No required section is empty, except `Open questions` and `Changelog`. Warning for `proposed`; error for a document that is terminal in the working tree but not yet on `branch`; warning once frozen. Not applied to `withdrawn`.
-- **L15** Glossary structure: after the preamble, H2 entries only, unique, in ascending case-insensitive alphabetical order, one paragraph each. No entries is valid.
+- **L15** Term structure: exactly one paragraph of definition. No terms is valid.
+- **L19** A `spec/glossary.md` left behind by a repository scaffolded before terms became files. A warning: the page is valid Markdown and nothing else is wrong with the repository.
 - **L16** No unresolved `[[...]]` wiki link anywhere. Error in an editable document; warning in a frozen one.
 - **L17** Every relative Markdown link resolves to an existing file within the repository, and where it has an anchor, to an existing heading. Error in an editable document; warning in a frozen one.
 - **L18** Every `depends` entry references a document that is accepted, or that shares the referencing document's non-terminal status. Warning.

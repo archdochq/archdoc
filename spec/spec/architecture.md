@@ -18,7 +18,7 @@ archdoc/
 │   ├── index/           INDEX.md generation
 │   ├── export/          the JSON shape and its published schema
 │   ├── link/            wiki link resolution and suggestion
-│   ├── glossary/        glossary editing
+│   ├── glossary/        term files and GLOSSARY.md
 │   ├── git/             an interface with a shell-out implementation
 │   ├── repotest/        throwaway repositories for tests
 │   └── template/        embedded files, including agents/

@@ -5,7 +5,7 @@ includes: [RFC-0001, ADR-0017]
 
 # Layout
 
-A specification repository is a directory containing `archdoc.json` and, under `root`, the four document directories.
+A specification repository is a directory containing `archdoc.json` and, under `root`, the five document directories.
 
 ## With `root` of `.`
 
@@ -15,6 +15,7 @@ A specification repository is a directory containing `archdoc.json` and, under `
 ├── README.md
 ├── PROCESS.md
 ├── INDEX.md              generated
+├── GLOSSARY.md           generated
 ├── LICENSE               optional
 ├── AGENTS.md             optional
 ├── agents/               optional
@@ -22,8 +23,8 @@ A specification repository is a directory containing `archdoc.json` and, under `
 ├── rfc/
 ├── adr/
 ├── spec/
-│   └── glossary.md
-└── ref/
+├── ref/
+└── term/
 ```
 
 ## With `root` of `docs`, inside a code repository
@@ -37,11 +38,12 @@ A specification repository is a directory containing `archdoc.json` and, under `
     ├── README.md
     ├── PROCESS.md
     ├── INDEX.md          generated
+    ├── GLOSSARY.md       generated
     ├── rfc/
     ├── adr/
     ├── spec/
-    │   └── glossary.md
-    └── ref/
+    ├── ref/
+    └── term/
 ```
 
 ## With `archdoc.json` below the repository root, as scaffolded before ADR-0017
@@ -55,16 +57,17 @@ A specification repository is a directory containing `archdoc.json` and, under `
     ├── README.md
     ├── PROCESS.md
     ├── INDEX.md          generated
+    ├── GLOSSARY.md       generated
     ├── rfc/
     ├── adr/
     ├── spec/
-    │   └── glossary.md
-    └── ref/
+    ├── ref/
+    └── term/
 ```
 
 `init` does not write this shape. It writes `archdoc.json` at the git repository root, with `root` naming the path down to the directory it was run in, so the second arrangement above is what running `init` inside `docs/` produces. A repository scaffolded before that keeps this one, and works unchanged: every command finds the configuration by walking up, and the workflow's `working-directory` is the path from the repository root to the directory holding it.
 
-`root` is relative to `archdoc.json` and defaults to `.`. The document directories, `README.md`, `PROCESS.md`, `INDEX.md`, `LICENSE`, `AGENTS.md` and `agents/` are all resolved under it. `root` names the directory holding `archdoc.json` or one below it; an absolute `root`, or one leading outside that directory, is a configuration error. The check is applied to the spelling and again to the resolved path.
+`root` is relative to `archdoc.json` and defaults to `.`. The document directories, `README.md`, `PROCESS.md`, `INDEX.md`, `GLOSSARY.md`, `LICENSE`, `AGENTS.md` and `agents/` are all resolved under it. `root` names the directory holding `archdoc.json` or one below it; an absolute `root`, or one leading outside that directory, is a configuration error. The check is applied to the spelling and again to the resolved path.
 
 `.github/workflows/archdoc-lint.yml` is written at the root of the git repository, never under `root`. GitHub runs workflows from there only. Where there is no git repository it is written in the current directory.
 
@@ -92,7 +95,7 @@ Unknown keys are an error. A missing key takes the default shown, except `name`,
 
 ## Templates
 
-Embedded under `internal/template`: `rfc.md`, `adr.md`, `ref.md`, `glossary.md`, `PROCESS.md`, `README.md`, `AGENTS.md`, `archdoc-lint.yml`, `LICENSE.mit`, and the guides under `agents/`. Rendered templates substitute `.ID`, `.Title`, `.Date`, `.Name`, `.Version`, `.Status`, `.Decided`, `.Backfilled`, `.Year` and `.WorkingDirectory` as applicable, through `text/template`. `AGENTS.md`, `PROCESS.md` and everything under `agents/` ship verbatim. Only `agents/` sits outside the parse glob, so a brace there is literal text; every other embedded `.md` file is parsed as a template whether or not it carries substitutions, and one that does not parse fails the build.
+Embedded under `internal/template`: `rfc.md`, `adr.md`, `ref.md`, `PROCESS.md`, `README.md`, `AGENTS.md`, `archdoc-lint.yml`, `LICENSE.mit`, and the guides under `agents/`. Rendered templates substitute `.ID`, `.Title`, `.Date`, `.Name`, `.Version`, `.Status`, `.Decided`, `.Backfilled`, `.Year` and `.WorkingDirectory` as applicable, through `text/template`. `AGENTS.md`, `PROCESS.md` and everything under `agents/` ship verbatim. Only `agents/` sits outside the parse glob, so a brace there is literal text; every other embedded `.md` file is parsed as a template whether or not it carries substitutions, and one that does not parse fails the build.
 
 One template function is registered: `yaml`, which encodes a value as a YAML scalar, quoting and escaping only where the encoding requires it. Front matter uses `title: {{ yaml .Title }}`. The H1 uses `.Title` raw and is read back by splitting on the first `": "`.
 

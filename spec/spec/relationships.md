@@ -19,7 +19,7 @@ For each document:
 And three facts:
 
 - A document is **effectively obsolete** when any document in its `obsoleted_by` is accepted. Obsolescence claimed by a draft, proposed, rejected or withdrawn document has no effect.
-- An RFC or ADR is **implemented** when it is accepted and some spec page other than the glossary includes it.
+- An RFC or ADR is **implemented** when it is accepted and some spec page includes it. A term names the document that introduced it in `named_by`, which is not an inclusion and contributes nothing here.
 - A spec page is **stale** when it includes a document that is effectively obsolete.
 
 Nothing derived is written into any document.

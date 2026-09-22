@@ -33,8 +33,13 @@ jobs:
           path: {{ yaml .WorkingDirectory }}
 {{- end }}
 
-      - name: Check the index is current
+      # Both generated files. A stale glossary is not cosmetic: every link to
+      # a term resolves to an anchor on it, so one that has not been
+      # regenerated leaves those links pointing at nothing.
+      - name: Check the generated files are current
 {{- if ne .WorkingDirectory "." }}
         working-directory: {{ yaml .WorkingDirectory }}
 {{- end }}
-        run: archdoc index --check
+        run: |
+          archdoc index --check
+          archdoc glossary --check

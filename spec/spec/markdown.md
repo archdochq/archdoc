@@ -26,7 +26,8 @@ Section presence is checked by exact H2 text. The required sections by type:
 - RFC: `Abstract`, `Motivation`, `Proposal`, `Alternatives considered`, `Backwards compatibility`, `Open questions`, `Changelog`, in that order. `Rejection rationale` is required when the status is `rejected` and forbidden otherwise. `Sources` is required when `backfilled` is set. A document requiring either has a closing section that is its last H2: `Rejection rationale` when rejected, `Sources` otherwise. A document requiring neither may carry extra sections after the required ones.
 - ADR: `Context`, `Decision`, `Alternatives`, `Consequences`, in that order. `Rejection rationale` and `Sources` as for an RFC.
 - Ref: `Sources` is the last H2.
-- Spec: no requirements, except the glossary.
+- Spec: no requirements.
+- Term: no required sections. The definition is the prose under the H1, and L15 wants exactly one paragraph of it.
 
 Extra H2 sections are permitted between or after the required ones.
 

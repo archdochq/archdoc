@@ -10,8 +10,8 @@ includes: []
 `[[X]]` in a body marks a link to be filled in. `archdoc link` replaces each one in every document that is not frozen with a Markdown link:
 
 - If `X` is an identifier: `[X: <title>](<relative path>)`.
-- If `X` matches a glossary term, case-insensitively: `[X](<relative path to glossary>#<anchor>)`, keeping the case as written.
-- If `X` matches both, the glossary wins.
+- If `X` matches a term, case-insensitively: `[X](<relative path to GLOSSARY.md>#<anchor>)`, keeping the case as written.
+- If `X` matches both, the term wins.
 - If `X` matches neither: error, and the document is left unchanged.
 
 A document is either rewritten in full or not at all. A frozen document containing `[[...]]` produces a warning naming it and is never modified. A document that is terminal in the working tree and not yet on the branch is not frozen and is rewritten like any other, which is how a backfilled document's links resolve. Outside a git repository, where freezing cannot be established, a terminal document is reported as an error and left alone. Findings from `link` follow `lint`'s exit codes.
@@ -28,14 +28,20 @@ Neither `link` nor `link --suggest` rewrites a heading.
 
 ## The glossary
 
-`spec/glossary.md` is a spec page with additional structure. Anything between the H1 and the first H2 is preamble. From the first H2 onwards, each H2 is one term followed by exactly one paragraph. Terms are unique and in ascending case-insensitive alphabetical order. A renamed term's paragraph may be followed by lines of the form `Formerly *Old Term*.`, one per line, which are not paragraphs; each rename adds a line. A glossary with no entries is valid. The file need not exist; L15 and glossary link resolution are skipped when it is absent.
+A term is one file under `term/`, carrying `title`, `formerly` and `named_by` in its front matter and exactly one paragraph of definition under its H1. The term is the `title`; the filename is its slug, so two terms cannot share one. `named_by` records the document that introduced the term and is not an inclusion.
 
-`archdoc term` manages it:
+`GLOSSARY.md` is generated from `term/` and written under `root`, beside `INDEX.md`. Terms appear in ascending case-insensitive order of title. Every name in a term's `formerly` is written as an explicit anchor before its heading, so a link made before a rename still resolves; L17 checks that, and anchors are read from explicit `<a id="...">` as well as from headings for this reason.
 
-- `add <term> <definition> [--from <id>...]`: inserts alphabetically, creating the page from the template if absent. Fails on a duplicate. Each `--from` identifier is appended to the page's `includes` if not present.
-- `rename <old> <new> [--from <id>...]`: retitles the entry, adds `Formerly *<old>*.` after its paragraph, and re-sorts. Links elsewhere are not rewritten; L17 reports them. `link` does not repair them, since it never edits an existing Markdown link and a former name is not a term.
-- `remove <term> [--from <id>...]`: deletes the entry.
+A repository with no `term/` directory has no glossary, which is valid: L15 and term link resolution are skipped.
+
+`archdoc glossary` regenerates the page and `--check` fails when it is out of date, as `archdoc index` does for `INDEX.md`.
+
+`archdoc term` manages the files:
+
+- `add <term> <definition> [--named-by <id>]`: writes `term/<slug>.md`. Refuses a slug already taken, which covers a name differing only in case, and refuses a file the index cannot see.
+- `rename <old> <new>`: renames the file, sets `title`, and appends the old name to `formerly`. Links elsewhere are not rewritten and do not need to be: the old name keeps an anchor on the generated page.
+- `remove <term>`: deletes the file. Refuses when a frozen document links to the term, whose link could never be corrected.
 - `list`: prints the terms, one per line.
-- `show <term>`: prints the entry.
+- `show <term>`: prints the term and its definition.
 
 Each writer re-reads the page after writing it and refuses if the terms on it are not exactly those intended. A writer refuses a page whose parse stops short of the end of the file.

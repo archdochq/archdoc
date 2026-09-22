@@ -37,5 +37,7 @@ jobs:
       # annotation on the line of the document that caused each finding.
       - uses: archdochq/lint@v1
 
-      - name: Check the index is current
-        run: archdoc index --check
+      - name: Check the generated files are current
+        run: |
+          archdoc index --check
+          archdoc glossary --check

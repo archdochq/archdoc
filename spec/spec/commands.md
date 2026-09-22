@@ -15,11 +15,11 @@ Exit codes: 0 on success, 1 on a usage or validation error, 2 when lint, a check
 
 With a terminal on stdin, a command prompts for every value it was not given: required arguments, and optional flags whose value is written to a file. Flags that select a mode of operation (`--json`, `--check`, `--suggest`, `--apply`, `--strict-warnings`, `--no-interaction`, `--yes`) are never prompted for. A flag supplied on the command line is not prompted for. The prompts for one invocation form a single form, required arguments first, each optional pre-filled with its default. Without a terminal, or with `--no-interaction`, defaults apply and a missing required argument is a usage error. `--no-interaction` is a persistent flag. A terminal is detected with `term.IsTerminal`.
 
-Prompts offer a filtered choice where one exists: `new` prompts for type then title; a transition command prompts with a select of the documents eligible for that transition, showing identifier, title and status; `term add` prompts for term and definition, then a multi-select of accepted documents for `--from`; `init` prompts for each configuration value in turn.
+Prompts offer a filtered choice where one exists: `new` prompts for type then title; a transition command prompts with a select of the documents eligible for that transition, showing identifier, title and status; `term add` prompts for term and definition; `init` prompts for each configuration value in turn.
 
 ## Output
 
-Plain text on stdout. Findings take the form `<path>:<line>: <severity>: <message>` where a line is known and `<path>: <severity>: <message>` otherwise, with `<path>` relative to `root`. `--json` on `lint`, `index --check` and `link` emits the same findings as a bare JSON array of objects with `path`, `line`, `severity`, `message` and `rule`; `line` is omitted where unknown, and `rule` is the rule code, or `index` for the index check. Progress notices go to stderr.
+Plain text on stdout. Findings take the form `<path>:<line>: <severity>: <message>` where a line is known and `<path>: <severity>: <message>` otherwise, with `<path>` relative to `root`. `--json` on `lint`, `index --check`, `glossary --check` and `link` emits the same findings as a bare JSON array of objects with `path`, `line`, `severity`, `message` and `rule`; `line` is omitted where unknown, and `rule` is the rule code, or `index` and `glossary` for the generated-file checks. Progress notices go to stderr.
 
 ## `archdoc init`
 
@@ -35,9 +35,9 @@ Scaffolds a repository in the current directory.
 | `--license=<none\|mit>` | `none` |
 | `--agents` | off |
 
-Writes `archdoc.json` at the git repository root, or in the current directory where there is no repository, setting `root` to the path from there down to the current directory joined with any `--root` given, so the documents land where the command was run. Writes `README.md`, `PROCESS.md`, `INDEX.md`, `rfc/.gitkeep`, `adr/.gitkeep`, `ref/.gitkeep`, `spec/glossary.md`, `LICENSE` if requested, and `AGENTS.md` with `agents/` if requested, under `root`; and `.github/workflows/archdoc-lint.yml` at the git repository root, or in the current directory where there is no repository. Every file is planned before any is written, collisions are tested with `Lstat`, and files are created with `O_EXCL`. Prints every path written. Refuses if `archdoc.json` already exists or any other planned file is in the way. Validates the configuration through the same path that loads one, after prompting and before writing. Does not initialise git and does not commit.
+Writes `archdoc.json` at the git repository root, or in the current directory where there is no repository, setting `root` to the path from there down to the current directory joined with any `--root` given, so the documents land where the command was run. Writes `README.md`, `PROCESS.md`, `INDEX.md`, `GLOSSARY.md`, `rfc/.gitkeep`, `adr/.gitkeep`, `ref/.gitkeep`, `term/.gitkeep`, `LICENSE` if requested, and `AGENTS.md` with `agents/` if requested, under `root`; and `.github/workflows/archdoc-lint.yml` at the git repository root, or in the current directory where there is no repository. Every file is planned before any is written, collisions are tested with `Lstat`, and files are created with `O_EXCL`. Prints every path written. Refuses if `archdoc.json` already exists or any other planned file is in the way. Validates the configuration through the same path that loads one, after prompting and before writing. Does not initialise git and does not commit.
 
-The generated workflow runs on push and pull request. It checks out the full history, uses `archdochq/lint` pinned to the version that ran `init`, which installs `archdoc` and reports each finding as an annotation on the line of the document that caused it, then runs `archdoc index --check`. Its `working-directory` is the path from the git repository root to the directory holding `archdoc.json`, as git reports it, and is omitted when the two are the same, which is every repository `init` scaffolds.
+The generated workflow runs on push and pull request. It checks out the full history, uses `archdochq/lint` pinned to the version that ran `init`, which installs `archdoc` and reports each finding as an annotation on the line of the document that caused it, then runs `archdoc index --check` and `archdoc glossary --check`. Its `working-directory` is the path from the git repository root to the directory holding `archdoc.json`, as git reports it, and is omitted when the two are the same, which is every repository `init` scaffolds.
 
 ## `archdoc new <rfc|adr|ref> <title>`
 
@@ -59,7 +59,7 @@ The selector is an identifier or a path. Given an identifier carried by more tha
 
 Regenerates `PROCESS.md`, the workflow, and the guides under `agents/` where that directory exists. Shows a unified diff of everything that would change and asks before writing. `--check` shows and exits 2 without writing. `--yes` applies without asking. With neither and no terminal, it refuses.
 
-`AGENTS.md`, `README.md`, `archdoc.json`, `LICENSE`, `INDEX.md` and every document are not touched. `agents/` is refreshed and never created; where it is absent the command says that `archdoc agents` installs it.
+`AGENTS.md`, `README.md`, `archdoc.json`, `LICENSE`, `INDEX.md`, `GLOSSARY.md` and every document are not touched. `agents/` is refreshed and never created; where it is absent the command says that `archdoc agents` installs it.
 
 The workflow's `version` pin is raised to the version doing the update. It is kept as it is only when the running binary's version is not a published release. A repository scaffolded before the workflow used `archdochq/lint` names its pin `ARCHDOC_VERSION`, and that spelling is read too, so the pin survives the change.
 

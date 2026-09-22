@@ -45,7 +45,7 @@ type Repository struct {
 	// whether one exists.
 	HasGlossary bool       `json:"has_glossary"`
 	Documents   []Document `json:"documents"`
-	// Glossary is the parsed spec/glossary.md, absent when the page is. The
+	// Glossary is every term, absent when the repository has none. The
 	// page itself still appears among the documents; this is the same content
 	// as data, so a consumer does not re-parse it.
 	Glossary []Term `json:"glossary,omitempty"`
@@ -157,12 +157,20 @@ type Link struct {
 	Line       int    `json:"line"`
 }
 
-// Term is one glossary entry.
+// Term is one glossary entry. A term is a document on disk but is published
+// only here: it appears in no other list, so a consumer has one representation
+// of it rather than two that could disagree.
 type Term struct {
-	Name       string   `json:"name"`
-	Anchor     string   `json:"anchor"`
+	Name   string `json:"name"`
+	Anchor string `json:"anchor"`
+	// Path is the term's file, relative to root. The anchor is on the
+	// generated glossary, which is what every link to a term targets.
+	Path       string   `json:"path"`
 	Definition string   `json:"definition"`
 	Formerly   []string `json:"formerly,omitempty"`
+	// NamedBy is the document that introduced the term. Not an inclusion: a
+	// term is defined by a document, not implemented by one.
+	NamedBy string `json:"named_by,omitempty"`
 }
 
 // Options selects what to include. The zero value exports everything.
@@ -192,9 +200,13 @@ func Build(r *repo.Repo, opts Options) Repository {
 			Strict:       c.Strict,
 			RefStaleDays: c.RefStaleDays,
 		},
-		HasGlossary: r.ByPage(repo.GlossaryPage) != nil,
 	}
+	_, out.HasGlossary = r.Glossary()
 	for _, d := range r.Documents() {
+		// Terms are published in Glossary alone.
+		if d.Type == repo.TypeTerm {
+			continue
+		}
 		out.Documents = append(out.Documents, document(r, d, opts))
 	}
 	if entries, ok := r.Glossary(); ok {
@@ -202,8 +214,10 @@ func Build(r *repo.Repo, opts Options) Repository {
 			out.Glossary = append(out.Glossary, Term{
 				Name:       e.Term,
 				Anchor:     e.Anchor,
+				Path:       e.Path,
 				Definition: strings.Join(e.Paragraphs, "\n\n"),
 				Formerly:   e.Formerly,
+				NamedBy:    e.NamedBy,
 			})
 		}
 	}

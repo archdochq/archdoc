@@ -21,7 +21,7 @@ A contents entry is not a section. A section is an H2 and everything under it, s
 
 Each entry in `links` has `text`, `type`, `destination` as written, `line`, and where the destination is relative and stays within the repository, `path` resolved against the repository root and `resolves_to` naming the identifier or page there, with `anchor` where one was written. A destination carrying a URI scheme or beginning with `/` has neither `path` nor `resolves_to`. `type` is `inline` for `[text](destination)`, `image` for `![text](destination)` and `definition` for `[label]: destination`, whose `text` is its label. A reference use carries a label rather than a destination and is not listed: rewriting the definition carries its uses with it.
 
-Each glossary term has `name`, `anchor`, `definition`, and `formerly` where the term was renamed.
+Each glossary term has `name`, `anchor`, `path`, `definition`, `formerly` where the term was renamed, and `named_by` where a document introduced it. A term appears here and nowhere else: it is not published among the documents, so a consumer has one representation of it. The anchor is on the generated `GLOSSARY.md`, which is what every link to a term targets.
 
 Bodies are raw Markdown. Nothing is rendered. `source` is the file exactly as it is on disk, front matter included, and is the only field that reproduces the document.
 

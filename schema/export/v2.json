@@ -125,14 +125,19 @@
     },
     "term": {
       "type": "object",
+      "description": "One glossary term. A term is a file under term/ but is published only here, so a consumer has one representation of it rather than two that could disagree.",
       "required": ["name", "anchor", "definition"],
       "additionalProperties": false,
       "properties": {
         "name": {"type": "string"},
-        "anchor": {"type": "string"},
+        "anchor": {"type": "string",
+                   "description": "On the generated glossary, which is what every link to a term targets. A former name keeps an anchor there too, so a link written before a rename still resolves."},
+        "path": {"type": "string", "description": "The term's file, relative to root."},
         "definition": {"type": "string"},
         "formerly": {"type": "array", "items": {"type": "string"},
-                     "description": "Previous names, oldest first."}
+                     "description": "Previous names, oldest first."},
+        "named_by": {"type": "string",
+                     "description": "The document that introduced the term. Not an inclusion: a term is defined by a document, not implemented by one."}
       }
     },
     "identifiers": {"type": "array", "items": {"type": "string", "pattern": "^(RFC|ADR|REF)-[0-9]{4}$"}}
