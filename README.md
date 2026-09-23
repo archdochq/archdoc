@@ -12,7 +12,7 @@ research and background, and is never normative.
 
 RFCs and ADRs are frozen once they reach a terminal status. To change what an
 accepted document says you write a new one that updates or obsoletes it, and the
-tool enforces that: eighteen lint rules, a generated index of every derived
+tool enforces that: nineteen lint rules, a generated index of every derived
 relationship, and a CI workflow it scaffolds for you.
 
 ## Installing

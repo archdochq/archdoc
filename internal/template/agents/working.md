@@ -61,10 +61,13 @@ which repository is being changed. `setup.md` covers the arrangement in full.
 archdoc new rfc|adr|ref "Title"   create the next-numbered document, in draft
 archdoc propose|accept|reject|withdraw <id>   move it through its lifecycle
 archdoc link [--suggest]          resolve [[...]] links, or offer new ones
-archdoc term add|rename|remove|list|show      maintain the glossary
+archdoc term add|rename|remove|list|show      maintain the glossary, one file per term
 archdoc renumber <id|path> [new]  change a document's number, following every reference
 archdoc lint                      check every rule
 archdoc index [--check]           regenerate INDEX.md, or verify it is current
+archdoc glossary [--check]        regenerate GLOSSARY.md, or verify it is current
+archdoc export                    write the repository as JSON
+archdoc update                    refresh PROCESS.md, the workflow and agents/ after upgrading
 ```
 
 `accept` and `reject` refuse a document with an empty required section or an unresolved

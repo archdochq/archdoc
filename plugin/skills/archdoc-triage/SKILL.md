@@ -57,15 +57,17 @@ belongs.
 | L12 | A spec page includes something obsoleted (warning) | Update the page and its `includes` |
 | L13 | A ref's `verified` date is older than `ref_stale_days` (warning) | Re-check the content, then update `verified` |
 | L14 | A required section is empty | Write it. Only `Open questions` and `Changelog` may be empty |
-| L15 | The glossary is out of order, has duplicates, or an entry is not one paragraph | Use `archdoc term`, not a hand edit. Structure is in PROCESS.md, Document structure |
+| L15 | A term's definition under `term/` is not exactly one paragraph | Rewrite the definition as one paragraph |
 | L16 | An unresolved `[[...]]` link | Run `archdoc link` |
 | L17 | A relative link points at a missing file or heading | Fix the path or the anchor |
 | L18 | `depends` names something less settled than the referring document (warning) | Usually accept the dependency first |
+| L19 | `spec/glossary.md` is left from before terms became files, and is no longer read (warning) | Move its terms to `term/` with `archdoc term add`. Guide: `spec-pages.md` |
 
 ## Two situations that look like faults and are not
 
 **"no commits yet"** on a fresh repository. Nothing can be frozen before there is a branch to
 compare against, so L11 is skipped with a warning. Commit, and it goes away.
 
-**`archdoc index --check` failing after any edit.** The index is derived. Run `archdoc index`
-and commit the result. Never edit `INDEX.md` by hand.
+**`archdoc index --check` or `archdoc glossary --check` failing after any edit.** Both files
+are derived. Run `archdoc index` or `archdoc glossary` and commit the result. Never edit
+`INDEX.md` or `GLOSSARY.md` by hand.

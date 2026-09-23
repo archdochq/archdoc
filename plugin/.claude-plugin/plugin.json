@@ -1,7 +1,7 @@
 {
   "name": "archdoc",
   "description": "Document a project with ArchDoc: classify, backfill from real evidence, and keep a specification repository lint-clean.",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "author": {
     "name": "Ollie Read"
   }

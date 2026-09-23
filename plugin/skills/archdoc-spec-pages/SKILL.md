@@ -52,29 +52,50 @@ commit message. Update the `includes` list in the same commit.
 
 ## The glossary
 
-`spec/glossary.md` is a spec page with extra structure that lint enforces: entries are H2
-headings, one paragraph each, unique, in ascending alphabetical order ignoring case. Anything
-before the first H2 is preamble and is ignored.
+The glossary is not a spec page. Each term is one file, `term/<slug>.md`, and `GLOSSARY.md` at
+the repository root is generated from them. Never edit `GLOSSARY.md` by hand.
 
-Use the tool rather than editing the file:
+```yaml
+---
+title: effectively obsolete
+formerly: []
+named_by: ADR-0003
+---
+```
+
+The body is the definition, exactly one paragraph, which L15 enforces. `named_by` is the
+document that introduced the term. `formerly` lists previous names, oldest first.
+
+Use the tool rather than writing the files:
 
 ```
-archdoc term add "Tenant" "An isolated customer account with its own data and users."
+archdoc term add "Tenant" "An isolated customer account with its own data and users." --named-by RFC-0003
 archdoc term rename "Tenant" "Organisation"
 archdoc term remove "Tenant"
 archdoc term list
+archdoc term show "Tenant"
 ```
 
-`rename` records a `Formerly *Old Name*.` line so the chain survives. It does **not** rewrite
-links elsewhere, and `archdoc link` cannot repair them, because a recorded former name is not a
-term. L17 will report the broken links and they are corrected by hand.
+`add` refuses a term whose slug matches an existing one, ignoring case. `rename` renames the
+file and appends the old name to `formerly`; the generated page keeps an anchor for every former
+name, so links written before the rename, including those in frozen documents, still resolve.
+`remove` refuses when a frozen document links to the term.
+
+`[[Some Term]]` resolves to `GLOSSARY.md#some-term`.
 
 A glossary with no entries is valid. Do not invent terms to fill it.
+
+A repository scaffolded before terms became files may still carry `spec/glossary.md`, which lint
+reports as L19. Nothing is read from that page any more. Move each entry across with
+`archdoc term add`, repoint links from editable documents at `GLOSSARY.md`, then delete the page.
+If a frozen document links into it, leave the page in place: the links it holds can never be
+repointed, and the L19 warning is then a record, not a task.
 
 ## After any edit
 
 ```
-archdoc index && archdoc lint
+archdoc index && archdoc glossary && archdoc lint
 ```
 
-The index derives from the front matter, so any change to `includes` changes `INDEX.md`.
+The index derives from the front matter, so any change to `includes` changes `INDEX.md`. Any
+change under `term/` changes `GLOSSARY.md`.

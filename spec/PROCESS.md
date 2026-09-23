@@ -155,9 +155,9 @@ Spec pages have no fixed structure. They are written in the present tense and de
 
 Refs have no fixed structure beyond a closing **Sources** section, so that the `verified` date has something to be checked against.
 
-The glossary is a spec page, `spec/glossary.md`. Terminology is a statement of what things are called now, and is edited like any other spec page.
+The glossary is not a spec page. Each term is one file, `term/<slug>.md`, whose front matter carries `title` (the term as written), `formerly` (previous names, oldest first) and `named_by` (the document that introduced the term), and whose body is exactly one paragraph defining it. A term has no status and no lifecycle. A glossary with no entries is valid.
 
-It has one structure lint enforces. Anything between the H1 and the first H2 is preamble and is ignored. From the first H2 onwards, each H2 is one term followed by exactly one paragraph defining it. Terms are unique and in ascending alphabetical order, ignoring case. A glossary with no entries is valid. A renamed term keeps a `Formerly *Old Name*.` line after its definition, one per rename, so the chain survives. `archdoc term` maintains all of this, and is easier than editing the page by hand.
+`GLOSSARY.md` is generated from those files, in ascending order of title ignoring case. Every former name keeps an anchor on it, so a link written before a rename still resolves. `spec/glossary.md` is no longer read. `archdoc term` maintains the files, and is easier than writing them by hand.
 
 ## Workflow
 
@@ -185,6 +185,7 @@ ArchDoc provides:
 - `archdoc renumber <id|path> [new-id]`: change a document's number, rewriting the filename, the `id`, the heading and every reference to it. Takes the next free number when no target is given. Refuses when the document is frozen, or when a frozen document refers to it.
 - `archdoc term add|rename|remove|list|show`: maintain the glossary.
 - `archdoc index`: regenerate `INDEX.md`. With `--check`, fail if the committed index is out of date.
+- `archdoc glossary`: regenerate `GLOSSARY.md` from `term/`. With `--check`, fail if the committed glossary is out of date.
 - `archdoc export`: write the repository as JSON, for anything that renders or indexes it elsewhere. `--schema` prints the schema the output conforms to.
 - `archdoc update`: refresh the files ArchDoc generates, including this one, after upgrading it. Shows what would change and asks first.
 
@@ -203,12 +204,13 @@ Lint enforces:
 - Any document that is terminal on the base branch is unchanged from the version there. Whether it changed is decided by git rather than by comparing bytes, so a checkout that rewrites line endings does not make every frozen document look edited. Deleting a frozen document is an error; a rename counts as a deletion.
 - A spec page is not stale: it includes nothing that has since been obsoleted. Warning.
 - Refs whose `verified` date is older than `ref_stale_days` produce a warning.
-- The glossary is well formed: unique terms, in ascending alphabetical order, one paragraph each.
+- Every term's definition is exactly one paragraph.
 - No unresolved `[[...]]` link remains anywhere.
-- Every relative link resolves to a file that exists, and to a heading that exists where it carries an anchor.
+- Every relative link resolves to a file that exists, and to a heading or explicit anchor that exists where it carries an anchor.
 - Every `depends` entry references a document that is accepted, or one sharing the referencing document's own non-terminal status. Warning.
+- No `spec/glossary.md` is left from before terms became files. Warning.
 
-`INDEX.md` is generated. Do not edit it by hand.
+`INDEX.md` and `GLOSSARY.md` are generated. Do not edit them by hand.
 
 ## Configuration
 

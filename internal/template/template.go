@@ -62,8 +62,8 @@ var funcs = template.FuncMap{
 // templates are parsed once. They are compiled into the binary, so one that
 // does not parse is a build fault rather than a user's problem, and panicking
 // at start turns "this fails for someone, one day, on one subcommand" into
-// "this fails in CI, always". PROCESS.md and glossary.md are parsed too; they
-// contain no template syntax, and a future file that does must either escape
+// "this fails in CI, always". PROCESS.md is parsed too; it
+// contains no template syntax, and a future file that does must either escape
 // its braces or move out of the glob. The agents/ guides are embedded but not
 // in the glob: they ship verbatim, so a brace in one is literal text.
 var templates = template.Must(template.New("archdoc").Funcs(funcs).ParseFS(Files, "*.md", "*.yml", "LICENSE.mit"))
