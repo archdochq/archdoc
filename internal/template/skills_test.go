@@ -42,13 +42,7 @@ func TestTheSkeletonHoldsTheTree(t *testing.T) {
 		if err != nil {
 			return err
 		}
-		rel = filepath.ToSlash(rel)
-		// The packaged copy the root marketplace still installs from, until
-		// the skills repository replaces it.
-		if strings.HasPrefix(rel, "skills/") {
-			return nil
-		}
-		if rel != "build.go" {
+		if rel = filepath.ToSlash(rel); rel != "build.go" {
 			got[rel] = true
 		}
 		return nil

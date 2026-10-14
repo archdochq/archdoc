@@ -1,6 +1,6 @@
 ---
 title: Release
-includes: [ADR-0012, ADR-0013, ADR-0015, ADR-0018]
+includes: [RFC-0010, ADR-0012, ADR-0013, ADR-0015, ADR-0018]
 ---
 
 # Release

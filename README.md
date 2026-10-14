@@ -107,15 +107,18 @@ Bodies are raw Markdown; ArchDoc has no renderer and is not acquiring one.
 repository, covering classification, authoring, backfilling, lint triage and
 contributing by pull request. `archdoc agents` installs or refreshes them later.
 
-The same guides are packaged as skills under `plugin/`, for hosts that discover
-them by name:
+The same guides are published as skills from
+[archdochq/skills](https://github.com/archdochq/skills), which each stable release writes, for
+Claude Code, Copilot CLI, Codex, Cursor, Gemini CLI and any agent `npx skills` supports. In
+Claude Code:
 
 ```
-/plugin marketplace add archdochq/archdoc
+/plugin marketplace add archdochq/skills
 /plugin install archdoc@archdoc
 ```
 
-One source, three deliveries, compared byte for byte by a test.
+Its README has the install line for each of the others. An installed copy holds the guides of
+the release that wrote it, the same files that release's binary writes.
 
 ## Documents
 

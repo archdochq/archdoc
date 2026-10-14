@@ -22,7 +22,7 @@ archdoc/
 │   ├── git/             an interface with a shell-out implementation
 │   ├── repotest/        throwaway repositories for tests
 │   └── template/        embedded files, including agents/
-├── plugin/              the guides packaged as skills
+├── plugin/              the skills repository's skeleton and generator
 └── schema/              the published export schema
 ```
 

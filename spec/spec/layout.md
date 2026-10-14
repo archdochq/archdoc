@@ -1,6 +1,6 @@
 ---
 title: Layout
-includes: [RFC-0001, RFC-0007, ADR-0017]
+includes: [RFC-0001, RFC-0007, RFC-0010, ADR-0017]
 ---
 
 # Layout
@@ -99,4 +99,4 @@ Embedded under `internal/template`: `rfc.md`, `adr.md`, `ref.md`, `PROCESS.md`, 
 
 One template function is registered: `yaml`, which encodes a value as a YAML scalar, quoting and escaping only where the encoding requires it. Front matter uses `title: {{ yaml .Title }}`. The H1 uses `.Title` raw and is read back by splitting on the first `": "`.
 
-Each guide under `agents/` carries `name` and `description` front matter and is a valid skill file as written. The same files are written into a repository by `init --agents`, refreshed by `agents` and `update`, and packaged under `plugin/skills/`; the packaged copies are generated from the embedded ones and a test compares them byte for byte. Each guide cites `PROCESS.md` by section name, and a test resolves every citation against the headings present.
+Each guide under `agents/` carries `name` and `description` front matter and is a valid skill file as written. The same files are written into a repository by `init --agents`, refreshed by `agents` and `update`, and published by each stable release to `skills/<name>/SKILL.md` in `archdochq/skills`, copied byte for byte by `plugin/build.go`. A test checks each guide's front matter against the Agent Skills rules: only the keys the specification defines, a `name` of 1 to 64 lowercase letters, digits and single inner hyphens that no other guide declares, and a `description` of 1 to 1024 characters that is not whitespace alone. Each guide cites `PROCESS.md` by section name, and a test resolves every citation against the headings present.
