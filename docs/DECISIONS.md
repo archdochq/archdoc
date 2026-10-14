@@ -92,9 +92,8 @@ would have to round-trip everything it parsed.
 - **Changelog entries are read in a subset of list syntax, and anything outside it is reported.** The
   subset is the shapes where this reading of a list item and CommonMark's agree: `- ` at column 0, then
   lines indented by two spaces, blank lines followed by indented ones, and unindented lazy lines directly
-  after the entry's text that cannot begin another block. It was checked against a CommonMark parser over
-  random sections while it was designed; hand-writing CommonMark's list rules was tried first and read
-  several shapes differently from how they render.
+  after the entry's text that cannot begin another block. Hand-writing CommonMark's list rules was tried
+  first and read several shapes differently from how they render.
 - **Changelog lines are read as written, not masked.** Masking blanks a line holding only a comment, and
   a blank line continues a list item where a comment at column 0 ends it, so the masked text gave an
   indented line after such a comment to the entry above it. Section boundaries still come from the masked
@@ -157,7 +156,7 @@ would have to round-trip everything it parsed.
   the other document, nor to L11 itself.
 - **The gate compares Changelog dates with the `decided` date it is about to write.** The document's own is
   empty while it is proposed, so an entry dated after the day of the transition would pass the gate and
-  then fail L21 for good.
+  then be reported by L21 for good.
 - **`accept` checks that the closing section is last.** While `Changelog` and `Open questions` were
   required, the order check kept them before `Sources`; neither is required now, and L08 reports a
   heading after `Sources` with an error that does not soften.

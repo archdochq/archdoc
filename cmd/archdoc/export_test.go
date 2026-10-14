@@ -334,6 +334,7 @@ func TestIndexDropsTheBodiesOfQuestionsAndEntries(t *testing.T) {
 		t.Fatal(err)
 	}
 	extra := "\n- 2026-01-02: An entry.\n\n## Resolved questions\n\n### Was it?\n\n> Yes.\n"
+	written = []byte(strings.Replace(string(written), "## Changelog", "### Still open?\n\nDetail.\n\n## Changelog", 1))
 	if err := os.WriteFile(found[0], append(written, extra...), 0o644); err != nil {
 		t.Fatal(err)
 	}
@@ -343,7 +344,13 @@ func TestIndexDropsTheBodiesOfQuestionsAndEntries(t *testing.T) {
 		t.Fatalf("export --out exited %d: %s", code, out)
 	}
 	type nested struct {
+		Contents []struct {
+			Anchor string `json:"anchor"`
+		} `json:"contents"`
 		Questions struct {
+			Open []struct {
+				Body *string `json:"body"`
+			} `json:"open"`
 			Resolved []struct {
 				Body   *string `json:"body"`
 				Answer *struct {
@@ -380,6 +387,12 @@ func TestIndexDropsTheBodiesOfQuestionsAndEntries(t *testing.T) {
 	if len(index.Questions.Resolved) != 1 || len(index.Changelog) != 1 {
 		t.Fatalf("index.json lost the questions or entries themselves: %+v", index)
 	}
+	if len(index.Questions.Open) != 1 || index.Questions.Open[0].Body != nil {
+		t.Error("index.json carries an open question's body, or lost the question")
+	}
+	if len(doc.Questions.Open) != 1 || doc.Questions.Open[0].Body == nil {
+		t.Error("the per-document file lost an open question's body dropped for the index")
+	}
 	if index.Questions.Resolved[0].Body != nil || index.Questions.Resolved[0].Answer.Body != nil || index.Changelog[0].Body != nil {
 		t.Error("index.json carries a question, answer or entry body")
 	}
@@ -388,5 +401,33 @@ func TestIndexDropsTheBodiesOfQuestionsAndEntries(t *testing.T) {
 	}
 	if doc.Questions.Resolved[0].Body == nil || doc.Questions.Resolved[0].Answer.Body == nil || doc.Changelog[0].Body == nil {
 		t.Error("the per-document file lost a body dropped for the index")
+	}
+}
+
+func TestAllHeadingsReachesTheExport(t *testing.T) {
+	dir := t.TempDir()
+	if out, code := run(t, dir, "init", "--name", "T"); code != exitOK {
+		t.Fatalf("init exited %d: %s", code, out)
+	}
+	if out, code := run(t, dir, "new", "rfc", "A design"); code != exitOK {
+		t.Fatalf("new exited %d: %s", code, out)
+	}
+	anchors := func(args ...string) string {
+		t.Helper()
+		docs, _ := exported(t, dir, args...)["documents"].([]any)
+		var out []string
+		for _, d := range docs {
+			contents, _ := d.(map[string]any)["contents"].([]any)
+			for _, e := range contents {
+				out = append(out, e.(map[string]any)["anchor"].(string))
+			}
+		}
+		return strings.Join(out, " ")
+	}
+	if got := anchors(); strings.Contains(got, "changelog") || strings.Contains(got, "open-questions") {
+		t.Errorf("by default contents holds %q", got)
+	}
+	if got := anchors("--all-headings"); !strings.Contains(got, "changelog") || !strings.Contains(got, "open-questions") {
+		t.Errorf("with --all-headings contents holds %q", got)
 	}
 }

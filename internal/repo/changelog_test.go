@@ -125,6 +125,13 @@ func TestChangelogReportsWhatItCannotReadAsCommonMarkDoes(t *testing.T) {
 		{"a thematic break", "- - -\n", "13: this line belongs to no entry"},
 		{"a bare marker", "-\n  2026-09-02: One.\n", "13: this line belongs to no entry"},
 		{"two spaces after the marker", "-  2026-09-02: One.\n", "13: this line belongs to no entry"},
+		{"a tab after the marker", "- \t2026-09-02: One.\n", "13: this line belongs to no entry"},
+		{"a lazy + item", "- 2026-09-02: One.\n+ two\n", "14: this line belongs to no entry"},
+		{"a lazy _", "- 2026-09-02: One.\n_two_\n", "14: this line belongs to no entry"},
+		{"a lazy =", "- 2026-09-02: One.\n===\n", "14: this line belongs to no entry"},
+		{"a lazy table row", "- 2026-09-02: One.\n| a |\n", "14: this line belongs to no entry"},
+		{"a lazy backtick fence", "- 2026-09-02: One.\n```\n", "14: this line belongs to no entry"},
+		{"a lazy tilde fence", "- 2026-09-02: One.\n~~~\n", "14: this line belongs to no entry"},
 		{"a tab in the indentation", "- 2026-09-02: One.\n\ttwo\n", "14: this line belongs to no entry"},
 		{"a tab after two spaces", "- 2026-09-02: One.\n  \ttwo\n", "14: this line belongs to no entry"},
 		{"one space of indentation", "- 2026-09-02: One.\n two\n", "14: this line belongs to no entry"},
@@ -223,5 +230,17 @@ func TestASecondSectionsHeadingIsCheckedOnce(t *testing.T) {
 	}
 	if indented != 1 {
 		t.Errorf("the indented heading was reported %d times, want once", indented)
+	}
+}
+
+func TestTwoDashesAreAnEntryHoldingAList(t *testing.T) {
+	// Fewer than three dashes is not a thematic break.
+	d := changelogDoc(t, "", "## Changelog\n- -\n")
+	got := problemLines(d.ChangelogProblems(time.Time{}))
+	if entries := d.Changelog(); len(entries) != 1 || entries[0].Text != "-" {
+		t.Errorf("entries = %+v, want one holding \"-\"", entries)
+	}
+	if len(got) != 1 || !strings.Contains(got[0], "entry has no date") {
+		t.Errorf("reported %q, want only the missing date", got)
 	}
 }

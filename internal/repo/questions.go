@@ -2,6 +2,7 @@ package repo
 
 import (
 	"fmt"
+	"slices"
 	"strings"
 )
 
@@ -70,10 +71,10 @@ func (w *questionWalk) report(index int, format string, args ...any) {
 	w.problems = append(w.problems, Problem{Line: w.d.BodyLine + index, Message: fmt.Sprintf(format, args...)})
 }
 
-// blank is a line holding nothing but whitespace and comments. A line inside a
-// fenced code block is content whatever it holds.
+// blank is a line holding nothing but whitespace and comments. A fenced code
+// block is never blank, as its opening line holds the fence.
 func (w *questionWalk) blank(i int) bool {
-	return !w.fenced[i] && strings.TrimSpace(w.masked[i]) == ""
+	return strings.TrimSpace(w.masked[i]) == ""
 }
 
 // quoted is a blockquote line: one beginning with > at the start of the line,
@@ -86,7 +87,10 @@ func (w *questionWalk) quoted(i int) bool {
 type span struct{ start, end int }
 
 func (d *Document) readQuestions(skipOpen bool) (Questions, []Problem) {
-	w := &questionWalk{d: d, raw: d.bodyLines(), masked: d.maskedLines(), fenced: d.fenced}
+	// The walk fills d.fenced, so it runs before the field is read: the order
+	// of a call and a field read within one composite literal is unspecified.
+	masked := d.maskedLines()
+	w := &questionWalk{d: d, raw: d.bodyLines(), masked: masked, fenced: d.fenced}
 	var out Questions
 
 	hasOpen := false
@@ -174,6 +178,7 @@ func (d *Document) readQuestions(skipOpen bool) (Questions, []Problem) {
 			}
 		}
 	}
+	slices.SortStableFunc(w.problems, func(a, b Problem) int { return a.Line - b.Line })
 	return out, w.problems
 }
 
@@ -295,33 +300,58 @@ func (w *questionWalk) answer(run span) *Answer {
 }
 
 // unquote removes a blockquote line's > and one column of the whitespace after
-// it. A tab after the marker reaches the next tab stop, three columns on, so
-// two columns of it are left as spaces.
+// it, as CommonMark does. The whitespace before the text is expanded to spaces
+// at the columns it occupied inside the quote first, because a tab moved two
+// columns left changes width, and a paragraph would read as an indented code
+// block once the quote is gone.
 func unquote(line string) string {
 	rest := strings.TrimPrefix(line, ">")
-	switch {
-	case strings.HasPrefix(rest, " "):
-		return rest[1:]
-	case strings.HasPrefix(rest, "\t"):
-		return "  " + rest[1:]
+	column, lead := 1, 0
+	var spaces strings.Builder
+	for ; lead < len(rest) && (rest[lead] == ' ' || rest[lead] == '\t'); lead++ {
+		width := 1
+		if rest[lead] == '\t' {
+			width = 4 - column%4
+		}
+		spaces.WriteString(strings.Repeat(" ", width))
+		column += width
 	}
-	return rest
+	expanded := spaces.String()
+	if expanded != "" {
+		expanded = expanded[1:]
+	}
+	return expanded + rest[lead:]
 }
 
 // checkQuotes reports a heading, a fence or a comment inside a blockquote. The
 // tool finds each of those before it knows a line is quoted, and does not see a
 // fence inside a blockquote at all, so they are refused rather than read some
 // other way.
+//
+// A fence is reported at the line opening it, and the lines it holds are code,
+// so a # among them is not a heading. A comment marker among them is still
+// reported: the walk does not see the fence, and masks from that marker on.
 func (w *questionWalk) checkQuotes(s span) {
 	for _, run := range w.quotes(s) {
+		var fenceChar byte
+		fenceLen := 0
 		for i := run.start; i < run.end; i++ {
 			content := unquote(strings.TrimSuffix(w.raw[i], "\r"))
 			switch {
+			case fenceLen > 0:
+				if closesFence(content, fenceChar, fenceLen) {
+					fenceLen = 0
+				}
 			case IsHeading(content):
 				w.report(i, "a blockquote in a question section holds a heading")
+				continue
 			case fencePattern.MatchString(content):
+				m := fencePattern.FindStringSubmatch(content)
+				fenceChar, fenceLen = m[1][0], len(m[1])
 				w.report(i, "a blockquote in a question section holds a fenced code block")
-			case w.masked[i] != w.raw[i]:
+				continue
+			}
+			if w.masked[i] != w.raw[i] {
 				w.report(i, "a blockquote in a question section holds an HTML comment")
 			}
 		}
@@ -369,7 +399,10 @@ func (w *questionWalk) isQuestion(j int) bool {
 // questionQuotes marks the blockquote lines of every question section, by body
 // line index.
 func (d *Document) questionQuotes() map[int]bool {
-	w := &questionWalk{d: d, raw: d.bodyLines(), masked: d.maskedLines(), fenced: d.fenced}
+	// The walk fills d.fenced, so it runs before the field is read: the order
+	// of a call and a field read within one composite literal is unspecified.
+	masked := d.maskedLines()
+	w := &questionWalk{d: d, raw: d.bodyLines(), masked: masked, fenced: d.fenced}
 	marked := map[int]bool{}
 	for i, h := range d.headings {
 		if h.Level != 2 || (h.Text != OpenQuestions && h.Text != ResolvedQuestions) {

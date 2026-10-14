@@ -100,8 +100,9 @@ type Document struct {
 	// is the ordinary case.
 	RequiredSections []RequiredSection `json:"required_sections"`
 	// Contents is every heading in document order, each with the prose beneath
-	// it, except the question sections and the Changelog, which are published
-	// below as data of their own unless every heading was asked for. It
+	// it, except the question sections and the Changelog, which are left out
+	// unless every heading was asked for and are published below as data of
+	// their own either way. It
 	// replaces an object keyed by anchor, which could not carry the order a
 	// document is in and named level two headings only.
 	Contents []Entry `json:"contents"`

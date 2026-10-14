@@ -96,3 +96,84 @@ func TestAQuotedLineInAFenceIsCode(t *testing.T) {
 		t.Errorf("reported %q, want nothing: the > is inside a fence", problemLines(got))
 	}
 }
+
+func TestAFenceInABlockquoteIsReportedOnceAtItsOpening(t *testing.T) {
+	d := changelogDoc(t, "", "## Resolved questions\n### Q?\n> ```\n> # code, not a heading\n> ```\n> Yes.\n")
+	got := problemLines(d.QuestionProblems(false))
+	if len(got) != 1 || !strings.HasPrefix(got[0], "14: a blockquote in a question section holds a fenced code block") {
+		t.Errorf("reported %q, want the opening fence alone", got)
+	}
+}
+
+func TestAnAnswerKeepsTheColumnsItHadInsideTheQuote(t *testing.T) {
+	for _, c := range []struct{ line, want string }{
+		{"> plain", "plain"},
+		{">\tfoo", "  foo"},
+		{"> \tfoo", "  foo"},
+		{">\t\tfoo", "      foo"},
+		{">  two", " two"},
+		{">", ""},
+	} {
+		d := changelogDoc(t, "", "## Resolved questions\n### Q?\n> first\n"+c.line+"\n")
+		answer := d.Questions().Resolved[0].Answer
+		if answer == nil || answer.Text != "first\n"+c.want {
+			t.Errorf("%q: answer = %+v, want %q", c.line, answer, "first\n"+c.want)
+		}
+	}
+}
+
+func TestADefinitionBehindAQuoteIsReadInACRLFFile(t *testing.T) {
+	d := changelogDoc(t, "", "## Resolved questions\r\n### Q?\r\n> [r]: 0002-other.md\r\n")
+	links := d.Links()
+	if len(links) != 1 || links[0].Target != "0002-other.md" {
+		t.Errorf("links = %+v, want the quoted definition", links)
+	}
+}
+
+func TestALaterResolvedSectionIsReportedOnlyAsASecond(t *testing.T) {
+	for _, body := range []string{
+		"## Open questions\n## Resolved questions\n### Q?\n> A.\n## Other\n## Resolved questions\n\n",
+		"## Open questions\n## Resolved questions\n### Q?\n> A.\n## Other\n## Resolved questions\nPreamble.\n### R?\n> B.\n",
+	} {
+		got := problemLines(changelogDoc(t, "", body).QuestionProblems(false))
+		if len(got) != 1 || !strings.HasPrefix(got[0], "17: the document carries more than one") {
+			t.Errorf("%q: reported %q, want only the second heading", body, got)
+		}
+	}
+}
+
+func TestAQuestionSharingAnAnchorWithALaterHeadingIsReported(t *testing.T) {
+	// The later heading is a level three heading, but not a question, so the
+	// question is the one reported.
+	d := changelogDoc(t, "", "## Open questions\n### Foo\n## Proposal\n### Foo\n")
+	got := problemLines(d.QuestionProblems(false))
+	if len(got) != 1 || !strings.HasPrefix(got[0], "13: question \"Foo\" produces the same anchor") {
+		t.Errorf("reported %q", got)
+	}
+}
+
+func TestAFenceAfterTheLastBlockquoteEndsTheQuestion(t *testing.T) {
+	d := changelogDoc(t, "", "## Resolved questions\n### Q?\n> A.\n```\ncode\n```\n")
+	got := problemLines(d.QuestionProblems(false))
+	if len(got) != 1 || !strings.Contains(got[0], "does not end with a blockquote") {
+		t.Errorf("reported %q", got)
+	}
+}
+
+func TestResolvedQuestionsFollowsAnOpenQuestionsHeadingOfLevelTwo(t *testing.T) {
+	d := changelogDoc(t, "", "## Open questions\n# Open questions\n## Resolved questions\n### Q?\n> A.\n")
+	got := problemLines(d.QuestionProblems(false))
+	if len(got) != 1 || !strings.Contains(got[0], "must be the next level two heading") {
+		t.Errorf("reported %q", got)
+	}
+}
+
+func TestAQuestionSharingAnAnchorWithAHeadingBeneathItIsReported(t *testing.T) {
+	// The heading beneath is in a question section but is not a question, so
+	// it does not take the report from the question.
+	d := changelogDoc(t, "", "## Open questions\n### Foo\n#### Foo\n")
+	got := problemLines(d.QuestionProblems(false))
+	if len(got) != 2 || !strings.HasPrefix(got[0], "13: question \"Foo\" produces the same anchor") {
+		t.Errorf("reported %q, want the anchor at the question and the heading beneath it", got)
+	}
+}

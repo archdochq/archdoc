@@ -109,8 +109,10 @@ and `glossary`, and `implemented` is true because of `database` alone.
 
 ## Contents
 
-`contents` is the document as a flat list of its headings, in the order they are
-written. Rendering it is the whole job:
+`contents` is the document's design as a flat list of its headings, in the
+order they are written: every heading outside the question sections and the
+Changelog, which are published as data of their own (see Questions and the
+Changelog below). Rendering it renders the design:
 
 ```js
 for (const e of doc.contents) {
@@ -123,7 +125,8 @@ Four things about it are worth knowing.
 
 **A body runs to the next heading of any level**, not to the next one of equal
 or higher level. So no entry holds another entry's prose, and walking the list
-reads every line of the document once. The body is the lines as written and is
+reads every line of the document once, apart from the sections left out of it.
+With `--all-headings` nothing is left out. The body is the lines as written and is
 not trimmed, so `line` plus one is its first line.
 
 **`level` is carried rather than implied by position.** Heading levels need not

@@ -722,7 +722,7 @@ func (d *Document) Links() []Link {
 		// interrupts a paragraph, so its first line can hold one.
 		content := line.Masked
 		if index := line.Number - d.BodyLine; quoted[index] {
-			content = unquote(content)
+			content = unquote(strings.TrimSuffix(content, "\r"))
 			if !quoted[index-1] {
 				opensBlock = true
 			}

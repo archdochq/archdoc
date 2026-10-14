@@ -414,6 +414,15 @@ func TestArrayFieldsAreNeverNull(t *testing.T) {
 				t.Errorf("%s serialised as null; the schema declares it an array", field)
 			}
 		}
+		var questions map[string]json.RawMessage
+		if err := json.Unmarshal(doc["questions"], &questions); err != nil {
+			t.Errorf("questions is not an object: %s", doc["questions"])
+		}
+		for _, field := range []string{"open", "resolved"} {
+			if raw, present := questions[field]; !present || string(raw) == "null" {
+				t.Errorf("questions.%s is %s; the schema declares it a required array", field, raw)
+			}
+		}
 		if string(doc["sections"]) == "null" {
 			t.Error("sections serialised as null; the schema declares it an object")
 		}

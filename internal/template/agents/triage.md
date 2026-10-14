@@ -62,8 +62,8 @@ belongs.
 | L17 | A relative link points at a missing file or heading | Fix the path or the anchor |
 | L18 | `depends` names something less settled than the referring document (warning) | Usually accept the dependency first |
 | L19 | `spec/glossary.md` is left from before terms became files, and is no longer read (warning) | Move its terms to `term/` with `archdoc term add`. Guide: `spec-pages.md` |
-| L20 | A question section is not shaped as questions: something before the first, a heading beneath one, a blockquote holding a heading, fence or comment, an open question ending with a blockquote, a resolved one without its answer, or the sections misplaced | Rewrite it in that shape. Guide: `authoring.md`, Questions |
-| L21 | A Changelog entry is undated, out of order, outside the document's dates, or a line in the section is outside the list form the tool reads | Date the entry, or rewrite the line as an entry or within one. Guide: `authoring.md`, The Changelog |
+| L20 | A question section is not shaped as questions: something before the first question; a question with no anchor, or sharing one with another heading; a heading beneath a question; a blockquote holding a heading, fence or comment; an open question ending with a blockquote; a resolved question with no answer, an empty one, or another blockquote just before it; `Resolved questions` empty, misplaced or repeated | Rewrite it in that shape: reword a clashing question, join two blockquotes with a line holding only `>`. Guide: `authoring.md`, Questions |
+| L21 | A Changelog entry is undated, has a malformed or impossible date, has a date and no text, or is out of order or outside the document's dates; a line in the section is outside the list form the tool reads; the heading is indented, misspelt or repeated, or the heading after the section is indented | Date the entry, or rewrite the line as an entry or within one, and write the heading `## Changelog` at the start of its line. Guide: `authoring.md`, The Changelog |
 
 ## Two situations that look like faults and are not
 
