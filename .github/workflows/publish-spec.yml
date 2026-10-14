@@ -4,9 +4,18 @@ name: publish specification
 # GitHub raises no workflow events for anything that token does, so a release
 # trigger here would never fire. release.yml calls this workflow instead, once
 # goreleaser has succeeded.
+#
+# A push to main that changes the specification publishes it too, so the site
+# follows the documents between releases rather than waiting for a tag.
+# archdoc.json is included because it decides what the export reads.
 on:
   workflow_call:
   workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'spec/**'
+      - 'archdoc.json'
 
 permissions:
   # Only reads the checked-out repository and calls an external HTTPS
@@ -17,10 +26,18 @@ jobs:
   publish:
     name: Export and publish to archdoc.dev
     runs-on: ubuntu-latest
+    # Each run exports whatever it checked out and the site keeps the last one it
+    # receives, so two runs finishing out of order would publish the older
+    # specification over the newer. Runs queue instead, and a queued run that is
+    # superseded by a later push is dropped rather than published.
+    concurrency:
+      group: publish-spec
+      cancel-in-progress: false
     steps:
       # Called from release.yml, github.ref is the tag being released, which
       # is the commit to publish. Dispatched by hand, it is whichever ref the
-      # dispatch ran against. The release payload is read first so that a
+      # dispatch ran against. Pushed to main, it is main as it stands when the
+      # run starts, at least as new as the push. The release payload is read first so that a
       # release trigger, if one is ever added back, names the tag rather than
       # the branch it was cut from.
       #
@@ -42,6 +59,12 @@ jobs:
           go-version-file: go.mod
       - name: Build archdoc from this commit
         run: go build -o /usr/local/bin/archdoc ./cmd/archdoc
+
+      # archdoc-lint.yml checks the same push, but in a workflow of its own
+      # that this one cannot wait on, so a specification that fails is checked
+      # here rather than published.
+      - name: Lint
+        run: archdoc lint
 
       - name: Export and publish
         env:
