@@ -1,9 +1,9 @@
 ---
 id: ADR-0019
 title: The export shape is held stable from 1.0
-status: proposed
+status: accepted
 created: 2026-10-14
-decided:
+decided: 2026-10-14
 depends: []
 updates: []
 obsoletes: []
