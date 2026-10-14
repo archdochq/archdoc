@@ -13,6 +13,8 @@ Tagged versions build with goreleaser for linux, darwin and windows on amd64 and
 
 Asset names are fixed by `.goreleaser.yaml` and reconstructed by `archdochq/setup`, which the scaffolded workflow reaches through `archdochq/lint`. A test renders the archive name, the archive format, the checksum filename and the binary name from that file and compares them against the names the action expects. The action's own repository checks the other side, by downloading a real release on every run.
 
+`.pre-commit-hooks.yaml` at the repository root defines three hooks for the pre-commit framework. `archdoc-lint` runs `lint`, and `archdoc-index` and `archdoc-glossary` regenerate `INDEX.md` and `GLOSSARY.md`, which stops the commit when either file changes. Each builds `archdoc` from source at the revision the user's configuration names, and runs from the repository root on every commit, whichever files it touches.
+
 The repository's own continuous integration runs `gofmt`, `go vet`, `go test ./...` and `goreleaser check` on push to `main` and on every pull request, and the release workflow runs the test suite before publishing.
 
 The specification under `spec/` is checked by a second workflow, which builds `archdoc` from the commit under test rather than downloading a release. It lints through `archdochq/lint` with no `version` input, which leaves the binary just built on `PATH` in place and annotates each finding on the line that caused it, then runs `archdoc index --check` against the same binary. It carries no version pin.

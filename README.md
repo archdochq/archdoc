@@ -49,6 +49,29 @@ archdoc lint
 process it enforces, and generates a GitHub workflow that runs `archdoc lint`
 and `archdoc index --check` on every push.
 
+## Checking before you commit
+
+The same checks run before each commit with [pre-commit](https://pre-commit.com).
+Add this to `.pre-commit-config.yaml`:
+
+```yaml
+repos:
+  - repo: https://github.com/archdochq/archdoc
+    rev: v0.6.0
+    hooks:
+      - id: archdoc-lint
+      - id: archdoc-index
+      - id: archdoc-glossary
+```
+
+`archdoc-index` and `archdoc-glossary` regenerate `INDEX.md` and `GLOSSARY.md`
+rather than only checking them. When either changes, the commit stops: add the
+regenerated file and commit again.
+
+The hooks build archdoc from source at `rev`, so they are pinned as the
+workflow is. Keep the two versions in step. If `archdoc.json` is not at the root
+of the repository, add `args: [-C, <directory>]` to each hook.
+
 ## Commands
 
 | | |

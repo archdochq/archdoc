@@ -1,0 +1,32 @@
+# Hooks for the pre-commit framework, mirroring the checks the workflow `archdoc
+# init` scaffolds. Each builds archdoc from source at the rev the user's
+# configuration names, so the hook is pinned as the workflow is.
+#
+# always_run, because pre-commit passes no deleted file to a hook: one limited to
+# Markdown would skip a commit that only deletes a frozen document, which L11
+# exists to catch.
+#
+# index and glossary regenerate rather than --check. pre-commit stops the commit
+# when a hook changes a file, which is the failure --check would give, with the
+# fix already made.
+- id: archdoc-lint
+  name: archdoc lint
+  description: Check the specification repository against every rule.
+  entry: archdoc lint
+  language: golang
+  pass_filenames: false
+  always_run: true
+- id: archdoc-index
+  name: archdoc index
+  description: Regenerate INDEX.md.
+  entry: archdoc index
+  language: golang
+  pass_filenames: false
+  always_run: true
+- id: archdoc-glossary
+  name: archdoc glossary
+  description: Regenerate GLOSSARY.md from the files under term/.
+  entry: archdoc glossary
+  language: golang
+  pass_filenames: false
+  always_run: true
