@@ -24,7 +24,7 @@ any change to one. (PROCESS.md, Lifecycle) A fault inside such a document is rep
 no permitted edit could clear it. Editing the document to silence the warning trades a warning
 for an L11 error, which is strictly worse.
 
-This applies to L14, L16 and L17 when the named document is frozen. Leave them. If the content
+This applies to L14, L16, L17, L20 and L21 when the named document is frozen. Leave them. If the content
 is genuinely wrong, write a new document that `updates` the frozen one.
 
 ## Which document to edit
@@ -51,17 +51,19 @@ belongs.
 | L06 | `includes` targets something not accepted | Accept the target, or remove it from the page |
 | L07 | `decided` set without a terminal status, or before `created`, or backfill dates disagree | Correct the dates |
 | L08 | A required section is missing, misnamed, out of order, or the closing section is not last | Add or reorder. Titles must match exactly |
-| L09 | An accepted document still has content under `Open questions` | Move it to a follow-up RFC before accepting |
+| L09 | An accepted document still has content under `Open questions` | Move each question to `Resolved questions` with its answer, and remove anything else |
 | L10 | The H1 does not match the front matter | Correct whichever is wrong |
 | L11 | A frozen document changed, or was deleted | Revert it. To change what it says, write a new document that updates or obsoletes it |
 | L12 | A spec page includes something obsoleted (warning) | Update the page and its `includes` |
 | L13 | A ref's `verified` date is older than `ref_stale_days` (warning) | Re-check the content, then update `verified` |
-| L14 | A required section is empty | Write it. Only `Open questions` and `Changelog` may be empty |
+| L14 | A required section is empty | Write it |
 | L15 | A term's definition under `term/` is not exactly one paragraph | Rewrite the definition as one paragraph |
 | L16 | An unresolved `[[...]]` link | Run `archdoc link` |
 | L17 | A relative link points at a missing file or heading | Fix the path or the anchor |
 | L18 | `depends` names something less settled than the referring document (warning) | Usually accept the dependency first |
 | L19 | `spec/glossary.md` is left from before terms became files, and is no longer read (warning) | Move its terms to `term/` with `archdoc term add`. Guide: `spec-pages.md` |
+| L20 | A question section is not shaped as questions: something before the first question; a question with no anchor, or sharing one with another heading; a heading beneath a question; a blockquote holding a heading, fence or comment; an open question ending with a blockquote; a resolved question with no answer, an empty one, or another blockquote just before it; `Resolved questions` empty, misplaced or repeated | Rewrite it in that shape: reword a clashing question, join two blockquotes with a line holding only `>`. Guide: `authoring.md`, Questions |
+| L21 | A Changelog entry is undated, has a malformed or impossible date, has a date and no text, or is out of order or outside the document's dates; a line in the section is outside the list form the tool reads; the heading is indented, misspelt or repeated, or the heading after the section is indented | Date the entry, or rewrite the line as an entry or within one, and write the heading `## Changelog` at the start of its line. Guide: `authoring.md`, The Changelog |
 
 ## Two situations that look like faults and are not
 

@@ -162,7 +162,8 @@ func TestHeadingsIgnoreFencedCodeBlocks(t *testing.T) {
 	}
 	want := []string{
 		"RFC-0007: Job scheduling", "Abstract", "Motivation", "Proposal",
-		"Alternatives considered", "Backwards compatibility", "Open questions", "Changelog",
+		"Alternatives considered", "Backwards compatibility", "Open questions",
+		"Are timezones per job?", "Changelog",
 	}
 	if !slices.Equal(got, want) {
 		t.Errorf("headings:\n got %q\nwant %q\n(the Proposal section holds a fenced block whose first line starts with #)", got, want)

@@ -135,7 +135,7 @@ func TestRequiredSectionsSurviveTheirAbsence(t *testing.T) {
 	})
 	d := export.Build(r, export.Options{}).Documents[0]
 
-	if len(d.RequiredSections) < 7 {
+	if len(d.RequiredSections) != 5 {
 		t.Fatalf("expected the RFC section list, got %d", len(d.RequiredSections))
 	}
 	var proposal *export.RequiredSection
@@ -308,10 +308,21 @@ func TestEveryFieldIsInThePublishedSchema(t *testing.T) {
 		{"entry", export.Entry{}},
 		{"link", export.Link{}},
 		{"term", export.Term{}},
+		{"questions", export.Questions{}},
+		{"open_question", export.OpenQuestion{}},
+		{"resolved_question", export.ResolvedQuestion{}},
+		{"answer", export.Answer{}},
+		{"changelog_entry", export.ChangelogEntry{}},
 	} {
 		where := schema
 		if c.def != "" {
 			where, _ = defs[c.def].(map[string]any)
+			if c.def == "questions" {
+				// Declared in place on the document rather than in $defs.
+				document, _ := defs["document"].(map[string]any)
+				properties, _ := document["properties"].(map[string]any)
+				where, _ = properties["questions"].(map[string]any)
+			}
 			if where == nil {
 				t.Errorf("the schema has no $defs/%s", c.def)
 				continue
@@ -392,7 +403,7 @@ func TestArrayFieldsAreNeverNull(t *testing.T) {
 		for _, field := range []string{
 			"depends", "updates", "obsoletes", "includes",
 			"updated_by", "obsoleted_by", "depended_on_by", "included_in",
-			"required_sections", "links",
+			"required_sections", "changelog", "links",
 		} {
 			raw, present := doc[field]
 			if !present {
@@ -403,6 +414,15 @@ func TestArrayFieldsAreNeverNull(t *testing.T) {
 				t.Errorf("%s serialised as null; the schema declares it an array", field)
 			}
 		}
+		var questions map[string]json.RawMessage
+		if err := json.Unmarshal(doc["questions"], &questions); err != nil {
+			t.Errorf("questions is not an object: %s", doc["questions"])
+		}
+		for _, field := range []string{"open", "resolved"} {
+			if raw, present := questions[field]; !present || string(raw) == "null" {
+				t.Errorf("questions.%s is %s; the schema declares it a required array", field, raw)
+			}
+		}
 		if string(doc["sections"]) == "null" {
 			t.Error("sections serialised as null; the schema declares it an object")
 		}
@@ -411,9 +431,9 @@ func TestArrayFieldsAreNeverNull(t *testing.T) {
 
 // updateSchema republishes the schema outside internal/. Run
 // `go test ./internal/export -update-schema` after changing it.
-var updateSchema = flag.Bool("update-schema", false, "rewrite schema/export/v1.json from the embedded copy")
+var updateSchema = flag.Bool("update-schema", false, "rewrite the published schema from the embedded copy")
 
-const publishedSchema = "../../schema/export/v2.json"
+const publishedSchema = "../../schema/export/v3.json"
 
 // TestThePublishedSchemaMatchesTheEmbeddedOne gives the contract an address.
 //
@@ -459,5 +479,74 @@ func TestThePublishedSchemaMatchesTheEmbeddedOne(t *testing.T) {
 	}
 	if strings.Contains(schema.ID, "/internal/") {
 		t.Errorf("$id points inside internal/: %q", schema.ID)
+	}
+}
+
+// questionsDoc is an RFC with every structured section, and a heading after
+// them that stays in contents.
+func questionsDoc() string {
+	return rfc("RFC-0001", "Q", "proposed", "## Abstract\n\nWords.\n\n"+
+		"## Open questions\n\n### Is it open?\n\nDetail.\n\n"+
+		"## Resolved questions\n\n### Was it answered?\n\nRaised.\n\n> Yes,\n> twice.\n\n"+
+		"## Changelog\n\n- 2026-01-02: Wrote it\n  down.\n- Undated.\n\n## Notes\n\nAfter.\n")
+}
+
+func TestQuestionsAndTheChangelogArePublishedAsData(t *testing.T) {
+	r := repotest.New(t, map[string]string{"rfc/0001-q.md": questionsDoc()})
+	d := export.Build(r, export.Options{}).Documents[0]
+
+	if got := anchorsOf(d.Contents); strings.Join(got, " ") != "rfc-0001-q abstract notes" {
+		t.Errorf("contents = %q, want the question sections and the Changelog left out", got)
+	}
+	if len(d.Questions.Open) != 1 || d.Questions.Open[0].Text != "Is it open?" || d.Questions.Open[0].Anchor != "is-it-open" ||
+		d.Questions.Open[0].Line != 20 || *d.Questions.Open[0].Body != "\nDetail.\n" {
+		t.Errorf("open questions = %+v", d.Questions.Open)
+	}
+	if len(d.Questions.Resolved) != 1 {
+		t.Fatalf("resolved questions = %+v", d.Questions.Resolved)
+	}
+	resolved := d.Questions.Resolved[0]
+	if resolved.Line != 26 || *resolved.Body != "\nRaised.\n" || resolved.Answer == nil ||
+		resolved.Answer.Line != 30 || *resolved.Answer.Body != "Yes,\ntwice." {
+		t.Errorf("resolved question = %+v, answer %+v", resolved, resolved.Answer)
+	}
+	if len(d.Changelog) != 2 || d.Changelog[0].Line != 35 || d.Changelog[0].Date != "2026-01-02" ||
+		*d.Changelog[0].Body != "Wrote it\ndown." || d.Changelog[1].Date != "" || *d.Changelog[1].Body != "Undated." {
+		t.Errorf("changelog = %+v", d.Changelog)
+	}
+}
+
+func TestAllHeadingsKeepsTheStructuredSectionsInContents(t *testing.T) {
+	r := repotest.New(t, map[string]string{"rfc/0001-q.md": questionsDoc()})
+	d := export.Build(r, export.Options{AllHeadings: true}).Documents[0]
+
+	want := "rfc-0001-q abstract open-questions is-it-open resolved-questions was-it-answered changelog notes"
+	if got := anchorsOf(d.Contents); strings.Join(got, " ") != want {
+		t.Errorf("contents = %q, want every heading", got)
+	}
+	if len(d.Questions.Open) != 1 || len(d.Changelog) != 2 {
+		t.Error("questions and changelog are published under --all-headings too")
+	}
+}
+
+func TestNoBodiesDropsQuestionAndEntryBodies(t *testing.T) {
+	r := repotest.New(t, map[string]string{"rfc/0001-q.md": questionsDoc()})
+	d := export.Build(r, export.Options{NoBodies: true}).Documents[0]
+
+	if d.Questions.Open[0].Body != nil || d.Questions.Resolved[0].Body != nil ||
+		d.Questions.Resolved[0].Answer.Body != nil || d.Changelog[0].Body != nil {
+		t.Error("a body survived --no-bodies")
+	}
+	if d.Questions.Resolved[0].Answer.Line == 0 || d.Changelog[0].Line == 0 {
+		t.Error("--no-bodies dropped more than the bodies")
+	}
+}
+
+func TestAHeadingOfLevelOneEndsAStructuredSection(t *testing.T) {
+	r := repotest.New(t, map[string]string{"rfc/0001-q.md": rfc("RFC-0001", "Q", "proposed",
+		"## Changelog\n\n- 2026-01-02: One.\n\n# Appendix\n\nKept.\n")})
+	d := export.Build(r, export.Options{}).Documents[0]
+	if got := anchorsOf(d.Contents); strings.Join(got, " ") != "rfc-0001-q appendix" {
+		t.Errorf("contents = %q, want the H1 after the Changelog kept", got)
 	}
 }

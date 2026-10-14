@@ -34,8 +34,8 @@ func TestExportEmitsJSONAndNothingElse(t *testing.T) {
 		t.Fatalf("new exited %d: %s", code, out)
 	}
 	got := exported(t, dir)
-	if got["schema"] != float64(2) {
-		t.Errorf("schema = %v, want 2", got["schema"])
+	if got["schema"] != float64(3) {
+		t.Errorf("schema = %v, want 3", got["schema"])
 	}
 	config, _ := got["config"].(map[string]any)
 	if config["name"] != "T" {
@@ -308,5 +308,126 @@ func TestOutRefusesToWriteThroughASymbolicLink(t *testing.T) {
 	}
 	if string(got) != content {
 		t.Errorf("the file the link pointed at was overwritten:\n%s", got)
+	}
+}
+
+// TestIndexDropsTheBodiesOfQuestionsAndEntries is the nested form of the copy
+// above: the questions, their answers and the Changelog entries each carry a
+// body, and index.json drops them without emptying the per-document file.
+func TestIndexDropsTheBodiesOfQuestionsAndEntries(t *testing.T) {
+	dir := t.TempDir()
+	if out, code := run(t, dir, "init", "--name", "T"); code != exitOK {
+		t.Fatalf("init exited %d: %s", code, out)
+	}
+	if out, code := run(t, dir, "new", "rfc", "A design"); code != exitOK {
+		t.Fatalf("new exited %d: %s", code, out)
+	}
+	found, _ := filepath.Glob(filepath.Join(dir, "*", "rfc", "0001-a-design.md"))
+	if more, _ := filepath.Glob(filepath.Join(dir, "rfc", "0001-a-design.md")); len(more) > 0 {
+		found = append(found, more...)
+	}
+	if len(found) != 1 {
+		t.Fatalf("found %q, want the one document new wrote", found)
+	}
+	written, err := os.ReadFile(found[0])
+	if err != nil {
+		t.Fatal(err)
+	}
+	extra := "\n- 2026-01-02: An entry.\n\n## Resolved questions\n\n### Was it?\n\n> Yes.\n"
+	written = []byte(strings.Replace(string(written), "## Changelog", "### Still open?\n\nDetail.\n\n## Changelog", 1))
+	if err := os.WriteFile(found[0], append(written, extra...), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	target := filepath.Join(dir, "dist")
+	if out, code := run(t, dir, "export", "--out", target); code != exitOK {
+		t.Fatalf("export --out exited %d: %s", code, out)
+	}
+	type nested struct {
+		Contents []struct {
+			Anchor string `json:"anchor"`
+		} `json:"contents"`
+		Questions struct {
+			Open []struct {
+				Body *string `json:"body"`
+			} `json:"open"`
+			Resolved []struct {
+				Body   *string `json:"body"`
+				Answer *struct {
+					Line int     `json:"line"`
+					Body *string `json:"body"`
+				} `json:"answer"`
+			} `json:"resolved"`
+		} `json:"questions"`
+		Changelog []struct {
+			Body *string `json:"body"`
+		} `json:"changelog"`
+	}
+	read := func(rel string) nested {
+		t.Helper()
+		body, err := os.ReadFile(filepath.Join(target, rel))
+		if err != nil {
+			t.Fatal(err)
+		}
+		var single nested
+		var index struct{ Documents []nested }
+		if rel == "index.json" {
+			if err := json.Unmarshal(body, &index); err != nil || len(index.Documents) != 1 {
+				t.Fatalf("index.json: %v, %d documents", err, len(index.Documents))
+			}
+			return index.Documents[0]
+		}
+		if err := json.Unmarshal(body, &single); err != nil {
+			t.Fatal(err)
+		}
+		return single
+	}
+
+	index, doc := read("index.json"), read(filepath.Join("rfc", "0001-a-design.json"))
+	if len(index.Questions.Resolved) != 1 || len(index.Changelog) != 1 {
+		t.Fatalf("index.json lost the questions or entries themselves: %+v", index)
+	}
+	if len(index.Questions.Open) != 1 || index.Questions.Open[0].Body != nil {
+		t.Error("index.json carries an open question's body, or lost the question")
+	}
+	if len(doc.Questions.Open) != 1 || doc.Questions.Open[0].Body == nil {
+		t.Error("the per-document file lost an open question's body dropped for the index")
+	}
+	if index.Questions.Resolved[0].Body != nil || index.Questions.Resolved[0].Answer.Body != nil || index.Changelog[0].Body != nil {
+		t.Error("index.json carries a question, answer or entry body")
+	}
+	if index.Questions.Resolved[0].Answer.Line == 0 {
+		t.Error("index.json dropped the answer's line along with its body")
+	}
+	if doc.Questions.Resolved[0].Body == nil || doc.Questions.Resolved[0].Answer.Body == nil || doc.Changelog[0].Body == nil {
+		t.Error("the per-document file lost a body dropped for the index")
+	}
+}
+
+func TestAllHeadingsReachesTheExport(t *testing.T) {
+	dir := t.TempDir()
+	if out, code := run(t, dir, "init", "--name", "T"); code != exitOK {
+		t.Fatalf("init exited %d: %s", code, out)
+	}
+	if out, code := run(t, dir, "new", "rfc", "A design"); code != exitOK {
+		t.Fatalf("new exited %d: %s", code, out)
+	}
+	anchors := func(args ...string) string {
+		t.Helper()
+		docs, _ := exported(t, dir, args...)["documents"].([]any)
+		var out []string
+		for _, d := range docs {
+			contents, _ := d.(map[string]any)["contents"].([]any)
+			for _, e := range contents {
+				out = append(out, e.(map[string]any)["anchor"].(string))
+			}
+		}
+		return strings.Join(out, " ")
+	}
+	if got := anchors(); strings.Contains(got, "changelog") || strings.Contains(got, "open-questions") {
+		t.Errorf("by default contents holds %q", got)
+	}
+	if got := anchors("--all-headings"); !strings.Contains(got, "changelog") || !strings.Contains(got, "open-questions") {
+		t.Errorf("with --all-headings contents holds %q", got)
 	}
 }

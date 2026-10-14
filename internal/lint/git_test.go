@@ -687,3 +687,23 @@ func TestL16SoftensToAWarningOnAFrozenDocument(t *testing.T) {
 		t.Errorf("severity = %q, want %q on a document frozen on the branch", got[0].Severity, lint.Warning)
 	}
 }
+
+func TestL20AndL21SoftenToWarningsOnAFrozenDocument(t *testing.T) {
+	const path = "rfc/0001-frozen.md"
+	dir := gitFixture(t, map[string]string{
+		path: rfc("RFC-0001", "Frozen", "rejected", " 2026-02-01",
+			"Words.\n\n## Resolved questions\n\n### Was it?\n\nNo answer.\n\n## Changelog\n\n- Undated."),
+	})
+	findings := lintDir(t, dir)
+	for _, code := range []string{"L20", "L21"} {
+		got := findingsFor(findings, code, path)
+		if len(got) == 0 {
+			t.Fatalf("want %s findings on the frozen document, got none", code)
+		}
+		for _, f := range got {
+			if f.Severity != lint.Warning {
+				t.Errorf("%s at line %d is a %s, want a warning on a document frozen on the branch", code, f.Line, f.Severity)
+			}
+		}
+	}
+}

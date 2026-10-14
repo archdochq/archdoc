@@ -34,6 +34,6 @@ Everything cached changes shape.
 
 ## Open questions
 
-All of it.
+### What should the rewrite cover?
 
 ## Changelog

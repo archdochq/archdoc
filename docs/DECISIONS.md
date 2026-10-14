@@ -56,8 +56,9 @@ only showed up on a real document, and the reasoning is kept so the shape is not
 
 ## Markdown
 
-The tool needs headings, comments, fenced blocks and links, and nothing else. A full parser would be a
-liability when rewriting files in place, because it would have to round-trip everything it parsed.
+The tool needs headings, comments, fenced blocks and links, and within two kinds of section,
+blockquotes and list items. A full parser would be a liability when rewriting files in place, because it
+would have to round-trip everything it parsed.
 
 - **One walk per document.** The scanner that decides what is a comment, a fence or a code span is not
   only a shared *function* but a shared *traversal*: its masked output is cached on the document, and
@@ -81,6 +82,22 @@ liability when rewriting files in place, because it would have to round-trip eve
   info string is permitted on the opening fence only, so a line reading ```` ``` inside ```` within a
   ```` ```text ```` block is content. One pattern serving both ends ended the block early and let the
   real closing fence open a second one.
+- **Blockquotes and list items are read only where a section gives them a meaning.** A blockquote is an
+  answer in a question section and a list item is an entry in a `Changelog`; anywhere else each stays
+  text, so nothing about a document that carries neither section changes.
+- **A blockquote in a question section may not hold a heading, a fence or a comment.** The walk finds
+  each of those before it knows a line is quoted, and does not see a fence inside a blockquote at all, so
+  a comment marker inside one would hide the rest of the document. They are reported rather than read
+  some other way.
+- **Changelog entries are read in a subset of list syntax, and anything outside it is reported.** The
+  subset is the shapes where this reading of a list item and CommonMark's agree: `- ` at column 0, then
+  lines indented by two spaces, blank lines followed by indented ones, and unindented lazy lines directly
+  after the entry's text that cannot begin another block. Hand-writing CommonMark's list rules was tried
+  first and read several shapes differently from how they render.
+- **Changelog lines are read as written, not masked.** Masking blanks a line holding only a comment, and
+  a blank line continues a list item where a comment at column 0 ends it, so the masked text gave an
+  indented line after such a comment to the entry above it. Section boundaries still come from the masked
+  walk, and a heading that is one only once a comment on its line is masked is reported.
 - **Masking never moves a byte.** Every masker writes spaces in place, so a match found in the masked
   text is at the same offset in the text as written, and an edit spliced by offset lands in the right
   column. This is the invariant the whole rewriting design rests on, and it is fuzzed rather than
@@ -126,16 +143,23 @@ liability when rewriting files in place, because it would have to round-trip eve
 ## The lifecycle and freezing
 
 - **Freezing is gated at the transition, not after it.** `accept` and `reject` refuse an empty required
-  section and an unresolved `[[...]]`; `reject` runs both before appending the rationale. `withdraw`
+  section, an unresolved `[[...]]`, and anything L20 or L21 reports; `reject` runs them all before
+  appending the rationale. `withdraw`
   gates nothing, because a document abandoned before a verdict is empty by nature.
 - **The gate refuses everything the linter would report forever.** It checks the H1, the required
   sections' presence and their relative order, reusing the same list and the same H1 accessor the rules
   use rather than restating them. What the gate lets through, L11 then forbids anyone repairing, so a
   mismatched H1 or a missing `Changelog` became a permanently red repository with no in-tool remedy.
 - **A lint error must name something the user is permitted to change.** A finding that no permitted edit
-  to the named document could clear is a warning: L14, L16 and L17, whose subject is the document's own
-  body. It does not extend to a fault in a relationship between documents, which is cleared by editing
+  to the named document could clear is a warning: L14, L16, L17, L20 and L21, whose subject is the
+  document's own body. It does not extend to a fault in a relationship between documents, which is cleared by editing
   the other document, nor to L11 itself.
+- **The gate compares Changelog dates with the `decided` date it is about to write.** The document's own is
+  empty while it is proposed, so an entry dated after the day of the transition would pass the gate and
+  then be reported by L21 for good.
+- **`accept` checks that the closing section is last.** While `Changelog` and `Open questions` were
+  required, the order check kept them before `Sources`; neither is required now, and L08 reports a
+  heading after `Sources` with an error that does not soften.
 - **A transition refuses to write a `decided` date before `created`.** Nothing rejects a `created` date
   in the future, so a draft carrying one lints clean until the transition writes the value that makes
   L07 fail permanently. It needs no hand-editing to reach: `new` on one machine and `accept` on another

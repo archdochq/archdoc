@@ -1,6 +1,6 @@
 ---
 title: Architecture
-includes: [ADR-0005, ADR-0011]
+includes: [ADR-0005, ADR-0011, RFC-0008, RFC-0009]
 ---
 
 # Architecture
@@ -28,7 +28,7 @@ archdoc/
 
 `cmd/archdoc` is the only package that imports cobra. No package under `internal/` prints, prompts, or calls `os.Exit`; each is usable without a terminal. Every command takes its writer from cobra.
 
-`internal/repo` opens a repository without failing on a malformed document: faults are recorded on the document as problems carrying a line and a message, and `lint` decides their severity. A document's body is walked once, and every reader of it, sections, headings, links and the glossary, reads the same masked text.
+`internal/repo` opens a repository without failing on a malformed document: faults are recorded on the document as problems carrying a line and a message, and `lint` decides their severity. A document's body is walked once, and every reader of it, sections, headings, links and the glossary, reads the same masked text. A `Changelog`'s entries and a resolved question's answer are taken from the lines as written, within sections found in the masked text.
 
 `internal/git` is an interface exposing `FilesAt`, `Changed`, `HasCommits`, `BranchExists`, `ListFiles`, `CurrentBranch`, `Prefix` and `RepoRoot`. It returns a sentinel error when the directory is not inside a git repository. `FilesAt` reads many blobs through one `cat-file --batch`; `Changed` asks one `diff` which paths differ, with pathspecs anchored to the repository root and `diff.relative` off. Requests and responses are NUL-separated. The repository root, existence and file listing are memoised per process.
 

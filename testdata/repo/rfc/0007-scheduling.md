@@ -39,6 +39,6 @@ Nothing breaks.
 
 ## Open questions
 
-Whether timezones are per job.
+### Are timezones per job?
 
 ## Changelog

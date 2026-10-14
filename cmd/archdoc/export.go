@@ -19,7 +19,7 @@ import (
 
 func newExportCommand() *cobra.Command {
 	var out, commit string
-	var noBodies, schema, source bool
+	var noBodies, allHeadings, schema, source bool
 
 	cmd := &cobra.Command{
 		Use:   "export",
@@ -42,7 +42,7 @@ func newExportCommand() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			opts := export.Options{NoBodies: noBodies, Source: source, Commit: commit}
+			opts := export.Options{NoBodies: noBodies, AllHeadings: allHeadings, Source: source, Commit: commit}
 			if out == "" {
 				return encode(cmd.OutOrStdout(), export.Build(r, opts))
 			}
@@ -50,7 +50,9 @@ func newExportCommand() *cobra.Command {
 		},
 	}
 	cmd.Flags().StringVar(&out, "out", "", "write a tree of files into this directory instead of one document")
-	cmd.Flags().BoolVar(&noBodies, "no-bodies", false, "omit every contents body, keeping the outline")
+	cmd.Flags().BoolVar(&noBodies, "no-bodies", false, "omit every body, keeping the outline")
+	cmd.Flags().BoolVar(&allHeadings, "all-headings", false,
+		"keep the question sections and the Changelog in contents, as well as publishing them as data")
 	cmd.Flags().BoolVar(&source, "source", false, "include each document's file as it is on disk, front matter included")
 	cmd.Flags().StringVar(&commit, "commit", "", "record this revision as the one the export describes")
 	cmd.Flags().BoolVar(&schema, "schema", false, "print the JSON Schema the output conforms to and exit")
@@ -79,6 +81,23 @@ func writeTree(cmd *cobra.Command, r *repo.Repo, dir string, opts export.Options
 		d.Contents = slices.Clone(d.Contents)
 		for j := range d.Contents {
 			d.Contents[j].Body = nil
+		}
+		// The same for every nested body, and the answers are pointers, so
+		// each is copied before its body is dropped.
+		d.Questions.Open = slices.Clone(d.Questions.Open)
+		for j := range d.Questions.Open {
+			d.Questions.Open[j].Body = nil
+		}
+		d.Questions.Resolved = slices.Clone(d.Questions.Resolved)
+		for j := range d.Questions.Resolved {
+			d.Questions.Resolved[j].Body = nil
+			if answer := d.Questions.Resolved[j].Answer; answer != nil {
+				d.Questions.Resolved[j].Answer = &export.Answer{Line: answer.Line}
+			}
+		}
+		d.Changelog = slices.Clone(d.Changelog)
+		for j := range d.Changelog {
+			d.Changelog[j].Body = nil
 		}
 		index.Documents[i] = d
 	}

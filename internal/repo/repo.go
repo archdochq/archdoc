@@ -132,6 +132,9 @@ type Document struct {
 	headings []Heading
 	// masked is bodyLines with comments blanked, walked once per document.
 	masked []string
+	// fenced marks the lines of masked inside a fenced code block, from the
+	// same walk.
+	fenced []bool
 	// unclosed records that the body ends inside a comment or a fence.
 	unclosed bool
 	repo     *Repo

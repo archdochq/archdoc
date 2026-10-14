@@ -139,8 +139,12 @@ RFCs contain these sections, in this order:
 3. **Proposal**: the design.
 4. **Alternatives considered**: what else was on the table and why it lost. Significant alternatives that represent a decision in their own right are extracted to an ADR and linked.
 5. **Backwards compatibility**: what breaks. May say that nothing does.
-6. **Open questions**: unresolved matters while the document is proposed. Must be empty before the document can be accepted; anything left goes to a follow-up RFC.
-7. **Changelog**: dated entries for each change made while proposed.
+
+Any document may also carry these sections, and the RFC template includes the first and the last:
+
+- **Open questions**: unresolved matters while the document is proposed, each a level three heading with any detail as prose beneath it. Must be absent or empty before the document can be accepted.
+- **Resolved questions**: the next section after Open questions. A question answered while proposed moves here with its heading and detail, rather than being deleted, and ends on a blockquote holding its answer, its paragraphs joined by lines holding only `>`. A question handed to a follow-up document is answered with a link to it.
+- **Changelog**: one entry for each change made while proposed, as a list item beginning `- YYYY-MM-DD: ` at the start of the line, continued on lines indented by two spaces.
 
 Rejected RFCs and ADRs gain a final **Rejection rationale** section when rejected.
 
@@ -163,7 +167,7 @@ The glossary is not a spec page. Each term is one file, `term/<slug>.md`, whose 
 
 Everything lives on the main branch. A draft is committed the moment it has a number; that is what claims the number. Branches are not used for drafts.
 
-Moving a document to `proposed` is a commit that changes its status. Discussion happens in the repository's GitHub Discussions; the document links to its discussion from the Motivation section or the commit message. Edits made to a proposed RFC are ordinary commits, each with a line in its Changelog. A proposed ADR has no Changelog; its edits are ordinary commits and the commit message carries the explanation.
+Moving a document to `proposed` is a commit that changes its status. Discussion happens in the repository's GitHub Discussions; the document links to its discussion from the Motivation section or the commit message. Edits made to a proposed RFC are ordinary commits, each with an entry in its Changelog. A proposed ADR has no Changelog; its edits are ordinary commits and the commit message carries the explanation.
 
 Reaching a terminal status is a single commit that sets `status` and `decided` and, for rejections, adds the Rejection rationale. The next push is what freezes the document: lint will fail any subsequent change to it.
 
@@ -179,7 +183,7 @@ ArchDoc provides:
 
 - `archdoc init`: scaffold a new repository in the current directory.
 - `archdoc new rfc|adr|ref "Title"`: create the next-numbered document of that type from its template, in draft.
-- `archdoc propose <id>`, `accept <id>`, `reject <id>`, `withdraw <id>`: move a document through its lifecycle. Each validates the transition, edits the file, and stops. Committing is left to you. `accept` and `reject` refuse a document with an empty required section or an unresolved `[[...]]` link, because the next push freezes it and lint would then report a fault nobody is permitted to repair.
+- `archdoc propose <id>`, `accept <id>`, `reject <id>`, `withdraw <id>`: move a document through its lifecycle. Each validates the transition, edits the file, and stops. Committing is left to you. `accept` and `reject` refuse a document with an empty required section, an unresolved `[[...]]` link, or a question or Changelog entry of a shape lint reports, and `accept` refuses one with open questions, because the next push freezes it and lint would then report a fault nobody is permitted to repair.
 - `archdoc lint`: check the repository against the rules in this document.
 - `archdoc link`: resolve `[[...]]` links. With `--suggest`, offer new ones.
 - `archdoc renumber <id|path> [new-id]`: change a document's number, rewriting the filename, the `id`, the heading and every reference to it. Takes the next free number when no target is given. Refuses when the document is frozen, or when a frozen document refers to it.
@@ -199,8 +203,10 @@ Lint enforces:
 - A backfilled document is terminal, was written no earlier than the decision it records, and cites its sources.
 - The first heading matches the front matter.
 - The required sections for the type are present, with their exact titles, in the order listed above, and where the type has a closing section it is the last one.
-- No required section is left empty, apart from Open questions and Changelog.
-- Accepted RFCs have an empty Open questions section.
+- No required section is left empty.
+- Accepted documents have an empty Open questions section, or none.
+- Every question is a level three heading, and every resolved one ends on a blockquote holding its answer.
+- Every Changelog entry is a dated list item, in date order and within the document's own dates, written in a form that renders as it is read.
 - Any document that is terminal on the base branch is unchanged from the version there. Whether it changed is decided by git rather than by comparing bytes, so a checkout that rewrites line endings does not make every frozen document look edited. Deleting a frozen document is an error; a rename counts as a deletion.
 - A spec page is not stale: it includes nothing that has since been obsoleted. Warning.
 - Refs whose `verified` date is older than `ref_stale_days` produce a warning.

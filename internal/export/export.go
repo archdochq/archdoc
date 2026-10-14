@@ -2,9 +2,10 @@
 // documents and the relationships ArchDoc derives, without reimplementing the
 // front matter schema, the identifier rules or the reverse-relationship graph.
 //
-// The shape is a contract. Like the front matter schema it describes, it may
-// only ever gain optional fields: a consumer pinned to an older Schema must
-// keep working against a newer ArchDoc.
+// The shape is a contract, held to ADR-0019. Before ArchDoc 1.0 it may break: a
+// change that removes a field, or changes a field's type or meaning, moves
+// Schema to the next integer, at most once between two tagged releases. From
+// 1.0 it only gains optional fields.
 package export
 
 import (
@@ -21,9 +22,8 @@ import (
 // 3986: a letter followed by letters, digits, plus, minus or dot, then a colon.
 var schemePattern = regexp.MustCompile(`^[a-zA-Z][a-zA-Z0-9+.\-]*:`)
 
-// Schema is the version of the shape below. It changes only for a break, which
-// the rule above is meant to prevent ever being necessary.
-const Schema = 2
+// Schema is the version of the shape below. It changes only for a break.
+const Schema = 3
 
 // JSONSchema is the published schema document, so a consumer can validate
 // against something rather than inferring the shape from an example.
@@ -100,9 +100,18 @@ type Document struct {
 	// is the ordinary case.
 	RequiredSections []RequiredSection `json:"required_sections"`
 	// Contents is every heading in document order, each with the prose beneath
-	// it. It replaces an object keyed by anchor, which could not carry the
-	// order a document is in and named level two headings only.
+	// it, except the question sections and the Changelog, which are left out
+	// unless every heading was asked for and are published below as data of
+	// their own either way. It
+	// replaces an object keyed by anchor, which could not carry the order a
+	// document is in and named level two headings only.
 	Contents []Entry `json:"contents"`
+	// Questions are the document's open and resolved questions. They record
+	// matters requiring action rather than the design, so a consumer handles
+	// them apart from Contents.
+	Questions Questions `json:"questions"`
+	// Changelog is every entry of every Changelog section, in document order.
+	Changelog []ChangelogEntry `json:"changelog"`
 	// Source is the file exactly as it is on disk, front matter included, and
 	// only when it was asked for. It is the one field that reproduces the
 	// document: Contents discards a heading's raw spelling, and anything before
@@ -126,6 +135,52 @@ type Entry struct {
 	// Body is a pointer so that a heading directly followed by another, whose
 	// body is genuinely empty, is distinguishable from an export that carries
 	// no bodies at all. A plain string with omitempty conflates the two.
+	Body *string `json:"body,omitempty"`
+}
+
+// Questions are a document's questions, open and resolved.
+type Questions struct {
+	Open     []OpenQuestion     `json:"open"`
+	Resolved []ResolvedQuestion `json:"resolved"`
+}
+
+// OpenQuestion is a level three heading in an Open questions section.
+type OpenQuestion struct {
+	Text   string `json:"text"`
+	Anchor string `json:"anchor"`
+	// Line is the heading's, 1-based in the file.
+	Line int `json:"line"`
+	// Body is the question's detail, the lines as written, absent wherever
+	// contents bodies are.
+	Body *string `json:"body,omitempty"`
+}
+
+// ResolvedQuestion is a level three heading in a Resolved questions section,
+// with the answer it ends on.
+type ResolvedQuestion struct {
+	Text   string  `json:"text"`
+	Anchor string  `json:"anchor"`
+	Line   int     `json:"line"`
+	Body   *string `json:"body,omitempty"`
+	// Answer is absent where the question does not end with a blockquote,
+	// which lint reports.
+	Answer *Answer `json:"answer,omitempty"`
+}
+
+// Answer is the blockquote a resolved question ends with.
+type Answer struct {
+	// Line is the blockquote's first line, where its body starts.
+	Line int `json:"line"`
+	// Body is the blockquote without its markers, so it is Markdown without
+	// the quote.
+	Body *string `json:"body,omitempty"`
+}
+
+// ChangelogEntry is one entry of a Changelog section.
+type ChangelogEntry struct {
+	Line int `json:"line"`
+	// Date is absent where the entry is undated.
+	Date string  `json:"date,omitempty"`
 	Body *string `json:"body,omitempty"`
 }
 
@@ -175,10 +230,13 @@ type Term struct {
 
 // Options selects what to include. The zero value exports everything.
 type Options struct {
-	// NoBodies drops every contents body, leaving metadata, the relationship
-	// graph and the full outline. An index page wants this and none of the
-	// prose.
+	// NoBodies drops every contents body, and the bodies of questions, answers
+	// and Changelog entries, leaving metadata, the relationship graph and the
+	// full outline. An index page wants this and none of the prose.
 	NoBodies bool
+	// AllHeadings keeps every heading in Contents, the question sections and
+	// the Changelog included, for a consumer rendering a document as written.
+	AllHeadings bool
 	// Source adds each document's file as it is on disk.
 	Source bool
 	// Commit is the revision the export describes, recorded as given.
@@ -260,26 +318,54 @@ func document(r *repo.Repo, d *repo.Document, opts Options) Document {
 		// both an empty array and null for the same field.
 		RequiredSections: []RequiredSection{},
 		Contents:         []Entry{},
+		Questions:        Questions{Open: []OpenQuestion{}, Resolved: []ResolvedQuestion{}},
+		Changelog:        []ChangelogEntry{},
 		Links:            []Link{},
 	}
 	if opts.Source {
 		out.Source = string(d.Source)
 	}
 
+	body := func(text string) *string {
+		if opts.NoBodies {
+			return nil
+		}
+		return &text
+	}
+
 	anchors := map[string]string{} // title -> anchor, first occurrence
+	structured := false            // inside a section published as data
 	for _, e := range d.Contents() {
 		h := e.Heading
+		if h.Level <= 2 {
+			structured = h.Level == 2 && (h.Text == repo.OpenQuestions || h.Text == repo.ResolvedQuestions || h.Text == repo.Changelog)
+		}
 		if h.Level == 2 {
 			if _, seen := anchors[h.Text]; !seen {
 				anchors[h.Text] = h.Anchor
 			}
 		}
-		entry := Entry{Level: h.Level, Text: h.Text, Anchor: h.Anchor, Line: h.Line}
-		if !opts.NoBodies {
-			body := e.Text
-			entry.Body = &body
+		if structured && !opts.AllHeadings {
+			continue
 		}
-		out.Contents = append(out.Contents, entry)
+		out.Contents = append(out.Contents, Entry{Level: h.Level, Text: h.Text, Anchor: h.Anchor, Line: h.Line, Body: body(e.Text)})
+	}
+
+	questions := d.Questions()
+	for _, q := range questions.Open {
+		out.Questions.Open = append(out.Questions.Open, OpenQuestion{
+			Text: q.Heading.Text, Anchor: q.Heading.Anchor, Line: q.Heading.Line, Body: body(q.Detail),
+		})
+	}
+	for _, q := range questions.Resolved {
+		resolved := ResolvedQuestion{Text: q.Heading.Text, Anchor: q.Heading.Anchor, Line: q.Heading.Line, Body: body(q.Detail)}
+		if q.Answer != nil {
+			resolved.Answer = &Answer{Line: q.Answer.Line, Body: body(q.Answer.Text)}
+		}
+		out.Questions.Resolved = append(out.Questions.Resolved, resolved)
+	}
+	for _, e := range d.Changelog() {
+		out.Changelog = append(out.Changelog, ChangelogEntry{Line: e.Line, Date: date(e.Date), Body: body(e.Text)})
 	}
 	for _, title := range d.RequiredSections() {
 		anchor, ok := anchors[title]

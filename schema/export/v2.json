@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://raw.githubusercontent.com/archdochq/archdoc/main/schema/export/v2.json",
   "title": "ArchDoc export",
-  "description": "A specification repository, the relationships ArchDoc derives from it, and every document as a flat ordered list of its headings. From schema 2 onwards this shape only ever gains optional fields.",
+  "description": "A specification repository, the relationships ArchDoc derives from it, and every document as a flat ordered list of its headings. Before ArchDoc 1.0 the shape may break, and a break moves schema to the next integer; from 1.0 it only gains optional fields.",
   "type": "object",
   "required": ["schema", "config", "has_glossary", "documents"],
   "additionalProperties": false,

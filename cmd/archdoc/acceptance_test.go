@@ -65,7 +65,13 @@ func TestTheDocumentedWorkflowWorksEndToEnd(t *testing.T) {
 	step("new rfc", exitOK, "new", "rfc", "Job scheduling")
 	rfc := filepath.Join(dir, "rfc", "0001-job-scheduling.md")
 	fill(t, rfc)
-	appendTo(t, rfc, "\nIt depends on [[ADR-0001]] and uses [[Wings]].\n")
+	// A question is a heading and a Changelog entry a dated list item, so the
+	// two prompts there are answered in those forms, and the links go in the
+	// Proposal rather than after the last entry.
+	created := regexp.MustCompile(`created: (\S+)`).FindStringSubmatch(readFile(t, rfc))[1]
+	answer(t, rfc, "## Open questions\n\nRecorded content.", "## Open questions\n\n### Is the schedule per job?")
+	answer(t, rfc, "## Changelog\n\nRecorded content.", "## Changelog\n\n- "+created+": Recorded content.")
+	answer(t, rfc, "## Alternatives considered", "It depends on [[ADR-0001]] and uses [[Wings]].\n\n## Alternatives considered")
 	step("link", exitOK, "link")
 	if body := readFile(t, rfc); strings.Contains(body, "[[") {
 		t.Errorf("link left a wiki link unresolved:\n%s", body)
@@ -106,6 +112,18 @@ func fill(t *testing.T, path string) {
 	t.Helper()
 	body := regexp.MustCompile(`(?s)<!--.*?-->`).ReplaceAllString(readFile(t, path), "Recorded content.")
 	if err := os.WriteFile(path, []byte(body), 0o644); err != nil {
+		t.Fatal(err)
+	}
+}
+
+// answer replaces one passage of a document, failing if it is not there.
+func answer(t *testing.T, path, passage, with string) {
+	t.Helper()
+	body := readFile(t, path)
+	if !strings.Contains(body, passage) {
+		t.Fatalf("%s does not hold %q:\n%s", path, passage, body)
+	}
+	if err := os.WriteFile(path, []byte(strings.Replace(body, passage, with, 1)), 0o644); err != nil {
 		t.Fatal(err)
 	}
 }
