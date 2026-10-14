@@ -98,6 +98,11 @@ would have to round-trip everything it parsed.
   a blank line continues a list item where a comment at column 0 ends it, so the masked text gave an
   indented line after such a comment to the entry above it. Section boundaries still come from the masked
   walk, and a heading that is one only once a comment on its line is masked is reported.
+- **A pattern anchored at the end of a line accepts a carriage return before it.** A body is split on
+  `\n`, so a line of a CRLF file keeps its `\r`, and a pattern ending in `[ \t]*$` read a file checked
+  out by Git for Windows differently from its LF copy: link definitions went unread, so L17 never
+  checked them, and a heading kept its closing hashes. The `\r` is accepted rather than stripped,
+  because it is the line's last byte and accepting it leaves every offset where it was.
 - **Masking never moves a byte.** Every masker writes spaces in place, so a match found in the masked
   text is at the same offset in the text as written, and an edit spliced by offset lands in the right
   column. This is the invariant the whole rewriting design rests on, and it is fuzzed rather than

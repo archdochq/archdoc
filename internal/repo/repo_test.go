@@ -1194,3 +1194,34 @@ func TestATermDoesNotImplementAnything(t *testing.T) {
 		t.Error("an RFC included by an ordinary spec page is not reported as implemented")
 	}
 }
+
+// TestACRLFFileReadsAsItsLFCopyDoes covers the three patterns anchored at the
+// end of a line. The body is split on "\n", so a CRLF line keeps its "\r", and
+// each of them read a document checked out by Git for Windows differently from
+// its LF copy: a link definition was not read, so L17 never checked it, and a
+// closing sequence of hashes stayed in a heading's text and anchor.
+func TestACRLFFileReadsAsItsLFCopyDoes(t *testing.T) {
+	body := "# T\n\nSee [the RFC][r].\n\n[r]: a.md \"A title\"\n\n## Closed ##\n\n#\n"
+	read := func(eol string) (links, headings []string) {
+		src := strings.ReplaceAll("---\ntitle: T\nincludes: []\n---\n"+body, "\n", eol)
+		d := repotest.Document(t, repotest.New(t, map[string]string{"spec/t.md": src}), "spec/t.md")
+		for _, l := range d.Links() {
+			links = append(links, fmt.Sprintf("%s %s line %d", l.Type, l.Target, l.Line))
+		}
+		for _, h := range d.Headings() {
+			headings = append(headings, fmt.Sprintf("%d %q #%s line %d", h.Level, h.Text, h.Anchor, h.Line))
+		}
+		return links, headings
+	}
+	lfLinks, lfHeadings := read("\n")
+	if len(lfLinks) != 1 || len(lfHeadings) != 3 {
+		t.Fatalf("the LF copy reads %q and %q, so the comparison below proves nothing", lfLinks, lfHeadings)
+	}
+	crlfLinks, crlfHeadings := read("\r\n")
+	if !slices.Equal(crlfLinks, lfLinks) {
+		t.Errorf("links:\n CRLF %q\n   LF %q", crlfLinks, lfLinks)
+	}
+	if !slices.Equal(crlfHeadings, lfHeadings) {
+		t.Errorf("headings:\n CRLF %q\n   LF %q", crlfHeadings, lfHeadings)
+	}
+}
