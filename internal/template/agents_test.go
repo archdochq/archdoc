@@ -4,6 +4,9 @@ import (
 	"regexp"
 	"strings"
 	"testing"
+	"unicode/utf8"
+
+	"gopkg.in/yaml.v3"
 
 	"archdoc.dev/internal/template"
 )
@@ -70,15 +73,39 @@ func TestEveryCitedProcessSectionExists(t *testing.T) {
 	t.Logf("checked %d citations against %d headings", cited, len(headings))
 }
 
+// skillKeys are the front matter keys the Agent Skills specification defines.
+// An agent following it may skip a skill that carries any other.
+var skillKeys = map[string]bool{
+	"name": true, "description": true, "license": true,
+	"allowed-tools": true, "metadata": true, "compatibility": true,
+}
+
+// skillName is the specification's rule for a name: lowercase letters, digits
+// and single hyphens, neither leading nor trailing.
+var skillName = regexp.MustCompile(`^[a-z0-9]+(-[a-z0-9]+)*$`)
+
 // TestEveryGuideIsAlsoAValidSkill pins the property that lets one file serve as
 // both a shipped guide and a skill: the frontmatter a skill host requires.
-// Every file under agents/ is a guide, so every one of them needs it.
+// Every file under agents/ is a guide, so every one of them needs it. A guide
+// that breaks the Agent Skills rules is published to every agent the skills
+// repository serves, and the ones that follow the specification skip it.
 func TestEveryGuideIsAlsoAValidSkill(t *testing.T) {
+	seen := map[string]string{}
 	for name, body := range guides(t) {
 		front, ok := frontMatter(body)
 		if !ok {
 			t.Errorf("%s has no frontmatter, so it cannot be used as a skill", name)
 			continue
+		}
+		var keys map[string]any
+		if err := yaml.Unmarshal([]byte(front), &keys); err != nil {
+			t.Errorf("%s frontmatter does not parse: %v", name, err)
+			continue
+		}
+		for key := range keys {
+			if !skillKeys[key] {
+				t.Errorf("%s frontmatter carries %q, which the Agent Skills specification does not define", name, key)
+			}
 		}
 		for _, key := range []string{"name", "description"} {
 			value := field(front, key)
@@ -86,8 +113,19 @@ func TestEveryGuideIsAlsoAValidSkill(t *testing.T) {
 				t.Errorf("%s frontmatter has no %s", name, key)
 			}
 		}
-		if got := field(front, "name"); got != "" && !strings.HasPrefix(got, "archdoc-") {
-			t.Errorf("%s declares name %q; skill names are prefixed archdoc- so they do not collide", name, got)
+		skill := field(front, "name")
+		if skill != "" && !strings.HasPrefix(skill, "archdoc-") {
+			t.Errorf("%s declares name %q; skill names are prefixed archdoc- so they do not collide", name, skill)
+		}
+		if len(skill) > 64 || !skillName.MatchString(skill) {
+			t.Errorf("%s declares name %q, which is not 1 to 64 lowercase letters, digits and single inner hyphens", name, skill)
+		}
+		if other, ok := seen[skill]; ok {
+			t.Errorf("%s and %s both declare name %q; each skill is a directory named for it", name, other, skill)
+		}
+		seen[skill] = name
+		if description, _ := keys["description"].(string); utf8.RuneCountInString(description) > 1024 || strings.TrimSpace(description) == "" {
+			t.Errorf("%s declares a description of %d characters; it must be 1 to 1024 and not whitespace alone", name, utf8.RuneCountInString(description))
 		}
 	}
 }

@@ -1,0 +1,19 @@
+{
+  "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
+  "name": "archdoc",
+  "description": "Document a project with ArchDoc: classify, backfill from real evidence, and keep a specification repository lint-clean.",
+  "owner": {
+    "name": "Ollie Read"
+  },
+  "plugins": [
+    {
+      "name": "archdoc",
+      "description": "Document a project with ArchDoc: classify, backfill from real evidence, and keep a specification repository lint-clean.",
+      "author": {
+        "name": "Ollie Read"
+      },
+      "category": "development",
+      "source": "."
+    }
+  ]
+}
