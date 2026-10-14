@@ -1,7 +1,7 @@
 ---
 id: RFC-0009
 title: Changelog entries are structured data
-status: draft
+status: proposed
 created: 2026-10-14
 decided:
 depends: [ADR-0001, ADR-0005, ADR-0006, ADR-0009, ADR-0019, ADR-0020]
