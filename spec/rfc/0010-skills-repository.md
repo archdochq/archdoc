@@ -178,6 +178,12 @@ OpenAI's guide requires a path that starts with `./` and stays inside the market
 
 > Yes. Codex resolves a local source of `.` or `./` to the marketplace root. It reads the first of `.agents/plugins/marketplace.json`, `.agents/plugins/api_marketplace.json`, `.claude-plugin/marketplace.json` and `.cursor-plugin/marketplace.json` that exists, accepts a plain path as a source, and defaults an absent `policy`, so the skeleton carries no Codex marketplace of its own.
 
+### How does a Cursor user install from a repository that is not listed in the Cursor Marketplace?
+
+Cursor's plugin reference documents `.cursor-plugin/marketplace.json` and submission to the Cursor Marketplace, but not adding a third-party marketplace. If only listed plugins can be installed, the Cursor marketplace file serves nothing and the skeleton drops it.
+
+> ~~`/add-plugin` with a repository URL, typed in the chat input, parses the repository and installs its plugin. Cursor's plugin template says a repository holding one plugin keeps it at the root with no `.cursor-plugin/marketplace.json`, so the skeleton carries none, and Cursor reads the root `plugin.json`. Importing a repository as a personal marketplace from the Customize page indexes no plugins in Cursor 3.22 and 3.23, so the install line names `/add-plugin` instead.~~ Struck on 2026-10-14: Cursor's skills documentation requires `.cursor-plugin/marketplace.json` for an import from a GitHub repository, which accounts for the import indexing no plugins, and no route has been tried against this layout. The question continues as [Does Cursor's import from a GitHub repository accept a marketplace whose plugin source is the root?](#does-cursors-import-from-a-github-repository-accept-a-marketplace-whose-plugin-source-is-the-root)
+
 ## Changelog
 
 - 2026-10-14: Both open questions resolved. The Codex and Cursor marketplace files are dropped from the skills repository; Codex reads the Claude Code marketplace, and Cursor installs the root plugin with `/add-plugin`.
@@ -185,3 +191,4 @@ OpenAI's guide requires a path that starts with `./` and stays inside the market
 - 2026-10-14: The generator is `plugin/build.go`, run with `go run`, in place of a shell script using `jq`. The Codex question moves to `Resolved questions`, and the document updates [RFC-0008](0008-questions.md).
 - 2026-10-14: `.cursor-plugin/marketplace.json` returns, since Cursor's documented import from a GitHub repository requires it, and the Cursor question narrows to whether that import accepts the root as a source. Codex is described as following the marketplace's revision rather than the version. The generator checks names against the Agent Skills rules, and the job pushes the commit and the tag atomically.
 - 2026-10-14: The skills repository's tags are lightweight, for Gemini CLI's update check. The resolved Codex question names the root rather than `./`, and a marketplace pinned to an earlier tag is noted as still resolving.
+- 2026-10-14: The first Cursor question and its struck answer move to `Resolved questions`.
