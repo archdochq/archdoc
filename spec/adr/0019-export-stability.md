@@ -19,7 +19,7 @@ Raised on 2026-10-14, when a change was weighed that would leave the export's JS
 
 That promise has already been broken once without a change of number. Under [RFC-0007](../rfc/0007-the-glossary-is-a-type-of-its-own.md) the export stopped emitting the glossary page as a document, so a consumer reading terms from `documents` stopped seeing them, and `schema` stayed `2`. Two released shapes share that number.
 
-ArchDoc is pre-1.0, and its README describes it as alpha, with a command surface that may still move. Tagged releases, pre-releases among them, have emitted `schema: 1`, from `v0.1.0-alpha.4` to `v0.1.0`, and `schema: 2`, from `v0.2.0`. The identifier each schema carries has moved with the repository: the earliest pre-releases named a path that was not a file, `v0.1.0` named the file under the repository's first owner, and `v0.2.0` onwards name it under `archdochq`.
+ArchDoc is pre-1.0, and its README describes it as alpha, with a command surface that may still move. Tagged releases, pre-releases among them, have emitted `schema: 1`, from `v0.1.0-alpha.4` to `v0.1.0`, and `schema: 2`, from `v0.2.0`. The identifier each schema carries has moved with the repository: the pre-releases from `v0.1.0-alpha.4` to `v0.1.0-alpha.6` named a path that was not a file, `v0.1.0` named the file under the repository's first owner, and `v0.2.0` onwards name it under `archdochq`.
 
 ## Decision
 
