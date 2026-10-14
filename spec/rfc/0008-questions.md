@@ -1,7 +1,7 @@
 ---
 id: RFC-0008
 title: Questions are headings and resolved ones are kept
-status: draft
+status: proposed
 created: 2026-09-24
 decided:
 depends: [ADR-0001, ADR-0006, ADR-0009, ADR-0019, ADR-0020]

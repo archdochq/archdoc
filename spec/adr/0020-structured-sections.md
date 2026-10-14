@@ -1,7 +1,7 @@
 ---
 id: ADR-0020
 title: Questions and the Changelog are published as structured data
-status: draft
+status: proposed
 created: 2026-10-14
 decided:
 depends: [ADR-0019]
