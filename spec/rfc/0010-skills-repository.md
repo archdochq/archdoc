@@ -1,9 +1,9 @@
 ---
 id: RFC-0010
 title: The guides are published from a repository of their own
-status: proposed
+status: accepted
 created: 2026-10-14
-decided:
+decided: 2026-10-14
 depends: []
 updates: [RFC-0001, RFC-0008]
 obsoletes: []
@@ -13,7 +13,7 @@ obsoletes: []
 
 ## Abstract
 
-The guides packaged as skills move out of this repository into `archdochq/skills`, which the release workflow writes from each stable release, with the manifests that let Claude Code, GitHub Copilot CLI, Codex, Cursor and Gemini CLI install it from git. The repository changes only when a stable release is published, and every manifest but the marketplaces carries that release's version, so an installed copy holds the guides of the binary that release published. This replaces the Packaging section of [RFC-0001](0001-guidance-for-coding-agents.md), its `plugin/` and `.claude-plugin/marketplace.json` components and its error for a packaged skill that differs from its guide, and ends the regeneration of the plugin's skills that [RFC-0008](0008-questions.md) names.
+The guides packaged as skills move out of this repository into `archdochq/skills`, which the release workflow writes from each stable release, with the manifests that let Claude Code, GitHub Copilot CLI, Codex, Cursor and Gemini CLI install it from git. The repository changes only when a stable release is published, and every manifest but the marketplace carries that release's version, so an installed copy holds the guides of the binary that release published. This replaces the Packaging section of [RFC-0001](0001-guidance-for-coding-agents.md), its `plugin/` and `.claude-plugin/marketplace.json` components and its error for a packaged skill that differs from its guide, and ends the regeneration of the plugin's skills that [RFC-0008](0008-questions.md) names.
 
 ## Motivation
 
@@ -55,7 +55,6 @@ Claude Code is no longer the only agent that installs skills from a git reposito
 archdochq/skills
 ├── .claude-plugin/marketplace.json    marketplace: Claude Code, Codex
 ├── .claude-plugin/plugin.json         Claude Code manifest
-├── .cursor-plugin/marketplace.json    marketplace: Cursor
 ├── .cursor-plugin/plugin.json         Cursor manifest
 ├── gemini-extension.json              Gemini CLI manifest
 ├── plugin.json                        Agent Plugins 1.0 manifest: Copilot CLI, Codex
@@ -64,14 +63,14 @@ archdochq/skills
 └── README.md
 ```
 
-The plugin is the repository root. Each marketplace lists one plugin, `archdoc`, whose source is the root itself, `"."`. Codex finds neither `.agents/plugins/marketplace.json` nor `.agents/plugins/api_marketplace.json` and reads `.claude-plugin/marketplace.json`, which comes before `.cursor-plugin/marketplace.json` in its lookup, accepting a plain path as a source, `.` as the marketplace root, and an entry with no `policy`. OpenAI's plugin guide says to start a source with `./` and to include `policy` and `category` on every entry; the Codex source accepts `.` and defaults `policy`.
+The plugin is the repository root. The marketplace lists one plugin, `archdoc`, whose source is the root itself, `"."`. Codex finds neither `.agents/plugins/marketplace.json` nor `.agents/plugins/api_marketplace.json` and reads `.claude-plugin/marketplace.json`, accepting a plain path as a source, `.` as the marketplace root, and an entry with no `policy`. OpenAI's plugin guide says to start a source with `./` and to include `policy` and `category` on every entry; the Codex source accepts `.` and defaults `policy`.
 
 | Agent | Reads | Install |
 |---|---|---|
 | Claude Code | `.claude-plugin/marketplace.json`, `.claude-plugin/plugin.json` | `/plugin marketplace add archdochq/skills`, then `/plugin install archdoc@archdoc` |
 | Copilot CLI | `plugin.json` | `copilot plugin install archdochq/skills` |
 | Codex | `.claude-plugin/marketplace.json`, `plugin.json` | `codex plugin marketplace add archdochq/skills`, then `codex plugin add archdoc@archdoc` |
-| Cursor | `.cursor-plugin/marketplace.json`, `.cursor-plugin/plugin.json` or `plugin.json` | Import `archdochq/skills` in Customize with From GitHub Repository, then install `archdoc`; see Open questions |
+| Cursor | `.cursor-plugin/plugin.json` or `plugin.json` | From the Cursor CLI, which installs a plugin at the root of a GitHub repository. The app's import from GitHub finds no plugin at a repository root |
 | Gemini CLI | `gemini-extension.json`, `skills/` | `gemini extensions install https://github.com/archdochq/skills` |
 | Any agent `npx skills` supports | `skills/` | `npx skills add archdochq/skills` |
 
@@ -79,16 +78,15 @@ Copilot CLI reads the root `plugin.json` in preference to `.claude-plugin/plugin
 
 ### Manifests
 
-Every manifest names the plugin `archdoc`, and every description the manifests carry is the same. `.claude-plugin/plugin.json`, `.cursor-plugin/plugin.json` and `plugin.json` also carry `author`, holding `name` alone, `homepage`, `repository`, and `license` as `AGPL-3.0-or-later`, the licence [ADR-0012](../adr/0012-the-licence-is-agpl-3-0-or-later.md) chose. Gemini CLI's manifest defines none of those four fields. Both marketplaces are named `archdoc`, so the Claude Code and Codex install argument is `archdoc@archdoc`.
+Every manifest names the plugin `archdoc`, and every description the manifests carry is the same. `.claude-plugin/plugin.json`, `.cursor-plugin/plugin.json` and `plugin.json` also carry `author`, holding `name` alone, `homepage`, `repository`, and `license` as `AGPL-3.0-or-later`, the licence [ADR-0012](../adr/0012-the-licence-is-agpl-3-0-or-later.md) chose. Gemini CLI's manifest defines none of those four fields. The marketplace is named `archdoc`, so the Claude Code and Codex install argument is `archdoc@archdoc`.
 
 | Manifest | Carries a version | Notes |
 |---|---|---|
 | `.claude-plugin/plugin.json` | yes | Claude Code versions the plugin by it |
-| `.cursor-plugin/plugin.json` | yes | The manifest Cursor's plugin reference gives each plugin a marketplace lists |
+| `.cursor-plugin/plugin.json` | yes | The manifest Cursor's plugin template keeps at the root of a repository holding one plugin |
 | `plugin.json` | yes | `$schema` is `https://agent-plugins.org/schemas/1.0.0/plugin.schema.json` |
 | `gemini-extension.json` | yes | No `contextFileName`; the guides are skills, not context |
 | `.claude-plugin/marketplace.json` | no | A version on a Claude Code marketplace entry is overridden by `plugin.json`, and reported by `claude plugin validate` when the two differ |
-| `.cursor-plugin/marketplace.json` | no | Cursor's import from a GitHub repository requires it |
 
 The skeleton's manifests carry no `version`. The generator adds it.
 
@@ -123,7 +121,7 @@ The job runs in the release workflow after the release is published, for a tag c
 |---|---|
 | `TestEveryGuideIsAlsoAValidSkill`, extended | Each guide's front matter holds only keys the Agent Skills specification defines. Its `name` is 1 to 64 characters from `a` to `z`, `0` to `9` and `-`, neither starting nor ending with a hyphen and with no two in a row, and unique across guides. Its `description` is 1 to 1024 characters and not whitespace alone. The existing checks for both fields and the `archdoc-` prefix remain |
 | The skeleton holds the tree above | Exactly the manifests and `README.md` the tree names, besides `build.go`; each manifest valid JSON naming the plugin `archdoc`, and none declaring a version |
-| Each marketplace names the root as its plugin's source | `"."` |
+| The marketplace names the root as its plugin's source | `"."` |
 | The generator, run with `go run` from the repository root into a temporary directory | One `SKILL.md` per guide, in a directory named for the guide's `name` and identical to it, and the given version in each versioned manifest |
 
 `TestThePluginSkillsMatchTheShippedGuides`, `TestThePluginManifestIsPresentAndNamesTheRightSkills` and `TestTheMarketplaceManifestResolves` are removed, since each reads `plugin/skills/` or the root marketplace, as is the `-update-plugin` flag.
@@ -150,9 +148,9 @@ The job runs in the release workflow after the release is published, for a tag c
 - **A command under `cmd/`.** `go install ./...`, which the pre-commit hooks run, would build and install it beside `archdoc`.
 - **The plugin in a subdirectory of the skills repository.** Gemini CLI reads its manifest from the repository root, Copilot CLI installs from the root, and Claude Code and Codex accept the root as a marketplace source.
 - **A version on the marketplace entry.** Claude Code reads the version from `plugin.json` over the entry's, so a second copy could only differ from the first.
-- **Cursor reading the root `plugin.json` alone.** Cursor's plugin reference gives each plugin a marketplace lists its own `.cursor-plugin/plugin.json`, and does not say which manifest it uses when both are present.
+- **Cursor reading the root `plugin.json` alone.** Cursor's plugin template keeps `.cursor-plugin/plugin.json` at the root of a repository holding one plugin, and Cursor does not say which manifest it uses when both are present.
 - **A marketplace file of its own for Codex.** Codex reads the Claude Code marketplace when it finds none of its own.
-- **No marketplace file for Cursor.** Cursor's plugin template has none in a repository holding one plugin, but its documented import from a GitHub repository requires one.
+- **A marketplace file for Cursor.** Its one documented use is the app's import from a GitHub repository, which indexes no plugin at a repository root with one or without.
 
 No other alternatives were weighed.
 
@@ -165,10 +163,6 @@ The removal lands as the last change before the tag of the first release that ru
 `go test ./internal/template -update-plugin` no longer exists, so the regeneration of the plugin's skills that [RFC-0008](0008-questions.md) names among its components no longer happens. The README's account of the plugin and its install lines change.
 
 ## Open questions
-
-### Does Cursor's import from a GitHub repository accept a marketplace whose plugin source is the root?
-
-Cursor's documentation installs skills from a GitHub repository by importing it in Customize with From GitHub Repository, which requires `.cursor-plugin/marketplace.json`, or by adding it as a team marketplace. Its plugin reference shows a marketplace's plugins in subdirectories, and does not say whether a source of `"."` is accepted. Its changelogs describe further routes: `/add-plugin` in the editor, a repository URL pasted into the CLI's plugin search, a marketplace added by git URL in the CLI, and the import of plugins installed in Claude Code. None has been tried against this layout.
 
 ## Resolved questions
 
@@ -184,6 +178,12 @@ Cursor's plugin reference documents `.cursor-plugin/marketplace.json` and submis
 
 > ~~`/add-plugin` with a repository URL, typed in the chat input, parses the repository and installs its plugin. Cursor's plugin template says a repository holding one plugin keeps it at the root with no `.cursor-plugin/marketplace.json`, so the skeleton carries none, and Cursor reads the root `plugin.json`. Importing a repository as a personal marketplace from the Customize page indexes no plugins in Cursor 3.22 and 3.23, so the install line names `/add-plugin` instead.~~ Struck on 2026-10-14: Cursor's skills documentation requires `.cursor-plugin/marketplace.json` for an import from a GitHub repository, which accounts for the import indexing no plugins, and no route has been tried against this layout. The question continues as [Does Cursor's import from a GitHub repository accept a marketplace whose plugin source is the root?](#does-cursors-import-from-a-github-repository-accept-a-marketplace-whose-plugin-source-is-the-root)
 
+### Does Cursor's import from a GitHub repository accept a marketplace whose plugin source is the root?
+
+Cursor's documentation installs skills from a GitHub repository by importing it in Customize with From GitHub Repository, which requires `.cursor-plugin/marketplace.json`, or by adding it as a team marketplace. Its plugin reference shows a marketplace's plugins in subdirectories, and does not say whether a source of `"."` is accepted. Its changelogs describe further routes: `/add-plugin` in the editor, a repository URL pasted into the CLI's plugin search, a marketplace added by git URL in the CLI, and the import of plugins installed in Claude Code. None has been tried against this layout.
+
+> No. The Cursor app's import from a GitHub repository adds the repository as a marketplace and indexes no plugin from it when the plugin is the repository root, whether `.cursor-plugin/marketplace.json` lists it with a source of `./` or the repository carries no marketplace file. The marketplaces Cursor's examples link list their plugins in subdirectories. The Cursor CLI installs a plugin at the root of a GitHub repository. The install line names the CLI, and the skeleton carries no Cursor marketplace, whose one documented use is that import.
+
 ## Changelog
 
 - 2026-10-14: Both open questions resolved. The Codex and Cursor marketplace files are dropped from the skills repository; Codex reads the Claude Code marketplace, and Cursor installs the root plugin with `/add-plugin`.
@@ -192,3 +192,4 @@ Cursor's plugin reference documents `.cursor-plugin/marketplace.json` and submis
 - 2026-10-14: `.cursor-plugin/marketplace.json` returns, since Cursor's documented import from a GitHub repository requires it, and the Cursor question narrows to whether that import accepts the root as a source. Codex is described as following the marketplace's revision rather than the version. The generator checks names against the Agent Skills rules, and the job pushes the commit and the tag atomically.
 - 2026-10-14: The skills repository's tags are lightweight, for Gemini CLI's update check. The resolved Codex question names the root rather than `./`, and a marketplace pinned to an earlier tag is noted as still resolving.
 - 2026-10-14: The first Cursor question and its struck answer move to `Resolved questions`.
+- 2026-10-14: The Cursor question is resolved: the app's import indexes no plugin at a repository root, with a marketplace file or without one, and the Cursor CLI installs one. Cursor's install line names the CLI, and `.cursor-plugin/marketplace.json` leaves the skills repository.
