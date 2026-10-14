@@ -5,7 +5,7 @@ includes: [ADR-0006, ADR-0007, RFC-0008, RFC-0009]
 
 # Markdown
 
-The body of a document is everything after the closing `---` of the front matter. The tool reads headings, HTML comments, fenced code blocks and links throughout it, blockquotes within the question sections, and list items within a `Changelog` section. Everything else is text.
+The body of a document is everything after the closing `---` of the front matter. The tool reads headings, HTML comments, fenced code blocks and links throughout it, blockquotes within the question sections, and list items within a `Changelog` section. Everything else is text. A carriage return before a line feed is part of the line ending, and a construct is recognised in a CRLF file exactly as in an LF one.
 
 ## Headings
 

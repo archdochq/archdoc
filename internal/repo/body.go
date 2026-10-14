@@ -43,8 +43,13 @@ const Sources = "Sources"
 // other document may carry.
 const RejectionRationale = "Rejection rationale"
 
+// The patterns anchored at the end of a line accept a carriage return before
+// it. A body is split on "\n", so a line of a CRLF file keeps its "\r", which is
+// neither a space nor a tab: a link definition went unread and a heading kept
+// its closing hashes in a file Git for Windows checked out. The "\r" is the
+// line's last byte, so accepting it moves no offset.
 var (
-	headingPattern  = regexp.MustCompile(`^ {0,3}(#{1,6})(?:[ \t]+(.*?))?[ \t]*$`)
+	headingPattern  = regexp.MustCompile(`^ {0,3}(#{1,6})(?:[ \t]+(.*?))?[ \t]*\r?$`)
 	fencePattern    = regexp.MustCompile("^ {0,3}(`{3,}|~{3,})")
 	linkPattern     = regexp.MustCompile(`!?\[([^\]]*)\]\([^)]*\)`)
 	closingHashes   = regexp.MustCompile(`[ \t]+#+$`)
@@ -62,7 +67,7 @@ var (
 	// masking pattern in internal/link may over-match, where the cost is a
 	// missed suggestion; deciding that a line IS a link is a stricter question.
 	definitionPattern = regexp.MustCompile(
-		`^[ \t]{0,3}\[([^\]]+)\]:[ \t]*(?:<([^<>\n]*)>|(\S+))(?:[ \t]+(?:"[^"]*"|'[^']*'|\([^)]*\)))?[ \t]*$`)
+		`^[ \t]{0,3}\[([^\]]+)\]:[ \t]*(?:<([^<>\n]*)>|(\S+))(?:[ \t]+(?:"[^"]*"|'[^']*'|\([^)]*\)))?[ \t]*\r?$`)
 )
 
 // Patterns for spans a suggestion must never be offered inside: an inline
@@ -722,7 +727,7 @@ func (d *Document) Links() []Link {
 		// interrupts a paragraph, so its first line can hold one.
 		content := line.Masked
 		if index := line.Number - d.BodyLine; quoted[index] {
-			content = unquote(strings.TrimSuffix(content, "\r"))
+			content = unquote(content)
 			if !quoted[index-1] {
 				opensBlock = true
 			}
