@@ -17,11 +17,11 @@ The guides packaged as skills move out of this repository into `archdochq/skills
 
 ## Motivation
 
-`plugin/.claude-plugin/plugin.json` declared version `0.1.0` from v0.1.0-alpha.2, the first release to carry it, through v0.5.0. The guides changed before v0.2.0, when the repository moved to the `archdochq` organisation, and again in v0.4.0, when the module path moved, and none of the five releases from v0.2.0 to v0.5.0 raised the string. Claude Code treats a declared version as the plugin's identity for updates, and keeps every user on the copy cached at install until the string changes, however many commits land after it, so no installed copy received either change until the string was raised to `0.2.0` by hand, a change released in v0.5.1. Nothing fails when the string is left behind.
+`plugin/.claude-plugin/plugin.json` declared version `0.1.0` from v0.1.0-alpha.2, the first release to carry it, through v0.5.0. The guides changed between v0.1.0 and v0.2.0, when the repository moved to the `archdochq` organisation, and again between v0.3.0 and v0.4.0, when the module path moved, and none of the five releases from v0.2.0 to v0.5.0 raised the string. Claude Code treats a declared version as the plugin's identity for updates, and keeps every user on the copy cached at install until the string changes, however many commits land after it, so no installed copy received either change until the string was raised to `0.2.0` by hand, a change released in v0.5.1. Nothing fails when the string is left behind.
 
 Without a declared version, Claude Code versions a plugin by the commit it was installed from, and an installed copy follows the default branch whenever it is updated. The default branch runs ahead of the latest release: a guide describing a command lands with the command, before any release carries it. The deliveries written by the binary, `init --agents`, `archdoc agents` and `archdoc update`, hold the guides of that binary's release. The plugin would be the one delivery describing a tool its user cannot install yet.
 
-Claude Code is no longer the only agent that installs skills from a git repository. Copilot CLI, Codex and Gemini CLI each install a plugin or extension from one, Cursor's changelogs describe doing so, and `npx skills` installs bare skills into many more. All of them read skills from `skills/<name>/SKILL.md`, the layout `plugin/skills/` already has, and each finds a manifest at a path it reads, some shared between agents and some not, so one repository can carry the manifests for all of them.
+Claude Code is no longer the only agent that installs skills from a git repository. Copilot CLI, Codex and Gemini CLI each install a plugin or extension from one, Cursor's changelogs describe doing so, and `npx skills` installs bare skills into many more. All of them read skills from `skills/<name>/SKILL.md`, the layout `plugin/skills/` already has, and each agent that installs a plugin or extension finds a manifest at a path it reads, some shared between agents and some not, so one repository can carry the manifests for all of them.
 
 ## Proposal
 
@@ -113,9 +113,9 @@ The job runs in the release workflow after the release is published, for a tag c
 
 1. Check out this repository at the tag, and `archdochq/skills` at its default branch using the `SKILLS_DEPLOY_KEY` secret, a deploy key with write access to that repository alone.
 2. Set up Go, and run the generator with the tag less its leading `v`, against the skills repository's checkout.
-3. Commit as `github-actions[bot]` with the message `feat(archdoc): Release <tag>`, tag the commit `<tag>`, and push both in one atomic push, so either both land or neither does.
+3. Commit as `github-actions[bot]` with the message `feat(archdoc): Release <tag>`, tag the commit `<tag>` with a lightweight tag, and push both in one atomic push, so either both land or neither does.
 
-`archdochq/skills` is created with one commit holding a README, so its default branch exists before the job first runs. The skills repository's tag lets a user of Claude Code or Codex pin a release through the marketplace's ref, and a user of Gemini CLI through `--ref`, which asks before installing a tag that has no GitHub release. Copilot CLI's install from a repository root takes no ref.
+`archdochq/skills` is created with one commit holding a README, so its default branch exists before the job first runs. The skills repository's tag lets a user of Claude Code or Codex pin a release through the marketplace's ref, and a user of Gemini CLI through `--ref`, which asks before installing a ref that has no GitHub release. The tag is lightweight because Gemini CLI checks a pinned install for updates by comparing the commit it holds with the hash `git ls-remote` gives for the ref, which for an annotated tag is the tag object's. Copilot CLI's install from a repository root takes no ref.
 
 ### Tests
 
@@ -158,7 +158,7 @@ No other alternatives were weighed.
 
 ## Backwards compatibility
 
-A marketplace added as `archdochq/archdoc`, or as `ollieread/archdoc` before the repository moved, stops resolving once `.claude-plugin/marketplace.json` leaves this repository's default branch. An installed copy receives nothing further from it. Moving takes `/plugin marketplace remove archdoc`, `/plugin marketplace add archdochq/skills` and `/plugin install archdoc@archdoc`, in that order: one user can register only one marketplace of a given name, and removing a marketplace uninstalls the plugins installed from it. Generated release notes list commits by subject, so the three commands are added by hand to the notes of the first release the job publishes.
+A marketplace added as `archdochq/archdoc` with no ref, or as `ollieread/archdoc` before the repository moved, stops resolving once `.claude-plugin/marketplace.json` leaves this repository's default branch. An installed copy receives nothing further from it. One added with a ref naming an earlier tag keeps resolving to that tag's copy. Moving takes `/plugin marketplace remove archdoc`, `/plugin marketplace add archdochq/skills` and `/plugin install archdoc@archdoc`, in that order: one user can register only one marketplace of a given name, and removing a marketplace uninstalls the plugins installed from it. Generated release notes list commits by subject, so the three commands are added by hand to the notes of the first release the job publishes.
 
 The removal lands as the last change before the tag of the first release that runs the job, and that run is the skills repository's first write after its initial commit.
 
@@ -172,7 +172,7 @@ Cursor's documentation installs skills from a GitHub repository by importing it 
 
 ## Resolved questions
 
-### Does Codex accept `./` as the source path of a plugin at the marketplace root?
+### Does Codex accept the marketplace root as the source path of a plugin?
 
 OpenAI's guide requires a path that starts with `./` and stays inside the marketplace root, and shows only subdirectories. If the root is refused, the plugin moves to a subdirectory for every agent, since Gemini CLI reads its manifest from the repository root and Copilot CLI installs from it.
 
@@ -184,3 +184,4 @@ OpenAI's guide requires a path that starts with `./` and stays inside the market
 - 2026-10-14: The Cursor question reopened, and `.cursor-plugin/plugin.json` added to the skills repository. Copilot CLI installs from the repository root rather than through the marketplace. The Motivation corrected: the version left unraised through five releases was `0.1.0`.
 - 2026-10-14: The generator is `plugin/build.go`, run with `go run`, in place of a shell script using `jq`. The Codex question moves to `Resolved questions`, and the document updates [RFC-0008](0008-questions.md).
 - 2026-10-14: `.cursor-plugin/marketplace.json` returns, since Cursor's documented import from a GitHub repository requires it, and the Cursor question narrows to whether that import accepts the root as a source. Codex is described as following the marketplace's revision rather than the version. The generator checks names against the Agent Skills rules, and the job pushes the commit and the tag atomically.
+- 2026-10-14: The skills repository's tags are lightweight, for Gemini CLI's update check. The resolved Codex question names the root rather than `./`, and a marketplace pinned to an earlier tag is noted as still resolving.
