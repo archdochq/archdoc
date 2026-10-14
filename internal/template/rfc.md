@@ -42,11 +42,11 @@ Not recorded.
 
 ## Open questions
 
-<!-- Must be empty before acceptance. Anything remaining moves to a follow-up RFC. -->
+<!-- Optional. Each question a level three heading, with any detail beneath it. Once answered, it moves to a Resolved questions section after this one, ending on a blockquote holding its answer. Delete this section, or leave it empty, once nothing is open. -->
 
 ## Changelog
 
-<!-- One dated line per change made while proposed. -->
+<!-- Optional. One entry per change made while proposed, as a list item: - YYYY-MM-DD: what changed. Continue an entry on lines indented by two spaces. -->
 {{- if .Backfilled }}
 
 ## Sources

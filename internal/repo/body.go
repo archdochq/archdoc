@@ -95,7 +95,7 @@ func RequiredSections(t Type) []string {
 	case TypeRFC:
 		return []string{
 			"Abstract", "Motivation", "Proposal", "Alternatives considered",
-			"Backwards compatibility", "Open questions", "Changelog",
+			"Backwards compatibility",
 		}
 	case TypeADR:
 		return []string{"Context", "Decision", "Alternatives", "Consequences"}
@@ -241,18 +241,31 @@ func (d *Document) H1() (Heading, bool) {
 func (d *Document) sectionAt(i int) Section {
 	lines, masked := d.bodyLines(), d.maskedLines()
 	h := d.headings[i]
-	end := len(lines)
-	for _, next := range d.headings[i+1:] {
-		if next.Level <= h.Level {
-			end = next.index
-			break
-		}
-	}
+	end := d.sectionEnd(i)
 	return Section{
 		Heading: h,
 		Text:    strings.Join(lines[h.index+1:end], "\n"),
 		masked:  strings.Join(masked[h.index+1:end], "\n"),
 	}
+}
+
+// nextSection is the index of the heading that ends heading i's section, the
+// next of equal or higher level, or -1 where the section runs to the end.
+func (d *Document) nextSection(i int) int {
+	for j := i + 1; j < len(d.headings); j++ {
+		if d.headings[j].Level <= d.headings[i].Level {
+			return j
+		}
+	}
+	return -1
+}
+
+// sectionEnd is the body line index at which heading i's section ends.
+func (d *Document) sectionEnd(i int) int {
+	if next := d.nextSection(i); next >= 0 {
+		return d.headings[next].index
+	}
+	return len(d.bodyLines())
 }
 
 // Entry is one heading and the lines beneath it, up to the next heading of any
@@ -311,7 +324,7 @@ func (d *Document) bodyLines() []string {
 // what a comment is without being the single walk over the document.
 func (d *Document) maskedLines() []string {
 	if d.masked == nil {
-		d.masked, _, d.unclosed = scanBody(d.Body)
+		d.masked, d.fenced, d.unclosed = scanBody(d.Body)
 	}
 	return d.masked
 }
@@ -702,7 +715,18 @@ type WikiLink struct {
 func (d *Document) Links() []Link {
 	var links []Link
 	opensBlock := true
+	quoted := d.questionQuotes()
 	for line := range d.Prose() {
+		// A definition an answer uses is written inside its blockquote, so in
+		// a question section it is read from behind the marker. A blockquote
+		// interrupts a paragraph, so its first line can hold one.
+		content := line.Masked
+		if index := line.Number - d.BodyLine; quoted[index] {
+			content = unquote(content)
+			if !quoted[index-1] {
+				opensBlock = true
+			}
+		}
 		for _, m := range mdLinkPattern.FindAllStringSubmatch(line.Masked, -1) {
 			// The pattern captures the leading "!" so that an image is told
 			// from a link by the match itself.
@@ -720,7 +744,7 @@ func (d *Document) Links() []Link {
 		// A definition cannot interrupt a paragraph, so it only counts after a
 		// blank line or another definition.
 		if opensBlock {
-			if m := definitionPattern.FindStringSubmatch(line.Masked); m != nil {
+			if m := definitionPattern.FindStringSubmatch(content); m != nil {
 				links = append(links, Link{
 					Text: m[1], Target: destination(m[2], m[3]),
 					Type: LinkDefinition, Line: line.Number,
@@ -728,7 +752,7 @@ func (d *Document) Links() []Link {
 				continue
 			}
 		}
-		opensBlock = strings.TrimSpace(line.Masked) == ""
+		opensBlock = strings.TrimSpace(content) == ""
 	}
 	return links
 }

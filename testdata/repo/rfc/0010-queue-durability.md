@@ -33,7 +33,7 @@ Nothing breaks.
 
 ## Open questions
 
-Whether the persistence is synchronous.
+### Is the persistence synchronous?
 
 ## Changelog
 

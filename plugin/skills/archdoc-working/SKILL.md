@@ -70,9 +70,10 @@ archdoc export                    write the repository as JSON
 archdoc update                    refresh PROCESS.md, the workflow and agents/ after upgrading
 ```
 
-`accept` and `reject` refuse a document with an empty required section or an unresolved
-`[[...]]` link, because the next push freezes it and lint would then report a fault nobody is
-permitted to repair. Fix what they report rather than working around them.
+`accept` and `reject` refuse a document with an empty required section, an unresolved
+`[[...]]` link, or a question or Changelog entry of a shape lint reports, and `accept` refuses
+one with open questions, because the next push freezes it and lint would then report a fault
+nobody is permitted to repair. Fix what they report rather than working around them.
 
 ## Guides
 

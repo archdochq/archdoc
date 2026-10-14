@@ -8,20 +8,21 @@ the identifier rules or the reverse-relationship graph.
 archdoc export                    everything, one document, stdout
 archdoc export --out dist/        a tree of files
 archdoc export --no-bodies        metadata and structure, no prose
+archdoc export --all-headings     contents keeps the questions and Changelog
 archdoc export --source           adds each document's file as it is on disk
 archdoc export --commit <rev>     records the revision this describes
 archdoc export --schema           the JSON Schema, no repository needed
 ```
 
 The schema is the contract. It is embedded in the binary, published at
-[`schema/export/v2.json`](../schema/export/v2.json), and printed by `--schema`.
+[`schema/export/v3.json`](../schema/export/v3.json), and printed by `--schema`.
 This page is the guided tour; where the two disagree, the schema is right.
 
 ## The envelope
 
 ```json
 {
-  "schema": 2,
+  "schema": 3,
   "commit": "49a14a5c2d3f9ac640bf7db8d88208254b9af105",
   "config": {"name": "ArchDoc", "branch": "main", "root": ".",
              "strict": true, "ref_stale_days": 180},
@@ -83,6 +84,8 @@ Bodies elided, everything else as it comes out:
     {"level": 3, "text": "The rule",   "anchor": "the-rule",   "line": 20, "body": "..."},
     {"level": 2, "text": "Motivation", "anchor": "motivation", "line": 25, "body": "..."}
   ],
+  "questions": {"open": [], "resolved": []},
+  "changelog": [],
 
   "links": []
 }
@@ -156,6 +159,46 @@ the process permits them.
 
 Anything before the first heading belongs to no entry, and appears only in
 `source`. In practice that is a blank line.
+
+## Questions and the Changelog
+
+A document's questions and its Changelog record its process rather than its
+design, so they are published as data of their own and left out of `contents`:
+the `Open questions`, `Resolved questions` and `Changelog` headings, and every
+heading beneath them, with their bodies. Render `contents` and you have the
+design; render these where they belong in your interface. `--all-headings`
+puts the sections back into `contents` for a consumer rendering the document as
+written, and publishes them as data as well.
+
+```json
+"questions": {
+  "open": [
+    {"text": "Does a withdrawn document's question survive?",
+     "anchor": "does-a-withdrawn-documents-question-survive", "line": 98, "body": ""}
+  ],
+  "resolved": [
+    {"text": "Should `index.json` carry the questions?",
+     "anchor": "should-indexjson-carry-the-questions", "line": 102,
+     "body": "\nRaised in review.\n",
+     "answer": {"line": 106, "body": "Yes, without the bodies."}}
+  ]
+},
+"changelog": [
+  {"line": 141, "date": "2026-09-02", "body": "Moved the question on `index.json` to Resolved\nquestions, with its answer."}
+]
+```
+
+A question's `body` is its detail as written. Its `answer.body` is the
+blockquote without its `>` markers, so it is Markdown you can render as it
+stands. An entry's `body` is its text without the marker and date. `date` is
+absent from an undated entry, which lint reports on any document still being
+edited and which a frozen document may carry. `answer` is absent from a
+resolved question that does not end with one. Both arrays hold what was parsed,
+whatever lint reports; a line belonging to no question or entry is only in
+`source`.
+
+Link to a question by its `anchor`. An answer has no anchor of its own: it is
+reached through its question.
 
 ## Links
 
@@ -231,16 +274,23 @@ exist. Directories left empty are not removed.
 
 ## Stability
 
-`schema` is `2`. From here the shape may only ever gain **optional** fields, so
-a consumer written against version 2 keeps working against a later ArchDoc, and
-a field will not change meaning or type without the version changing.
+`schema` is `3`. Before ArchDoc 1.0 the shape may break: a change that removes
+a field, or changes a field's type or meaning, moves `schema` to the next
+integer, at most once between two tagged releases. A number a release has
+emitted is never given to another shape. From 1.0 the shape only gains
+**optional** fields.
 
-Version 2 is the one break. It replaced the anchor-keyed `sections` object,
+Version 3 took the question sections and the Changelog out of `contents` and
+published them as `questions` and `changelog`, and an RFC's
+`required_sections` no longer names either.
+
+Version 2 replaced the anchor-keyed `sections` object,
 which could not carry the order a document was written in and named level two
 headings only, and removed a `body` that was neither the structure nor the file.
 It was taken while the export was six days old and nothing consumed it.
-[`v1.json`](../schema/export/v1.json) stays published: it describes output that
-was real, and its URL is the one a consumer of that shape holds.
+[`v1.json`](../schema/export/v1.json) and [`v2.json`](../schema/export/v2.json)
+stay published: each describes output that was real, and its URL is the one a
+consumer of that shape holds.
 
 Every array is an array and never `null`, so `included_in` on a document nothing
 references is `[]`. The output is deterministic and records no generation time,

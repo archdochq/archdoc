@@ -35,4 +35,4 @@ Nothing breaks.
 
 ## Changelog
 
-- 2026-02-01: raised.
+- 2026-06-02: raised.

@@ -303,8 +303,38 @@ func TestEveryRuleHasAFixtureCase(t *testing.T) {
 			t.Errorf("no fixture document makes %s fire", rule.Code)
 		}
 	}
-	if len(lint.Rules) != 19 {
-		t.Errorf("registered %d rules, want 19", len(lint.Rules))
+	if len(lint.Rules) != 21 {
+		t.Errorf("registered %d rules, want 21", len(lint.Rules))
+	}
+}
+
+func TestL20ReportsQuestionsOfTheWrongShape(t *testing.T) {
+	got := forRule(t, "lint", "L20")
+
+	reports(t, got, "0025-question-faults.md:36:", "holds something before its first question")
+	reports(t, got, "0025-question-faults.md:40:", "ends with a blockquote")
+	reports(t, got, "0025-question-faults.md:44:", "does not end with a blockquote holding its answer")
+	// L09 alone reports an accepted document's open questions, and a
+	// withdrawn document is abandoned.
+	omits(t, got, "0010-open-questions.md", "0027-withdrawn-faults.md")
+}
+
+func TestL21ReportsChangelogEntriesItCannotRead(t *testing.T) {
+	got := forRule(t, "lint", "L21")
+
+	reports(t, got, "0026-changelog-faults.md:36:", "entry has no date")
+	reports(t, got, "0026-changelog-faults.md:38:", "earlier than the entry before it")
+	reports(t, got, "0026-changelog-faults.md:39:", "before the document was created")
+	reports(t, got, "0026-changelog-faults.md:40:", "belongs to no entry")
+	reports(t, got, "0028-entry-after-decided.md:36:", "after the document was decided, on 2026-05-02")
+	omits(t, got, "0026-changelog-faults.md:37:", "0027-withdrawn-faults.md")
+}
+
+func TestL20AndL21SoftenOnlyOnceFrozen(t *testing.T) {
+	for _, f := range runLint(t, "lint") {
+		if (f.Rule == "L20" || f.Rule == "L21") && f.Severity != lint.Error {
+			t.Errorf("%s at %s:%d is a %s, but nothing in the fixture is frozen", f.Rule, f.Path, f.Line, f.Severity)
+		}
 	}
 }
 

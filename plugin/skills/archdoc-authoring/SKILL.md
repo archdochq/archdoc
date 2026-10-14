@@ -29,8 +29,8 @@ Exact H2 titles, in this order. (PROCESS.md, Document structure)
 3. `Proposal` the design
 4. `Alternatives considered` what else was on the table and why it lost
 5. `Backwards compatibility` what breaks, or that nothing does
-6. `Open questions` unresolved matters while proposed
-7. `Changelog` dated entries for each change made while proposed
+
+`Open questions` and `Changelog` are optional, and the RFC template includes both.
 
 **ADR**
 
@@ -44,15 +44,55 @@ choose.
 
 ## Filling them
 
-Every required section must be non-empty by the time the document is accepted, with two
-exemptions: `Open questions`, which must be *empty* before acceptance, and `Changelog`, which
-stays empty for a document never edited while proposed.
+Every required section must be non-empty by the time the document is accepted.
 
 A section containing only the template's HTML comment counts as empty. Replace the comment;
 do not write around it.
 
 `Backwards compatibility` saying "Nothing breaks. This is new behaviour with no existing
 callers." is a complete answer. An empty section is not.
+
+## Questions
+
+Each open question is a level three heading under `Open questions`, with any detail as prose
+beneath it and no heading beneath it. `Open questions` must be empty, or gone, before the
+document is accepted.
+
+A question answered while proposed is moved, not deleted. Its heading and detail go to
+`Resolved questions`, the next level two heading after `Open questions`, and its answer is
+added after them as a blockquote. A blank line ends a blockquote, so join the answer's
+paragraphs with a line holding only `>`:
+
+```markdown
+## Resolved questions
+
+### Should `index.json` carry the questions?
+
+Raised in review.
+
+> Yes, without the bodies.
+>
+> Each document's own file carries them.
+```
+
+A question handed to a follow-up document is answered with a link to it. An open question
+never ends with a blockquote, and nothing in a blockquote there is a heading, a fence or a
+comment. (PROCESS.md, Document structure)
+
+## The Changelog
+
+Each change made while the document is proposed gets an entry: a list item at the start of the
+line, dated, with any further lines indented by two spaces.
+
+```markdown
+## Changelog
+
+- 2026-09-02: Moved the question on `index.json` to Resolved
+  questions, with its answer.
+```
+
+Nothing else goes in the section but blank lines and comments. Dates are in order, and fall
+between the document's `created` and `decided`.
 
 ## Links between documents
 
@@ -85,8 +125,9 @@ never proposed is a different kind of thing from one proposed and accepted the s
 **The push after a terminal transition freezes the document permanently.** Before it, every
 fault is repairable. After it, none are, and lint will report them forever.
 
-`accept` and `reject` refuse a document with an empty required section or an unresolved
-`[[...]]` link, which catches the common cases. They cannot catch a section that is present,
+`accept` and `reject` refuse a document with an empty required section, an unresolved
+`[[...]]` link, or a question or Changelog entry of a shape lint reports, and `accept` refuses
+one with open questions, which catches the common cases. They cannot catch a section that is present,
 non-empty and wrong.
 
 So before the commit that sets a terminal status, read the document. Check the H1 matches the

@@ -455,13 +455,10 @@ func L13(ctx Context) []Finding {
 }
 
 // L14 checks that no required section was left empty. It does not apply to
-// withdrawn documents, whose sections are empty by the nature of abandonment,
-// and it exempts the two sections that are legitimately empty: Open questions,
-// which L09 requires to be empty before acceptance, and Changelog, which stays
-// empty for a document never edited while proposed.
+// withdrawn documents, whose sections are empty by the nature of abandonment.
+// Open questions and Changelog, which are legitimately empty, are not required,
+// so nothing here exempts them.
 func L14(ctx Context) []Finding {
-	exempt := map[string]bool{"Open questions": true, "Changelog": true}
-
 	var rep report
 	for _, d := range ctx.Repo().Documents() {
 		status := d.FrontMatter.Status
@@ -483,9 +480,6 @@ func L14(ctx Context) []Finding {
 		}
 
 		for _, title := range d.RequiredSections() {
-			if exempt[title] {
-				continue
-			}
 			// Every instance, not the first: a second heading with the same
 			// title is legal, and the accept gate already reads them all.
 			for _, section := range d.Sections(title) {
@@ -801,6 +795,40 @@ func L17(ctx Context) []Finding {
 				}
 				rep.atf(severity, d, link.Line, "link to %s#%s: no heading with that anchor", where, anchor)
 			}
+		}
+	}
+	return rep.findings
+}
+
+// L20 checks the shape of the question sections: each question a level three
+// heading, and each resolved one ending on a blockquote holding its answer. An
+// accepted document's Open questions is L09's, which reports it holding
+// anything at all, and a withdrawn document is abandoned and never checked.
+func L20(ctx Context) []Finding {
+	var rep report
+	for _, d := range ctx.Repo().Documents() {
+		status := d.FrontMatter.Status
+		if status == repo.StatusWithdrawn {
+			continue
+		}
+		for _, p := range d.QuestionProblems(status == repo.StatusAccepted) {
+			rep.add(severityFor(ctx, d), d.Path, p.Line, p.Message)
+		}
+	}
+	return rep.findings
+}
+
+// L21 checks the Changelog: every entry a dated list item in the subset of
+// list syntax the tool reads as CommonMark does, in order, and within the
+// document's own dates. A withdrawn document is abandoned and never checked.
+func L21(ctx Context) []Finding {
+	var rep report
+	for _, d := range ctx.Repo().Documents() {
+		if d.FrontMatter.Status == repo.StatusWithdrawn {
+			continue
+		}
+		for _, p := range d.ChangelogProblems(d.FrontMatter.Decided) {
+			rep.add(severityFor(ctx, d), d.Path, p.Line, p.Message)
 		}
 	}
 	return rep.findings

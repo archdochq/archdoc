@@ -1,13 +1,13 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://raw.githubusercontent.com/archdochq/archdoc/main/schema/export/v2.json",
+  "$id": "https://raw.githubusercontent.com/archdochq/archdoc/main/schema/export/v3.json",
   "title": "ArchDoc export",
-  "description": "A specification repository, the relationships ArchDoc derives from it, and every document as a flat ordered list of its headings. From schema 2 onwards this shape only ever gains optional fields.",
+  "description": "A specification repository, the relationships ArchDoc derives from it, and every document as a flat ordered list of its headings, with its questions and Changelog as data of their own. Before ArchDoc 1.0 a change that removes a field, or changes a field's type or meaning, moves schema to the next integer; from 1.0 the shape only gains optional fields.",
   "type": "object",
   "required": ["schema", "config", "has_glossary", "documents"],
   "additionalProperties": false,
   "properties": {
-    "schema": {"type": "integer", "const": 2},
+    "schema": {"type": "integer", "const": 3},
     "commit": {"type": "string",
                "description": "The revision this export describes, as given to --commit. Absent when it was not given. Taken as written and not checked against a repository."},
     "config": {"$ref": "#/$defs/config"},
@@ -36,7 +36,7 @@
       "required": ["type", "path", "title", "depends", "updates", "obsoletes", "includes",
                    "updated_by", "obsoleted_by", "depended_on_by", "included_in",
                    "effectively_obsolete", "implemented", "stale",
-                   "required_sections", "contents", "links"],
+                   "required_sections", "contents", "questions", "changelog", "links"],
       "additionalProperties": false,
       "properties": {
         "type": {"enum": ["rfc", "adr", "spec", "ref"]},
@@ -84,8 +84,23 @@
         },
         "contents": {
           "type": "array",
-          "description": "Every heading in document order, each with the prose beneath it. Content before the first heading belongs to no entry and appears only in source.",
+          "description": "Every heading in document order, each with the prose beneath it, except the question sections and the Changelog, which are published in questions and changelog. With --all-headings, every heading. Content before the first heading belongs to no entry and appears only in source.",
           "items": {"$ref": "#/$defs/entry"}
+        },
+        "questions": {
+          "type": "object",
+          "description": "The questions of every Open questions and Resolved questions section, each list in document order.",
+          "required": ["open", "resolved"],
+          "additionalProperties": false,
+          "properties": {
+            "open": {"type": "array", "items": {"$ref": "#/$defs/open_question"}},
+            "resolved": {"type": "array", "items": {"$ref": "#/$defs/resolved_question"}}
+          }
+        },
+        "changelog": {
+          "type": "array",
+          "description": "The entries of every Changelog section, in document order. Lines belonging to no entry appear only in source, and in contents under --all-headings.",
+          "items": {"$ref": "#/$defs/changelog_entry"}
         },
         "source": {"type": "string",
                    "description": "The file exactly as it is on disk, front matter included. Present only with --source. The one field that reproduces the document."},
@@ -106,6 +121,52 @@
                  "description": "1-based in the file. The body begins on the next line, so a position inside it needs no further arithmetic."},
         "body": {"type": "string",
                  "description": "The lines as written, untrimmed. Empty where one heading follows another directly. Absent where bodies were excluded."}
+      }
+    },
+    "open_question": {
+      "type": "object",
+      "description": "A level three heading in an Open questions section.",
+      "required": ["text", "anchor", "line"],
+      "additionalProperties": false,
+      "properties": {
+        "text": {"type": "string", "description": "The heading as written, without its marker. It is the question."},
+        "anchor": {"type": "string", "description": "As GitHub computes it, as a contents entry's is."},
+        "line": {"type": "integer", "minimum": 1, "description": "The heading's line, 1-based in the file."},
+        "body": {"type": "string", "description": "The question's detail, the lines as written. Absent where bodies were excluded."}
+      }
+    },
+    "resolved_question": {
+      "type": "object",
+      "description": "A level three heading in a Resolved questions section, with the answer it ends on.",
+      "required": ["text", "anchor", "line"],
+      "additionalProperties": false,
+      "properties": {
+        "text": {"type": "string", "description": "The heading as written, without its marker. It is the question."},
+        "anchor": {"type": "string", "description": "As GitHub computes it, as a contents entry's is. An answer is linked through its question."},
+        "line": {"type": "integer", "minimum": 1, "description": "The heading's line, 1-based in the file."},
+        "body": {"type": "string", "description": "The detail from the heading to the answer, the lines as written. Absent where bodies were excluded."},
+        "answer": {"$ref": "#/$defs/answer"}
+      }
+    },
+    "answer": {
+      "type": "object",
+      "description": "The blockquote a resolved question ends with. Absent from a question that does not end with one.",
+      "required": ["line"],
+      "additionalProperties": false,
+      "properties": {
+        "line": {"type": "integer", "minimum": 1, "description": "The blockquote's first line, where its body starts."},
+        "body": {"type": "string", "description": "Each line with its > and one column of the whitespace after it removed, so it is Markdown without the quote. Absent where bodies were excluded."}
+      }
+    },
+    "changelog_entry": {
+      "type": "object",
+      "description": "One entry of a Changelog section: a list item beginning - at column 0.",
+      "required": ["line"],
+      "additionalProperties": false,
+      "properties": {
+        "line": {"type": "integer", "minimum": 1, "description": "The entry line, 1-based in the file."},
+        "date": {"type": "string", "format": "date", "description": "Absent where the entry is undated."},
+        "body": {"type": "string", "description": "The entry without its marker and date, each later line with the item's two columns of indentation removed. Absent where bodies were excluded."}
       }
     },
     "link": {

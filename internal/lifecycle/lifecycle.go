@@ -27,12 +27,6 @@ const rationale = "## " + repo.RejectionRationale + `
 // the templates.
 func AppendRationale(source []byte) []byte { return appendSection(source, rationale) }
 
-// openQuestions must be empty before a document is accepted, and notGated are
-// the sections a freeze does not require content in.
-const openQuestions = "Open questions"
-
-var notGated = []string{openQuestions, "Changelog"}
-
 // Permitted lists the statuses a document may move to from this one, in the
 // order a chooser should offer them. A terminal status has none: to change what
 // an accepted document says, write a new one that updates or obsoletes it.
@@ -74,7 +68,7 @@ func Apply(d *repo.Document, to repo.Status, now time.Time) ([]byte, error) {
 	if !slices.Contains(permitted, to) {
 		return nil, transitionError(from, to, permitted)
 	}
-	if err := gate(d, to); err != nil {
+	if err := gate(d, to, now); err != nil {
 		return nil, err
 	}
 	if to.Terminal() && !d.FrontMatter.Created.IsZero() && repo.StartOfDay(now).Before(d.FrontMatter.Created) {
@@ -117,7 +111,7 @@ func Apply(d *repo.Document, to repo.Status, now time.Time) ([]byte, error) {
 // before anything is written, and before reject appends its own prompt, so the
 // tool never fails on text it has just produced. Withdrawal gates nothing: a
 // document abandoned before a verdict is empty by nature.
-func gate(d *repo.Document, to repo.Status) error {
+func gate(d *repo.Document, to repo.Status, now time.Time) error {
 	if to != repo.StatusAccepted && to != repo.StatusRejected {
 		return nil
 	}
@@ -147,9 +141,6 @@ func gate(d *repo.Document, to repo.Status) error {
 
 	previous, previousName := -1, ""
 	for _, title := range d.RequiredSections() {
-		// Presence is required of every section, including the two whose
-		// contents are not gated: a document accepted without a Changelog at
-		// all was reported missing it by L08 forever.
 		sections := d.Sections(title)
 		if len(sections) == 0 {
 			return fmt.Errorf("section %q is missing; a document is finished before it is frozen", title)
@@ -163,11 +154,6 @@ func gate(d *repo.Document, to repo.Status) error {
 			previous, previousName = at, title
 		}
 
-		// Open questions must be empty to accept, checked below; a Changelog is
-		// empty by definition on a document accepted the day it was proposed.
-		if slices.Contains(notGated, title) {
-			continue
-		}
 		for _, section := range sections {
 			if section.Empty() {
 				return fmt.Errorf("section %q is empty; a document is finished before it is frozen", title)
@@ -178,12 +164,31 @@ func gate(d *repo.Document, to repo.Status) error {
 		return fmt.Errorf("unresolved wiki link [[%s]] on line %d; run archdoc link first",
 			links[0].Name, links[0].Line)
 	}
+	// L08 requires the closing section to be the last H2, and does not soften.
+	// While Changelog and Open questions were required, the order check above
+	// kept them before Sources; neither is required now, so it is asked here.
+	if closing, ok := d.ClosingSection(); ok && to == repo.StatusAccepted && len(titles) > 0 {
+		if _, present := position[closing]; present && titles[len(titles)-1] != closing {
+			return fmt.Errorf("%q must be the last H2, but %q follows it; a document is finished before it is frozen",
+				closing, titles[len(titles)-1])
+		}
+	}
+	// Open questions first, so a document with questions still open is refused
+	// for those rather than for their shape.
 	if to == repo.StatusAccepted {
-		for _, section := range d.Sections(openQuestions) {
+		for _, section := range d.Sections(repo.OpenQuestions) {
 			if !section.Empty() {
-				return fmt.Errorf("the %q section is not empty; anything left goes to a follow-up RFC", openQuestions)
+				return fmt.Errorf("the %q section is not empty; move each question to %q with its answer, and remove anything else",
+					repo.OpenQuestions, repo.ResolvedQuestions)
 			}
 		}
+	}
+	// What L20 and L21 report, because both are errors until the document is
+	// frozen and the freeze is what this would make permanent. The Changelog's
+	// dates are compared with the decided date about to be written.
+	problems := append(d.QuestionProblems(false), d.ChangelogProblems(repo.StartOfDay(now))...)
+	if len(problems) > 0 {
+		return fmt.Errorf("%s on line %d; a document is finished before it is frozen", problems[0].Message, problems[0].Line)
 	}
 	return nil
 }

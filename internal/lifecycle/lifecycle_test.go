@@ -153,6 +153,85 @@ func TestAcceptRefusesWhileQuestionsAreOpen(t *testing.T) {
 	if err == nil || !strings.Contains(err.Error(), "Open questions") {
 		t.Errorf("error = %v, want it to name the open questions", err)
 	}
+	if err != nil && !strings.Contains(err.Error(), "Resolved questions") {
+		t.Errorf("error = %v, want it to say where an answered question goes", err)
+	}
+}
+
+func TestAcceptRefusesOpenQuestionsBeforeTheirShape(t *testing.T) {
+	// Prose before the first question is an L20 fault too, but a document with
+	// questions still open is refused for those.
+	d := document(t, "rfc/0001-a-design.md", rfc("proposed", "", "\nPreamble.\n\n### Is it right?\n"))
+
+	_, err := lifecycle.Apply(d, repo.StatusAccepted, now)
+	if err == nil || !strings.Contains(err.Error(), "is not empty") {
+		t.Errorf("error = %v, want the refusal for open questions", err)
+	}
+}
+
+func TestTheGateRefusesWhatL20Reports(t *testing.T) {
+	unanswered := strings.Replace(rfc("proposed", "", "\n"), "## Changelog",
+		"## Resolved questions\n\n### Is it right?\n\nNo answer.\n\n## Changelog", 1)
+	for _, to := range []repo.Status{repo.StatusAccepted, repo.StatusRejected} {
+		d := document(t, "rfc/0001-a-design.md", unanswered)
+		_, err := lifecycle.Apply(d, to, now)
+		if err == nil || !strings.Contains(err.Error(), "does not end with a blockquote") || !strings.Contains(err.Error(), "line ") {
+			t.Errorf("%s: error = %v, want the fault and its line", to, err)
+		}
+	}
+
+	// reject checks Open questions as well, which accept refuses earlier.
+	quoted := rfc("proposed", "", "\n### Is it right?\n\n> A quote.\n")
+	d := document(t, "rfc/0001-a-design.md", quoted)
+	if _, err := lifecycle.Apply(d, repo.StatusRejected, now); err == nil || !strings.Contains(err.Error(), "ends with a blockquote") {
+		t.Errorf("reject: error = %v, want the open question ending with a blockquote", err)
+	}
+
+	answered := strings.Replace(unanswered, "No answer.\n", "Detail.\n\n> Yes.\n", 1)
+	if _, err := lifecycle.Apply(document(t, "rfc/0001-a-design.md", answered), repo.StatusAccepted, now); err != nil {
+		t.Errorf("accept refused an answered question: %v", err)
+	}
+}
+
+func TestTheGateRefusesWhatL21Reports(t *testing.T) {
+	for _, tc := range []struct{ name, entry, want string }{
+		{"an undated entry", "- written.", "has no date"},
+		{"a line belonging to no entry", "- 2026-01-01: written.\n\nMore.", "belongs to no entry"},
+		{"an entry dated after the transition", "- 2026-09-12: written.", "after the document was decided, on 2026-09-11"},
+	} {
+		source := strings.Replace(rfc("proposed", "", "\n"), "- 2026-01-01: written.", tc.entry, 1)
+		_, err := lifecycle.Apply(document(t, "rfc/0001-a-design.md", source), repo.StatusAccepted, now)
+		if err == nil || !strings.Contains(err.Error(), tc.want) {
+			t.Errorf("%s: error = %v, want %q", tc.name, err, tc.want)
+		}
+	}
+
+	// The decided date about to be written, not the document's current one,
+	// which is empty while it is proposed.
+	today := strings.Replace(rfc("proposed", "", "\n"), "- 2026-01-01: written.", "- 2026-09-11: written.", 1)
+	if _, err := lifecycle.Apply(document(t, "rfc/0001-a-design.md", today), repo.StatusAccepted, now); err != nil {
+		t.Errorf("an entry dated the day of the transition was refused: %v", err)
+	}
+}
+
+func TestAcceptRefusesAHeadingAfterSources(t *testing.T) {
+	// Changelog is no longer required, so the order check no longer keeps it
+	// before Sources, and L08 reports it after Sources with an error that never
+	// softens.
+	after := strings.Replace(rfc("proposed", "", "\n"), "## Changelog\n\n- 2026-01-01: written.\n",
+		"## Sources\n\nThe record.\n\n## Changelog\n\n- 2026-01-01: written.\n", 1)
+	after = strings.Replace(after, "decided:", "decided:\nbackfilled: 2026-09-11", 1)
+	d := document(t, "rfc/0001-a-design.md", after)
+
+	_, err := lifecycle.Apply(d, repo.StatusAccepted, now)
+	if err == nil || !strings.Contains(err.Error(), `"Sources" must be the last H2`) {
+		t.Errorf("error = %v, want it to say Sources must be last", err)
+	}
+
+	// Rejecting appends the rationale, which then closes the document.
+	if _, err := lifecycle.Apply(d, repo.StatusRejected, now); err != nil {
+		t.Errorf("reject refused it: %v", err)
+	}
 }
 
 func TestAcceptRefusesAnUnresolvedWikiLink(t *testing.T) {
@@ -364,6 +443,7 @@ func TestAcceptAllowsADecisionOnTheDayOfCreation(t *testing.T) {
 	// for a small decision and must not be refused.
 	sameDay := strings.Replace(rfc("proposed", "", "\n"), "created: 2026-01-01",
 		"created: "+now.Format(repo.DateLayout), 1)
+	sameDay = strings.Replace(sameDay, "- 2026-01-01: written.", "- "+now.Format(repo.DateLayout)+": written.", 1)
 	d := document(t, "rfc/0001-a-design.md", sameDay)
 
 	if _, err := lifecycle.Apply(d, repo.StatusAccepted, now); err != nil {
@@ -391,9 +471,9 @@ func TestAcceptRefusesWhatTheLinterWillRejectForever(t *testing.T) {
 			"Abstract",
 		},
 		{
-			"a required section missing entirely, even an ungated one",
-			strings.Replace(rfc("proposed", "", "\n"), "## Changelog\n\n- 2026-01-01: written.\n", "", 1),
-			"Changelog",
+			"a required section missing entirely",
+			strings.Replace(rfc("proposed", "", "\n"), "## Backwards compatibility\n\nNothing breaks.\n\n", "", 1),
+			"Backwards compatibility",
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {

@@ -211,6 +211,8 @@ var Rules = []Rule{
 	{"L17", L17},
 	{"L18", L18},
 	{"L19", L19},
+	{"L20", L20},
+	{"L21", L21},
 }
 
 // Run applies every rule and returns the findings, ordered by path, then line,
