@@ -74,7 +74,7 @@ An entry is a list item, and holds everything CommonMark, which GitHub follows, 
 | Non-blank, indented less than the content column, directly after a line of the entry's paragraph text | Yes, as a lazy continuation, unless it starts a block that interrupts a paragraph: an entry line or any other list item, a heading, a fenced code block, a thematic break, a blockquote, or an HTML block that can interrupt a paragraph |
 | Any other line | No, and the entry ends before it |
 
-Wrapped text, further paragraphs, a nested list, a fenced or indented code block and a link reference definition within the item all belong to the entry. Its text is published as written, so it renders for a consumer as it does within the list item.
+Wrapped text, further paragraphs, a nested list, a fenced or indented code block and a link reference definition within the item all belong to the entry. A nested item is text within its entry, whatever it holds, so a date written in one is neither read nor checked. Its text is published as written, so it renders for a consumer as it does within the list item.
 
 An entry carries a date where it has one. An undated entry still parses, with no date and the whole of its text, so an entry in a frozen document that was written without a date is published rather than lost. An entry beginning with something shaped as a date that is not followed by `: `, or that is not a real date, is read as undated, and its text keeps what was written.
 
@@ -161,6 +161,7 @@ The design rests on [ADR-0001](../adr/0001-terminal-documents-are-frozen.md), wh
 - **A heading per entry.** Each entry a heading carrying its date, with the text beneath, as questions are headings under [RFC-0008](0008-questions.md). Lost because entries already written are list items in frozen documents, and could never be read or rewritten.
 - **An entry's later lines indented at least two spaces.** ~~Chosen first, with each continuation indented beneath its entry.~~ Struck on 2026-10-14: an entry is a list item, which also runs over unindented lines.
 - **Everything up to the next entry line.** ~~Chosen on 2026-10-14, as an entry is a list item.~~ Struck the same day: an entry is everything a Markdown parser takes as part of the list item, so a line the item does not continue, such as an unindented paragraph after a blank line, is not part of it.
+- **Reporting a nested item shaped as a dated entry.** It would catch an entry indented by mistake. Lost because a nested item is detail of one change, and a date in it is text, rendered nested as it is read.
 - **One line per entry.** Offered on 2026-10-14 to remove the rules continuation lines needed. Lost because an entry is a list item, and a list item may run over several lines.
 - **A date required of every entry.** An undated entry would not parse. Lost because a frozen document's entries can never gain a date, so its undated entries would never be published.
 - **`Changelog` as a required section, with its presence recorded in the export.** Lost because the requirement guarantees only that an empty heading exists, as a document accepted the day it was proposed has no entries.
