@@ -129,7 +129,6 @@ This amends [RFC-0006](0006-the-export-publishes-what-it-parsed.md) and [RFC-000
 
 ### Out of scope
 
-- **A Changelog on an ADR.** A proposed ADR records its edits in commit messages and carries no Changelog, and that is unchanged. L21 checks any `Changelog` section a document carries, so one written on an ADR is read the same way.
 - **A command that adds an entry.** Writing a dated line is an ordinary edit.
 
 ## Alternatives considered
