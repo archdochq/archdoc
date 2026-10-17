@@ -1225,3 +1225,24 @@ func TestACRLFFileReadsAsItsLFCopyDoes(t *testing.T) {
 		t.Errorf("headings:\n CRLF %q\n   LF %q", crlfHeadings, lfHeadings)
 	}
 }
+
+func TestByPageNamesOnlySpecPages(t *testing.T) {
+	// term/ sorts after spec/, so a term indexed as a page took over the spec
+	// page of the same name, and the glossary page L19 looks for.
+	r := repotest.New(t, map[string]string{
+		"spec/lifecycle.md": "---\ntitle: Lifecycle\nincludes: []\n---\n\n# Lifecycle\n",
+		"term/lifecycle.md": repotest.Term("Lifecycle", "The statuses a document moves through."),
+		"term/glossary.md":  repotest.Term("Glossary", "Every term the project defines."),
+	})
+
+	var got string
+	if d := r.ByPage("lifecycle"); d != nil {
+		got = d.Path
+	}
+	if got != "spec/lifecycle.md" {
+		t.Errorf("ByPage(lifecycle) is %q, want spec/lifecycle.md", got)
+	}
+	if d := r.ByPage(repo.GlossaryPage); d != nil {
+		t.Errorf("ByPage(%s) = %s, want nil: a term is not a page", repo.GlossaryPage, d.Path)
+	}
+}
