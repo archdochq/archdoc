@@ -33,6 +33,9 @@ go install archdoc.dev/cmd/archdoc@latest
 `go install` puts it in `$(go env GOPATH)/bin`, which is often not on `PATH`. If
 the command is not found afterwards, that is why.
 
+ArchDoc needs git on `PATH`, because whether a document is frozen is read from
+the configured branch.
+
 ArchDoc is pre-1.0 and currently alpha. The document format and the process are
 settled; the command surface may still move.
 

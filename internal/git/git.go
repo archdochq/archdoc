@@ -96,6 +96,8 @@ func Open(dir string) (Repository, error) {
 	case code > 0:
 		// git ran and said no.
 		return nil, fmt.Errorf("%w: %s: %w", ErrNotARepository, dir, err)
+	case errors.Is(err, exec.ErrNotFound):
+		return nil, errors.New("git was not found on PATH; install git, which is needed to tell which documents are frozen")
 	default:
 		// git could not be run at all.
 		return nil, err
