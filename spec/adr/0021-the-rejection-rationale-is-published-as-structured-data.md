@@ -13,38 +13,35 @@ obsoletes: []
 
 ## Context
 
-Raised on 2026-10-17, while the gate on `reject` was being changed to judge the rationale it appends.
+Raised on 2026-10-17, while the gate on `reject` was being changed to judge a document with its rationale in place.
 
-Under [ADR-0020](0020-structured-sections.md) a document's questions and its `Changelog` are published as structured data and left out of `contents`, because they record the document's process rather than its design, and archdoc.dev shows `contents` as the document. Another section receives the same treatment only by a decision that names it. [ADR-0020](0020-structured-sections.md) turned down a rule for every section that records a document's process, because it left open what else counts, and named `Rejection rationale` and `Sources` as examples.
+Under [ADR-0020](0020-structured-sections.md) a document's questions and its `Changelog` are published as structured data and left out of `contents`, because they record the document's process rather than its design, and archdoc.dev shows a document's contents as the document. Another section receives the same treatment only by a decision that names it, and the sections named leave `contents` in one release. [ADR-0020](0020-structured-sections.md) names `Rejection rationale` among the sections a rule for every process section would have left open.
 
-`reject` appends `Rejection rationale` to a document, and L08 requires it on a rejected document and forbids it on any other RFC or ADR. It records why the proposal was turned down: the verdict, not the design. Carried in `contents`, it sits among the sections a consumer shows as the design.
+`reject` appends `Rejection rationale` to a document, as `archdoc new` does to one it creates rejected, and L08 requires it on a rejected document and forbids it on any other RFC or ADR. It records why the proposal was turned down: the verdict, not the design. A required section that leaves `contents` is still named among the document's required sections, so under [ADR-0020](0020-structured-sections.md) its presence has to be recorded elsewhere, or the requirement lifted.
 
-Under [ADR-0019](0019-export-stability.md), a change that removes a field or changes its meaning moves `schema` to the next integer, at most once between two tagged releases however many such changes land between them. Schema 3, which leaves the question sections and the `Changelog` out of `contents`, has not been in a tagged release.
+Under [ADR-0019](0019-export-stability.md), before ArchDoc 1.0, a change that removes a field, or changes a field's type or meaning, moves `schema` to the next integer, at most once between two tagged releases. `schema: 3`, which takes the question sections and the `Changelog` out of `contents`, has not been in a tagged release.
 
 ## Decision
 
-Every section titled `Rejection rationale` is published in the export as `rejection_rationale`, whatever the document's status or type, and the section, its heading and every heading beneath it are left out of `contents`. `rejection_rationale` holds each such section in document order, with its heading's `anchor` and `line` and its `body` as written, subsections included, and is empty for a document that has none. `--all-headings` restores the section to `contents`, as it does the question sections and the `Changelog`, and `--no-bodies` and `index.json` omit its bodies, as they do those of questions and Changelog entries.
+`Rejection rationale` is added to the sections [ADR-0020](0020-structured-sections.md) names: it is published as structured data and left out of `contents`, in the release that takes the question sections and the `Changelog` out. L08's requirement of it on a rejected document stays, and the structured form records whether the section is present.
 
 ## Alternatives
 
-- **Leaving it in `contents`.** The heading is fixed, so a consumer can find the section by its title. Lost because a consumer showing the design from `contents` would show the verdict as part of it, which is why [ADR-0020](0020-structured-sections.md) takes the question sections and the `Changelog` out.
-- **Publishing it in both `contents` and its own field.** Lost because `contents` would still carry it, so it would be published twice and still shown as part of the design.
-- **A single string, taken from the first section of that name.** Lost because a second section of the same title is legal Markdown, and its prose would appear nowhere but `source`.
-- **Giving withdrawal the same treatment.** Lost because a withdrawal records no reason: no section is appended or required, so there is nothing to publish.
+- **Leaving it in `contents`.** The heading is fixed, so a consumer can find the section by its title. Lost because a consumer showing the design from `contents` would show the verdict as part of it.
+- **Leaving `contents` in a later release, at `schema: 4`.** Lost because the sections [ADR-0020](0020-structured-sections.md) names leave in one release, so the shape breaks once.
+- **Lifting the requirement.** L08 would no longer require the section on a rejected document. Lost because a rejected document would then record no reason for its verdict.
 
 ## Consequences
 
 Easier:
 
-- A consumer will show why a document was rejected without searching `contents` for a heading.
-- A rejected document's `contents` will no longer carry the verdict among the design.
+- A consumer will show why a document was rejected without searching `contents` for its heading.
 
 Harder:
 
-- `contents` will no longer hold a rejected document's rationale unless `--all-headings` is given.
-- `Rejection rationale` will be the first required section absent from `contents`, so a rejected document's `required_sections` will name a section a consumer finds in `rejection_rationale`.
+- `Rejection rationale` will be the first required section absent from `contents`, so a consumer checking a rejected document's `required_sections` against `contents` will find it missing, and will have to read its structured form.
+- No release will be tagged from a branch emitting `schema: 3` until the section's structured form is built, whatever else that branch carries.
 
 Constrained:
 
-- Landing before schema 3 is in a tagged release, the change will be part of the same break. Landing after, it will move `schema` to 4 under [ADR-0019](0019-export-stability.md).
-- `Sources` will stay in `contents` until a decision names it.
+- No release will carry `schema: 3` until the section's structured form is built.
