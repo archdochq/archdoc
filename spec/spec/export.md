@@ -1,6 +1,6 @@
 ---
 title: Export
-includes: [ADR-0019, ADR-0020, ADR-0021, RFC-0004, RFC-0006, RFC-0007, RFC-0008, RFC-0009, RFC-0011, RFC-0012]
+includes: [ADR-0019, ADR-0020, ADR-0021, ADR-0022, RFC-0004, RFC-0006, RFC-0007, RFC-0008, RFC-0009, RFC-0011, RFC-0012]
 ---
 
 # Export
@@ -51,6 +51,6 @@ It therefore only ever removes a file an ArchDoc export wrote there. Where the d
 
 ## Schema
 
-The schema is embedded in the binary, published at `schema/export/v3.json` in the source repository, and printed by `--schema`. `v1.json` and `v2.json` stay published: each describes output that was real, and its URL is the one any consumer of that shape holds. The published copy is generated from the embedded one and a test compares them byte for byte. Its `$id` is the published copy's URL. A test compares the schema's declared properties against the exported structs by reflection. Before ArchDoc 1.0, a change that removes a field, or changes a field's type or meaning, moves `schema` to the next integer, at most once between two tagged releases. From 1.0 the shape only gains optional fields.
+The schema is embedded in the binary, published at `schema/export/v3.json` in the source repository, and printed by `--schema`. `v1.json` and `v2.json` stay published: each describes output that was real, and its URL is the one any consumer of that shape holds. The published copy is generated from the embedded one and a test compares them byte for byte. Its `$id` is `https://archdoc.dev/schema/export/v3.json`: the published copy's path, on the project's site. `v1.json` and `v2.json` keep their `$id`, which names their file in the source repository on GitHub. A test compares the schema's declared properties against the exported structs by reflection. Before ArchDoc 1.0, a change that removes a field, or changes a field's type or meaning, moves `schema` to the next integer, at most once between two tagged releases. From 1.0 the shape only gains optional fields.
 
 The output is deterministic and records no generation time.

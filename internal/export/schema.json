@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://raw.githubusercontent.com/archdochq/archdoc/main/schema/export/v3.json",
+  "$id": "https://archdoc.dev/schema/export/v3.json",
   "title": "ArchDoc export",
   "description": "A specification repository, the relationships ArchDoc derives from it, and every document as a flat ordered list of its headings, with its questions, Changelog and rejection rationale as data of their own, and the groups the documents belong to. Before ArchDoc 1.0 a change that removes a field, or changes a field's type or meaning, moves schema to the next integer; from 1.0 the shape only gains optional fields.",
   "type": "object",
