@@ -1,9 +1,9 @@
 ---
 id: ADR-0022
 title: The export schemas are identified by archdoc.dev URLs
-status: proposed
+status: accepted
 created: 2026-10-18
-decided:
+decided: 2026-10-18
 depends: [ADR-0019]
 updates: []
 obsoletes: []
