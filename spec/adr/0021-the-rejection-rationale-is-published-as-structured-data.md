@@ -28,8 +28,8 @@ Under [ADR-0019](0019-export-stability.md), before ArchDoc 1.0, a change that re
 ## Alternatives
 
 - **Leaving it in `contents`.** The heading is fixed, so a consumer can find the section by its title. Lost because a consumer showing the design from `contents` would show the verdict as part of it.
-- **Leaving `contents` in a later release, at `schema: 4`.** Lost because the sections [ADR-0020](0020-structured-sections.md) names leave in one release, so the shape breaks once.
-- **Lifting the requirement.** L08 would no longer require the section on a rejected document. Lost because a rejected document would then record no reason for its verdict.
+- **Leaving `contents` in a later release, at `schema: 4`.** Lost because under [ADR-0019](0019-export-stability.md) a second break costs every consumer the change again, where joining `schema: 3` before it is released costs nothing beyond the break already made.
+- **Lifting the requirement.** L08 would no longer require the section on a rejected document. Lost because a rejected document could then freeze with no reason for its verdict.
 
 ## Consequences
 
@@ -40,7 +40,7 @@ Easier:
 Harder:
 
 - `Rejection rationale` will be the first required section absent from `contents`, so a consumer checking a rejected document's `required_sections` against `contents` will find it missing, and will have to read its structured form.
-- No release will be tagged from a branch emitting `schema: 3` until the section's structured form is built, whatever else that branch carries.
+- A fix merged where the code emits `schema: 3` will not be released until the section's structured form is built, unless it is released from code still emitting `schema: 2`.
 
 Constrained:
 
