@@ -253,6 +253,13 @@ the result can delete content it never read.
 - **`link` leaves a document entirely untouched if any of its wiki links resolves to nothing.** A
   partial rewrite would leave the file in a state neither the author nor the tool intended. Every other
   document is still written, because the failure belongs to one file.
+- **`renumber` leaves an identifier another document still claims.** When two branches each take the same
+  next number, renumbering one of the two rewrote every reference to the identifier, including those
+  meant for the document keeping it, and a frozen document naming it refused the rename although its
+  reference might have meant the document keeping the number. An identifier in a front matter list or a
+  wiki link cannot say which document it means, so neither is rewritten or blocks; each is listed for
+  the author to repoint, and marked where the document is frozen. A link to the file names one
+  document, so it is still rewritten and a frozen one still blocks.
 - **Interactive suggestion application re-reads before writing.** The snapshot is taken before the first
   prompt and the write happens after the last answer, so the whole session is a window in which an edit
   made elsewhere would be silently discarded. A file that has moved on is left alone and said so.

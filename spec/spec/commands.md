@@ -53,7 +53,9 @@ Creates the next-numbered document of the type from its template, with `ID`, `Ti
 
 Changes a numbered document's identifier. Rewrites the filename keeping the slug, the front matter `id`, the H1, and every reference to the old identifier: the `depends`, `updates`, `obsoletes` and `includes` lists of every other document and the `documents` list of every group, `[[...]]` links naming it, and link destinations pointing at the renamed file. With no target, the next free number for the type is taken.
 
-The selector is an identifier or a path. Given an identifier carried by more than one document, the command lists the candidates and refuses. Refuses a frozen document, and refuses when any frozen document references the one being renamed. Nothing is written unless everything can be. The index is not regenerated, and the command says so.
+When another document still carries the old identifier, the front matter lists and `[[...]]` links naming it are left unchanged, and each line holding one is listed on stderr as `path:line: text`, marked where the document is frozen. Link destinations pointing at the renamed file are rewritten in either case.
+
+The selector is an identifier or a path. Given an identifier carried by more than one document, the command lists the candidates and refuses. Refuses a frozen document, and refuses when any frozen document holds a reference it would rewrite. Nothing is written unless everything can be. The index is not regenerated, and the command says so.
 
 ## `archdoc update [--check] [--yes]`
 

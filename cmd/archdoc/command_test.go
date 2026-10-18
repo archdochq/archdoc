@@ -1341,3 +1341,25 @@ func TestTransitionRefusesAnIdentifierItCannotFind(t *testing.T) {
 		}
 	}
 }
+
+func TestRenumberSaysWhichReferencesItLeftUnchanged(t *testing.T) {
+	// RFC-0001 is claimed twice, so the depends naming it cannot say which.
+	dir := repository(t)
+	cache := strings.Replace(rfc("RFC-0002", "Caching", "proposed", ""), "depends: []", "depends: [RFC-0001]", 1)
+	for name, body := range map[string]string{
+		"0001-newthing.md": rfc("RFC-0001", "New thing", "draft", ""),
+		"0002-cache.md":    cache,
+	} {
+		if err := os.WriteFile(filepath.Join(dir, "rfc", name), []byte(body), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	out, code := run(t, dir, "renumber", "rfc/0001-newthing.md")
+	if code != exitOK {
+		t.Fatalf("exit = %d: %s", code, out)
+	}
+	if !strings.Contains(out, "left unchanged") || !strings.Contains(out, "rfc/0002-cache.md:7: depends: [RFC-0001]") {
+		t.Errorf("output = %q; want the unchanged depends named with its line", out)
+	}
+}

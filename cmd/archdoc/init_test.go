@@ -547,6 +547,9 @@ func TestRenumberTakesAPathWithoutManglingIt(t *testing.T) {
 	if _, err := os.Stat(filepath.Join(dir, "rfc", "0004-retry-policy.md")); err != nil {
 		t.Errorf("the document was not renumbered: %v", err)
 	}
+	if strings.Contains(out, "left unchanged") {
+		t.Errorf("nothing shares the identifier, but the output says references were left: %s", out)
+	}
 
 	// The identifier form still works, in either case.
 	if out, code := run(t, dir, "renumber", "rfc-0004", "RFC-0007"); code != exitOK {
