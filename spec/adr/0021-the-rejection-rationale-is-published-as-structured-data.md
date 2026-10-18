@@ -1,7 +1,7 @@
 ---
 id: ADR-0021
 title: The rejection rationale is published as structured data
-status: draft
+status: proposed
 created: 2026-10-18
 decided:
 depends: [ADR-0019]
