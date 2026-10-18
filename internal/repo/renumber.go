@@ -2,9 +2,11 @@ package repo
 
 import (
 	"fmt"
+	"net/url"
 	"os"
 	"path"
 	"regexp"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -36,7 +38,7 @@ var referenceKeys = []string{"depends", "updates", "obsoletes", "includes", "doc
 
 // Renumber changes a numbered document's identifier, rewriting the filename,
 // the front matter id, the heading, and every reference to the old identifier
-// in every other document.
+// or the old file, in the document itself and in every other.
 //
 // The number lives in three places inside its own document and in an unbounded
 // number of places outside it, so doing this by hand reliably trades one lint
@@ -102,11 +104,21 @@ func Renumber(r *Repo, from, to string, frozen func(*Document) bool) (changed, u
 	}
 	var blocked []string
 	edits := map[string][]byte{}
+	own := d.Source
 	for _, other := range r.Documents() {
+		rewritten, touched, left, err := rewriteReferences(other, rn)
+		if err != nil {
+			return nil, nil, err
+		}
 		if other == d {
+			// Its references to itself move with it. It is not frozen, or
+			// the rename would already have been refused.
+			if touched {
+				own = rewritten
+			}
+			unchanged = append(unchanged, left...)
 			continue
 		}
-		rewritten, touched, left := rewriteReferences(other, rn)
 		if frozen(other) {
 			for i := range left {
 				left[i] += " (frozen)"
@@ -133,7 +145,7 @@ func Renumber(r *Repo, from, to string, frozen func(*Document) bool) (changed, u
 			named, strings.Join(blocked, ", "))
 	}
 
-	source, err := renameInSelf(d, from, to)
+	source, err := renameInSelf(d, own, from, to)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -228,10 +240,11 @@ func renamedPath(d *Document, number int) (string, error) {
 	return path.Join(path.Dir(d.Path), fmt.Sprintf("%04d-%s.md", number, m[2])), nil
 }
 
-// renameInSelf rewrites the front matter id and the heading. Both, or the
+// renameInSelf rewrites the front matter id and the heading of the document's
+// source, given with its references to itself already followed. Both, or the
 // document trades an L03 error for an L10 one.
-func renameInSelf(d *Document, from, to string) ([]byte, error) {
-	source, err := SetField(d.Source, "id", d.FrontMatter.LineOf("id"), to)
+func renameInSelf(d *Document, source []byte, from, to string) ([]byte, error) {
+	source, err := SetField(source, "id", d.FrontMatter.LineOf("id"), to)
 	if err != nil {
 		return nil, fmt.Errorf("rewriting the id of %s: %w", d.Path, err)
 	}
@@ -253,6 +266,12 @@ func renameInSelf(d *Document, from, to string) ([]byte, error) {
 	return []byte(strings.Join(lines, "\n")), nil
 }
 
+// lineEdit replaces columns start to end of one line, counted from 0.
+type lineEdit struct {
+	line, start, end int
+	text             string
+}
+
 // rename is one renumbering, as each other document's references see it.
 type rename struct {
 	from, to         string
@@ -262,12 +281,13 @@ type rename struct {
 	shared bool
 }
 
-// rewriteReferences renames the identifier inside one other document: in the
-// front matter lists that name documents, and in the body wherever the old
-// identifier or the old path appears. Under a shared identifier, the lines
-// holding it in a front matter list or a wiki link are returned as left rather
-// than rewritten, in line order and as they read once the rest is rewritten.
-func rewriteReferences(d *Document, rn rename) (rewritten []byte, touched bool, left []string) {
+// rewriteReferences follows the rename inside one document, the moved one
+// included: in the front matter lists that name documents, in wiki links naming
+// the identifier, and in links that resolve to the old path. Under a shared
+// identifier, the lines holding it in a front matter list or a wiki link are
+// returned as left rather than rewritten, in line order and as they read once
+// the rest is rewritten. A link it cannot rewrite as written is an error.
+func rewriteReferences(d *Document, rn rename) (rewritten []byte, touched bool, left []string, err error) {
 	lines := strings.Split(string(d.Source), "\n")
 	var leftAt []int
 
@@ -292,35 +312,76 @@ func rewriteReferences(d *Document, rn rename) (rewritten []byte, touched bool, 
 		}
 	}
 
-	// The body: wiki links naming the identifier, and links whose destination
-	// is the file being renamed. A bare mention in prose is left alone, because
-	// rewriting a sentence is not this command's business.
+	// The body: wiki links naming the identifier, and links that resolve to
+	// the file being renamed, both read from the masked view so that code and
+	// comments are left alone. A bare mention in prose is left alone too,
+	// because rewriting a sentence is not this command's business.
+	var edits []lineEdit
 	wiki := "[[" + rn.from + "]]"
-	for i := d.BodyLine - 1; i < len(lines); i++ {
-		if i < 0 {
+	for line := range d.Prose() {
+		for at := 0; ; {
+			i := strings.Index(line.Masked[at:], wiki)
+			if i < 0 {
+				break
+			}
+			at += i
+			if rn.shared {
+				leftAt = append(leftAt, line.Number-1)
+			} else {
+				edits = append(edits, lineEdit{line.Number - 1, at, at + len(wiki), "[[" + rn.to + "]]"})
+			}
+			at += len(wiki)
+		}
+	}
+	for _, l := range d.Links() {
+		target, _, _ := strings.Cut(l.Target, "#")
+		// Skipped as L17 skips them: a URL is not a path, though its own path
+		// can climb back to the file.
+		if strings.Contains(target, "://") || strings.HasPrefix(l.Target, "mailto:") ||
+			path.Join(path.Dir(d.Path), target) != rn.oldPath {
 			continue
 		}
-		before := lines[i]
-		if strings.Contains(lines[i], wiki) && rn.shared {
-			leftAt = append(leftAt, i)
-		} else {
-			lines[i] = strings.ReplaceAll(lines[i], wiki, "[["+rn.to+"]]")
+		// The way the link was written is kept, and only the file name in it
+		// changes: the renamed file stays in the same directory. That needs
+		// the file name where the text as written puts it, which an encoded
+		// / or # moves; replacing it anyway would write another destination.
+		written, fragment, hasFragment := strings.Cut(lines[l.Line-1][l.Start:l.End], "#")
+		name := written[strings.LastIndex(written, "/")+1:]
+		// A name that does not decode cannot have resolved to the file.
+		if decoded, _ := url.PathUnescape(name); decoded != path.Base(rn.oldPath) {
+			return nil, false, nil, fmt.Errorf("%s:%d: the link to %s is encoded so that renumber cannot rewrite it; write it as a plain relative path first",
+				d.Path, l.Line, rn.oldPath)
 		}
-		lines[i] = replacePath(lines[i], rn.oldPath, rn.newPath)
-		if lines[i] != before {
-			touched = true
+		replacement := written[:len(written)-len(name)] + path.Base(rn.newPath)
+		if hasFragment {
+			replacement += "#" + fragment
 		}
+		edits = append(edits, lineEdit{l.Line - 1, l.Start, l.End, replacement})
 	}
+	// From the end of each line backwards, so an edit leaves the columns of
+	// those before it where they were. Edits to different lines are
+	// independent, so their order among each other does not matter.
+	sort.Slice(edits, func(i, j int) bool { return edits[i].start > edits[j].start })
+	for _, e := range edits {
+		lines[e.line] = lines[e.line][:e.start] + e.text + lines[e.line][e.end:]
+		touched = true
+	}
+
 	// Formatted last, so each line reads as written, and sorted, because the
 	// front matter keys are visited in a fixed order rather than the file's.
+	// The moved document is reported where the author will find it.
+	shown := d.Path
+	if shown == rn.oldPath {
+		shown = rn.newPath
+	}
 	sort.Ints(leftAt)
-	for _, i := range leftAt {
-		left = append(left, fmt.Sprintf("%s:%d: %s", d.Path, i+1, strings.TrimSpace(lines[i])))
+	for _, i := range slices.Compact(leftAt) {
+		left = append(left, fmt.Sprintf("%s:%d: %s", shown, i+1, strings.TrimSpace(lines[i])))
 	}
 	if !touched {
-		return nil, false, left
+		return nil, false, left, nil
 	}
-	return []byte(strings.Join(lines, "\n")), true, left
+	return []byte(strings.Join(lines, "\n")), true, left, nil
 }
 
 // isNewKey reports whether a front matter line starts a different key, which is
@@ -332,14 +393,4 @@ func isNewKey(line string) bool {
 		return false
 	}
 	return strings.Contains(trimmed, ":")
-}
-
-// replacePath rewrites a link destination pointing at the renamed file. Paths
-// are relative, so only the final segments are compared.
-func replacePath(line, oldPath, newPath string) string {
-	oldBase, newBase := path.Base(oldPath), path.Base(newPath)
-	if !strings.Contains(line, oldBase) {
-		return line
-	}
-	return strings.ReplaceAll(line, oldBase, newBase)
 }

@@ -717,6 +717,9 @@ type Link struct {
 	Type   LinkType
 	// Line is 1-based within the file.
 	Line int
+	// Start and End are the columns of the destination as written, inside any
+	// <...>, so a writer can replace it in the line without reparsing it.
+	Start, End int
 }
 
 // WikiLink is an unexpanded [[...]] reference.
@@ -743,27 +746,37 @@ func (d *Document) Links() []Link {
 				opensBlock = true
 			}
 		}
-		for _, m := range mdLinkPattern.FindAllStringSubmatch(line.Masked, -1) {
+		for _, at := range mdLinkPattern.FindAllStringSubmatchIndex(line.Masked, -1) {
+			m := submatches(line.Masked, at)
 			// The pattern captures the leading "!" so that an image is told
 			// from a link by the match itself.
 			form := LinkInline
 			if m[1] == "!" {
 				form = LinkImage
 			}
+			start, end := destinationAt(at, 3)
 			links = append(links, Link{
 				Text:   m[2],
 				Target: destination(m[3], m[4]),
 				Type:   form,
 				Line:   line.Number,
+				Start:  start,
+				End:    end,
 			})
 		}
 		// A definition cannot interrupt a paragraph, so it only counts after a
 		// blank line or another definition.
 		if opensBlock {
-			if m := definitionPattern.FindStringSubmatch(content); m != nil {
+			if at := definitionPattern.FindStringSubmatchIndex(content); at != nil {
+				m := submatches(content, at)
+				// Unquoting changes only what precedes the text, so a column
+				// in content is the same distance from the end of the line.
+				shift := len(line.Masked) - len(content)
+				start, end := destinationAt(at, 2)
 				links = append(links, Link{
 					Text: m[1], Target: destination(m[2], m[3]),
 					Type: LinkDefinition, Line: line.Number,
+					Start: start + shift, End: end + shift,
 				})
 				continue
 			}
@@ -771,6 +784,27 @@ func (d *Document) Links() []Link {
 		opensBlock = strings.TrimSpace(content) == ""
 	}
 	return links
+}
+
+// submatches renders the groups a FindStringSubmatchIndex result locates, an
+// unmatched group as "".
+func submatches(s string, at []int) []string {
+	m := make([]string, len(at)/2)
+	for i := range m {
+		if at[2*i] >= 0 {
+			m[i] = s[at[2*i]:at[2*i+1]]
+		}
+	}
+	return m
+}
+
+// destinationAt locates the destination among a match's groups: the bracketed
+// form is group n and the bare form group n+1, and exactly one of them matched.
+func destinationAt(at []int, n int) (start, end int) {
+	if at[2*n] >= 0 {
+		return at[2*n], at[2*n+1]
+	}
+	return at[2*n+2], at[2*n+3]
 }
 
 // destination is a link's target, from whichever of the two forms matched, with

@@ -130,6 +130,23 @@ func TestADefinitionBehindAQuoteIsReadInACRLFFile(t *testing.T) {
 	}
 }
 
+// TestALinkSaysWhereItsDestinationIsWritten: a writer rewriting a destination
+// edits the line at these columns, so they are where the text was written, in
+// every form, including definitions read from behind a quote marker, which
+// unquoting moves: "> " is dropped, and a tab is expanded in place.
+func TestALinkSaysWhereItsDestinationIsWritten(t *testing.T) {
+	d := changelogDoc(t, "", "## Resolved questions\n### Q?\n> [r]: <0002 other.md>\n\n### R?\n>\t[t]: 0004-t.md\n\n"+
+		"## Abstract\n\nSee [a](0003-a.md#x) and ![b](img/b.png \"B\").\n\n[c]: ../adr/0001-c.md\n")
+	lines := strings.Split(string(d.Source), "\n")
+	var written []string
+	for _, l := range d.Links() {
+		written = append(written, lines[l.Line-1][l.Start:l.End])
+	}
+	if want := "0002 other.md|0004-t.md|0003-a.md#x|img/b.png|../adr/0001-c.md"; strings.Join(written, "|") != want {
+		t.Errorf("destinations as written = %q, want %q", strings.Join(written, "|"), want)
+	}
+}
+
 func TestALaterResolvedSectionIsReportedOnlyAsASecond(t *testing.T) {
 	for _, body := range []string{
 		"## Open questions\n## Resolved questions\n### Q?\n> A.\n## Other\n## Resolved questions\n\n",
