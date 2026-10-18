@@ -43,51 +43,76 @@ var referenceKeys = []string{"depends", "updates", "obsoletes", "includes", "doc
 // error for another. Two concurrent pull requests taking the same number is the
 // case that makes it routine.
 //
+// When another document still claims the old identifier, as when two branches
+// each took the same next number, an identifier in a front matter list or a
+// wiki link cannot say which document it means. Those are left alone and each
+// line holding one is returned as unchanged, as path:line: text and marked
+// where the document is frozen, for the author to repoint any that meant the
+// moved document. A link to the file says which it means, so it is still
+// rewritten.
+//
 // frozen reports whether a document may no longer be written to. Renumbering
 // refuses when the document itself is frozen, and when any document that would
 // have to change is, because a reference inside a frozen document could never
 // be corrected and the rename would leave it pointing at a file that is gone.
 // The refusal is complete: nothing is written unless everything can be.
-func Renumber(r *Repo, from, to string, frozen func(*Document) bool) ([]string, error) {
+func Renumber(r *Repo, from, to string, frozen func(*Document) bool) (changed, unchanged []string, err error) {
 	d, err := selectDocument(r, from)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	if !d.Type.Numbered() {
-		return nil, fmt.Errorf("%s is not numbered, so it has no number to change", d.Path)
+		return nil, nil, fmt.Errorf("%s is not numbered, so it has no number to change", d.Path)
 	}
 	if frozen(d) {
-		return nil, fmt.Errorf("%s is frozen; write a new document that updates it rather than renaming it", d.ID)
+		return nil, nil, fmt.Errorf("%s is frozen; write a new document that updates it rather than renaming it", d.ID)
 	}
 
 	number, err := targetNumber(r, d, to)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	to = Identifier(d.Type, number)
 	if to == d.ID {
-		return nil, fmt.Errorf("%s already has that identifier", d.ID)
+		return nil, nil, fmt.Errorf("%s already has that identifier", d.ID)
 	}
 	if taken := r.ByID(to); taken != nil {
-		return nil, fmt.Errorf("%s is already used by %s", to, taken.Path)
+		return nil, nil, fmt.Errorf("%s is already used by %s", to, taken.Path)
 	}
 
 	newPath, err := renamedPath(d, number)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	// Everything that has to change is found before anything is written, so a
 	// frozen reference stops the whole operation rather than half of it.
 	from = d.ID
-	mentions := regexp.MustCompile(`\b` + regexp.QuoteMeta(from) + `\b`)
+	rn := rename{
+		from:     from,
+		to:       to,
+		mentions: regexp.MustCompile(`\b` + regexp.QuoteMeta(from) + `\b`),
+		oldPath:  d.Path,
+		newPath:  newPath,
+	}
+	for _, other := range r.Documents() {
+		if other != d && other.ID == from {
+			rn.shared = true
+		}
+	}
 	var blocked []string
 	edits := map[string][]byte{}
 	for _, other := range r.Documents() {
 		if other == d {
 			continue
 		}
-		rewritten, touched := rewriteReferences(other, from, mentions, to, d.Path, newPath)
+		rewritten, touched, left := rewriteReferences(other, rn)
+		if frozen(other) {
+			for i := range left {
+				left[i] += " (frozen)"
+			}
+		}
+		unchanged = append(unchanged, left...)
 		if !touched {
 			continue
 		}
@@ -99,31 +124,36 @@ func Renumber(r *Repo, from, to string, frozen func(*Document) bool) ([]string, 
 	}
 	if len(blocked) > 0 {
 		sort.Strings(blocked)
-		return nil, fmt.Errorf("%s is referenced by frozen %s, which cannot be edited to follow the rename",
-			from, strings.Join(blocked, ", "))
+		// By path when the identifier is shared, since it names both.
+		named := from
+		if rn.shared {
+			named = d.Path
+		}
+		return nil, nil, fmt.Errorf("%s is referenced by frozen %s, which cannot be edited to follow the rename",
+			named, strings.Join(blocked, ", "))
 	}
 
 	source, err := renameInSelf(d, from, to)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
-	changed := make([]string, 0, len(edits)+1)
+	changed = make([]string, 0, len(edits)+1)
 	for docPath, body := range edits {
 		if err := r.WriteFile(docPath, body); err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 		changed = append(changed, docPath)
 	}
 	if err := r.WriteFile(newPath, source); err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	if err := os.Remove(r.File(d.Path)); err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	changed = append(changed, d.Path+" -> "+newPath)
 	sort.Strings(changed)
-	return changed, nil
+	return changed, unchanged, nil
 }
 
 // selectDocument finds the document to rename, by path or by identifier.
@@ -223,12 +253,23 @@ func renameInSelf(d *Document, from, to string) ([]byte, error) {
 	return []byte(strings.Join(lines, "\n")), nil
 }
 
+// rename is one renumbering, as each other document's references see it.
+type rename struct {
+	from, to         string
+	mentions         *regexp.Regexp
+	oldPath, newPath string
+	// shared is set when another document still claims from.
+	shared bool
+}
+
 // rewriteReferences renames the identifier inside one other document: in the
 // front matter lists that name documents, and in the body wherever the old
-// identifier or the old path appears.
-func rewriteReferences(d *Document, from string, mentions *regexp.Regexp, to, oldPath, newPath string) ([]byte, bool) {
+// identifier or the old path appears. Under a shared identifier, the lines
+// holding it in a front matter list or a wiki link are returned as left rather
+// than rewritten, in line order and as they read once the rest is rewritten.
+func rewriteReferences(d *Document, rn rename) (rewritten []byte, touched bool, left []string) {
 	lines := strings.Split(string(d.Source), "\n")
-	touched := false
+	var leftAt []int
 
 	for _, key := range referenceKeys {
 		start := d.FrontMatter.LineOf(key)
@@ -239,31 +280,47 @@ func rewriteReferences(d *Document, from string, mentions *regexp.Regexp, to, ol
 			if i > start-1 && isNewKey(lines[i]) {
 				break
 			}
-			if replaced := mentions.ReplaceAllString(lines[i], to); replaced != lines[i] {
-				lines[i] = replaced
-				touched = true
+			if !rn.mentions.MatchString(lines[i]) {
+				continue
 			}
+			if rn.shared {
+				leftAt = append(leftAt, i)
+				continue
+			}
+			lines[i] = rn.mentions.ReplaceAllString(lines[i], rn.to)
+			touched = true
 		}
 	}
 
 	// The body: wiki links naming the identifier, and links whose destination
 	// is the file being renamed. A bare mention in prose is left alone, because
 	// rewriting a sentence is not this command's business.
+	wiki := "[[" + rn.from + "]]"
 	for i := d.BodyLine - 1; i < len(lines); i++ {
 		if i < 0 {
 			continue
 		}
 		before := lines[i]
-		lines[i] = strings.ReplaceAll(lines[i], "[["+from+"]]", "[["+to+"]]")
-		lines[i] = replacePath(lines[i], oldPath, newPath)
+		if strings.Contains(lines[i], wiki) && rn.shared {
+			leftAt = append(leftAt, i)
+		} else {
+			lines[i] = strings.ReplaceAll(lines[i], wiki, "[["+rn.to+"]]")
+		}
+		lines[i] = replacePath(lines[i], rn.oldPath, rn.newPath)
 		if lines[i] != before {
 			touched = true
 		}
 	}
-	if !touched {
-		return nil, false
+	// Formatted last, so each line reads as written, and sorted, because the
+	// front matter keys are visited in a fixed order rather than the file's.
+	sort.Ints(leftAt)
+	for _, i := range leftAt {
+		left = append(left, fmt.Sprintf("%s:%d: %s", d.Path, i+1, strings.TrimSpace(lines[i])))
 	}
-	return []byte(strings.Join(lines, "\n")), true
+	if !touched {
+		return nil, false, left
+	}
+	return []byte(strings.Join(lines, "\n")), true, left
 }
 
 // isNewKey reports whether a front matter line starts a different key, which is

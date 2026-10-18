@@ -58,7 +58,7 @@ func TestRenumberRefusesWhenAFrozenDocumentReferencesIt(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	_, err = repo.Renumber(r, "RFC-0001", "RFC-0009", frozenIDs("RFC-0002"))
+	_, _, err = repo.Renumber(r, "RFC-0001", "RFC-0009", frozenIDs("RFC-0002"))
 	if err == nil {
 		t.Fatal("renumbered a document that a frozen document references")
 	}
@@ -88,7 +88,7 @@ func TestRenumberRefusesAFrozenDocument(t *testing.T) {
 	r := repotest.New(t, map[string]string{
 		"rfc/0001-base.md": accepted("RFC-0001", "Base", ""),
 	})
-	if _, err := repo.Renumber(r, "RFC-0001", "RFC-0009", frozenIDs("RFC-0001")); err == nil {
+	if _, _, err := repo.Renumber(r, "RFC-0001", "RFC-0009", frozenIDs("RFC-0001")); err == nil {
 		t.Fatal("renumbered a frozen document")
 	}
 	if _, err := os.Stat(r.File("rfc/0001-base.md")); err != nil {
@@ -103,7 +103,7 @@ func TestRenumberRewritesEveryPlaceTheIdentityAppears(t *testing.T) {
 	r := repotest.New(t, map[string]string{
 		"rfc/0002-retry-policy.md": draft("RFC-0002", "Retry policy"),
 	})
-	changed, err := repo.Renumber(r, "RFC-0002", "RFC-0009", nothingFrozen)
+	changed, _, err := repo.Renumber(r, "RFC-0002", "RFC-0009", nothingFrozen)
 	if err != nil {
 		t.Fatalf("Renumber: %v", err)
 	}
@@ -139,7 +139,7 @@ func TestRenumberTakesTheNextFreeNumber(t *testing.T) {
 		"rfc/0002-mine.md":  draft("RFC-0002", "Mine"),
 		"rfc/0007-other.md": draft("RFC-0007", "Other"),
 	})
-	if _, err := repo.Renumber(r, "RFC-0002", "", nothingFrozen); err != nil {
+	if _, _, err := repo.Renumber(r, "RFC-0002", "", nothingFrozen); err != nil {
 		t.Fatalf("Renumber: %v", err)
 	}
 	if _, err := os.Stat(r.File("rfc/0008-mine.md")); err != nil {
@@ -153,15 +153,16 @@ func TestRenumberUpdatesReferencesInEditableDocuments(t *testing.T) {
 	r := repotest.New(t, map[string]string{
 		"rfc/0001-base.md":  draft("RFC-0001", "Base"),
 		"rfc/0002-later.md": draftDepending("RFC-0002", "Later", "RFC-0001"),
-		"spec/thing.md":     "---\ntitle: Thing\nincludes: [RFC-0001]\n---\n\n# Thing\n\nWords.\n",
+		"spec/thing.md":     "---\ntitle: Thing\nincludes: [RFC-0001]\n---\n\n# Thing\n\nSee [[RFC-0001]].\n",
 		"group/team.md":     "---\ntitle: Team\ndocuments:\n  - thing\n  - RFC-0001\n---\n\n# Team\n",
 	})
-	if _, err := repo.Renumber(r, "RFC-0001", "RFC-0009", nothingFrozen); err != nil {
+	if _, _, err := repo.Renumber(r, "RFC-0001", "RFC-0009", nothingFrozen); err != nil {
 		t.Fatalf("Renumber: %v", err)
 	}
 	for _, check := range []struct{ path, want string }{
 		{"rfc/0002-later.md", "depends: [RFC-0009]"},
 		{"spec/thing.md", "includes: [RFC-0009]"},
+		{"spec/thing.md", "See [[RFC-0009]]."},
 		{"group/team.md", "  - RFC-0009\n"},
 	} {
 		body, err := os.ReadFile(filepath.Join(r.Config().RootDir(), filepath.FromSlash(check.path)))
@@ -181,7 +182,7 @@ func TestRenumberRefusesANumberAlreadyTaken(t *testing.T) {
 		"rfc/0001-first.md": draft("RFC-0001", "First"),
 		"rfc/0002-mine.md":  draft("RFC-0002", "Mine"),
 	})
-	if _, err := repo.Renumber(r, "RFC-0002", "RFC-0001", nothingFrozen); err == nil {
+	if _, _, err := repo.Renumber(r, "RFC-0002", "RFC-0001", nothingFrozen); err == nil {
 		t.Fatal("renumbered onto a number that is already taken")
 	}
 }
@@ -192,7 +193,7 @@ func TestRenumberRefusesToChangeType(t *testing.T) {
 	r := repotest.New(t, map[string]string{
 		"rfc/0001-first.md": draft("RFC-0001", "First"),
 	})
-	if _, err := repo.Renumber(r, "RFC-0001", "ADR-0001", nothingFrozen); err == nil {
+	if _, _, err := repo.Renumber(r, "RFC-0001", "ADR-0001", nothingFrozen); err == nil {
 		t.Fatal("renumbered an RFC into an ADR")
 	}
 }
@@ -206,7 +207,7 @@ func TestRenumberRefusesAnAmbiguousIdentifier(t *testing.T) {
 		"rfc/0002-alice.md": draft("RFC-0002", "Alice"),
 		"rfc/0002-bob.md":   draft("RFC-0002", "Bob"),
 	})
-	_, err := repo.Renumber(r, "RFC-0002", "", nothingFrozen)
+	_, _, err := repo.Renumber(r, "RFC-0002", "", nothingFrozen)
 	if err == nil {
 		t.Fatal("renumbered an ambiguous identifier instead of refusing")
 	}
@@ -230,7 +231,7 @@ func TestRenumberAcceptsAPathToDisambiguate(t *testing.T) {
 		"rfc/0002-alice.md": draft("RFC-0002", "Alice"),
 		"rfc/0002-bob.md":   draft("RFC-0002", "Bob"),
 	})
-	if _, err := repo.Renumber(r, "rfc/0002-bob.md", "", nothingFrozen); err != nil {
+	if _, _, err := repo.Renumber(r, "rfc/0002-bob.md", "", nothingFrozen); err != nil {
 		t.Fatalf("Renumber by path: %v", err)
 	}
 	if _, err := os.Stat(r.File("rfc/0003-bob.md")); err != nil {
@@ -238,5 +239,94 @@ func TestRenumberAcceptsAPathToDisambiguate(t *testing.T) {
 	}
 	if _, err := os.Stat(r.File("rfc/0002-alice.md")); err != nil {
 		t.Errorf("the other contributor's document was disturbed: %v", err)
+	}
+}
+
+// sharedNumber is the collision two branches meet when each takes the same next
+// number: RFC-0001 committed and referenced, and a second RFC-0001 added.
+func sharedNumber() map[string]string {
+	return map[string]string{
+		"rfc/0001-storage.md":  accepted("RFC-0001", "Storage", ""),
+		"rfc/0001-newthing.md": draft("RFC-0001", "New thing"),
+		"rfc/0002-cache.md": accepted("RFC-0002", "Cache", "RFC-0001") +
+			"\nSee [[RFC-0001]], [the storage design](0001-storage.md) and [the new thing](0001-newthing.md).\n",
+	}
+}
+
+// TestRenumberLeavesAnIdentifierAnotherDocumentStillClaims: an identifier two
+// documents share cannot say which it means, so the rename cannot follow it.
+func TestRenumberLeavesAnIdentifierAnotherDocumentStillClaims(t *testing.T) {
+	r := repotest.New(t, sharedNumber())
+	_, unchanged, err := repo.Renumber(r, "rfc/0001-newthing.md", "", nothingFrozen)
+	if err != nil {
+		t.Fatalf("Renumber: %v", err)
+	}
+	body, err := os.ReadFile(r.File("rfc/0002-cache.md"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{"depends: [RFC-0001]", "[[RFC-0001]]", "(0001-storage.md)", "(0003-newthing.md)"} {
+		if !strings.Contains(string(body), want) {
+			t.Errorf("rfc/0002-cache.md lacks %q:\n%s", want, body)
+		}
+	}
+	// Reported, so the author can repoint any that meant the moved document,
+	// quoting each line as it now reads.
+	want := []string{
+		"rfc/0002-cache.md:7: depends: [RFC-0001]",
+		"rfc/0002-cache.md:18: See [[RFC-0001]], [the storage design](0001-storage.md) and [the new thing](0003-newthing.md).",
+	}
+	if strings.Join(unchanged, "\n") != strings.Join(want, "\n") {
+		t.Errorf("unchanged = %q, want %q", unchanged, want)
+	}
+}
+
+// TestRenumberReportsWhatItLeftInLineOrder: the front matter keys are visited
+// in a fixed order, which is not the order they appear in. The depends list
+// continues beneath its key, so the line reported is the indented item.
+func TestRenumberReportsWhatItLeftInLineOrder(t *testing.T) {
+	files := sharedNumber()
+	files["rfc/0002-cache.md"] = strings.Replace(accepted("RFC-0002", "Cache", "RFC-0001"),
+		"status: accepted\n", "status: accepted\nupdates: [RFC-0001]\n", 1)
+	files["rfc/0002-cache.md"] = strings.NewReplacer("updates: []\n", "", "depends: [RFC-0001]", "depends:\n  - RFC-0001").
+		Replace(files["rfc/0002-cache.md"])
+	r := repotest.New(t, files)
+	_, unchanged, err := repo.Renumber(r, "rfc/0001-newthing.md", "", nothingFrozen)
+	if err != nil {
+		t.Fatalf("Renumber: %v", err)
+	}
+	want := []string{"rfc/0002-cache.md:5: updates: [RFC-0001]", "rfc/0002-cache.md:9: - RFC-0001"}
+	if strings.Join(unchanged, "\n") != strings.Join(want, "\n") {
+		t.Errorf("unchanged = %q, want %q", unchanged, want)
+	}
+}
+
+// TestRenumberIsNotBlockedByAFrozenReferenceToTheDocumentStaying: the frozen
+// document refers to the identifier the rename leaves alone.
+func TestRenumberIsNotBlockedByAFrozenReferenceToTheDocumentStaying(t *testing.T) {
+	files := sharedNumber()
+	files["rfc/0002-cache.md"] = accepted("RFC-0002", "Cache", "RFC-0001")
+	r := repotest.New(t, files)
+	_, unchanged, err := repo.Renumber(r, "rfc/0001-newthing.md", "", frozenIDs("RFC-0002"))
+	if err != nil {
+		t.Fatalf("Renumber: %v", err)
+	}
+	if _, err := os.Stat(r.File("rfc/0003-newthing.md")); err != nil {
+		t.Errorf("the document was not renumbered: %v", err)
+	}
+	// Marked, because a frozen document cannot be repointed.
+	if want := "rfc/0002-cache.md:7: depends: [RFC-0001] (frozen)"; len(unchanged) != 1 || unchanged[0] != want {
+		t.Errorf("unchanged = %q, want [%q]", unchanged, want)
+	}
+}
+
+// TestRenumberIsBlockedByAFrozenLinkToTheMovedFile: a link to the file does say
+// which document it means, so a frozen one still blocks.
+func TestRenumberIsBlockedByAFrozenLinkToTheMovedFile(t *testing.T) {
+	r := repotest.New(t, sharedNumber())
+	_, _, err := repo.Renumber(r, "rfc/0001-newthing.md", "", frozenIDs("RFC-0002"))
+	// Named by path: the identifier names both documents.
+	if err == nil || !strings.Contains(err.Error(), "rfc/0001-newthing.md is referenced by frozen RFC-0002 (rfc/0002-cache.md)") {
+		t.Fatalf("err = %v; want the rename refused for the frozen link to the moved file", err)
 	}
 }
