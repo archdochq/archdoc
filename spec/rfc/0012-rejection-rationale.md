@@ -1,7 +1,7 @@
 ---
 id: RFC-0012
 title: The rejection rationale is structured data
-status: draft
+status: proposed
 created: 2026-10-18
 decided:
 depends: [ADR-0019, ADR-0020, ADR-0021]
