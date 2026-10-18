@@ -330,3 +330,132 @@ func TestRenumberIsBlockedByAFrozenLinkToTheMovedFile(t *testing.T) {
 		t.Fatalf("err = %v; want the rename refused for the frozen link to the moved file", err)
 	}
 }
+
+// slugTwins is an RFC and the ADR extracted from it, which commonly share a
+// slug, and a document mentioning and linking to both.
+func slugTwins(other string) map[string]string {
+	return map[string]string{
+		"rfc/0001-storage.md": draft("RFC-0001", "Storage"),
+		"adr/0001-storage.md": draft("ADR-0001", "Storage"),
+		"adr/0002-other.md":   draft("ADR-0002", "Other") + other,
+	}
+}
+
+// TestRenumberRewritesOnlyLinksThatReachTheMovedFile: a link is followed by
+// resolving it, not by finding the file name in the line.
+func TestRenumberRewritesOnlyLinksThatReachTheMovedFile(t *testing.T) {
+	other := "\nSee [the ADR](0001-storage.md), [the RFC](../rfc/0001-storage.md#proposal) and [d].\n\n" +
+		"[A mirror](https://example.com/../../../rfc/0001-storage.md).\n\n" +
+		"[Mail](mailto:x/../../rfc/0001-storage.md).\n\n" +
+		"[Encoded](../rfc/0001%2Dstorage.md) [plain](../rfc/0001-storage.md).\n\n" +
+		"[d]: <../rfc/0001-storage.md>\n\n" +
+		"The draft was first saved as 0001-storage.md, and `0001-storage.md` is its name.\n\n" +
+		"```\ncp notes.txt ../rfc/0001-storage.md [[RFC-0001]]\n```\n\n" +
+		"<!-- [[RFC-0001]] -->\n"
+	r := repotest.New(t, slugTwins(other))
+	if _, _, err := repo.Renumber(r, "RFC-0001", "RFC-0005", nothingFrozen); err != nil {
+		t.Fatalf("Renumber: %v", err)
+	}
+	body, err := os.ReadFile(r.File("adr/0002-other.md"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := draft("ADR-0002", "Other") +
+		"\nSee [the ADR](0001-storage.md), [the RFC](../rfc/0005-storage.md#proposal) and [d].\n\n" +
+		"[A mirror](https://example.com/../../../rfc/0001-storage.md).\n\n" +
+		"[Mail](mailto:x/../../rfc/0001-storage.md).\n\n" +
+		"[Encoded](../rfc/0005-storage.md) [plain](../rfc/0005-storage.md).\n\n" +
+		"[d]: <../rfc/0005-storage.md>\n\n" +
+		"The draft was first saved as 0001-storage.md, and `0001-storage.md` is its name.\n\n" +
+		"```\ncp notes.txt ../rfc/0001-storage.md [[RFC-0001]]\n```\n\n" +
+		"<!-- [[RFC-0001]] -->\n"
+	if string(body) != want {
+		t.Errorf("adr/0002-other.md =\n%s\nwant\n%s", body, want)
+	}
+}
+
+// TestRenumberIsNotBlockedByAFrozenMentionOfTheFileName: only what would be
+// rewritten blocks, and a mention is not.
+func TestRenumberIsNotBlockedByAFrozenMentionOfTheFileName(t *testing.T) {
+	r := repotest.New(t, slugTwins("\n[The ADR](0001-storage.md) was first saved as ../rfc/0001-storage.md.\n\n"+
+		"```\n[[RFC-0001]] [x](../rfc/0001-storage.md)\n```\n"))
+	if _, _, err := repo.Renumber(r, "RFC-0001", "RFC-0005", frozenIDs("ADR-0002")); err != nil {
+		t.Fatalf("Renumber: %v", err)
+	}
+}
+
+// TestRenumberFollowsTheMovedDocumentsReferencesToItself: it moves with them,
+// so a link to itself would otherwise be left pointing at a file that is gone.
+func TestRenumberFollowsTheMovedDocumentsReferencesToItself(t *testing.T) {
+	r := repotest.New(t, map[string]string{
+		"rfc/0001-storage.md": draft("RFC-0001", "Storage") + "\nAs [[RFC-0001]] says in [its abstract](0001-storage.md#abstract).\n",
+	})
+	if _, _, err := repo.Renumber(r, "RFC-0001", "RFC-0005", nothingFrozen); err != nil {
+		t.Fatalf("Renumber: %v", err)
+	}
+	body, err := os.ReadFile(r.File("rfc/0005-storage.md"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if want := "As [[RFC-0005]] says in [its abstract](0005-storage.md#abstract).\n"; !strings.HasSuffix(string(body), want) {
+		t.Errorf("rfc/0005-storage.md =\n%s\nwant it to end %q", body, want)
+	}
+}
+
+// TestRenumberReportsTheMovedDocumentsOwnSharedIdentifier: under a shared
+// identifier its own wiki link cannot say which document it means either.
+func TestRenumberReportsTheMovedDocumentsOwnSharedIdentifier(t *testing.T) {
+	files := sharedNumber()
+	files["rfc/0001-newthing.md"] = draft("RFC-0001", "New thing") + "\nUnlike [[RFC-0001]], or [[RFC-0001]].\n"
+	delete(files, "rfc/0002-cache.md")
+	r := repotest.New(t, files)
+	_, unchanged, err := repo.Renumber(r, "rfc/0001-newthing.md", "", nothingFrozen)
+	if err != nil {
+		t.Fatalf("Renumber: %v", err)
+	}
+	// Once for the line, however many it holds.
+	if want := "rfc/0002-newthing.md:18: Unlike [[RFC-0001]], or [[RFC-0001]]."; len(unchanged) != 1 || unchanged[0] != want {
+		t.Errorf("unchanged = %q, want [%q]", unchanged, want)
+	}
+}
+
+// TestRenumberRewritesLinksInACRLFFile keeps the carriage return out of the
+// destination it rewrites, and in the line.
+func TestRenumberRewritesLinksInACRLFFile(t *testing.T) {
+	other := "\r\nSee [the RFC](../rfc/0001-storage.md) and [[RFC-0001]].\r\n\r\n[d]: ../rfc/0001-storage.md\r\n"
+	r := repotest.New(t, slugTwins(other))
+	if _, _, err := repo.Renumber(r, "RFC-0001", "RFC-0005", nothingFrozen); err != nil {
+		t.Fatalf("Renumber: %v", err)
+	}
+	body, err := os.ReadFile(r.File("adr/0002-other.md"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := "\r\nSee [the RFC](../rfc/0005-storage.md) and [[RFC-0005]].\r\n\r\n[d]: ../rfc/0005-storage.md\r\n"
+	if !strings.HasSuffix(string(body), want) {
+		t.Errorf("adr/0002-other.md ends %q, want %q", string(body)[len(body)-len(want):], want)
+	}
+}
+
+// TestRenumberRefusesALinkItCannotRewriteAsWritten: the link resolves to the
+// file once decoded, but the file name is not where the text as written puts
+// it, so replacing it there would write a different destination.
+func TestRenumberRefusesALinkItCannotRewriteAsWritten(t *testing.T) {
+	for _, link := range []string{"..%2Frfc%2F0001-storage.md", "../rfc/0001-storage.md%23x"} {
+		r := repotest.New(t, slugTwins("\nSee [the RFC]("+link+").\n"))
+		before, err := os.ReadFile(r.File("adr/0002-other.md"))
+		if err != nil {
+			t.Fatal(err)
+		}
+		_, _, err = repo.Renumber(r, "RFC-0001", "RFC-0005", nothingFrozen)
+		if err == nil || !strings.Contains(err.Error(), "adr/0002-other.md:18") {
+			t.Errorf("%s: err = %v; want the rename refused, naming the link", link, err)
+		}
+		if after, _ := os.ReadFile(r.File("adr/0002-other.md")); string(after) != string(before) {
+			t.Errorf("%s: the document was rewritten despite the refusal", link)
+		}
+		if _, err := os.Stat(r.File("rfc/0001-storage.md")); err != nil {
+			t.Errorf("%s: the document was moved despite the refusal: %v", link, err)
+		}
+	}
+}

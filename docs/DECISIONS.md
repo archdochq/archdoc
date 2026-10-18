@@ -253,6 +253,17 @@ the result can delete content it never read.
 - **`link` leaves a document entirely untouched if any of its wiki links resolves to nothing.** A
   partial rewrite would leave the file in a state neither the author nor the tool intended. Every other
   document is still written, because the failure belongs to one file.
+- **`renumber` follows links by resolving them.** It found them by searching each body line for the
+  renamed file's name, so it rewrote a link to a same-named file in another directory, which an RFC and
+  the ADR extracted from it commonly are, along with a mention in prose or a line of code, and a frozen
+  document holding any of these refused the rename. It now resolves the links lint reads, from the
+  masked view, against the directory of the document holding each, and rewrites a destination in place
+  by its columns, so the directory and fragment as written survive. Wiki links are read from the same
+  view. The moved document's own references are followed too, since a link to itself would otherwise
+  name a file that is gone. A link the parser does not read, such as one whose text wraps across lines
+  or holds a `]`, is not followed, where the text search caught it among everything else; renumber
+  follows what lint checks. A destination whose file name as written does not decode to the old one,
+  because an encoded `/` or `#` moves it, is refused rather than rewritten into another destination.
 - **`renumber` leaves an identifier another document still claims.** When two branches each take the same
   next number, renumbering one of the two rewrote every reference to the identifier, including those
   meant for the document keeping it, and a frozen document naming it refused the rename although its
