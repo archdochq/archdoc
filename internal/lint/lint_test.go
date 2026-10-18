@@ -119,6 +119,8 @@ func TestL04ReportsReferencesThatResolveToNothing(t *testing.T) {
 		"RFC-9999", // no such document
 		"REF-0001", // a ref is not permitted in depends
 	)
+	// At the field's own line, not the first line of the file.
+	mentions(t, got, "rfc/0003-dangling-refs.md:7: depends references RFC-9999")
 }
 
 func TestL05ChecksUpdatesAndObsoletes(t *testing.T) {

@@ -31,10 +31,11 @@ Non-strict mode adds `draft → accepted` and `draft → rejected`. No other tra
 
 1. Load the document. Fail if the identifier is unknown or the type is not RFC or ADR.
 2. Check the transition is permitted from the current status under the `strict` setting. Fail naming the transitions permitted from the current status.
-3. For `accept` and `reject`: fail if there is no H1, or it does not read as the front matter gives it; fail if a required section is missing, or appears before one it must follow; fail if any required section is empty; fail if any unresolved `[[...]]` remains. For `accept`: fail if the document has a closing section and another H2 follows it; fail if the document has an `Open questions` section and it is non-empty, naming `Resolved questions`. For both, then: fail at the first fault L20 or L21 reports, naming its line, with each Changelog entry's date compared against today, the `decided` date about to be written, rather than the document's own. `withdraw` performs no content checks.
+3. For `accept`: fail if the document has an `Open questions` section and it is non-empty, naming `Resolved questions`. `withdraw` performs no content checks.
 4. Rewrite `status` and, for a terminal transition, `decided` to today. Front matter is rewritten field by field, preserving order and comments. The body is not touched except in step 5.
-5. For `reject`: append `## Rejection rationale` to the end of the body with an HTML comment prompting for the rationale. The step 3 checks run before this append.
-6. Print the new status.
+5. For `reject`: append `## Rejection rationale` to the end of the body with an HTML comment prompting for the rationale.
+6. For `accept` and `reject`: fail if lint reports any error other than L03 about the document as rewritten, judged within the rest of the repository and, for `reject`, with the rejection rationale taken as written, listing each error as `lint` prints it. L11 compares the file on disk with the configured branch, so it judges the document as it stood before the transition. The file is written only once this passes.
+7. Print the new status.
 
 A transition refuses to write a `decided` date earlier than `created`, and refuses a status the graph does not know. `reject` refuses a document whose parse stops short of the end of the file. None of the transition commands commits.
 

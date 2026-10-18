@@ -125,10 +125,9 @@ never proposed is a different kind of thing from one proposed and accepted the s
 **The push after a terminal transition freezes the document permanently.** Before it, every
 fault is repairable. After it, none are, and lint will report them forever.
 
-`accept` and `reject` refuse a document with an empty required section, an unresolved
-`[[...]]` link, or a question or Changelog entry of a shape lint reports, and `accept` refuses
-one with open questions, which catches the common cases. They cannot catch a section that is present,
-non-empty and wrong.
+`accept` and `reject` refuse a document while lint reports any error about it other than L03, a
+number another document shares, and `accept` refuses one with open questions, which catches the
+common cases. They cannot catch a section that is present, non-empty and wrong.
 
 So before the commit that sets a terminal status, read the document. Check the H1 matches the
 title, every section says something, and the links point where you meant. That is the last
