@@ -183,7 +183,7 @@ ArchDoc provides:
 
 - `archdoc init`: scaffold a new repository in the current directory.
 - `archdoc new rfc|adr|ref "Title"`: create the next-numbered document of that type from its template, in draft.
-- `archdoc propose <id>`, `accept <id>`, `reject <id>`, `withdraw <id>`: move a document through its lifecycle. Each validates the transition, edits the file, and stops. Committing is left to you. `accept` and `reject` refuse a document with an empty required section, an unresolved `[[...]]` link, or a question or Changelog entry of a shape lint reports, and `accept` refuses one with open questions, because the next push freezes it and lint would then report a fault nobody is permitted to repair.
+- `archdoc propose <id>`, `accept <id>`, `reject <id>`, `withdraw <id>`: move a document through its lifecycle. Each validates the transition, edits the file, and stops. Committing is left to you. `accept` and `reject` refuse a document while lint reports any error about it other than L03, a number another document shares, and `accept` refuses one with open questions, because the next push freezes it and lint would then report a fault nobody is permitted to repair.
 - `archdoc lint`: check the repository against the rules in this document.
 - `archdoc link`: resolve `[[...]]` links. With `--suggest`, offer new ones.
 - `archdoc renumber <id|path> [new-id]`: change a document's number, rewriting the filename, the `id`, the heading and every reference to it. Takes the next free number when no target is given. Refuses when the document is frozen, or when a frozen document refers to it.

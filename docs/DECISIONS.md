@@ -126,9 +126,9 @@ would have to round-trip everything it parsed.
 ## Sections
 
 - **One required-section list, read by everything that asks the question.** `Document.RequiredSections()`
-  adds `Sources` when a document is backfilled and `Rejection rationale` when it is rejected, and L08,
-  L14 and the pre-freeze gate all read it. Written against separate lists, they disagreed: a backfilled
-  document whose `Sources` held only the template comment satisfied both, because one checked presence
+  adds `Sources` when a document is backfilled and `Rejection rationale` when it is rejected, and L08
+  and L14 read it, and the pre-freeze gate through them. Written against separate lists, they disagreed:
+  a backfilled document whose `Sources` held only the template comment satisfied both, because one checked presence
   and the other was not looking.
 - **A document has a closing section only where a type states one.** `ClosingSection` is the last entry
   of the required list when that entry is a closing kind. Requiring `Sources` last *and* the rejection
@@ -147,24 +147,36 @@ would have to round-trip everything it parsed.
 
 ## The lifecycle and freezing
 
-- **Freezing is gated at the transition, not after it.** `accept` and `reject` refuse an empty required
-  section, an unresolved `[[...]]`, and anything L20 or L21 reports; `reject` runs them all before
-  appending the rationale. `withdraw`
-  gates nothing, because a document abandoned before a verdict is empty by nature.
-- **The gate refuses everything the linter would report forever.** It checks the H1, the required
-  sections' presence and their relative order, reusing the same list and the same H1 accessor the rules
-  use rather than restating them. What the gate lets through, L11 then forbids anyone repairing, so a
-  mismatched H1 or a missing `Changelog` became a permanently red repository with no in-tool remedy.
+- **Freezing is gated at the transition, not after it.** `accept` and `reject` refuse; `withdraw` gates
+  nothing, because a document abandoned before a verdict is empty by nature.
+- **The gate refuses every error lint reports about the document.** What it lets through, L11 then
+  forbids anyone repairing, so a mismatched H1 or a missing `Changelog` became a permanently red
+  repository with no in-tool remedy. The rules themselves are run rather than restated, so a rule added
+  later is gated with no second change, and every error is listed in one refusal. The document is judged
+  in a copy of the repository holding it as the transition writes it, because the transition changes what
+  lint says: accepting a proposed document that carries a `decided` date clears L07, and L21 compares the
+  Changelog's dates with the `decided` date about to be written, where the document's own is empty while
+  it is proposed. A rejection is judged with its rationale taken as written, since the section `reject`
+  appends holds only a prompt, which L14 reports as empty. L03 is left out, because renumbering the other
+  document corrects it once this one is frozen. A fault in a relationship is refused although editing the
+  other document would clear it, so that the transition's own commit does not leave lint failing.
+- **The gate began as its own list of checks.** It checked the H1, the required sections' presence, order
+  and emptiness, unresolved `[[...]]`, and what L20 and L21 report, reusing the accessors the rules use,
+  and stopped at the first fault. It gained a check that the closing section is last once `Changelog` and
+  `Open questions` stopped being required: while they were, the order check kept them before `Sources`,
+  and L08 reports a heading after `Sources` with an error that does not soften. It never looked at the
+  front matter, so an unknown key or a `depends` naming no document was frozen, and a document with
+  several faults was refused once for each. Running the rules replaced it.
+- **A refusal carries lint's findings, not a rendering of them.** `lifecycle` returns them in its error
+  and `cmd/archdoc` prints them as `lint` does, so a frontend without a terminal receives findings it can
+  present, and a refusal reads the same as the run of `lint` that would follow it.
+- **Open questions are refused before lint is asked.** `accept` refuses a non-empty `Open questions`
+  section naming `Resolved questions` as where an answered question goes, which L09's finding does not,
+  and stops there, so a document with questions still open is refused for those alone.
 - **A lint error must name something the user is permitted to change.** A finding that no permitted edit
   to the named document could clear is a warning: L14, L16, L17, L20 and L21, whose subject is the
   document's own body. It does not extend to a fault in a relationship between documents, which is cleared by editing
   the other document, nor to L11 itself.
-- **The gate compares Changelog dates with the `decided` date it is about to write.** The document's own is
-  empty while it is proposed, so an entry dated after the day of the transition would pass the gate and
-  then be reported by L21 for good.
-- **`accept` checks that the closing section is last.** While `Changelog` and `Open questions` were
-  required, the order check kept them before `Sources`; neither is required now, and L08 reports a
-  heading after `Sources` with an error that does not soften.
 - **A transition refuses to write a `decided` date before `created`.** Nothing rejects a `created` date
   in the future, so a draft carrying one lints clean until the transition writes the value that makes
   L07 fail permanently. It needs no hand-editing to reach: `new` on one machine and `accept` on another

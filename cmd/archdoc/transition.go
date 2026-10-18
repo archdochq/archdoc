@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"slices"
 	"time"
@@ -54,7 +55,15 @@ func transition(cmd *cobra.Command, args []string, verb string, to repo.Status) 
 		return fmt.Errorf("no document has the identifier %s", id)
 	}
 
-	rewritten, err := lifecycle.Apply(d, to, time.Now())
+	g, err := openGit(r)
+	if err != nil {
+		return err
+	}
+	rewritten, err := lifecycle.Apply(d, to, time.Now(), g)
+	if unfinished := (*lifecycle.Unfinished)(nil); errors.As(err, &unfinished) {
+		// The findings as lint prints them, then the refusal beneath them.
+		printFindings(cmd.ErrOrStderr(), unfinished.Findings, false)
+	}
 	if err != nil {
 		return err
 	}

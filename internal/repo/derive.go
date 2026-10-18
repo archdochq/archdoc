@@ -49,7 +49,9 @@ func (r *Repo) index() {
 				r.byID[d.ID] = d
 			}
 		}
-		if d.Page != "" {
+		// Terms carry a page name too, but a term is not a page, and one
+		// sharing a spec page's name would replace it.
+		if d.Type == TypeSpec {
 			r.byPage[d.Page] = d
 		}
 	}

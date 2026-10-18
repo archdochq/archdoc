@@ -244,6 +244,207 @@ func TestTransitionRewritesAndReports(t *testing.T) {
 	}
 }
 
+func TestRejectAcceptsAFinishedDocument(t *testing.T) {
+	// reject appends a Rejection rationale holding only a prompt, which lint
+	// reports as empty until the author writes it. The gate judging the file
+	// exactly as reject writes it would refuse every rejection.
+	dir := repository(t)
+
+	out, code := run(t, dir, "reject", "RFC-0002")
+	if code != exitOK {
+		t.Fatalf("exit = %d: %s", code, out)
+	}
+	if !strings.Contains(out, "RFC-0002 is now rejected") {
+		t.Errorf("output = %q", out)
+	}
+}
+
+// editDocument replaces the first occurrence of old in a document on disk, and
+// returns the file as it stands afterwards.
+func editDocument(t *testing.T, dir, path, old, replacement string) []byte {
+	t.Helper()
+	full := filepath.Join(dir, filepath.FromSlash(path))
+	source, err := os.ReadFile(full)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(source), old) {
+		t.Fatalf("%s does not contain %q", path, old)
+	}
+	edited := []byte(strings.Replace(string(source), old, replacement, 1))
+	if err := os.WriteFile(full, edited, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	return edited
+}
+
+func TestTerminalTransitionsRefuseFrontMatterLintRejects(t *testing.T) {
+	// The gate checked the H1, the sections and the wiki links, but not the
+	// front matter, so a document lint reports as an error was frozen, and L11
+	// then forbids the edit that would correct it.
+	cases := []struct {
+		name, old, replacement, want string
+	}{
+		{"an unknown key", "obsoletes: []\n", "obsoletes: []\nowner: me\n", `"owner"`},
+		{"a depends on no document", "depends: []", "depends: [RFC-0099]", "RFC-0099"},
+		{"an updates on a document not accepted", "updates: []", "updates: [RFC-0003]", "RFC-0003"},
+	}
+	for _, verb := range []string{"accept", "reject"} {
+		for _, tc := range cases {
+			t.Run(verb+" "+tc.name, func(t *testing.T) {
+				dir := repository(t)
+				draft := rfc("RFC-0003", "Eviction", "draft", "")
+				if err := os.WriteFile(filepath.Join(dir, "rfc", "0003-eviction.md"), []byte(draft), 0o644); err != nil {
+					t.Fatal(err)
+				}
+				before := editDocument(t, dir, "rfc/0002-cache.md", tc.old, tc.replacement)
+
+				out, code := run(t, dir, verb, "RFC-0002")
+				if code != exitUsage {
+					t.Fatalf("exit = %d, want %d: %s", code, exitUsage, out)
+				}
+				if !hasLine(out, "rfc/0002-cache.md", tc.want) {
+					t.Errorf("output = %q, want one line naming the document and %s", out, tc.want)
+				}
+				after, err := os.ReadFile(filepath.Join(dir, "rfc", "0002-cache.md"))
+				if err != nil {
+					t.Fatal(err)
+				}
+				if !bytes.Equal(after, before) {
+					t.Errorf("the refused document was rewritten:\n%s", after)
+				}
+			})
+		}
+	}
+}
+
+func TestATerminalTransitionIsNotRefusedForWhatItDoesNotFreeze(t *testing.T) {
+	for _, tc := range []struct {
+		name, path, source string
+		old, replacement   string
+	}{
+		{
+			// L18 warns that an accepted document depends on a draft. A
+			// warning is not a failure, so it is no reason to refuse.
+			"a warning", "rfc/0003-eviction.md", rfc("RFC-0003", "Eviction", "draft", ""),
+			"depends: []", "depends: [RFC-0003]",
+		},
+		{
+			"an error in another document", "rfc/0003-eviction.md",
+			strings.Replace(rfc("RFC-0003", "Eviction", "draft", ""), "obsoletes: []\n", "obsoletes: []\nowner: me\n", 1),
+			"", "",
+		},
+		{
+			// L07 reports a decided date on a proposed document, and accepting
+			// writes decided. The document is judged as the transition writes
+			// it, not as it stands.
+			"an error the transition corrects", "rfc/0003-eviction.md", rfc("RFC-0003", "Eviction", "draft", ""),
+			"decided:\n", "decided: 2026-01-05\n",
+		},
+		{
+			// L03 reports both documents claiming the number, and renumbering
+			// the other one corrects it after this one is frozen.
+			"a number another document claims", "rfc/0002-sizing.md", rfc("RFC-0002", "Sizing", "draft", ""),
+			"", "",
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			dir := repository(t)
+			if err := os.WriteFile(filepath.Join(dir, filepath.FromSlash(tc.path)), []byte(tc.source), 0o644); err != nil {
+				t.Fatal(err)
+			}
+			if tc.old != "" {
+				editDocument(t, dir, "rfc/0002-cache.md", tc.old, tc.replacement)
+			}
+
+			out, code := run(t, dir, "accept", "RFC-0002")
+			if code != exitOK {
+				t.Fatalf("exit = %d: %s", code, out)
+			}
+		})
+	}
+}
+
+func TestProposeAndWithdrawDoNotJudgeTheFrontMatter(t *testing.T) {
+	// Neither freezes anything worth finishing: a proposed document can still
+	// be edited, and a withdrawn one is abandoned.
+	for _, verb := range []string{"propose", "withdraw"} {
+		t.Run(verb, func(t *testing.T) {
+			dir := repository(t)
+			draft := strings.Replace(rfc("RFC-0003", "Eviction", "draft", ""), "obsoletes: []\n", "obsoletes: []\nowner: me\n", 1)
+			if err := os.WriteFile(filepath.Join(dir, "rfc", "0003-eviction.md"), []byte(draft), 0o644); err != nil {
+				t.Fatal(err)
+			}
+
+			out, code := run(t, dir, verb, "RFC-0003")
+			if code != exitOK {
+				t.Fatalf("exit = %d: %s", code, out)
+			}
+		})
+	}
+}
+
+func TestATerminalTransitionNamesEveryFault(t *testing.T) {
+	// Faults in the body and the front matter together, so a refusal that
+	// stopped at the first of them would name one.
+	for _, verb := range []string{"accept", "reject"} {
+		t.Run(verb, func(t *testing.T) {
+			dir := repository(t)
+			editDocument(t, dir, "rfc/0002-cache.md", "obsoletes: []\n", "obsoletes: []\nowner: me\n")
+			editDocument(t, dir, "rfc/0002-cache.md", "depends: []", "depends: [RFC-0099]")
+			editDocument(t, dir, "rfc/0002-cache.md", "# RFC-0002: Caching", "# RFC-0002: Cache")
+			editDocument(t, dir, "rfc/0002-cache.md", "Why it matters.", "")
+
+			out, code := run(t, dir, verb, "RFC-0002")
+			if code != exitUsage {
+				t.Fatalf("exit = %d, want %d: %s", code, exitUsage, out)
+			}
+			for _, want := range []string{`"owner"`, "RFC-0099", `"RFC-0002: Cache"`, `"Motivation"`} {
+				if !hasLine(out, "rfc/0002-cache.md", want) {
+					t.Errorf("output = %q, want a line naming %s", out, want)
+				}
+			}
+		})
+	}
+}
+
+func TestATerminalTransitionIsRefusedForADocumentFrozenOnTheBranch(t *testing.T) {
+	// L11 is the rule that needs git: RFC-0002 is accepted on main and then
+	// edited back to proposed, and accepting it again would freeze the edit.
+	dir := repository(t)
+	editDocument(t, dir, "rfc/0002-cache.md", "status: proposed", "status: accepted")
+	editDocument(t, dir, "rfc/0002-cache.md", "decided:", "decided: 2026-02-01")
+	runGit(t, dir, "init", "-b", "main")
+	runGit(t, dir, "config", "user.email", "test@example.invalid")
+	runGit(t, dir, "config", "user.name", "Fixture")
+	runGit(t, dir, "add", "-A")
+	runGit(t, dir, "commit", "-m", "freeze")
+	editDocument(t, dir, "rfc/0002-cache.md", "status: accepted", "status: proposed")
+	editDocument(t, dir, "rfc/0002-cache.md", "decided: 2026-02-01", "decided:")
+
+	out, code := run(t, dir, "accept", "RFC-0002")
+	if code != exitUsage {
+		t.Fatalf("exit = %d, want %d: %s", code, exitUsage, out)
+	}
+	if !hasLine(out, "rfc/0002-cache.md", "changed since it was frozen") {
+		t.Errorf("output = %q, want the document reported as changed since it was frozen", out)
+	}
+}
+
+// hasLine reports whether one line of out carries every one of parts.
+func hasLine(out string, parts ...string) bool {
+	for _, line := range strings.Split(out, "\n") {
+		all := true
+		for _, p := range parts {
+			all = all && strings.Contains(line, p)
+		}
+		if all {
+			return true
+		}
+	}
+	return false
+}
+
 func TestTransitionRefusesOneThatIsNotPermitted(t *testing.T) {
 	out, code := run(t, repository(t), "propose", "RFC-0001")
 

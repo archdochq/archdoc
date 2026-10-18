@@ -9,16 +9,20 @@ import (
 	"strings"
 	"time"
 
+	"archdoc.dev/internal/git"
+	"archdoc.dev/internal/lint"
 	"archdoc.dev/internal/repo"
 )
 
 // rationale is appended to a document when it is rejected. Lint reports the
 // section as empty until the prompt is replaced, which is the intended nudge to
 // finish the document before committing it.
-const rationale = "## " + repo.RejectionRationale + `
+const rationale = "## " + repo.RejectionRationale + "\n\n<!-- Considered on its merits and turned down. Why? -->\n"
 
-<!-- Considered on its merits and turned down. Why? -->
-`
+// writtenRationale stands in for the rationale when a rejection is judged. The
+// prompt alone is an empty section, so a rejection judged exactly as written
+// would always be refused for the section reject itself appends.
+const writtenRationale = "## " + repo.RejectionRationale + "\n\nWritten by its author.\n"
 
 // AppendRationale adds the rejection rationale section to a document, as
 // rejecting one does. `archdoc new --status=rejected` creates a document that
@@ -49,8 +53,9 @@ func Permitted(from repo.Status, strict bool) []repo.Status {
 }
 
 // Apply moves a document to a new status and returns the rewritten file. The
-// document on disk is not touched; writing it is the caller's business.
-func Apply(d *repo.Document, to repo.Status, now time.Time) ([]byte, error) {
+// document on disk is not touched; writing it is the caller's business. g is
+// the repository lint compares frozen documents against, nil outside git.
+func Apply(d *repo.Document, to repo.Status, now time.Time, g git.Repository) ([]byte, error) {
 	if !d.Type.HasLifecycle() {
 		return nil, fmt.Errorf("a %s has no lifecycle, so it cannot become %s", d.Type, to)
 	}
@@ -68,7 +73,7 @@ func Apply(d *repo.Document, to repo.Status, now time.Time) ([]byte, error) {
 	if !slices.Contains(permitted, to) {
 		return nil, transitionError(from, to, permitted)
 	}
-	if err := gate(d, to, now); err != nil {
+	if err := openQuestions(d, to); err != nil {
 		return nil, err
 	}
 	if to.Terminal() && !d.FrontMatter.Created.IsZero() && repo.StartOfDay(now).Before(d.FrontMatter.Created) {
@@ -101,94 +106,63 @@ func Apply(d *repo.Document, to repo.Status, now time.Time) ([]byte, error) {
 			return nil, err
 		}
 	}
+	judged := out
 	if to == repo.StatusRejected {
+		judged = appendSection(out, writtenRationale)
 		out = appendSection(out, rationale)
+	}
+	if to == repo.StatusAccepted || to == repo.StatusRejected {
+		if err := refuseWhatLintReports(d, to, judged, g, now); err != nil {
+			return nil, err
+		}
 	}
 	return out, nil
 }
 
-// gate refuses a transition that would freeze an unfinished document. It runs
-// before anything is written, and before reject appends its own prompt, so the
-// tool never fails on text it has just produced. Withdrawal gates nothing: a
-// document abandoned before a verdict is empty by nature.
-func gate(d *repo.Document, to repo.Status, now time.Time) error {
-	if to != repo.StatusAccepted && to != repo.StatusRejected {
+// Unfinished refuses a transition that would freeze a document lint reports
+// errors about. It carries the findings rather than a rendering of them, so a
+// caller presents them as it presents lint's own.
+type Unfinished struct {
+	ID       string
+	To       repo.Status
+	Findings []lint.Finding
+}
+
+func (e *Unfinished) Error() string {
+	return fmt.Sprintf("%s cannot become %s while lint reports errors about it", e.ID, e.To)
+}
+
+// refuseWhatLintReports judges the document as the transition writes it, in a
+// copy of the repository holding it, and refuses while lint reports an error
+// about it. What it lets through, L11 then forbids anyone repairing. Every
+// error is returned, so a document is not refused once per fault. L03 is left
+// out: a number another document also claims is corrected by renumbering that
+// one, which stays possible once this one is frozen.
+func refuseWhatLintReports(d *repo.Document, to repo.Status, judged []byte, g git.Repository, now time.Time) error {
+	var blocking []lint.Finding
+	for _, f := range lint.Run(lint.NewContext(d.Repo().With(d.Path, judged), g, now)) {
+		if f.Path == d.Path && f.Severity == lint.Error && f.Rule != "L03" {
+			blocking = append(blocking, f)
+		}
+	}
+	if len(blocking) == 0 {
 		return nil
 	}
-	// The H1, because L10 compares it against the front matter, reports an
-	// error, and does not soften against a frozen document. Every check here
-	// exists for that reason: what the gate lets through, L11 then forbids
-	// anyone repairing.
-	want := d.FrontMatter.Title
-	if d.Type.Numbered() {
-		want = d.FrontMatter.ID + ": " + d.FrontMatter.Title
-	}
-	switch h1, ok := d.H1(); {
-	case !ok:
-		return fmt.Errorf("the document has no H1; a document is finished before it is frozen")
-	case h1.Text != want:
-		return fmt.Errorf("the H1 reads %q but the front matter gives %q; a document is finished before it is frozen",
-			h1.Text, want)
-	}
+	return &Unfinished{ID: d.ID, To: to, Findings: blocking}
+}
 
-	titles := d.SectionTitles()
-	position := map[string]int{}
-	for i, title := range titles {
-		if _, seen := position[title]; !seen {
-			position[title] = i
-		}
+// openQuestions refuses to accept a document whose Open questions section holds
+// anything, before lint is asked, so the refusal is for the open questions and
+// not for their shape, and names where an answered one goes.
+func openQuestions(d *repo.Document, to repo.Status) error {
+	if to != repo.StatusAccepted {
+		return nil
 	}
-
-	previous, previousName := -1, ""
-	for _, title := range d.RequiredSections() {
-		sections := d.Sections(title)
-		if len(sections) == 0 {
-			return fmt.Errorf("section %q is missing; a document is finished before it is frozen", title)
+	for _, section := range d.Sections(repo.OpenQuestions) {
+		if !section.Empty() {
+			return fmt.Errorf("the %q section is not empty; move each question to %q with its answer, and remove anything else",
+				repo.OpenQuestions, repo.ResolvedQuestions)
 		}
-
-		// Order, because L08 checks it and reports an error.
-		if at := position[title]; at < previous {
-			return fmt.Errorf("section %q appears before %q, but must come after it; a document is finished before it is frozen",
-				title, previousName)
-		} else if at > previous {
-			previous, previousName = at, title
-		}
-
-		for _, section := range sections {
-			if section.Empty() {
-				return fmt.Errorf("section %q is empty; a document is finished before it is frozen", title)
-			}
-		}
-	}
-	if links := d.WikiLinks(); len(links) > 0 {
-		return fmt.Errorf("unresolved wiki link [[%s]] on line %d; run archdoc link first",
-			links[0].Name, links[0].Line)
-	}
-	// L08 requires the closing section to be the last H2, and does not soften.
-	// While Changelog and Open questions were required, the order check above
-	// kept them before Sources; neither is required now, so it is asked here.
-	if closing, ok := d.ClosingSection(); ok && to == repo.StatusAccepted && len(titles) > 0 {
-		if _, present := position[closing]; present && titles[len(titles)-1] != closing {
-			return fmt.Errorf("%q must be the last H2, but %q follows it; a document is finished before it is frozen",
-				closing, titles[len(titles)-1])
-		}
-	}
-	// Open questions first, so a document with questions still open is refused
-	// for those rather than for their shape.
-	if to == repo.StatusAccepted {
-		for _, section := range d.Sections(repo.OpenQuestions) {
-			if !section.Empty() {
-				return fmt.Errorf("the %q section is not empty; move each question to %q with its answer, and remove anything else",
-					repo.OpenQuestions, repo.ResolvedQuestions)
-			}
-		}
-	}
-	// What L20 and L21 report, because both are errors until the document is
-	// frozen and the freeze is what this would make permanent. The Changelog's
-	// dates are compared with the decided date about to be written.
-	problems := append(d.QuestionProblems(false), d.ChangelogProblems(repo.StartOfDay(now))...)
-	if len(problems) > 0 {
-		return fmt.Errorf("%s on line %d; a document is finished before it is frozen", problems[0].Message, problems[0].Line)
 	}
 	return nil
 }

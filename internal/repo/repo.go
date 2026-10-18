@@ -173,6 +173,28 @@ func Open(c *config.Config) (*Repo, error) {
 	return r, nil
 }
 
+// With returns a copy of the repository in which the document at docPath reads
+// as source, with every relationship derived again. The receiver is not
+// changed. A transition judges what it is about to write this way, because
+// what lint reports about a document depends on the rest of the repository.
+// docPath names a document already in it.
+func (r *Repo) With(docPath string, source []byte) *Repo {
+	c := &Repo{config: r.config}
+	for _, d := range r.documents {
+		// Only what discover sets survives, so a replaced document is parsed
+		// from nothing and a copied one gains its reverse lists afresh.
+		copied := &Document{Type: d.Type, Path: d.Path, ID: d.ID, Number: d.Number, Page: d.Page, repo: c}
+		read := d.Source
+		if d.Path == docPath {
+			read = source
+		}
+		copied.parse(read)
+		c.documents = append(c.documents, copied)
+	}
+	c.derive()
+	return c
+}
+
 // Config is the configuration this repository was opened with.
 func (r *Repo) Config() *config.Config { return r.config }
 
@@ -270,17 +292,22 @@ func (d *Document) read(root string) error {
 	if err != nil {
 		return err
 	}
+	d.parse(source)
+	return nil
+}
+
+// parse fills in everything a document's source decides.
+func (d *Document) parse(source []byte) {
 	d.Source = source
 	block, body, bodyLine, ok := splitFrontMatter(source)
 	d.Body, d.BodyLine = string(body), bodyLine
 	d.headings = parseHeadings(d.Body, d.BodyLine)
 	if !ok {
 		d.Problems = append(d.Problems, Problem{Line: 1, Message: "no front matter block"})
-		return nil
+		return
 	}
 	fm, problems := parseFrontMatter(d.Type, block)
 	d.FrontMatter, d.Problems = fm, append(d.Problems, problems...)
-	return nil
 }
 
 // discover lists the documents of one type. Subdirectories are ignored except

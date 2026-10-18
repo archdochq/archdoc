@@ -6,6 +6,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"slices"
+	"strings"
 	"testing"
 
 	"archdoc.dev/internal/git"
@@ -144,6 +145,9 @@ func TestOpenDistinguishesAMissingGitFromAMissingRepository(t *testing.T) {
 	}
 	if errors.Is(err, git.ErrNotARepository) {
 		t.Errorf("error = %v, want one that does not claim the directory is not a repository", err)
+	}
+	if !strings.Contains(err.Error(), "install git") {
+		t.Errorf("error = %v, want it to say git must be installed", err)
 	}
 }
 

@@ -99,7 +99,7 @@ func L01(ctx Context) []Finding {
 		}
 		if d.Type.HasLifecycle() {
 			if s := d.FrontMatter.Status; s != "" && !validStatus(s) {
-				rep.errorf(d, 1, "status %q is not one of draft, proposed, accepted, rejected, withdrawn", s)
+				rep.errorf(d, d.FrontMatter.LineOf("status"), "status %q is not one of draft, proposed, accepted, rejected, withdrawn", s)
 			}
 		}
 	}
@@ -126,7 +126,7 @@ func L02(ctx Context) []Finding {
 			rep.errorf(d, 0, "filename number is 0000, but sequences start at 1")
 		}
 		if got := d.FrontMatter.ID; got != d.ID {
-			rep.errorf(d, 1, "id is %q but the filename gives %q", got, d.ID)
+			rep.errorf(d, d.FrontMatter.LineOf("id"), "id is %q but the filename gives %q", got, d.ID)
 		}
 	}
 	return rep.findings
@@ -193,14 +193,14 @@ func L04(ctx Context) []Finding {
 		for _, ref := range references(d) {
 			target := ctx.Repo().ByID(ref.id)
 			if target == nil {
-				rep.errorf(d, 1, "%s references %s, which does not exist", ref.field, ref.id)
+				rep.errorf(d, d.FrontMatter.LineOf(ref.field), "%s references %s, which does not exist", ref.field, ref.id)
 				continue
 			}
 			// depends and includes name designs and decisions. Refs are
 			// informational and are cited from the body instead.
 			if ref.field == "depends" || ref.field == "includes" {
 				if !target.Type.Normative() {
-					rep.errorf(d, 1, "%s references %s, but only RFCs and ADRs are permitted there", ref.field, ref.id)
+					rep.errorf(d, d.FrontMatter.LineOf(ref.field), "%s references %s, but only RFCs and ADRs are permitted there", ref.field, ref.id)
 				}
 			}
 		}
@@ -221,7 +221,7 @@ func L05(ctx Context) []Finding {
 			if !slices.Contains(d.FrontMatter.Obsoletes, id) {
 				continue
 			}
-			rep.errorf(d, 1, "%s appears in both updates and obsoletes", id)
+			rep.errorf(d, d.FrontMatter.LineOf("obsoletes"), "%s appears in both updates and obsoletes", id)
 		}
 
 		for _, ref := range references(d) {
@@ -229,7 +229,7 @@ func L05(ctx Context) []Finding {
 				continue
 			}
 			if ref.id == d.ID {
-				rep.errorf(d, 1, "%s names itself in %s", ref.id, ref.field)
+				rep.errorf(d, d.FrontMatter.LineOf(ref.field), "%s names itself in %s", ref.id, ref.field)
 				continue
 			}
 			target := ctx.Repo().ByID(ref.id)
@@ -237,14 +237,14 @@ func L05(ctx Context) []Finding {
 				continue // L04 reports it
 			}
 			if target.Type != d.Type {
-				rep.errorf(d, 1, "%s references %s, which is a %s: only documents of the same type may be updated or obsoleted",
+				rep.errorf(d, d.FrontMatter.LineOf(ref.field), "%s references %s, which is a %s: only documents of the same type may be updated or obsoleted",
 					ref.field, ref.id, target.Type)
 				continue
 			}
 			if s := target.FrontMatter.Status; s != repo.StatusAccepted && s != "" {
 				// Not when the status is empty: L01 reports the missing value,
 				// and this rule would only render it into a broken sentence.
-				rep.errorf(d, 1, "%s references %s, which is %s: only an accepted document is in force and can be amended or replaced",
+				rep.errorf(d, d.FrontMatter.LineOf(ref.field), "%s references %s, which is %s: only an accepted document is in force and can be amended or replaced",
 					ref.field, ref.id, s)
 			}
 		}
@@ -270,7 +270,7 @@ func L06(ctx Context) []Finding {
 				// nothing but a malformed sentence.
 				continue
 			}
-			rep.errorf(d, 1, "includes %s, which is %s: a spec page reflects accepted documents only",
+			rep.errorf(d, d.FrontMatter.LineOf("includes"), "includes %s, which is %s: a spec page reflects accepted documents only",
 				id, target.FrontMatter.Status)
 		}
 	}
@@ -288,9 +288,9 @@ func L07(ctx Context) []Finding {
 		terminal := fm.Status.Terminal()
 		switch {
 		case terminal && fm.Decided.IsZero():
-			rep.errorf(d, 1, "status is %s but decided is not set", fm.Status)
+			rep.errorf(d, d.FrontMatter.LineOf("decided"), "status is %s but decided is not set", fm.Status)
 		case !terminal && !fm.Decided.IsZero():
-			rep.errorf(d, 1, "decided is set but status is %s, which is not terminal", fm.Status)
+			rep.errorf(d, d.FrontMatter.LineOf("decided"), "decided is set but status is %s, which is not terminal", fm.Status)
 		}
 		if !fm.Backfilled.IsZero() {
 			if !terminal {
@@ -304,7 +304,7 @@ func L07(ctx Context) []Finding {
 			}
 		}
 		if !fm.Decided.IsZero() && !fm.Created.IsZero() && fm.Decided.Before(fm.Created) {
-			rep.errorf(d, 1, "decided %s is before created %s",
+			rep.errorf(d, d.FrontMatter.LineOf("decided"), "decided %s is before created %s",
 				fm.Decided.Format(repo.DateLayout), fm.Created.Format(repo.DateLayout))
 		}
 	}
@@ -422,7 +422,7 @@ func L12(ctx Context) []Finding {
 				obsolete = append(obsolete, id)
 			}
 		}
-		rep.warnf(d, 1, "stale: includes %s, which %s been obsoleted",
+		rep.warnf(d, d.FrontMatter.LineOf("includes"), "stale: includes %s, which %s been obsoleted",
 			strings.Join(obsolete, ", "), plural(len(obsolete), "has", "have"))
 	}
 	return rep.findings
@@ -448,7 +448,7 @@ func L13(ctx Context) []Finding {
 		if !d.FrontMatter.Verified.Before(cutoff) {
 			continue
 		}
-		rep.warnf(d, 1, "verified %s, more than %d days ago",
+		rep.warnf(d, d.FrontMatter.LineOf("verified"), "verified %s, more than %d days ago",
 			d.FrontMatter.Verified.Format(repo.DateLayout), days)
 	}
 	return rep.findings
@@ -864,7 +864,7 @@ func L18(ctx Context) []Finding {
 				// message would end "while this document is ".
 				continue
 			}
-			rep.warnf(d, 1, "depends on %s, which is %s, while this document is %s",
+			rep.warnf(d, d.FrontMatter.LineOf("depends"), "depends on %s, which is %s, while this document is %s",
 				id, status, d.FrontMatter.Status)
 		}
 	}

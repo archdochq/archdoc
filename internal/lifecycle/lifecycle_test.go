@@ -1,6 +1,8 @@
 package lifecycle_test
 
 import (
+	"errors"
+	"fmt"
 	"slices"
 	"strings"
 	"testing"
@@ -28,6 +30,21 @@ func documentIn(t *testing.T, configuration, path, source string) *repo.Document
 	return repotest.Document(t, r, path)
 }
 
+// refusal is what a transition's error says: each finding of an Unfinished
+// refusal on its own line with its path, line and rule, or the message of any
+// other error.
+func refusal(err error) string {
+	var unfinished *lifecycle.Unfinished
+	if !errors.As(err, &unfinished) {
+		return err.Error()
+	}
+	var b strings.Builder
+	for _, f := range unfinished.Findings {
+		fmt.Fprintf(&b, "%s:%d: %s (%s)\n", f.Path, f.Line, f.Message, f.Rule)
+	}
+	return b.String()
+}
+
 // rfc renders a complete, written RFC so that only the field under test varies.
 func rfc(status, decided, extras string) string {
 	return `---
@@ -36,7 +53,7 @@ title: A design   # the working title, kept short
 status: ` + status + `
 created: 2026-01-01
 decided:` + decided + `
-depends: [ADR-0001]   # the storage decision
+depends: []   # the storage decision
 updates: []
 obsoletes: []
 ---
@@ -96,7 +113,7 @@ func TestPermittedTransitions(t *testing.T) {
 func TestApplyRewritesOnlyTheFieldsItChanges(t *testing.T) {
 	d := document(t, "rfc/0001-a-design.md", rfc("proposed", "", "\n"))
 
-	out, err := lifecycle.Apply(d, repo.StatusAccepted, now)
+	out, err := lifecycle.Apply(d, repo.StatusAccepted, now, nil)
 	if err != nil {
 		t.Fatalf("Apply: %v", err)
 	}
@@ -110,7 +127,7 @@ func TestApplyRewritesOnlyTheFieldsItChanges(t *testing.T) {
 	// Everything else must survive exactly, comments included.
 	for _, want := range []string{
 		"title: A design   # the working title, kept short\n",
-		"depends: [ADR-0001]   # the storage decision\n",
+		"depends: []   # the storage decision\n",
 		"created: 2026-01-01\n",
 		"obsoletes: []\n",
 	} {
@@ -127,11 +144,11 @@ func TestApplyRewritesOnlyTheFieldsItChanges(t *testing.T) {
 func TestApplyRefusesATransitionThatIsNotPermitted(t *testing.T) {
 	d := document(t, "rfc/0001-a-design.md", rfc("draft", "", "\n"))
 
-	_, err := lifecycle.Apply(d, repo.StatusAccepted, now)
+	_, err := lifecycle.Apply(d, repo.StatusAccepted, now, nil)
 	if err == nil {
 		t.Fatal("Apply allowed draft to accepted under strict mode")
 	}
-	if !strings.Contains(err.Error(), "proposed") {
+	if !strings.Contains(refusal(err), "proposed") {
 		t.Errorf("error = %q, want it to name the permitted transitions", err)
 	}
 }
@@ -140,8 +157,8 @@ func TestAcceptRefusesAnUnfinishedDocument(t *testing.T) {
 	empty := strings.Replace(rfc("proposed", "", "\n"), "The design itself.", "<!-- the design -->", 1)
 	d := document(t, "rfc/0001-a-design.md", empty)
 
-	_, err := lifecycle.Apply(d, repo.StatusAccepted, now)
-	if err == nil || !strings.Contains(err.Error(), "Proposal") {
+	_, err := lifecycle.Apply(d, repo.StatusAccepted, now, nil)
+	if err == nil || !strings.Contains(refusal(err), "Proposal") {
 		t.Errorf("error = %v, want it to name the empty Proposal section", err)
 	}
 }
@@ -149,11 +166,11 @@ func TestAcceptRefusesAnUnfinishedDocument(t *testing.T) {
 func TestAcceptRefusesWhileQuestionsAreOpen(t *testing.T) {
 	d := document(t, "rfc/0001-a-design.md", rfc("proposed", "", "\nWhether this is right.\n"))
 
-	_, err := lifecycle.Apply(d, repo.StatusAccepted, now)
-	if err == nil || !strings.Contains(err.Error(), "Open questions") {
+	_, err := lifecycle.Apply(d, repo.StatusAccepted, now, nil)
+	if err == nil || !strings.Contains(refusal(err), "Open questions") {
 		t.Errorf("error = %v, want it to name the open questions", err)
 	}
-	if err != nil && !strings.Contains(err.Error(), "Resolved questions") {
+	if err != nil && !strings.Contains(refusal(err), "Resolved questions") {
 		t.Errorf("error = %v, want it to say where an answered question goes", err)
 	}
 }
@@ -163,8 +180,8 @@ func TestAcceptRefusesOpenQuestionsBeforeTheirShape(t *testing.T) {
 	// questions still open is refused for those.
 	d := document(t, "rfc/0001-a-design.md", rfc("proposed", "", "\nPreamble.\n\n### Is it right?\n"))
 
-	_, err := lifecycle.Apply(d, repo.StatusAccepted, now)
-	if err == nil || !strings.Contains(err.Error(), "is not empty") {
+	_, err := lifecycle.Apply(d, repo.StatusAccepted, now, nil)
+	if err == nil || !strings.Contains(refusal(err), "is not empty") {
 		t.Errorf("error = %v, want the refusal for open questions", err)
 	}
 }
@@ -174,8 +191,8 @@ func TestTheGateRefusesWhatL20Reports(t *testing.T) {
 		"## Resolved questions\n\n### Is it right?\n\nNo answer.\n\n## Changelog", 1)
 	for _, to := range []repo.Status{repo.StatusAccepted, repo.StatusRejected} {
 		d := document(t, "rfc/0001-a-design.md", unanswered)
-		_, err := lifecycle.Apply(d, to, now)
-		if err == nil || !strings.Contains(err.Error(), "does not end with a blockquote") || !strings.Contains(err.Error(), "line ") {
+		_, err := lifecycle.Apply(d, to, now, nil)
+		if err == nil || !strings.Contains(refusal(err), "a-design.md:39: resolved question") {
 			t.Errorf("%s: error = %v, want the fault and its line", to, err)
 		}
 	}
@@ -183,12 +200,12 @@ func TestTheGateRefusesWhatL20Reports(t *testing.T) {
 	// reject checks Open questions as well, which accept refuses earlier.
 	quoted := rfc("proposed", "", "\n### Is it right?\n\n> A quote.\n")
 	d := document(t, "rfc/0001-a-design.md", quoted)
-	if _, err := lifecycle.Apply(d, repo.StatusRejected, now); err == nil || !strings.Contains(err.Error(), "ends with a blockquote") {
+	if _, err := lifecycle.Apply(d, repo.StatusRejected, now, nil); err == nil || !strings.Contains(refusal(err), "ends with a blockquote") {
 		t.Errorf("reject: error = %v, want the open question ending with a blockquote", err)
 	}
 
 	answered := strings.Replace(unanswered, "No answer.\n", "Detail.\n\n> Yes.\n", 1)
-	if _, err := lifecycle.Apply(document(t, "rfc/0001-a-design.md", answered), repo.StatusAccepted, now); err != nil {
+	if _, err := lifecycle.Apply(document(t, "rfc/0001-a-design.md", answered), repo.StatusAccepted, now, nil); err != nil {
 		t.Errorf("accept refused an answered question: %v", err)
 	}
 }
@@ -200,8 +217,8 @@ func TestTheGateRefusesWhatL21Reports(t *testing.T) {
 		{"an entry dated after the transition", "- 2026-09-12: written.", "after the document was decided, on 2026-09-11"},
 	} {
 		source := strings.Replace(rfc("proposed", "", "\n"), "- 2026-01-01: written.", tc.entry, 1)
-		_, err := lifecycle.Apply(document(t, "rfc/0001-a-design.md", source), repo.StatusAccepted, now)
-		if err == nil || !strings.Contains(err.Error(), tc.want) {
+		_, err := lifecycle.Apply(document(t, "rfc/0001-a-design.md", source), repo.StatusAccepted, now, nil)
+		if err == nil || !strings.Contains(refusal(err), tc.want) {
 			t.Errorf("%s: error = %v, want %q", tc.name, err, tc.want)
 		}
 	}
@@ -209,7 +226,7 @@ func TestTheGateRefusesWhatL21Reports(t *testing.T) {
 	// The decided date about to be written, not the document's current one,
 	// which is empty while it is proposed.
 	today := strings.Replace(rfc("proposed", "", "\n"), "- 2026-01-01: written.", "- 2026-09-11: written.", 1)
-	if _, err := lifecycle.Apply(document(t, "rfc/0001-a-design.md", today), repo.StatusAccepted, now); err != nil {
+	if _, err := lifecycle.Apply(document(t, "rfc/0001-a-design.md", today), repo.StatusAccepted, now, nil); err != nil {
 		t.Errorf("an entry dated the day of the transition was refused: %v", err)
 	}
 }
@@ -223,13 +240,13 @@ func TestAcceptRefusesAHeadingAfterSources(t *testing.T) {
 	after = strings.Replace(after, "decided:", "decided:\nbackfilled: 2026-09-11", 1)
 	d := document(t, "rfc/0001-a-design.md", after)
 
-	_, err := lifecycle.Apply(d, repo.StatusAccepted, now)
-	if err == nil || !strings.Contains(err.Error(), `"Sources" must be the last H2`) {
+	_, err := lifecycle.Apply(d, repo.StatusAccepted, now, nil)
+	if err == nil || !strings.Contains(refusal(err), `"Sources" must be the last H2`) {
 		t.Errorf("error = %v, want it to say Sources must be last", err)
 	}
 
 	// Rejecting appends the rationale, which then closes the document.
-	if _, err := lifecycle.Apply(d, repo.StatusRejected, now); err != nil {
+	if _, err := lifecycle.Apply(d, repo.StatusRejected, now, nil); err != nil {
 		t.Errorf("reject refused it: %v", err)
 	}
 }
@@ -238,8 +255,8 @@ func TestAcceptRefusesAnUnresolvedWikiLink(t *testing.T) {
 	linked := strings.Replace(rfc("proposed", "", "\n"), "What this proposes.", "See [[RFC-0002]].", 1)
 	d := document(t, "rfc/0001-a-design.md", linked)
 
-	_, err := lifecycle.Apply(d, repo.StatusAccepted, now)
-	if err == nil || !strings.Contains(err.Error(), "RFC-0002") {
+	_, err := lifecycle.Apply(d, repo.StatusAccepted, now, nil)
+	if err == nil || !strings.Contains(refusal(err), "RFC-0002") {
 		t.Errorf("error = %v, want it to name the unresolved wiki link", err)
 	}
 }
@@ -247,7 +264,7 @@ func TestAcceptRefusesAnUnresolvedWikiLink(t *testing.T) {
 func TestRejectAppendsTheRationaleSection(t *testing.T) {
 	d := document(t, "rfc/0001-a-design.md", rfc("proposed", "", "\n"))
 
-	out, err := lifecycle.Apply(d, repo.StatusRejected, now)
+	out, err := lifecycle.Apply(d, repo.StatusRejected, now, nil)
 	if err != nil {
 		t.Fatalf("Apply: %v", err)
 	}
@@ -268,7 +285,7 @@ func TestWithdrawChecksNothing(t *testing.T) {
 	bare := strings.Replace(rfc("draft", "", "\n"), "The design itself.", "<!-- unwritten [[RFC-0002]] -->", 1)
 	d := document(t, "rfc/0001-a-design.md", bare)
 
-	out, err := lifecycle.Apply(d, repo.StatusWithdrawn, now)
+	out, err := lifecycle.Apply(d, repo.StatusWithdrawn, now, nil)
 	if err != nil {
 		t.Fatalf("Apply: %v", err)
 	}
@@ -281,7 +298,7 @@ func TestRejectKeepsCarriageReturnsInACRLFFile(t *testing.T) {
 	crlf := strings.ReplaceAll(rfc("proposed", "", "\n"), "\n", "\r\n")
 	d := document(t, "rfc/0001-a-design.md", crlf)
 
-	out, err := lifecycle.Apply(d, repo.StatusRejected, now)
+	out, err := lifecycle.Apply(d, repo.StatusRejected, now, nil)
 	if err != nil {
 		t.Fatalf("Apply: %v", err)
 	}
@@ -308,8 +325,8 @@ func TestRejectKeepsCarriageReturnsInACRLFFile(t *testing.T) {
 func TestApplyRefusesADocumentWithNoLifecycle(t *testing.T) {
 	d := document(t, "spec/database.md", "---\ntitle: Database\nincludes: []\n---\n\n# Database\n\nText.\n")
 
-	_, err := lifecycle.Apply(d, repo.StatusAccepted, now)
-	if err == nil || !strings.Contains(err.Error(), "spec") {
+	_, err := lifecycle.Apply(d, repo.StatusAccepted, now, nil)
+	if err == nil || !strings.Contains(refusal(err), "spec") {
 		t.Errorf("error = %v, want it to say a spec page has no lifecycle", err)
 	}
 }
@@ -321,7 +338,7 @@ func TestAcceptLooksAtEveryOpenQuestionsSection(t *testing.T) {
 		"## Changelog", "## Open questions\n\nStill unresolved.\n\n## Changelog", 1)
 	d := document(t, "rfc/0001-a-design.md", twice)
 
-	if _, err := lifecycle.Apply(d, repo.StatusAccepted, now); err == nil {
+	if _, err := lifecycle.Apply(d, repo.StatusAccepted, now, nil); err == nil {
 		t.Error("accepted a document whose second Open questions section is not empty")
 	}
 }
@@ -331,7 +348,7 @@ func TestApplyAllowsDraftToAcceptedWhenStrictIsOff(t *testing.T) {
 	// worth running end to end rather than only through the graph.
 	d := documentIn(t, `{"name":"T","strict":false}`, "rfc/0001-a-design.md", rfc("draft", "", "\n"))
 
-	out, err := lifecycle.Apply(d, repo.StatusAccepted, now)
+	out, err := lifecycle.Apply(d, repo.StatusAccepted, now, nil)
 	if err != nil {
 		t.Fatalf("Apply: %v", err)
 	}
@@ -350,8 +367,8 @@ func TestAcceptRefusesASectionHoldingAnUnterminatedComment(t *testing.T) {
 	open := strings.Replace(rfc("proposed", "", "\n"), "Nothing breaks.", "<!-- what breaks", 1)
 	d := document(t, "rfc/0001-a-design.md", open)
 
-	_, err := lifecycle.Apply(d, repo.StatusAccepted, now)
-	if err == nil || !strings.Contains(err.Error(), "Backwards compatibility") {
+	_, err := lifecycle.Apply(d, repo.StatusAccepted, now, nil)
+	if err == nil || !strings.Contains(refusal(err), "Backwards compatibility") {
 		t.Errorf("error = %v, want it to name the empty Backwards compatibility section", err)
 	}
 }
@@ -366,15 +383,15 @@ func TestApplyNamesAnUnusableStatusRatherThanCallingItTerminal(t *testing.T) {
 	for _, status := range []string{"", "Draft", "nonsense"} {
 		d := document(t, "rfc/0001-a-design.md", rfc(status, "", "\n"))
 
-		_, err := lifecycle.Apply(d, repo.StatusProposed, now)
+		_, err := lifecycle.Apply(d, repo.StatusProposed, now, nil)
 		if err == nil {
 			t.Errorf("status %q was accepted", status)
 			continue
 		}
-		if strings.Contains(err.Error(), "is terminal") {
+		if strings.Contains(refusal(err), "is terminal") {
 			t.Errorf("status %q: %v, want it to name the status as unusable", status, err)
 		}
-		if !strings.Contains(err.Error(), "status") {
+		if !strings.Contains(refusal(err), "status") {
 			t.Errorf("status %q: %v, want it to say what is wrong", status, err)
 		}
 	}
@@ -383,8 +400,8 @@ func TestApplyNamesAnUnusableStatusRatherThanCallingItTerminal(t *testing.T) {
 func TestApplyStillExplainsATerminalDocument(t *testing.T) {
 	d := document(t, "rfc/0001-a-design.md", rfc("accepted", " 2026-02-01", "\n"))
 
-	_, err := lifecycle.Apply(d, repo.StatusProposed, now)
-	if err == nil || !strings.Contains(err.Error(), "is terminal") {
+	_, err := lifecycle.Apply(d, repo.StatusProposed, now, nil)
+	if err == nil || !strings.Contains(refusal(err), "is terminal") {
 		t.Errorf("error = %v, want it to say the document is terminal", err)
 	}
 }
@@ -396,11 +413,11 @@ func TestAcceptRefusesADocumentMissingARequiredSection(t *testing.T) {
 	without := strings.Replace(rfc("proposed", "", "\n"), "## Alternatives considered\n\nWhat lost.\n\n", "", 1)
 	d := document(t, "rfc/0001-a-design.md", without)
 
-	_, err := lifecycle.Apply(d, repo.StatusAccepted, now)
-	if err == nil || !strings.Contains(err.Error(), "Alternatives considered") {
+	_, err := lifecycle.Apply(d, repo.StatusAccepted, now, nil)
+	if err == nil || !strings.Contains(refusal(err), "Alternatives considered") {
 		t.Errorf("error = %v, want it to name the missing section", err)
 	}
-	if err != nil && !strings.Contains(err.Error(), "missing") {
+	if err != nil && !strings.Contains(refusal(err), "missing") {
 		t.Errorf("error = %v, want it to say the section is missing rather than empty", err)
 	}
 }
@@ -412,8 +429,8 @@ func TestRejectRefusesADocumentWhoseParseStopsShort(t *testing.T) {
 	open := strings.Replace(rfc("proposed", "", "\n"), "- 2026-01-01: written.", "- 2026-01-01: written. <!-- TODO", 1)
 	d := document(t, "rfc/0001-a-design.md", open)
 
-	_, err := lifecycle.Apply(d, repo.StatusRejected, now)
-	if err == nil || !strings.Contains(err.Error(), "unterminated") {
+	_, err := lifecycle.Apply(d, repo.StatusRejected, now, nil)
+	if err == nil || !strings.Contains(refusal(err), "unterminated") {
 		t.Errorf("error = %v, want it to refuse and name the unterminated marker", err)
 	}
 }
@@ -429,11 +446,11 @@ func TestAcceptRefusesToWriteADecidedDateBeforeCreated(t *testing.T) {
 	ahead := strings.Replace(rfc("proposed", "", "\n"), "created: 2026-01-01", "created: 2027-01-01", 1)
 	d := document(t, "rfc/0001-a-design.md", ahead)
 
-	_, err := lifecycle.Apply(d, repo.StatusAccepted, now)
+	_, err := lifecycle.Apply(d, repo.StatusAccepted, now, nil)
 	if err == nil {
 		t.Fatal("the transition was allowed, writing a decided date before created")
 	}
-	if !strings.Contains(err.Error(), "created") {
+	if !strings.Contains(refusal(err), "created") {
 		t.Errorf("error = %v, want it to name the created date", err)
 	}
 }
@@ -446,7 +463,7 @@ func TestAcceptAllowsADecisionOnTheDayOfCreation(t *testing.T) {
 	sameDay = strings.Replace(sameDay, "- 2026-01-01: written.", "- "+now.Format(repo.DateLayout)+": written.", 1)
 	d := document(t, "rfc/0001-a-design.md", sameDay)
 
-	if _, err := lifecycle.Apply(d, repo.StatusAccepted, now); err != nil {
+	if _, err := lifecycle.Apply(d, repo.StatusAccepted, now, nil); err != nil {
 		t.Errorf("a same-day decision was refused: %v", err)
 	}
 }
@@ -479,11 +496,11 @@ func TestAcceptRefusesWhatTheLinterWillRejectForever(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			d := document(t, "rfc/0001-a-design.md", tc.source)
 
-			_, err := lifecycle.Apply(d, repo.StatusAccepted, now)
+			_, err := lifecycle.Apply(d, repo.StatusAccepted, now, nil)
 			if err == nil {
 				t.Fatalf("accept allowed it")
 			}
-			if !strings.Contains(err.Error(), tc.want) {
+			if !strings.Contains(refusal(err), tc.want) {
 				t.Errorf("error = %v, want it to name %q", err, tc.want)
 			}
 		})
@@ -491,9 +508,8 @@ func TestAcceptRefusesWhatTheLinterWillRejectForever(t *testing.T) {
 }
 
 func TestAcceptRefusesADocumentWithNoH1AtAll(t *testing.T) {
-	// The gate has two H1 arms. The mismatched-text one is pinned; the
-	// "no H1, or a first heading that is not an H1" one was pinned by nothing,
-	// because every other test's document opens with a correct H1.
+	// Every other test's document opens with a correct H1, so a missing one is
+	// pinned here.
 	for _, name := range []string{"no heading at all", "first heading is an H2"} {
 		source := rfc("proposed", "", "\n")
 		switch name {
@@ -504,17 +520,12 @@ func TestAcceptRefusesADocumentWithNoH1AtAll(t *testing.T) {
 		}
 		d := document(t, "rfc/0001-a-design.md", source)
 
-		_, err := lifecycle.Apply(d, repo.StatusAccepted, now)
+		_, err := lifecycle.Apply(d, repo.StatusAccepted, now, nil)
 		if err == nil {
 			t.Errorf("%s: accept allowed it", name)
 			continue
 		}
-		// The exact message, because the arm below this one also refuses these
-		// documents: it compares the H1's text and a missing H1 has none, so it
-		// reports `the H1 reads ""`. This arm is not what makes the document
-		// refused, it is what makes the refusal say something useful, and only
-		// an assertion on the wording pins that.
-		if !strings.Contains(err.Error(), "has no H1") {
+		if !strings.Contains(refusal(err), "must be an H1") {
 			t.Errorf("%s: error = %v, want it to say the document has no H1", name, err)
 		}
 	}
