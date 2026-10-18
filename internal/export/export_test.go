@@ -313,6 +313,7 @@ func TestEveryFieldIsInThePublishedSchema(t *testing.T) {
 		{"resolved_question", export.ResolvedQuestion{}},
 		{"answer", export.Answer{}},
 		{"changelog_entry", export.ChangelogEntry{}},
+		{"rejection_rationale_section", export.RejectionRationaleSection{}},
 	} {
 		where := schema
 		if c.def != "" {
@@ -337,16 +338,27 @@ func TestEveryFieldIsInThePublishedSchema(t *testing.T) {
 		for name := range properties {
 			declared[name] = true
 		}
+		// A field without omitempty is always written, so the schema has to
+		// require it, and one with omitempty may be absent, so it must not.
+		required := map[string]bool{}
+		list, _ := where["required"].([]any)
+		for _, name := range list {
+			required[name.(string)] = true
+		}
 
 		typ := reflect.TypeOf(c.value)
 		for i := range typ.NumField() {
-			name, _, _ := strings.Cut(typ.Field(i).Tag.Get("json"), ",")
+			name, options, _ := strings.Cut(typ.Field(i).Tag.Get("json"), ",")
 			if name == "" || name == "-" {
 				continue
 			}
 			if !declared[name] {
 				t.Errorf("%s.%s is exported as %q but the schema does not declare it",
 					typ.Name(), typ.Field(i).Name, name)
+			}
+			if always := !strings.Contains(options, "omitempty"); always != required[name] {
+				t.Errorf("%s.%s is always written: %v, but the schema requires %q: %v",
+					typ.Name(), typ.Field(i).Name, always, name, required[name])
 			}
 			delete(declared, name)
 		}
@@ -399,12 +411,28 @@ func TestArrayFieldsAreNeverNull(t *testing.T) {
 	if len(out.Documents) != 2 {
 		t.Fatalf("expected two documents, got %d", len(out.Documents))
 	}
+	var schema struct {
+		Defs struct {
+			Document struct {
+				Required []string `json:"required"`
+			} `json:"document"`
+		} `json:"$defs"`
+	}
+	if err := json.Unmarshal(export.JSONSchema, &schema); err != nil {
+		t.Fatal(err)
+	}
+	fields := []string{
+		"depends", "updates", "obsoletes", "includes",
+		"updated_by", "obsoleted_by", "depended_on_by", "included_in",
+		"required_sections", "contents", "changelog", "rejection_rationale", "links",
+	}
+	for _, field := range fields {
+		if !slices.Contains(schema.Defs.Document.Required, field) {
+			t.Errorf("the schema does not declare %s required, though every document carries it", field)
+		}
+	}
 	for _, doc := range out.Documents {
-		for _, field := range []string{
-			"depends", "updates", "obsoletes", "includes",
-			"updated_by", "obsoleted_by", "depended_on_by", "included_in",
-			"required_sections", "changelog", "links",
-		} {
+		for _, field := range fields {
 			raw, present := doc[field]
 			if !present {
 				t.Errorf("%s is missing; the schema declares it required", field)
@@ -422,9 +450,6 @@ func TestArrayFieldsAreNeverNull(t *testing.T) {
 			if raw, present := questions[field]; !present || string(raw) == "null" {
 				t.Errorf("questions.%s is %s; the schema declares it a required array", field, raw)
 			}
-		}
-		if string(doc["sections"]) == "null" {
-			t.Error("sections serialised as null; the schema declares it an object")
 		}
 	}
 }
@@ -540,6 +565,77 @@ func TestNoBodiesDropsQuestionAndEntryBodies(t *testing.T) {
 	if d.Questions.Resolved[0].Answer.Line == 0 || d.Changelog[0].Line == 0 {
 		t.Error("--no-bodies dropped more than the bodies")
 	}
+}
+
+// rejectedDoc is a rejected RFC whose rationale has a subsection, with an H1
+// after it that ends the section and stays in contents.
+func rejectedDoc() string {
+	return rfc("RFC-0002", "R", "rejected", "## Abstract\n\nWords.\n\n"+
+		"## Rejection rationale\n\nToo costly.\n\n### Detail\n\nMore.\n\n# Appendix\n\nKept.\n")
+}
+
+func TestTheRejectionRationaleIsPublishedAsData(t *testing.T) {
+	r := repotest.New(t, map[string]string{"rfc/0002-r.md": rejectedDoc()})
+	d := export.Build(r, export.Options{}).Documents[0]
+
+	if got := anchorsOf(d.Contents); strings.Join(got, " ") != "rfc-0002-r abstract appendix" {
+		t.Errorf("contents = %q, want the rationale and its subsection left out", got)
+	}
+	if len(d.RejectionRationale) != 1 {
+		t.Fatalf("rejection_rationale = %+v, want one section", d.RejectionRationale)
+	}
+	s := d.RejectionRationale[0]
+	if s.Anchor != "rejection-rationale" || s.Line != 18 || s.Body == nil || *s.Body != "\nToo costly.\n\n### Detail\n\nMore.\n" {
+		t.Errorf("rejection rationale = %+v, body %q", s, deref(s.Body))
+	}
+	last := d.RequiredSections[len(d.RequiredSections)-1]
+	if last.Title != "Rejection rationale" || last.Anchor != s.Anchor {
+		t.Errorf("required sections end with %+v, want the rationale under its own anchor", last)
+	}
+}
+
+func TestEveryRejectionRationaleSectionIsPublished(t *testing.T) {
+	// Not rejected, and with two: the section leaves contents whatever the
+	// status, and a second is legal Markdown that would otherwise vanish.
+	r := repotest.New(t, map[string]string{"rfc/0001-a.md": rfc("RFC-0001", "A", "draft",
+		"## Rejection rationale\n\nOne.\n\n## Notes\n\nKept.\n\n## Rejection rationale\n\nTwo.\n")})
+	d := export.Build(r, export.Options{}).Documents[0]
+
+	if got := anchorsOf(d.Contents); strings.Join(got, " ") != "rfc-0001-a notes" {
+		t.Errorf("contents = %q, want both rationale sections left out", got)
+	}
+	if len(d.RejectionRationale) != 2 || *d.RejectionRationale[0].Body != "\nOne.\n" || *d.RejectionRationale[1].Body != "\nTwo.\n" ||
+		d.RejectionRationale[1].Anchor != "rejection-rationale-1" {
+		t.Errorf("rejection_rationale = %+v, want both sections in document order", d.RejectionRationale)
+	}
+}
+
+func TestAllHeadingsKeepsTheRejectionRationaleInContents(t *testing.T) {
+	r := repotest.New(t, map[string]string{"rfc/0002-r.md": rejectedDoc()})
+	d := export.Build(r, export.Options{AllHeadings: true}).Documents[0]
+
+	if got := anchorsOf(d.Contents); strings.Join(got, " ") != "rfc-0002-r abstract rejection-rationale detail appendix" {
+		t.Errorf("contents = %q, want every heading", got)
+	}
+	if len(d.RejectionRationale) != 1 {
+		t.Error("the rejection rationale is published under --all-headings too")
+	}
+}
+
+func TestNoBodiesDropsTheRejectionRationaleBody(t *testing.T) {
+	r := repotest.New(t, map[string]string{"rfc/0002-r.md": rejectedDoc()})
+	d := export.Build(r, export.Options{NoBodies: true}).Documents[0]
+
+	if len(d.RejectionRationale) != 1 || d.RejectionRationale[0].Body != nil || d.RejectionRationale[0].Line == 0 {
+		t.Errorf("rejection rationale under --no-bodies = %+v, want the section without its body", d.RejectionRationale)
+	}
+}
+
+func deref(s *string) string {
+	if s == nil {
+		return "<nil>"
+	}
+	return *s
 }
 
 func TestAHeadingOfLevelOneEndsAStructuredSection(t *testing.T) {

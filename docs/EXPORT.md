@@ -8,7 +8,7 @@ the identifier rules or the reverse-relationship graph.
 archdoc export                    everything, one document, stdout
 archdoc export --out dist/        a tree of files
 archdoc export --no-bodies        metadata and structure, no prose
-archdoc export --all-headings     contents keeps the questions and Changelog
+archdoc export --all-headings     contents keeps the questions, Changelog and rationale
 archdoc export --source           adds each document's file as it is on disk
 archdoc export --commit <rev>     records the revision this describes
 archdoc export --schema           the JSON Schema, no repository needed
@@ -110,9 +110,10 @@ and `glossary`, and `implemented` is true because of `database` alone.
 ## Contents
 
 `contents` is the document's design as a flat list of its headings, in the
-order they are written: every heading outside the question sections and the
-Changelog, which are published as data of their own (see Questions and the
-Changelog below). Rendering it renders the design:
+order they are written: every heading outside the question sections, the
+Changelog and the rejection rationale, which are published as data of their
+own (see Questions, the Changelog and the rejection rationale below).
+Rendering it renders the design:
 
 ```js
 for (const e of doc.contents) {
@@ -146,10 +147,13 @@ absent rather than `""` in the first case.
 **A section in `required_sections` may be missing from `contents`.** Those are
 checked by lint, not guaranteed, and a draft part-way through being written is
 the ordinary case. The anchor is given either way so you can render a heading
-and say it is not written yet.
+and say it is not written yet. A rejected document's `Rejection rationale` is
+not in `contents` unless `--all-headings` was given: look for it in
+`rejection_rationale`, under the same anchor, before saying it is missing.
 
 ```js
 const byAnchor = new Map(doc.contents.map(e => [e.anchor, e]))
+for (const s of doc.rejection_rationale) byAnchor.set(s.anchor, s)
 for (const {title, anchor} of doc.required_sections) {
   render(title, byAnchor.get(anchor)?.body ?? null)
 }
@@ -163,7 +167,7 @@ the process permits them.
 Anything before the first heading belongs to no entry, and appears only in
 `source`. In practice that is a blank line.
 
-## Questions and the Changelog
+## Questions, the Changelog and the rejection rationale
 
 A document's questions and its Changelog record its process rather than its
 design, so they are published as data of their own and left out of `contents`:
@@ -202,6 +206,24 @@ whatever lint reports; a line belonging to no question or entry is only in
 
 Link to a question by its `anchor`. An answer has no anchor of its own: it is
 reached through its question.
+
+A rejected document's `Rejection rationale` records the verdict rather than the
+design, and is published the same way, as `rejection_rationale`: every section
+of that title on any document, whatever its status or type, in document order,
+and empty where there is none. `--all-headings` puts it back into `contents`
+too. Like the other two, it holds what was parsed, whatever lint reports.
+
+```json
+"rejection_rationale": [
+  {"anchor": "rejection-rationale", "line": 41,
+   "body": "\nA second index of the same documents would drift from `INDEX.md`.\n"}
+]
+```
+
+A section's `body` is everything after its heading up to the next heading of
+level one or two, subsections included, as written. `reject` appends the
+section with a prompt in it, and an unreplaced prompt is published as it
+stands.
 
 ## Links
 
@@ -283,9 +305,11 @@ integer, at most once between two tagged releases. A number a release has
 emitted is never given to another shape. From 1.0 the shape only gains
 **optional** fields.
 
-Version 3 took the question sections and the Changelog out of `contents` and
-published them as `questions` and `changelog`, and an RFC's
-`required_sections` no longer names either.
+Version 3 took the question sections, the Changelog and the rejection
+rationale out of `contents` and published them as `questions`, `changelog` and
+`rejection_rationale`. An RFC's `required_sections` no longer names the
+question sections or the Changelog; a rejected document's still names
+`Rejection rationale`.
 
 Version 2 replaced the anchor-keyed `sections` object,
 which could not carry the order a document was written in and named level two

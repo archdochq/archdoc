@@ -52,7 +52,7 @@ func newExportCommand() *cobra.Command {
 	cmd.Flags().StringVar(&out, "out", "", "write a tree of files into this directory instead of one document")
 	cmd.Flags().BoolVar(&noBodies, "no-bodies", false, "omit every body, keeping the outline")
 	cmd.Flags().BoolVar(&allHeadings, "all-headings", false,
-		"keep the question sections and the Changelog in contents, as well as publishing them as data")
+		"keep the question sections, the Changelog and the Rejection rationale in contents, as well as publishing them as data")
 	cmd.Flags().BoolVar(&source, "source", false, "include each document's file as it is on disk, front matter included")
 	cmd.Flags().StringVar(&commit, "commit", "", "record this revision as the one the export describes")
 	cmd.Flags().BoolVar(&schema, "schema", false, "print the JSON Schema the output conforms to and exit")
@@ -98,6 +98,10 @@ func writeTree(cmd *cobra.Command, r *repo.Repo, dir string, opts export.Options
 		d.Changelog = slices.Clone(d.Changelog)
 		for j := range d.Changelog {
 			d.Changelog[j].Body = nil
+		}
+		d.RejectionRationale = slices.Clone(d.RejectionRationale)
+		for j := range d.RejectionRationale {
+			d.RejectionRationale[j].Body = nil
 		}
 		index.Documents[i] = d
 	}

@@ -94,15 +94,17 @@ type Document struct {
 	Implemented         bool `json:"implemented"`
 	Stale               bool `json:"stale"`
 
-	// RequiredSections names the level two headings this document's type calls
-	// for, in order. They are checked by lint rather than guaranteed, so any of
-	// them may be absent from Contents: a draft part-way through being written
-	// is the ordinary case.
+	// RequiredSections names the level two headings this document calls for,
+	// in order. They are checked by lint rather than guaranteed, so any of them
+	// may be absent from Contents: a draft part-way through being written is
+	// the ordinary case. A rejected document's Rejection rationale is absent
+	// from Contents whenever it is present, unless every heading was asked
+	// for, and is in RejectionRationale either way.
 	RequiredSections []RequiredSection `json:"required_sections"`
 	// Contents is every heading in document order, each with the prose beneath
-	// it, except the question sections and the Changelog, which are left out
-	// unless every heading was asked for and are published below as data of
-	// their own either way. It
+	// it, except the question sections, the Changelog and the Rejection
+	// rationale, which are left out unless every heading was asked for and are
+	// published below as data of their own either way. It
 	// replaces an object keyed by anchor, which could not carry the order a
 	// document is in and named level two headings only.
 	Contents []Entry `json:"contents"`
@@ -112,6 +114,10 @@ type Document struct {
 	Questions Questions `json:"questions"`
 	// Changelog is every entry of every Changelog section, in document order.
 	Changelog []ChangelogEntry `json:"changelog"`
+	// RejectionRationale is every Rejection rationale section, in document
+	// order. It records the verdict rather than the design, and is empty
+	// exactly where the document has no such section.
+	RejectionRationale []RejectionRationaleSection `json:"rejection_rationale"`
 	// Source is the file exactly as it is on disk, front matter included, and
 	// only when it was asked for. It is the one field that reproduces the
 	// document: Contents discards a heading's raw spelling, and anything before
@@ -184,6 +190,16 @@ type ChangelogEntry struct {
 	Body *string `json:"body,omitempty"`
 }
 
+// RejectionRationaleSection is one Rejection rationale section.
+type RejectionRationaleSection struct {
+	Anchor string `json:"anchor"`
+	// Line is the heading's. The body begins on the next line.
+	Line int `json:"line"`
+	// Body is the section as written, subsections included, absent wherever
+	// contents bodies are.
+	Body *string `json:"body,omitempty"`
+}
+
 // RequiredSection is a section the type calls for, named both ways so a
 // consumer can render a heading for one that turned out to be missing.
 type RequiredSection struct {
@@ -230,12 +246,14 @@ type Term struct {
 
 // Options selects what to include. The zero value exports everything.
 type Options struct {
-	// NoBodies drops every contents body, and the bodies of questions, answers
-	// and Changelog entries, leaving metadata, the relationship graph and the
-	// full outline. An index page wants this and none of the prose.
+	// NoBodies drops every contents body, and the bodies of questions, answers,
+	// Changelog entries and Rejection rationale sections, leaving metadata, the
+	// relationship graph and the full outline. An index page wants this and
+	// none of the prose.
 	NoBodies bool
-	// AllHeadings keeps every heading in Contents, the question sections and
-	// the Changelog included, for a consumer rendering a document as written.
+	// AllHeadings keeps every heading in Contents, the question sections, the
+	// Changelog and the Rejection rationale included, for a consumer rendering
+	// a document as written.
 	AllHeadings bool
 	// Source adds each document's file as it is on disk.
 	Source bool
@@ -316,11 +334,12 @@ func document(r *repo.Repo, d *repo.Document, opts Options) Document {
 		// array in the JSON. A spec page has no required sections and a
 		// document may have no links; a consumer should not have to handle
 		// both an empty array and null for the same field.
-		RequiredSections: []RequiredSection{},
-		Contents:         []Entry{},
-		Questions:        Questions{Open: []OpenQuestion{}, Resolved: []ResolvedQuestion{}},
-		Changelog:        []ChangelogEntry{},
-		Links:            []Link{},
+		RequiredSections:   []RequiredSection{},
+		Contents:           []Entry{},
+		Questions:          Questions{Open: []OpenQuestion{}, Resolved: []ResolvedQuestion{}},
+		Changelog:          []ChangelogEntry{},
+		RejectionRationale: []RejectionRationaleSection{},
+		Links:              []Link{},
 	}
 	if opts.Source {
 		out.Source = string(d.Source)
@@ -338,7 +357,8 @@ func document(r *repo.Repo, d *repo.Document, opts Options) Document {
 	for _, e := range d.Contents() {
 		h := e.Heading
 		if h.Level <= 2 {
-			structured = h.Level == 2 && (h.Text == repo.OpenQuestions || h.Text == repo.ResolvedQuestions || h.Text == repo.Changelog)
+			structured = h.Level == 2 && (h.Text == repo.OpenQuestions || h.Text == repo.ResolvedQuestions ||
+				h.Text == repo.Changelog || h.Text == repo.RejectionRationale)
 		}
 		if h.Level == 2 {
 			if _, seen := anchors[h.Text]; !seen {
@@ -366,6 +386,11 @@ func document(r *repo.Repo, d *repo.Document, opts Options) Document {
 	}
 	for _, e := range d.Changelog() {
 		out.Changelog = append(out.Changelog, ChangelogEntry{Line: e.Line, Date: date(e.Date), Body: body(e.Text)})
+	}
+	for _, s := range d.Sections(repo.RejectionRationale) {
+		out.RejectionRationale = append(out.RejectionRationale, RejectionRationaleSection{
+			Anchor: s.Heading.Anchor, Line: s.Heading.Line, Body: body(s.Text),
+		})
 	}
 	for _, title := range d.RequiredSections() {
 		anchor, ok := anchors[title]
