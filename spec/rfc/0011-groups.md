@@ -1,7 +1,7 @@
 ---
 id: RFC-0011
 title: Groups name the documents that belong together
-status: draft
+status: proposed
 created: 2026-10-14
 decided:
 depends: [ADR-0001, ADR-0003, ADR-0004, ADR-0010, ADR-0019]
