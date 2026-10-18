@@ -45,9 +45,10 @@ func Schema(t Type) []string {
 
 // RequiredKeys lists the keys that must be present, whatever their value.
 //
-// The schema may only ever gain optional keys. A new required key would put
-// every frozen document in every existing repository in violation of L01, and
-// L11 forbids the edit that would add it.
+// A type's schema may only ever gain optional keys. A new required key would
+// put every frozen document in every existing repository in violation of L01,
+// and L11 forbids the edit that would add it. A new type's keys may be
+// required, as no existing document is of that type.
 func RequiredKeys(t Type) []string {
 	switch t {
 	case TypeSpec:
@@ -56,6 +57,8 @@ func RequiredKeys(t Type) []string {
 		return []string{"id", "title", "verified"}
 	case TypeTerm:
 		return []string{"title", "formerly", "named_by"}
+	case TypeGroup:
+		return []string{"title", "documents"}
 	default:
 		return []string{"id", "title", "status", "created", "decided", "depends", "updates", "obsoletes"}
 	}
@@ -221,6 +224,7 @@ func parseFrontMatter(t Type, block []byte) (FrontMatter, []Problem) {
 	list("includes", &fm.Includes)
 	list("formerly", &fm.Formerly)
 	str("named_by", &fm.NamedBy)
+	list("documents", &fm.Documents)
 
 	return fm, problems
 }

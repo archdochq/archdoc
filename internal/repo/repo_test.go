@@ -32,6 +32,8 @@ func TestOpenDiscoversDocumentsByDirectory(t *testing.T) {
 	want := []string{
 		"adr/0001-storage-engine.md",
 		"adr/0002-no-orm.md",
+		"group/caching.md",
+		"group/storage.md",
 		"ref/0001-engine-comparison.md",
 		"ref/0002-queue-survey.md",
 		"rfc/0001-database.md",
@@ -54,6 +56,83 @@ func TestOpenDiscoversDocumentsByDirectory(t *testing.T) {
 
 	if !slices.Equal(got, want) {
 		t.Errorf("discovered documents:\n got %q\nwant %q", got, want)
+	}
+}
+
+// TestAGroupsMembersKnowTheirGroups covers membership written in the group and
+// derived on its members. A name that is not an identifier is a spec page
+// only: a term and a group share the page name, and neither may answer for it.
+func TestAGroupsMembersKnowTheirGroups(t *testing.T) {
+	r := repotest.New(t, map[string]string{
+		"rfc/0001-base.md": "---\nid: RFC-0001\ntitle: Base\nstatus: draft\ncreated: 2026-01-01\ndecided:\n" +
+			"depends: []\nupdates: []\nobsoletes: []\n---\n\n# RFC-0001: Base\n",
+		"spec/thing.md":    "---\ntitle: Thing\nincludes: []\n---\n\n# Thing\n",
+		"spec/RFC-0002.md": "---\ntitle: Odd\nincludes: []\n---\n\n# Odd\n",
+		"term/other.md":    "---\ntitle: Other\nformerly: []\nnamed_by:\n---\n\n# Other\n\nA word.\n",
+		"group/b.md":       "---\ntitle: B\ndocuments: [RFC-0001, thing, RFC-0001]\n---\n\n# B\n",
+		"group/a.md":       "---\ntitle: A\ndocuments: [thing, RFC-0001, other, b]\n---\n\n# A\n",
+		"group/other.md":   "---\ntitle: Other group\ndocuments: []\n---\n\n# Other group\n",
+	})
+	for _, c := range []struct {
+		path string
+		want []string
+	}{
+		{"rfc/0001-base.md", []string{"a", "b"}},
+		{"spec/thing.md", []string{"a", "b"}},
+		{"term/other.md", nil},
+		{"group/b.md", nil},
+		{"group/other.md", nil},
+	} {
+		if got := r.ByPath(c.path).Groups; !slices.Equal(got, c.want) {
+			t.Errorf("%s belongs to %q, want %q", c.path, got, c.want)
+		}
+	}
+	if m := r.Member("other"); m != nil {
+		t.Errorf("other resolved to %s, though neither a term nor a group is a member", m.Path)
+	}
+	if m := r.Member("thing"); m == nil || m.Path != "spec/thing.md" {
+		t.Errorf("thing resolved to %v, want the spec page", m)
+	}
+	// An identifier names an RFC, ADR or ref, even where a spec page happens
+	// to be called the same.
+	if m := r.Member("RFC-0002"); m != nil {
+		t.Errorf("an identifier naming nothing resolved to %s", m.Path)
+	}
+}
+
+func TestADocumentsGroupsAreInOrderOfSlug(t *testing.T) {
+	// The path order is api-v2.md before api.md; the slug order is the reverse.
+	r := repotest.New(t, map[string]string{
+		"spec/thing.md":   "---\ntitle: Thing\nincludes: []\n---\n\n# Thing\n",
+		"group/api.md":    "---\ntitle: API\ndocuments: [thing]\n---\n\n# API\n",
+		"group/api-v2.md": "---\ntitle: API v2\ndocuments: [thing]\n---\n\n# API v2\n",
+	})
+	if got := r.ByPath("spec/thing.md").Groups; !slices.Equal(got, []string{"api", "api-v2"}) {
+		t.Errorf("thing belongs to %q, want api then api-v2", got)
+	}
+}
+
+func TestAGroupIsNotCreatedByNumber(t *testing.T) {
+	r := repotest.New(t, nil)
+	if _, _, err := r.Next(repo.TypeGroup, "Team"); err == nil || !strings.Contains(err.Error(), "a group is named by its path") {
+		t.Errorf("Next(group) = %v, want the refusal spec pages and terms get", err)
+	}
+}
+
+func TestAGroupsDescriptionIsTheBodyAfterItsH1(t *testing.T) {
+	r := repotest.New(t, map[string]string{
+		"group/a.md": "---\ntitle: A\ndocuments: []\n---\n\n# A\n\nWhat they share.\n\n## More\n\nStill it.\n",
+		"group/b.md": "---\ntitle: B\ndocuments: []\n---\n\nBefore any heading.\n\n## B\n\nAfter.\n",
+		"group/c.md": "---\ntitle: C\ndocuments: []\n---\n\n# C\n",
+	})
+	for _, c := range []struct{ path, want string }{
+		{"group/a.md", "\nWhat they share.\n\n## More\n\nStill it.\n"},
+		{"group/b.md", "\nBefore any heading.\n\n## B\n\nAfter.\n"},
+		{"group/c.md", ""},
+	} {
+		if got := r.ByPath(c.path).Description(); got != c.want {
+			t.Errorf("%s describes itself as %q, want %q", c.path, got, c.want)
+		}
 	}
 }
 
@@ -401,7 +480,9 @@ func TestTypeOfClassifiesPathsTheWayDiscoveryDoes(t *testing.T) {
 		"ref/0001-a.md":    repo.TypeRef,
 		"spec/a.md":        repo.TypeSpec,
 		"spec/http/a.md":   repo.TypeSpec, // spec pages may nest
-		"rfc/archive/a.md": "",            // no other type may
+		"group/a.md":       repo.TypeGroup,
+		"group/apps/a.md":  "", // groups may not
+		"rfc/archive/a.md": "", // no other type may
 		"rfc/notes.txt":    "",
 		"README.md":        "",
 		"elsewhere/a.md":   "",

@@ -1,11 +1,11 @@
 ---
 title: Layout
-includes: [RFC-0001, RFC-0007, RFC-0010, ADR-0017]
+includes: [RFC-0001, RFC-0007, RFC-0010, RFC-0011, ADR-0017]
 ---
 
 # Layout
 
-A specification repository is a directory containing `archdoc.json` and, under `root`, the five document directories.
+A specification repository is a directory containing `archdoc.json` and, under `root`, the document directories. `group/` is optional, and `init` does not create it.
 
 ## With `root` of `.`
 
@@ -24,7 +24,8 @@ A specification repository is a directory containing `archdoc.json` and, under `
 ├── adr/
 ├── spec/
 ├── ref/
-└── term/
+├── term/
+└── group/                optional
 ```
 
 ## With `root` of `docs`, inside a code repository
@@ -43,7 +44,8 @@ A specification repository is a directory containing `archdoc.json` and, under `
     ├── adr/
     ├── spec/
     ├── ref/
-    └── term/
+    ├── term/
+    └── group/            optional
 ```
 
 ## With `archdoc.json` below the repository root, as scaffolded before ADR-0017

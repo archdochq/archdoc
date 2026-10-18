@@ -46,7 +46,7 @@ belongs.
 | L01 | Front matter is malformed, has an unknown key, or a required key is missing or empty | Fix the front matter |
 | L02 | `id` does not match the filename, or the filename is not `<NNNN>-<slug>.md` | Rename the file, or correct `id` |
 | L03 | Two documents claim the same identifier | Renumber one with `archdoc new`, then move the content |
-| L04 | A referenced identifier does not resolve | Create the document, or correct the reference |
+| L04 | A referenced identifier does not resolve, or a group's member names nothing or is listed twice | Create the document, or correct the reference or the group's list |
 | L05 | `updates`/`obsoletes` targets something not accepted, of the wrong type, or itself | Accept the target, or correct the list |
 | L06 | `includes` targets something not accepted | Accept the target, or remove it from the page |
 | L07 | `decided` set without a terminal status, or before `created`, or backfill dates disagree | Correct the dates |

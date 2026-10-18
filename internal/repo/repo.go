@@ -17,7 +17,7 @@ import (
 	"archdoc.dev/internal/config"
 )
 
-// Type is one of the five kinds of document, and also the directory each kind
+// Type is one of the six types of document, and also the directory each type
 // lives in.
 type Type string
 
@@ -27,10 +27,14 @@ const (
 	TypeRef  Type = "ref"
 	TypeSpec Type = "spec"
 	TypeTerm Type = "term"
+	// TypeGroup lists documents that belong together. It records no decision
+	// and carries no status, so it is never frozen, and grouping a frozen
+	// document is an edit to the group rather than to the document.
+	TypeGroup Type = "group"
 )
 
 // Types is every document type, in directory order.
-var Types = []Type{TypeADR, TypeRef, TypeRFC, TypeSpec, TypeTerm}
+var Types = []Type{TypeADR, TypeGroup, TypeRef, TypeRFC, TypeSpec, TypeTerm}
 
 // ParseType turns user input into a Type. Type is a string type with no
 // constructor, so Type("nonsense") is otherwise a perfectly valid value and
@@ -41,9 +45,9 @@ func ParseType(s string) (Type, bool) {
 }
 
 // Numbered reports whether documents of this type carry an identifier derived
-// from a number in the filename. Spec pages are named by path instead, and a
-// term by its slug, which is the term itself.
-func (t Type) Numbered() bool { return t != TypeSpec && t != TypeTerm }
+// from a number in the filename. Spec pages are named by path instead, a term
+// by its slug, which is the term itself, and a group by its slug.
+func (t Type) Numbered() bool { return t != TypeSpec && t != TypeTerm && t != TypeGroup }
 
 // HasLifecycle reports whether documents of this type move through statuses. A
 // spec page reflects what has already been decided and a ref records something
@@ -56,7 +60,7 @@ func (t Type) HasLifecycle() bool { return t == TypeRFC || t == TypeADR }
 //
 // It answers the same as HasLifecycle today and is a separate question: one is
 // about whether a document can change state, the other about whether anything
-// may rest on it. A fifth type would very likely separate them.
+// may rest on it. A later type would very likely separate them.
 func (t Type) Normative() bool { return t == TypeRFC || t == TypeADR }
 
 // filenamePattern is the required shape of a numbered type's filename: a
@@ -81,7 +85,7 @@ type Repo struct {
 	terms     map[string]GlossaryEntry
 }
 
-// Document is one file in one of the four document directories.
+// Document is one file in one of the type directories.
 type Document struct {
 	Type Type
 	// Path is relative to root, always slash-separated.
@@ -93,7 +97,7 @@ type Document struct {
 	// Number is the filename number for numbered types, 0 otherwise.
 	Number int
 	// Page is a spec page's path below spec/ without the extension, such as
-	// http/routing. Empty for numbered types.
+	// http/routing, or a term's or a group's slug. Empty for numbered types.
 	Page string
 
 	// FrontMatter is the parsed YAML block.
@@ -118,6 +122,9 @@ type Document struct {
 	ObsoletedBy  []string
 	DependedOnBy []string
 	IncludedIn   []string
+	// Groups holds the slugs of the groups listing this document, sorted and
+	// derived like the lists above.
+	Groups []string
 
 	// EffectivelyObsolete is true when an accepted document obsoletes this one.
 	// A claim by a draft, proposed, rejected or withdrawn document has no
@@ -263,7 +270,7 @@ func WriteFile(full string, source []byte, name string) error {
 func (r *Repo) Documents() []*Document { return r.documents }
 
 // TypeOf classifies a path relative to root. ok is false when the path is not a
-// document: the wrong extension, outside the four directories, or nested in a
+// document: the wrong extension, outside the type directories, or nested in a
 // type that does not permit subdirectories.
 func TypeOf(p string) (Type, bool) {
 	p = filepath.ToSlash(p)

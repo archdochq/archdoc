@@ -32,7 +32,7 @@ func ParseIdentifier(id string) (Type, int, bool) {
 
 // referenceKeys are the front matter lists that name other documents. A
 // renumbered document has to be renamed in every one of them.
-var referenceKeys = []string{"depends", "updates", "obsoletes", "includes"}
+var referenceKeys = []string{"depends", "updates", "obsoletes", "includes", "documents"}
 
 // Renumber changes a numbered document's identifier, rewriting the filename,
 // the front matter id, the heading, and every reference to the old identifier

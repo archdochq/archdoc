@@ -4,7 +4,7 @@ This repository is the design record and current specification for the project. 
 
 ## Document types
 
-There are four kinds of document. Each lives in its own directory.
+There are five types of document, and the glossary's terms, described under Document structure. Each lives in its own directory.
 
 **RFC** (`rfc/`) proposes how something should work. An RFC describes the design of something that will, once built, have a page in the spec. RFCs have a lifecycle and are frozen once they reach a terminal status.
 
@@ -13,6 +13,8 @@ There are four kinds of document. Each lives in its own directory.
 **Spec** (`spec/`) describes how the project works right now. It is always current. It has no lifecycle and no status; it is edited whenever the behaviour it describes changes. The spec describes and never argues. Argument belongs in the RFCs and ADRs a spec page includes.
 
 **Ref** (`ref/`) holds research, comparisons and background material. Ref documents are informational, never normative. They carry a verification date rather than a status and may be edited at any time.
+
+**Group** (`group/`) names documents that belong together, such as the documents concerning one application in a repository describing several. A group lists its members and describes what they have in common. It has no status and is never frozen, so a frozen document is grouped by editing the group. Groups are optional; a document may belong to any number of them, or to none.
 
 The test for whether something is an RFC or an ADR: would the spec have a page for it? If yes, it is an RFC. If it is a constraint that applies across the spec rather than a thing the spec describes, it is an ADR. An RFC that contains a significant decision with real rejected alternatives should extract that decision into its own ADR and link to it, so the ADR index remains a complete list of constraints.
 
@@ -24,7 +26,7 @@ A document that is no longer wanted is withdrawn, not deleted, and a withdrawn d
 
 Identifiers are `RFC-0001`, `ADR-0001` and `REF-0001`. Filenames are the number followed by a slug: `rfc/0001-database.md`. The slug is for humans; the number is the identity. All references between documents use the identifier, never the slug or the filename.
 
-Spec pages are not numbered. They are named by slug: `spec/database.md`. Renaming a spec page is an ordinary edit.
+Spec pages are not numbered. They are named by slug: `spec/database.md`. Renaming a spec page is an ordinary edit. Groups are not numbered either, and are named by slug: `group/storage.md`. Both are written by hand.
 
 ## Front matter
 
@@ -64,6 +66,15 @@ title: Wings implementations compared
 verified: 2026-09-07
 ```
 
+Groups:
+
+```yaml
+title: Storage
+documents: [RFC-0001, RFC-0004, ADR-0002, database]
+```
+
+A member written as an identifier names that RFC, ADR or ref. Any other member names a spec page by its path below `spec/`, without the extension. A group's body is an H1 reading its title, followed by a description of what its members have in common.
+
 The front matter records only forward relationships. Reverse relationships (what updates this, what obsoletes this, which spec pages include this) are derived by the tooling and published in `INDEX.md`. They are never written into the documents themselves, because a frozen document cannot be edited to record what happened to it later.
 
 ## Relationships
@@ -78,7 +89,9 @@ Both `updates` and `obsoletes` may reference only accepted documents: you can am
 
 **`includes`**, on spec pages only, lists the RFCs and ADRs the page currently reflects. A spec page may only include accepted documents. This list is how implementation is recorded: an accepted RFC included by no spec page is not yet implemented; an obsoleted RFC still included by a spec page indicates the spec is stale.
 
-Refs have no relationships. They are cited by identifier from the body of other documents.
+Refs have no relationships of their own. They are cited by identifier from the body of other documents, and may be listed in a group.
+
+**`documents`**, on groups only, lists a group's members, and `INDEX.md` lists each group with its members. The groups a document belongs to are derived from these lists and published in the export.
 
 ## Links
 
@@ -198,6 +211,7 @@ Lint enforces:
 - Every document has valid front matter for its type, with no unknown keys and no required key left empty.
 - Every `id` matches its filename and type; no identifier appears twice.
 - Every identifier in `depends`, `updates`, `obsoletes` and `includes` resolves to an existing document of a permitted type.
+- Every member of a group resolves to an RFC, ADR, ref or spec page, and no group lists a member twice.
 - `includes`, `updates` and `obsoletes` reference only accepted documents. Nothing updates or obsoletes itself, and nothing appears in both lists of one document.
 - Documents with a terminal status have `decided` set; others do not, and `decided` is never before `created`.
 - A backfilled document is terminal, was written no earlier than the decision it records, and cites its sources.

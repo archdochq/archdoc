@@ -24,6 +24,9 @@ Two further kinds fall outside that test:
 - **Ref** (`ref/`) holds research, comparisons and background. Informational, never normative.
   Carries a `verified` date rather than a status.
 
+A group (`group/`) is not one of these. It records nothing of its own: it lists documents of the
+other types that belong together. Classify the document first, then add it to a group.
+
 ## Worked distinctions
 
 | Subject | Kind | Why |

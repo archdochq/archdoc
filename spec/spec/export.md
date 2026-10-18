@@ -1,6 +1,6 @@
 ---
 title: Export
-includes: [ADR-0019, ADR-0020, ADR-0021, RFC-0004, RFC-0006, RFC-0007, RFC-0008, RFC-0009, RFC-0012]
+includes: [ADR-0019, ADR-0020, ADR-0021, RFC-0004, RFC-0006, RFC-0007, RFC-0008, RFC-0009, RFC-0011, RFC-0012]
 ---
 
 # Export
@@ -9,9 +9,9 @@ includes: [ADR-0019, ADR-0020, ADR-0021, RFC-0004, RFC-0006, RFC-0007, RFC-0008,
 
 ## Shape
 
-The output is an object with `schema`, currently `3`; `config`, every setting `archdoc.json` holds; `has_glossary`; `documents`, an array; `glossary`, an array present when the glossary page exists; and `commit`, present only when `--commit` was given. The revision is taken as written and is not checked against a repository. `has_glossary` is present even where `glossary` is not, because `index.json` carries no glossary and a consumer reading only that still has to know whether one exists.
+The output is an object with `schema`, currently `3`; `config`, every setting `archdoc.json` holds; `has_glossary`; `documents`, an array; `groups`, an array; `glossary`, an array present when the glossary page exists; and `commit`, present only when `--commit` was given. The revision is taken as written and is not checked against a repository. `has_glossary` is present even where `glossary` is not, because `index.json` carries no glossary and a consumer reading only that still has to know whether one exists.
 
-Each document carries its front matter, the derived reverse relationships (`updated_by`, `obsoleted_by`, `depended_on_by`, `included_in`), the derived facts (`effectively_obsolete`, `implemented`, `stale`), `required_sections`, `contents`, `questions`, `changelog`, `rejection_rationale` and `links`, and `source` where it was asked for. Dates are ISO 8601 strings. Every array field is an array and never null.
+Each document carries its front matter, the derived reverse relationships (`updated_by`, `obsoleted_by`, `depended_on_by`, `included_in`, `groups`), the derived facts (`effectively_obsolete`, `implemented`, `stale`), `required_sections`, `contents`, `questions`, `changelog`, `rejection_rationale` and `links`, and `source` where it was asked for. Dates are ISO 8601 strings. Every array field is an array and never null.
 
 `required_sections` lists the H2 headings the document calls for, in order, as objects with `title` and `anchor`. Any of them may be absent from `contents`; the anchor given for an absent one is the anchor it would have had. A rejected document's `Rejection rationale` is absent from `contents` whenever it is present, unless `--all-headings` is given, and is in `rejection_rationale` under the anchor given either way.
 
@@ -29,6 +29,8 @@ Each entry in `links` has `text`, `type`, `destination` as written, `line`, and 
 
 Each glossary term has `name`, `anchor`, `path`, `definition`, `formerly` where the term was renamed, and `named_by` where a document introduced it. A term appears here and nowhere else: it is not published among the documents, so a consumer has one representation of it. The anchor is on the generated `GLOSSARY.md`, which is what every link to a term targets.
 
+`groups` is every group in order of slug, and is empty where there are none. Each group has `slug`, `title`, `path`, `description`, `documents` and `links`. `description` is the body after the group's H1 as written, or the whole body where its first heading is not an H1, and is absent wherever contents bodies are. `documents` is the members as written, whether or not they resolve. `links` is the links in its body, in the shape a document's `links` has; a link to a group's file has `resolves_to` naming its slug. A group appears here and nowhere else: it is not published among the documents. A document's `groups` names the groups listing it, by slug.
+
 Bodies are raw Markdown. Nothing is rendered. `source` is the file exactly as it is on disk, front matter included, and is the only field that reproduces the document.
 
 ## `--out`
@@ -37,12 +39,13 @@ Bodies are raw Markdown. Nothing is rendered. `source` is the file exactly as it
 <dir>/
 ├── index.json          every document, without bodies
 ├── glossary.json       when there is a glossary
+├── groups.json         when there are groups
 └── <document path>.json   one per document, with bodies
 ```
 
-`index.json` omits bodies, including those of questions, answers, Changelog entries and rejection rationale sections, and source, whatever else was asked, keeping the full outline. Each document's file sits at the document's own path with `.md` replaced by `.json`. Every path written is printed on stdout.
+`index.json` omits bodies, including those of questions, answers, Changelog entries and rejection rationale sections, and source, whatever else was asked, keeping the full outline. `index.json` carries `groups` without descriptions, and `groups.json` is the array of every group, with descriptions unless `--no-bodies` is given. Each document's file sits at the document's own path with `.md` replaced by `.json`. Every path written is printed on stdout.
 
-The command also removes what an earlier export left and this one does not write. It reads the `index.json` already in the directory before overwriting it, and takes the previous run's files from it: `index.json` itself, one file per document it lists, and `glossary.json` where it recorded a glossary. Each removal is reported on stderr, leaving stdout the list of files that now exist.
+The command also removes what an earlier export left and this one does not write. It reads the `index.json` already in the directory before overwriting it, and takes the previous run's files from it: `index.json` itself, one file per document it lists, `glossary.json` where it recorded a glossary, and `groups.json` where it recorded groups. Each removal is reported on stderr, leaving stdout the list of files that now exist.
 
 It therefore only ever removes a file an ArchDoc export wrote there. Where the directory holds no `index.json`, or holds one that is not an ArchDoc export, nothing is removed and the command says so. A path in that index that is not local to the directory is ignored: the index is input, and input naming somewhere else must not reach a delete. Directories left empty are not removed.
 

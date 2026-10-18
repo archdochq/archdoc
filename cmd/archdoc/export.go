@@ -28,8 +28,9 @@ func newExportCommand() *cobra.Command {
 			"relationships ArchDoc derives, so a consumer does not reimplement any of it.\n\n" +
 			"Bodies are raw Markdown. ArchDoc has no renderer and is not going to acquire one.\n\n" +
 			"With --out, writes a tree instead of one document: index.json carrying every document " +
-			"without bodies, one file per document beside it, and glossary.json when there is a " +
-			"glossary. A page rendering one RFC should not have to fetch the whole specification.\n\n" +
+			"without bodies, one file per document beside it, glossary.json when there is a " +
+			"glossary and groups.json when there are groups. A page rendering one RFC should not " +
+			"have to fetch the whole specification.\n\n" +
 			"The output is deterministic. Nothing in it records when it was generated, so it can be " +
 			"cached, diffed and committed.",
 		Args: cobra.NoArgs,
@@ -106,6 +107,12 @@ func writeTree(cmd *cobra.Command, r *repo.Repo, dir string, opts export.Options
 		index.Documents[i] = d
 	}
 	index.Glossary = nil
+	// Groups stay in the index, which is where a consumer reads which group a
+	// document belongs to, but without the prose.
+	index.Groups = slices.Clone(full.Groups)
+	for i := range index.Groups {
+		index.Groups[i].Description = nil
+	}
 
 	written := []string{}
 	write := func(rel string, v any) error {
@@ -141,6 +148,11 @@ func writeTree(cmd *cobra.Command, r *repo.Repo, dir string, opts export.Options
 	}
 	if len(full.Glossary) > 0 {
 		if err := write("glossary.json", full.Glossary); err != nil {
+			return err
+		}
+	}
+	if len(full.Groups) > 0 {
+		if err := write("groups.json", full.Groups); err != nil {
 			return err
 		}
 	}
@@ -187,8 +199,9 @@ func previousFiles(dir string) (map[string]bool, bool) {
 		return nil, false
 	}
 	var index struct {
-		Schema      *int `json:"schema"`
-		HasGlossary bool `json:"has_glossary"`
+		Schema      *int              `json:"schema"`
+		HasGlossary bool              `json:"has_glossary"`
+		Groups      []json.RawMessage `json:"groups"`
 		Documents   []struct {
 			Path string `json:"path"`
 		} `json:"documents"`
@@ -210,6 +223,9 @@ func previousFiles(dir string) (map[string]bool, bool) {
 	}
 	if index.HasGlossary {
 		files["glossary.json"] = true
+	}
+	if len(index.Groups) > 0 {
+		files["groups.json"] = true
 	}
 	return files, true
 }

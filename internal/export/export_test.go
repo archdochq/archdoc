@@ -308,6 +308,7 @@ func TestEveryFieldIsInThePublishedSchema(t *testing.T) {
 		{"entry", export.Entry{}},
 		{"link", export.Link{}},
 		{"term", export.Term{}},
+		{"group", export.Group{}},
 		{"questions", export.Questions{}},
 		{"open_question", export.OpenQuestion{}},
 		{"resolved_question", export.ResolvedQuestion{}},
@@ -424,7 +425,7 @@ func TestArrayFieldsAreNeverNull(t *testing.T) {
 	fields := []string{
 		"depends", "updates", "obsoletes", "includes",
 		"updated_by", "obsoleted_by", "depended_on_by", "included_in",
-		"required_sections", "contents", "changelog", "rejection_rationale", "links",
+		"required_sections", "contents", "changelog", "rejection_rationale", "groups", "links",
 	}
 	for _, field := range fields {
 		if !slices.Contains(schema.Defs.Document.Required, field) {
@@ -628,6 +629,83 @@ func TestNoBodiesDropsTheRejectionRationaleBody(t *testing.T) {
 
 	if len(d.RejectionRationale) != 1 || d.RejectionRationale[0].Body != nil || d.RejectionRationale[0].Line == 0 {
 		t.Errorf("rejection rationale under --no-bodies = %+v, want the section without its body", d.RejectionRationale)
+	}
+}
+
+func TestGroupsArePublishedApartFromTheDocuments(t *testing.T) {
+	r := repotest.New(t, map[string]string{
+		"rfc/0001-a.md": rfc("RFC-0001", "A", "draft", "## Abstract\n\nWords.\n"),
+		"spec/thing.md": "---\ntitle: Thing\nincludes: []\n---\n\n# Thing\n",
+		"group/b.md":    "---\ntitle: B\ndocuments: [RFC-0001]\n---\n\n# B\n\nSee [thing](../spec/thing.md) and [a](a.md).\n",
+		"group/a.md":    "---\ntitle: A\ndocuments: [thing, RFC-0001, RFC-0009]\n---\n\n# A\n",
+	})
+	out := export.Build(r, export.Options{})
+
+	for _, d := range out.Documents {
+		if d.Type == "group" {
+			t.Errorf("%s is published among the documents", d.Path)
+		}
+	}
+	if len(out.Groups) != 2 || out.Groups[0].Slug != "a" || out.Groups[1].Slug != "b" {
+		t.Fatalf("groups = %+v, want a then b", out.Groups)
+	}
+	a, b := out.Groups[0], out.Groups[1]
+	if a.Title != "A" || a.Path != "group/a.md" || strings.Join(a.Documents, " ") != "thing RFC-0001 RFC-0009" {
+		t.Errorf("group a = %+v, want its members as written, the one that resolves to nothing included", a)
+	}
+	if a.Description == nil || *a.Description != "" || b.Description == nil || !strings.Contains(*b.Description, "See [thing]") {
+		t.Errorf("descriptions = %q and %q", deref(a.Description), deref(b.Description))
+	}
+	if len(b.Links) != 2 || b.Links[0].ResolvesTo != "thing" || b.Links[1].ResolvesTo != "a" || b.Links[1].Path != "group/a.md" {
+		t.Errorf("group b's links = %+v, want the spec page and the other group resolved", b.Links)
+	}
+	for _, d := range out.Documents {
+		want := map[string]string{"rfc/0001-a.md": "a b", "spec/thing.md": "a"}[d.Path]
+		if got := strings.Join(d.Groups, " "); got != want {
+			t.Errorf("%s belongs to %q, want %q", d.Path, got, want)
+		}
+	}
+
+	if g := export.Build(r, export.Options{NoBodies: true}).Groups[1]; g.Description != nil || len(g.Links) != 2 {
+		t.Errorf("under --no-bodies group b = %+v, want no description and its links kept", g)
+	}
+}
+
+func TestGroupsAreInOrderOfSlugAndNeverHoldANull(t *testing.T) {
+	r := repotest.New(t, map[string]string{
+		"group/api.md":    "---\ntitle: API\n---\n\n# API\n",
+		"group/api-v2.md": "---\ntitle: API v2\ndocuments: []\n---\n\n# API v2\n",
+	})
+	encoded, err := json.Marshal(export.Build(r, export.Options{}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var out struct {
+		Groups []map[string]json.RawMessage `json:"groups"`
+	}
+	if err := json.Unmarshal(encoded, &out); err != nil {
+		t.Fatal(err)
+	}
+	if len(out.Groups) != 2 || string(out.Groups[0]["slug"]) != `"api"` || string(out.Groups[1]["slug"]) != `"api-v2"` {
+		t.Fatalf("groups = %s, want api then api-v2", encoded)
+	}
+	// api has no documents key at all, which L01 reports, and neither has links.
+	for _, g := range out.Groups {
+		for _, field := range []string{"documents", "links"} {
+			if raw, present := g[field]; !present || string(raw) == "null" {
+				t.Errorf("group %s has %s = %s; the schema declares it a required array", g["slug"], field, raw)
+			}
+		}
+	}
+}
+
+func TestGroupsIsAnArrayWhereThereAreNone(t *testing.T) {
+	encoded, err := json.Marshal(export.Build(repotest.New(t, nil), export.Options{}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(encoded), `"groups":[]`) {
+		t.Errorf("a repository with no groups exported %s", encoded)
 	}
 }
 

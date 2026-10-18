@@ -1,6 +1,6 @@
 ---
 title: Markdown
-includes: [ADR-0006, ADR-0007, RFC-0008, RFC-0009]
+includes: [ADR-0006, ADR-0007, RFC-0008, RFC-0009, RFC-0011]
 ---
 
 # Markdown
@@ -11,7 +11,7 @@ The body of a document is everything after the closing `---` of the front matter
 
 Headings are `#` through `######`. A line inside a ``` or ~~~ fence is not a heading, and neither is a `#` indented four or more spaces. This holds wherever headings are read: section parsing, anchors and link scanning. Indented code blocks are not otherwise recognised.
 
-The first heading is an H1 of the form `<id>: <title>` for a numbered type, or `<title>` for a spec page.
+The first heading is an H1 of the form `<id>: <title>` for a numbered type, or `<title>` for a spec page, a term or a group.
 
 ## Anchors
 
@@ -28,6 +28,7 @@ Section presence is checked by exact H2 text. The required sections by type:
 - Ref: `Sources` is the last H2.
 - Spec: no requirements.
 - Term: no required sections. The definition is the prose under the H1, and L15 wants exactly one paragraph of it.
+- Group: no required sections. Its description is the body after the H1.
 
 Extra H2 sections are permitted between or after the required ones. `Open questions`, `Resolved questions` and `Changelog` are optional for every type, and are read as described below wherever they appear.
 

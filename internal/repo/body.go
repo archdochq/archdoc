@@ -239,6 +239,17 @@ func (d *Document) H1() (Heading, bool) {
 	return d.headings[0], true
 }
 
+// Description is a group's body after its H1, as written, or the whole body
+// where the first heading is not an H1. It is what was parsed, whatever L10
+// reports, so a group whose heading is wrong still publishes its prose.
+func (d *Document) Description() string {
+	h1, ok := d.H1()
+	if !ok {
+		return d.Body
+	}
+	return strings.Join(d.bodyLines()[h1.Line-d.BodyLine+1:], "\n")
+}
+
 // sectionAt returns the heading at index i and everything beneath it, up to the
 // next heading of equal or higher level. Callers that already know which
 // heading they mean use this rather than Section, which searches by title and

@@ -413,6 +413,22 @@ func TestL11IsSilentForANonTerminalDocumentDeletedFromTheWorkingTree(t *testing.
 	}
 }
 
+func TestL11IsSilentForADeletedGroupCarryingAStatus(t *testing.T) {
+	// A group cannot be frozen. One committed with a stray status key, which
+	// L01 reports, was reported as frozen and deleted once removed.
+	const path = "group/team.md"
+	dir := gitFixture(t, map[string]string{
+		path: "---\ntitle: Team\ndocuments: []\nstatus: accepted\n---\n\n# Team\n",
+	})
+	if err := os.Remove(filepath.Join(dir, filepath.FromSlash(path))); err != nil {
+		t.Fatal(err)
+	}
+
+	if got := findingsFor(lintDir(t, dir), "L11", path); len(got) != 0 {
+		t.Errorf("L11 fired on a deleted group: %v", got)
+	}
+}
+
 func TestL11IsSilentWhenGitItselfSaysTheFileIsUnchanged(t *testing.T) {
 	// L11 compared the raw stored blob against the file on disk. git applies
 	// checkout filters between the two, so wherever .gitattributes or

@@ -6,7 +6,7 @@ description: Use when making any change in an ArchDoc specification repository, 
 # Working in this repository
 
 This is a specification repository managed by [ArchDoc](https://github.com/archdochq/archdoc).
-It holds RFCs, ADRs, spec pages and refs as Markdown with YAML front matter, and enforces a
+It holds RFCs, ADRs, spec pages, refs, terms and groups as Markdown with YAML front matter, and enforces a
 fixed process with a linter.
 
 `PROCESS.md` is authoritative. This file summarises it for agents. Where the two disagree,
@@ -32,7 +32,8 @@ which repository is being changed. `setup.md` covers the arrangement in full.
 
 1. **Never create a document by hand.** Run `archdoc new rfc|adr|ref "Title"`. The number is
    the document's identity and the tool assigns it, one above the highest that exists.
-   (PROCESS.md, Identity)
+   (PROCESS.md, Identity) Spec pages and groups are not numbered, and are the exception: they
+   are written by hand.
 
 2. **Never edit a document whose status is `accepted`, `rejected` or `withdrawn`.** Those are
    frozen, and lint fails on any change to one. To change what an accepted document says,
@@ -87,4 +88,4 @@ All paths are relative to this directory. Read the one that matches the task bef
 | `backfilling.md` | Recording decisions that were taken before this repository existed |
 | `contributing.md` | Submitting a document by pull request to a repository you do not maintain |
 | `triage.md` | `archdoc lint` reported something |
-| `spec-pages.md` | Editing the spec, the glossary, or an `includes` list |
+| `spec-pages.md` | Editing the spec, the glossary, a group, or an `includes` list |

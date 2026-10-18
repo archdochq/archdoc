@@ -28,6 +28,7 @@ This page is the guided tour; where the two disagree, the schema is right.
              "strict": true, "ref_stale_days": 180},
   "has_glossary": true,
   "documents": [],
+  "groups": [],
   "glossary": []
 }
 ```
@@ -100,6 +101,7 @@ derived by walking the whole repository, and is the reason this command exists.
 | --- | --- |
 | `updated_by`, `obsoleted_by`, `depended_on_by` | Identifiers of the documents naming this one. Nothing inside a document records what happened to it later |
 | `included_in` | Names of the spec pages listing this document in `includes` |
+| `groups` | Slugs of the groups listing this document, in order of slug |
 | `effectively_obsolete` | An **accepted** document obsoletes this one. A claim by a draft or rejected document does not count |
 | `implemented` | An accepted RFC or ADR that some spec page includes, **excluding the glossary**, which names terms rather than describing behaviour |
 | `stale` | A spec page including something effectively obsolete |
@@ -263,6 +265,31 @@ than a destination, so rewriting the definition carries every use with it.
 the only field that reproduces the document, because `contents` discards a
 heading's raw spelling and everything before the first heading.
 
+## Groups
+
+A group names documents that belong together, such as the ones concerning one
+application in a repository describing several. Groups are published once, in
+the envelope's `groups`, and never among the documents. Each document's
+`groups` names the ones it belongs to, by slug.
+
+```json
+{
+  "slug": "storage",
+  "title": "Storage",
+  "path": "group/storage.md",
+  "description": "\nWhere the data lives and how it is reached.\n",
+  "documents": ["ADR-0001", "RFC-0001", "RFC-0004", "database"],
+  "links": []
+}
+```
+
+`documents` is the members as the group writes them, whether or not each one
+resolves: an identifier names an RFC, ADR or ref, anything else a spec page.
+Look a spec page up by its `page`. `description` is the group's body after its
+H1, or the whole body where its first heading is not an H1, and is absent
+wherever bodies are. `groups` is always present, and empty where a
+repository has none, which is most of them.
+
 ## The glossary
 
 Emitted twice: as an ordinary spec page among the documents, and again as
@@ -278,13 +305,16 @@ structured terms, so you do not re-parse the page.
 dist/
 ├── index.json                    every document, no bodies
 ├── glossary.json                 the terms, when there is a glossary
+├── groups.json                   every group, when there are groups
 ├── rfc/0004-database-....json    one file per document, bodies included
 └── spec/database.json
 ```
 
 `index.json` never carries bodies or source, whatever else was asked, because a
 page rendering one RFC should not fetch the whole specification. It keeps the
-full outline, so a sidebar or a search index still works from it alone. Each
+full outline, so a sidebar or a search index still works from it alone. It
+carries the groups too, without their descriptions, so a sidebar can group the
+documents it lists. Each
 document's file sits at the document's own path with `.md` swapped for `.json`.
 
 Exporting into a directory that already holds an export removes what that

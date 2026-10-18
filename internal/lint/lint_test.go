@@ -123,6 +123,34 @@ func TestL04ReportsReferencesThatResolveToNothing(t *testing.T) {
 	mentions(t, got, "rfc/0003-dangling-refs.md:7: depends references RFC-9999")
 }
 
+func TestL04ChecksAGroupsMembers(t *testing.T) {
+	got := forRule(t, "lint", "L04")
+
+	reports(t, got, "group/faults.md:3:", "RFC-9999", "does not exist")
+	reports(t, got, "group/faults.md:3:", "missing-page", "not a spec page")
+	// A term's slug is not a member, whatever it is called.
+	reports(t, got, "group/faults.md:3:", "cache", "not a spec page")
+	reports(t, got, "group/faults.md:3:", "RFC-0003", "more than once")
+	// Listed twice and resolving to nothing: reported as repeated, not twice
+	// as missing.
+	missing := 0
+	for _, g := range got {
+		if strings.Contains(g, `"RFC-9999", which does not exist`) {
+			missing++
+		}
+	}
+	if missing != 1 {
+		t.Errorf("RFC-9999 was reported missing %d times, want once; got %q", missing, got)
+	}
+}
+
+func TestL01AndL10CheckAGroup(t *testing.T) {
+	reports(t, forRule(t, "lint", "L01"), "group/faults.md:4:", `unknown front matter field "status"`)
+	reports(t, forRule(t, "lint", "L01"), "group/missing-keys.md", `missing required front matter key "documents"`)
+	reports(t, forRule(t, "lint", "L01"), "group/missing-keys.md:2:", `"title" is present but empty`)
+	reports(t, forRule(t, "lint", "L10"), "group/faults.md:7:", `"Wrong title"`, `"Faults"`)
+}
+
 func TestL05ChecksUpdatesAndObsoletes(t *testing.T) {
 	got := forRule(t, "lint", "L05")
 

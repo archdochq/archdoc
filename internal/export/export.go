@@ -12,6 +12,7 @@ import (
 	_ "embed"
 	"path"
 	"regexp"
+	"slices"
 	"strings"
 	"time"
 
@@ -45,6 +46,9 @@ type Repository struct {
 	// whether one exists.
 	HasGlossary bool       `json:"has_glossary"`
 	Documents   []Document `json:"documents"`
+	// Groups is every group, in order of slug, and an empty array where there
+	// are none. A group is a file under group/ but is published only here.
+	Groups []Group `json:"groups"`
 	// Glossary is every term, absent when the repository has none. The
 	// page itself still appears among the documents; this is the same content
 	// as data, so a consumer does not re-parse it.
@@ -89,6 +93,9 @@ type Document struct {
 	ObsoletedBy  []string `json:"obsoleted_by"`
 	DependedOnBy []string `json:"depended_on_by"`
 	IncludedIn   []string `json:"included_in"`
+	// Groups holds the slugs of the groups listing this document, derived
+	// from the groups' own lists.
+	Groups []string `json:"groups"`
 
 	EffectivelyObsolete bool `json:"effectively_obsolete"`
 	Implemented         bool `json:"implemented"`
@@ -228,6 +235,20 @@ type Link struct {
 	Line       int    `json:"line"`
 }
 
+// Group is one group: documents that belong together, listed by the group
+// rather than by its members, so a frozen document is grouped without an edit.
+type Group struct {
+	Slug  string `json:"slug"`
+	Title string `json:"title"`
+	Path  string `json:"path"`
+	// Description is the body after the group's H1, as written, absent
+	// wherever contents bodies are.
+	Description *string `json:"description,omitempty"`
+	// Documents are the members as written, whether or not they resolve.
+	Documents []string `json:"documents"`
+	Links     []Link   `json:"links"`
+}
+
 // Term is one glossary entry. A term is a document on disk but is published
 // only here: it appears in no other list, so a consumer has one representation
 // of it rather than two that could disagree.
@@ -278,13 +299,20 @@ func Build(r *repo.Repo, opts Options) Repository {
 		},
 	}
 	_, out.HasGlossary = r.Glossary()
+	out.Groups = []Group{}
 	for _, d := range r.Documents() {
-		// Terms are published in Glossary alone.
-		if d.Type == repo.TypeTerm {
-			continue
+		switch d.Type {
+		case repo.TypeTerm:
+			// Terms are published in Glossary alone.
+		case repo.TypeGroup:
+			out.Groups = append(out.Groups, group(r, d, opts))
+		default:
+			out.Documents = append(out.Documents, document(r, d, opts))
 		}
-		out.Documents = append(out.Documents, document(r, d, opts))
 	}
+	// By slug, not by the path groups are read in: "a-b.md" sorts before
+	// "a.md", while the slug "a" sorts before "a-b".
+	slices.SortFunc(out.Groups, func(a, b Group) int { return strings.Compare(a.Slug, b.Slug) })
 	if entries, ok := r.Glossary(); ok {
 		for _, e := range entries {
 			out.Glossary = append(out.Glossary, Term{
@@ -325,6 +353,7 @@ func document(r *repo.Repo, d *repo.Document, opts Options) Document {
 		ObsoletedBy:  list(d.ObsoletedBy),
 		DependedOnBy: list(d.DependedOnBy),
 		IncludedIn:   list(d.IncludedIn),
+		Groups:       list(d.Groups),
 
 		EffectivelyObsolete: d.EffectivelyObsolete,
 		Implemented:         d.Implemented,
@@ -402,6 +431,24 @@ func document(r *repo.Repo, d *repo.Document, opts Options) Document {
 		out.RequiredSections = append(out.RequiredSections, RequiredSection{Title: title, Anchor: anchor})
 	}
 
+	for _, l := range d.Links() {
+		out.Links = append(out.Links, link(r, d, l))
+	}
+	return out
+}
+
+func group(r *repo.Repo, d *repo.Document, opts Options) Group {
+	out := Group{
+		Slug:      d.Page,
+		Title:     d.FrontMatter.Title,
+		Path:      d.Path,
+		Documents: list(d.FrontMatter.Documents),
+		Links:     []Link{},
+	}
+	if !opts.NoBodies {
+		description := d.Description()
+		out.Description = &description
+	}
 	for _, l := range d.Links() {
 		out.Links = append(out.Links, link(r, d, l))
 	}
