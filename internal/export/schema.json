@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://raw.githubusercontent.com/archdochq/archdoc/main/schema/export/v3.json",
   "title": "ArchDoc export",
-  "description": "A specification repository, the relationships ArchDoc derives from it, and every document as a flat ordered list of its headings, with its questions and Changelog as data of their own. Before ArchDoc 1.0 a change that removes a field, or changes a field's type or meaning, moves schema to the next integer; from 1.0 the shape only gains optional fields.",
+  "description": "A specification repository, the relationships ArchDoc derives from it, and every document as a flat ordered list of its headings, with its questions, Changelog and rejection rationale as data of their own. Before ArchDoc 1.0 a change that removes a field, or changes a field's type or meaning, moves schema to the next integer; from 1.0 the shape only gains optional fields.",
   "type": "object",
   "required": ["schema", "config", "has_glossary", "documents"],
   "additionalProperties": false,
@@ -36,7 +36,7 @@
       "required": ["type", "path", "title", "depends", "updates", "obsoletes", "includes",
                    "updated_by", "obsoleted_by", "depended_on_by", "included_in",
                    "effectively_obsolete", "implemented", "stale",
-                   "required_sections", "contents", "questions", "changelog", "links"],
+                   "required_sections", "contents", "questions", "changelog", "rejection_rationale", "links"],
       "additionalProperties": false,
       "properties": {
         "type": {"enum": ["rfc", "adr", "spec", "ref"]},
@@ -74,7 +74,7 @@
 
         "required_sections": {
           "type": "array",
-          "description": "The level two headings this type calls for, in order. Checked by lint rather than guaranteed, so any of them may be missing from contents. A section is that unit and is not the same as a contents entry.",
+          "description": "The level two headings this document calls for, in order. Checked by lint rather than guaranteed, so any of them may be missing from contents. A rejected document's Rejection rationale is missing from contents whenever it is present, unless --all-headings is given, and is in rejection_rationale either way. A section is that unit and is not the same as a contents entry.",
           "items": {
             "type": "object",
             "required": ["title", "anchor"],
@@ -84,7 +84,7 @@
         },
         "contents": {
           "type": "array",
-          "description": "Every heading in document order, each with the prose beneath it, except the question sections and the Changelog, which are published in questions and changelog. With --all-headings, every heading. Content before the first heading belongs to no entry and appears only in source.",
+          "description": "Every heading in document order, each with the prose beneath it, except the question sections, the Changelog and the Rejection rationale, which are published in questions, changelog and rejection_rationale. With --all-headings, every heading. Content before the first heading belongs to no entry and appears only in source.",
           "items": {"$ref": "#/$defs/entry"}
         },
         "questions": {
@@ -101,6 +101,11 @@
           "type": "array",
           "description": "The entries of every Changelog section, in document order. Lines belonging to no entry appear only in source, and in contents under --all-headings.",
           "items": {"$ref": "#/$defs/changelog_entry"}
+        },
+        "rejection_rationale": {
+          "type": "array",
+          "description": "Every Rejection rationale section, in document order. Empty exactly where the document has none.",
+          "items": {"$ref": "#/$defs/rejection_rationale_section"}
         },
         "source": {"type": "string",
                    "description": "The file exactly as it is on disk, front matter included. Present only with --source. The one field that reproduces the document."},
@@ -169,6 +174,17 @@
         "body": {"type": "string", "description": "The entry without its marker and date, each later line with the item's two columns of indentation removed. Absent where bodies were excluded."}
       }
     },
+    "rejection_rationale_section": {
+      "type": "object",
+      "description": "A level two heading Rejection rationale and every line up to the next heading of level one or two.",
+      "required": ["anchor", "line"],
+      "additionalProperties": false,
+      "properties": {
+        "anchor": {"type": "string", "description": "As GitHub computes it, as a contents entry's is."},
+        "line": {"type": "integer", "minimum": 1, "description": "The heading's line, 1-based in the file. The body begins on the next line."},
+        "body": {"type": "string", "description": "The section's lines after its heading as written, subsections included. Absent where bodies were excluded."}
+      }
+    },
     "link": {
       "type": "object",
       "required": ["text", "type", "destination", "line"],
@@ -187,7 +203,7 @@
     "term": {
       "type": "object",
       "description": "One glossary term. A term is a file under term/ but is published only here, so a consumer has one representation of it rather than two that could disagree.",
-      "required": ["name", "anchor", "definition"],
+      "required": ["name", "anchor", "path", "definition"],
       "additionalProperties": false,
       "properties": {
         "name": {"type": "string"},

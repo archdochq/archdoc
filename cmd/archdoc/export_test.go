@@ -312,8 +312,9 @@ func TestOutRefusesToWriteThroughASymbolicLink(t *testing.T) {
 }
 
 // TestIndexDropsTheBodiesOfQuestionsAndEntries is the nested form of the copy
-// above: the questions, their answers and the Changelog entries each carry a
-// body, and index.json drops them without emptying the per-document file.
+// above: the questions, their answers, the Changelog entries and the
+// Rejection rationale each carry a body, and index.json drops them without
+// emptying the per-document file.
 func TestIndexDropsTheBodiesOfQuestionsAndEntries(t *testing.T) {
 	dir := t.TempDir()
 	if out, code := run(t, dir, "init", "--name", "T"); code != exitOK {
@@ -333,7 +334,7 @@ func TestIndexDropsTheBodiesOfQuestionsAndEntries(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	extra := "\n- 2026-01-02: An entry.\n\n## Resolved questions\n\n### Was it?\n\n> Yes.\n"
+	extra := "\n- 2026-01-02: An entry.\n\n## Resolved questions\n\n### Was it?\n\n> Yes.\n\n## Rejection rationale\n\nTurned down.\n"
 	written = []byte(strings.Replace(string(written), "## Changelog", "### Still open?\n\nDetail.\n\n## Changelog", 1))
 	if err := os.WriteFile(found[0], append(written, extra...), 0o644); err != nil {
 		t.Fatal(err)
@@ -362,6 +363,10 @@ func TestIndexDropsTheBodiesOfQuestionsAndEntries(t *testing.T) {
 		Changelog []struct {
 			Body *string `json:"body"`
 		} `json:"changelog"`
+		RejectionRationale []struct {
+			Line int     `json:"line"`
+			Body *string `json:"body"`
+		} `json:"rejection_rationale"`
 	}
 	read := func(rel string) nested {
 		t.Helper()
@@ -398,6 +403,12 @@ func TestIndexDropsTheBodiesOfQuestionsAndEntries(t *testing.T) {
 	}
 	if index.Questions.Resolved[0].Answer.Line == 0 {
 		t.Error("index.json dropped the answer's line along with its body")
+	}
+	if len(index.RejectionRationale) != 1 || index.RejectionRationale[0].Body != nil || index.RejectionRationale[0].Line == 0 {
+		t.Errorf("index.json's rejection rationale is %+v, want the section without its body", index.RejectionRationale)
+	}
+	if len(doc.RejectionRationale) != 1 || doc.RejectionRationale[0].Body == nil {
+		t.Error("the per-document file lost the rejection rationale's body dropped for the index")
 	}
 	if doc.Questions.Resolved[0].Body == nil || doc.Questions.Resolved[0].Answer.Body == nil || doc.Changelog[0].Body == nil {
 		t.Error("the per-document file lost a body dropped for the index")
