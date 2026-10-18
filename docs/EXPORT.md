@@ -16,7 +16,9 @@ archdoc export --schema           the JSON Schema, no repository needed
 
 The schema is the contract. It is embedded in the binary, published at
 [`schema/export/v3.json`](../schema/export/v3.json), and printed by `--schema`.
-This page is the guided tour; where the two disagree, the schema is right.
+Its `$id` is `https://archdoc.dev/schema/export/v3.json`, the published copy's
+path on the project's site. This page is the guided tour; where the two
+disagree, the schema is right.
 
 ## The envelope
 

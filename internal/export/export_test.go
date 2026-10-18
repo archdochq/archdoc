@@ -465,9 +465,8 @@ const publishedSchema = "../../schema/export/v3.json"
 //
 // The schema is embedded so `archdoc export --schema` can print it without a
 // repository, and go:embed cannot reach outside the package, so the copy a
-// consumer fetches has to be generated. Its $id names that copy's URL, and a
-// $id pointing at something that does not exist is worse than an obviously
-// abstract one: a tool that resolves it gets an error page.
+// consumer fetches has to be generated. Its $id is that copy's path on
+// archdoc.dev, the same path it has in this repository.
 //
 // internal/ also means "you may not import this" in Go. That is true of the
 // package and irrelevant to the file, but it reads as private for something
@@ -500,11 +499,8 @@ func TestThePublishedSchemaMatchesTheEmbeddedOne(t *testing.T) {
 	}
 	// Derived from publishedSchema rather than written out a second time, so
 	// the two cannot come to name different versions of the shape.
-	if want := "/" + strings.TrimPrefix(publishedSchema, "../../"); !strings.HasSuffix(schema.ID, want) {
-		t.Errorf("$id is %q, which does not name the published copy at %s", schema.ID, want)
-	}
-	if strings.Contains(schema.ID, "/internal/") {
-		t.Errorf("$id points inside internal/: %q", schema.ID)
+	if want := "https://archdoc.dev/" + strings.TrimPrefix(publishedSchema, "../../"); schema.ID != want {
+		t.Errorf("$id is %q, want %q", schema.ID, want)
 	}
 }
 
