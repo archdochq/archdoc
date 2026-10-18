@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
@@ -213,6 +214,79 @@ func TestNewBackfillRecordsTheHistoricalDates(t *testing.T) {
 		if !strings.Contains(string(written), want) {
 			t.Errorf("the backfilled document is missing %q:\n%s", want, written)
 		}
+	}
+}
+
+func TestNewBackfillRequiresCreatedWhenNothingCanBePrompted(t *testing.T) {
+	// Today is never the date of a decision taken before the repository
+	// existed, so it is not a default, and --decided does not stand in for it.
+	for name, extra := range map[string][]string{
+		"no dates":     nil,
+		"decided only": {"--decided", "2023-02-10"},
+	} {
+		t.Run(name, func(t *testing.T) {
+			dir := repository(t)
+			out, code := run(t, dir, append([]string{"new", "adr", "Storage engine", "--backfill"}, extra...)...)
+
+			if code != exitUsage || !strings.Contains(out, "--created") {
+				t.Errorf("exit = %d, output = %q; want a usage error naming --created", code, out)
+			}
+			if _, err := os.Stat(filepath.Join(dir, "adr", "0001-storage-engine.md")); !errors.Is(err, fs.ErrNotExist) {
+				t.Errorf("a document was written: %v", err)
+			}
+		})
+	}
+}
+
+func TestNewBackfillDecidedDefaultsToCreated(t *testing.T) {
+	dir := repository(t)
+	out, code := run(t, dir, "new", "adr", "Storage engine", "--backfill", "--created", "2023-04-01")
+	if code != exitOK {
+		t.Fatalf("exit = %d: %s", code, out)
+	}
+
+	written, err := os.ReadFile(filepath.Join(dir, "adr", "0001-storage-engine.md"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{"status: accepted\n", "created: 2023-04-01\n", "decided: 2023-04-01\n"} {
+		if !strings.Contains(string(written), want) {
+			t.Errorf("the backfilled document is missing %q:\n%s", want, written)
+		}
+	}
+}
+
+func TestNewBackfillWithNoArgumentsAsksForThem(t *testing.T) {
+	// The ref check reads the first argument, and there is none.
+	out, code := run(t, repository(t), "new", "--backfill")
+	if code != exitUsage || !strings.Contains(out, "needs a type and a title") {
+		t.Errorf("exit = %d, output = %q; want a usage error asking for the type and title", code, out)
+	}
+}
+
+func TestNewRefIsOnlyRefusedUnderBackfill(t *testing.T) {
+	dir := repository(t)
+	out, code := run(t, dir, "new", "ref", "A survey")
+	if code != exitOK {
+		t.Errorf("exit = %d, output = %q; a ref without --backfill was refused", code, out)
+	}
+}
+
+func TestCheckBackfillJudgesOnlyWhatIsSet(t *testing.T) {
+	// The form judges each answer as it is given, with the rest still empty.
+	now := time.Date(2026, 9, 12, 12, 0, 0, 0, time.UTC)
+	for _, opts := range []backfillOptions{
+		{},
+		{Created: "2023-01-05"},
+		{Decided: "2023-01-05"},
+		{Status: "rejected"},
+	} {
+		if err := checkBackfill(opts, now); err != nil {
+			t.Errorf("%+v was refused: %v", opts, err)
+		}
+	}
+	if err := checkBackfill(backfillOptions{Created: "2026-09-13"}, now); err == nil || !strings.Contains(err.Error(), "future") {
+		t.Errorf("a created date tomorrow: error = %v, want it refused as in the future", err)
 	}
 }
 
@@ -508,7 +582,8 @@ func TestTermAddCreatesTheTermDirectoryWhenThereIsNone(t *testing.T) {
 func TestBackfillRefusesDatesThatWouldFailLint(t *testing.T) {
 	for _, tc := range []struct{ name, created, decided, want string }{
 		{"decided before created", "2020-06-01", "2019-01-01", "before"},
-		{"decided in the future", "2099-01-01", "2099-06-01", "future"},
+		{"decided in the future", "2020-01-01", "2099-06-01", "future"},
+		{"created in the future", "2099-01-01", "2099-06-01", "future"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			out, code := run(t, repository(t), "new", "adr", "Bad dates",
@@ -921,9 +996,53 @@ func TestNewRefusesANonTerminalBackfillStatus(t *testing.T) {
 	// a document the tool's own linter fails. Without the check it writes
 	// decided and backfilled onto a draft and L07 reports two errors on a file
 	// archdoc itself created.
-	out, code := run(t, repository(t), "new", "rfc", "Wings", "--backfill", "--status", "draft")
-	if code == exitOK {
-		t.Errorf("--backfill --status=draft was accepted: %s", out)
+	// The dates are valid, so only the status can be at fault.
+	out, code := run(t, repository(t), "new", "rfc", "Wings", "--backfill", "--status", "draft", "--created", "2023-01-05")
+	if code != exitUsage || !strings.Contains(out, "not terminal") {
+		t.Errorf("exit = %d, output = %q; want --status=draft refused as not terminal", code, out)
+	}
+}
+
+func TestNewChecksTheFlagsBeforeAskingForAnything(t *testing.T) {
+	// With a terminal, the type and title would be prompted for next; a flag
+	// that is wrong is reported before that, so nobody fills in a form first.
+	out, code := run(t, repository(t), "new", "--backfill", "--status", "draft")
+	if code != exitUsage || !strings.Contains(out, "not terminal") {
+		t.Errorf("exit = %d, output = %q; want --status=draft refused before the type and title", code, out)
+	}
+}
+
+func TestNewChecksAGivenTitleBeforeAnythingElse(t *testing.T) {
+	// --backfill without --created would be refused for the missing date; a
+	// title checked only later, as it once was after the form, loses to that.
+	for _, tc := range []struct{ title, want string }{
+		{"Line one\nLine two", "line break"},
+		{"Retry #", "not usable as a title"},
+		{"!!!", "nothing that can be used in a filename"},
+	} {
+		out, code := run(t, repository(t), "new", "adr", tc.title, "--backfill")
+		if code != exitUsage || !strings.Contains(out, tc.want) {
+			t.Errorf("title %q: exit = %d, output = %q; want it refused for %q", tc.title, code, out, tc.want)
+		}
+	}
+}
+
+func TestNewRefusesATypeItDoesNotKnow(t *testing.T) {
+	dir := repository(t)
+	out, code := run(t, dir, "new", "widget", "Gears")
+	if code != exitUsage || !strings.Contains(out, "not a document type") {
+		t.Errorf("exit = %d, output = %q; want an unknown type refused", code, out)
+	}
+	if entries, _ := os.ReadDir(filepath.Join(dir, "widget")); len(entries) > 0 {
+		t.Errorf("a document was written under widget/")
+	}
+}
+
+func TestNewRefusesADecidedDateItCannotParse(t *testing.T) {
+	out, code := run(t, repository(t), "new", "adr", "Storage engine",
+		"--backfill", "--created", "2023-01-05", "--decided", "not-a-date")
+	if code != exitUsage || !strings.Contains(out, `--decided "not-a-date" is not an ISO 8601 date`) {
+		t.Errorf("exit = %d, output = %q; want the decided date refused as unparseable", code, out)
 	}
 }
 

@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+	"time"
 
 	"archdoc.dev/internal/config"
 	"archdoc.dev/internal/repo"
@@ -15,45 +16,95 @@ import (
 // else. When stdin is not a terminal, or --no-interaction was passed, a missing
 // required value is a usage error instead.
 
-// askForNew fills in the type and title of a new document.
-func askForNew(cmd *cobra.Command, args []string) (kind, title string, err error) {
+// askForNew fills in the type and title of a new document and, under
+// --backfill, the status and dates it was not given, in one form.
+func askForNew(cmd *cobra.Command, args []string, backfill *backfillOptions) (kind, title string, err error) {
 	if len(args) > 0 {
 		kind = args[0]
 	}
 	if len(args) > 1 {
 		title = args[1]
 	}
-	if kind != "" && title != "" {
-		return kind, title, nil
-	}
 	if !interactive(cmd) {
-		return "", "", fmt.Errorf("new needs a type and a title: archdoc new <rfc|adr|ref> <title>")
+		if kind == "" || title == "" {
+			return "", "", fmt.Errorf("new needs a type and a title: archdoc new <rfc|adr|ref> <title>")
+		}
+		return kind, title, nil
 	}
 
 	var fields []huh.Field
 	if kind == "" {
-		fields = append(fields, huh.NewSelect[string]().
-			Title("Which kind of document?").
-			Options(
-				huh.NewOption("RFC: a design the spec will have a page for", string(repo.TypeRFC)),
-				huh.NewOption("ADR: a decision that constrains designs", string(repo.TypeADR)),
-				huh.NewOption("Ref: research or background, never normative", string(repo.TypeRef)),
-			).
-			Value(&kind))
+		options := []huh.Option[string]{
+			huh.NewOption("RFC: a design the spec will have a page for", string(repo.TypeRFC)),
+			huh.NewOption("ADR: a decision that constrains designs", string(repo.TypeADR)),
+		}
+		if !backfill.On {
+			// A ref has no status, so it cannot be backfilled.
+			options = append(options, huh.NewOption("Ref: research or background, never normative", string(repo.TypeRef)))
+		}
+		fields = append(fields, huh.NewSelect[string]().Title("Which kind of document?").Options(options...).Value(&kind))
 	}
 	if title == "" {
-		fields = append(fields, huh.NewInput().Title("Title").Value(&title).
-			Validate(func(s string) error {
-				if repo.Slug(s) == "" {
-					return fmt.Errorf("a title needs something that can go in a filename")
-				}
-				return nil
-			}))
+		fields = append(fields, huh.NewInput().Title("Title").Value(&title).Validate(checkTitle))
+	}
+	if backfill.On {
+		fields = append(fields, backfillFields(cmd, backfill)...)
+	}
+	if len(fields) == 0 {
+		return kind, title, nil
 	}
 	if err := huh.NewForm(huh.NewGroup(fields...)).Run(); err != nil {
 		return "", "", err
 	}
 	return kind, title, nil
+}
+
+// backfillFields offers the status and dates of a backfilled document that the
+// command line did not give. Each is written to the front matter, so the
+// interaction rule covers them. decided is pre-filled with --created where that
+// was given; in the same form it cannot follow a created date being typed, so
+// it is left empty to mean the same date, and shows that date as it is typed.
+// Each answer is judged with the rest as it is given.
+func backfillFields(cmd *cobra.Command, opts *backfillOptions) []huh.Field {
+	var fields []huh.Field
+	if !cmd.Flags().Changed("status") {
+		opts.Status = string(repo.StatusAccepted)
+		fields = append(fields, huh.NewSelect[string]().Title("Status").
+			Options(
+				huh.NewOption("Accepted", string(repo.StatusAccepted)),
+				huh.NewOption("Rejected", string(repo.StatusRejected)),
+				huh.NewOption("Withdrawn", string(repo.StatusWithdrawn)),
+			).Value(&opts.Status))
+	}
+	if !cmd.Flags().Changed("created") {
+		fields = append(fields, huh.NewInput().Title("Created").Description("The date the work began, YYYY-MM-DD.").
+			Value(&opts.Created).
+			Validate(func(s string) error {
+				if s == "" {
+					return fmt.Errorf("the date the work began is required")
+				}
+				judged := *opts
+				judged.Created = s
+				return checkBackfill(judged, time.Now())
+			}))
+	}
+	if !cmd.Flags().Changed("decided") {
+		opts.Decided = opts.Created
+		fields = append(fields, huh.NewInput().Title("Decided").Description("The date the decision was taken, YYYY-MM-DD.").
+			PlaceholderFunc(func() string {
+				if opts.Created == "" {
+					return "the created date"
+				}
+				return opts.Created
+			}, &opts.Created).
+			Value(&opts.Decided).
+			Validate(func(s string) error {
+				judged := *opts
+				judged.Decided = s
+				return checkBackfill(judged, time.Now())
+			}))
+	}
+	return fields
 }
 
 // askForDocument chooses among the documents a transition is available for,

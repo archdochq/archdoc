@@ -48,8 +48,11 @@ archdoc new adr "Timestamps are stored in UTC" \
   --backfill --status=accepted --created 2024-03-11 --decided 2024-04-02
 ```
 
-`--status` takes a terminal status: `accepted`, `rejected` or `withdrawn`. `--created` and
-`--decided` take the historical dates; omit them and you will be prompted.
+`--status` takes a terminal status: `accepted`, `rejected` or `withdrawn`, and is `accepted` if
+not given. `--created` and `--decided` take the historical dates, and `--decided` is the
+`--created` date if not given. At a terminal you are prompted for whichever of the status and
+dates you omit. Without one, `--created` is required: today is never assumed, because it is
+never the date of a decision taken before the repository existed.
 
 Front matter gains one key no other document carries:
 

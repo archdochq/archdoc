@@ -38,32 +38,35 @@ func newNewCommand() *cobra.Command {
 				return err
 			}
 
-			kind, title, err := askForNew(cmd, args)
-			if err != nil {
-				return err
+			// What the command line gave is checked before anything is prompted
+			// for. A prompted type is one of those offered, and never a ref
+			// under --backfill.
+			if len(args) > 0 {
+				t, ok := repo.ParseType(args[0])
+				if !ok {
+					return fmt.Errorf("%q is not a document type; use rfc, adr or ref", args[0])
+				}
+				if opts.On && t == repo.TypeRef {
+					return fmt.Errorf("a ref has no status, so it cannot be backfilled")
+				}
 			}
-			t, ok := repo.ParseType(kind)
-			if !ok {
-				return fmt.Errorf("%q is not a document type; use rfc, adr or ref", kind)
-			}
-			// One check rather than a list of forbidden characters: render the
-			// heading the document will carry, read it back, and refuse if it
-			// is not what was asked for. A line break, a trailing hash and
-			// trailing whitespace all fail it, and so will whatever markdown
-			// syntax is discovered next.
-			if strings.ContainsAny(title, "\r\n") {
-				return fmt.Errorf("a title cannot contain a line break")
-			}
-			if !repo.HeadingSurvives(title) {
-				return fmt.Errorf("%q is not usable as a title: markdown would read the heading back as something else", title)
-			}
-			if opts.On && t == repo.TypeRef {
-				return fmt.Errorf("a ref has no status, so it cannot be backfilled")
+			if len(args) > 1 {
+				if err := checkTitle(args[1]); err != nil {
+					return err
+				}
 			}
 			if !opts.On && (opts.Status != "" || opts.Created != "" || opts.Decided != "") {
 				return fmt.Errorf("--status, --created and --decided only apply with --backfill")
 			}
+			if err := checkBackfill(opts, time.Now()); err != nil {
+				return err
+			}
 
+			kind, title, err := askForNew(cmd, args, &opts)
+			if err != nil {
+				return err
+			}
+			t, _ := repo.ParseType(kind)
 			data, err := newData(opts, time.Now())
 			if err != nil {
 				return err
@@ -99,10 +102,29 @@ func newNewCommand() *cobra.Command {
 		},
 	}
 	cmd.Flags().BoolVar(&opts.On, "backfill", false, "create the document already terminal, recording a decision taken earlier")
-	cmd.Flags().StringVar(&opts.Status, "status", "", "with --backfill, the terminal status: accepted, rejected or withdrawn")
-	cmd.Flags().StringVar(&opts.Created, "created", "", "with --backfill, the date the work began")
-	cmd.Flags().StringVar(&opts.Decided, "decided", "", "with --backfill, the date the decision was taken")
+	cmd.Flags().StringVar(&opts.Status, "status", "", "with --backfill, the terminal status: accepted, rejected or withdrawn; accepted if not given")
+	cmd.Flags().StringVar(&opts.Created, "created", "", "with --backfill, the date the work began; required unless prompted for")
+	cmd.Flags().StringVar(&opts.Decided, "decided", "", "with --backfill, the date the decision was taken; --created if not given")
 	return cmd
+}
+
+// checkTitle refuses a title the document could not carry. One check rather
+// than a list of forbidden characters: render the heading the document will
+// carry, read it back, and refuse if it is not what was asked for. A line
+// break, a trailing hash and trailing whitespace all fail it, and so will
+// whatever markdown syntax is discovered next. It judges a title given as an
+// argument before anything is prompted for, and a prompted one as it is typed.
+func checkTitle(title string) error {
+	if strings.ContainsAny(title, "\r\n") {
+		return fmt.Errorf("a title cannot contain a line break")
+	}
+	if !repo.HeadingSurvives(title) {
+		return fmt.Errorf("%q is not usable as a title: markdown would read the heading back as something else", title)
+	}
+	if repo.Slug(title) == "" {
+		return fmt.Errorf("%q contains nothing that can be used in a filename", title)
+	}
+	return nil
 }
 
 // writeNew creates a document, refusing to overwrite one. O_EXCL makes the
@@ -130,42 +152,59 @@ func newData(opts backfillOptions, now time.Time) (template.Data, error) {
 		return template.Data{Date: today, Status: string(repo.StatusDraft)}, nil
 	}
 
-	status := opts.Status
-	if status == "" {
-		status = string(repo.StatusAccepted)
+	if opts.Status == "" {
+		opts.Status = string(repo.StatusAccepted)
 	}
-	if !repo.Status(status).Terminal() {
-		return template.Data{}, fmt.Errorf("--status %q is not terminal; backfilling records a decision already taken", status)
+	if opts.Created == "" {
+		// Never today: a backfilled document records a decision taken before
+		// it was written, and is frozen with whatever date it carries.
+		return template.Data{}, fmt.Errorf("--backfill needs --created, the date the work began")
 	}
+	if opts.Decided == "" {
+		opts.Decided = opts.Created
+	}
+	if err := checkBackfill(opts, now); err != nil {
+		return template.Data{}, err
+	}
+	return template.Data{Date: opts.Created, Status: opts.Status, Decided: opts.Decided, Backfilled: today}, nil
+}
 
-	created, decided := opts.Created, opts.Decided
-	if created == "" {
-		created = today
+// checkBackfill refuses whichever of the status and dates is wrong, judging
+// only those set. The command line is checked with it before anything is
+// prompted for, and each prompted answer as it is given, so nobody fills in a
+// form only to have a flag refused after it.
+func checkBackfill(opts backfillOptions, now time.Time) error {
+	if opts.Status != "" && !repo.Status(opts.Status).Terminal() {
+		return fmt.Errorf("--status %q is not terminal; backfilling records a decision already taken", opts.Status)
 	}
-	if decided == "" {
-		decided = created
-	}
-
 	// Two variables rather than a map keyed on the flag names: a mistyped key
 	// there yields a zero time.Time rather than a compile error, and ranging a
 	// map would report whichever flag the runtime reached first.
-	createdOn, err := time.Parse(repo.DateLayout, created)
-	if err != nil {
-		return template.Data{}, fmt.Errorf("--created %q is not an ISO 8601 date", created)
+	var createdOn, decidedOn time.Time
+	var err error
+	if opts.Created != "" {
+		if createdOn, err = time.Parse(repo.DateLayout, opts.Created); err != nil {
+			return fmt.Errorf("--created %q is not an ISO 8601 date", opts.Created)
+		}
 	}
-	decidedOn, err := time.Parse(repo.DateLayout, decided)
-	if err != nil {
-		return template.Data{}, fmt.Errorf("--decided %q is not an ISO 8601 date", decided)
+	if opts.Decided != "" {
+		if decidedOn, err = time.Parse(repo.DateLayout, opts.Decided); err != nil {
+			return fmt.Errorf("--decided %q is not an ISO 8601 date", opts.Decided)
+		}
 	}
-	if decidedOn.Before(createdOn) {
-		return template.Data{}, fmt.Errorf("--decided %s is before --created %s", decided, created)
+	// Without a created date createdOn is the zero time, which nothing precedes.
+	if opts.Decided != "" && decidedOn.Before(createdOn) {
+		return fmt.Errorf("--decided %s is before --created %s", opts.Decided, opts.Created)
 	}
 	// Compared as dates. Against a wall-clock instant this refused today's date
 	// for the first hours of every local day east of UTC, and accepted
 	// tomorrow's west of it.
-	if decidedOn.After(repo.StartOfDay(now)) {
-		return template.Data{}, fmt.Errorf("--decided %s is in the future, so it cannot already have been recorded", decided)
+	today := repo.StartOfDay(now)
+	if createdOn.After(today) {
+		return fmt.Errorf("--created %s is in the future, so the work cannot already have begun", opts.Created)
 	}
-
-	return template.Data{Date: created, Status: status, Decided: decided, Backfilled: today}, nil
+	if decidedOn.After(today) {
+		return fmt.Errorf("--decided %s is in the future, so it cannot already have been recorded", opts.Decided)
+	}
+	return nil
 }

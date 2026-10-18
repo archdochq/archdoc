@@ -181,6 +181,16 @@ would have to round-trip everything it parsed.
   is untouched. `created` and `decided` carry the historical dates and `backfilled` the date of writing;
   dating `created` to the day the file was written would trip L07, and omitting `backfilled` would claim
   the document existed all along.
+- **`--created` has no default under `--backfill`.** It once defaulted to today, which is never the date
+  of a decision taken before the repository existed, and the document is frozen with whatever date it
+  carries. At a terminal the status and dates are prompted for; without one, a missing `--created` is a
+  usage error. The prompts join the form for type and title, which the interaction rule makes one form,
+  so decided cannot be pre-filled with a created date typed into the same form: it is left empty to mean
+  that date.
+- **What the command line gives `new` is checked before the form.** The type, the title and the backfill
+  flags were once checked after it, so a wrong flag was refused only once the form had been filled in and
+  its answers lost. Each prompted answer is judged by the same function as it is typed, against the
+  values already given.
 - **A backfilled document requires `Sources`**, as a ref does and for the same reason: a reconstruction
   with no evidence is someone's recollection. `Alternatives considered` and `Backwards compatibility`
   are pre-filled with `Not recorded.` rather than exempted, because an empty section is ambiguous
