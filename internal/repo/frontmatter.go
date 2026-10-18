@@ -42,6 +42,9 @@ type FrontMatter struct {
 	// NamedBy is the document that introduced a term. It records where the
 	// term came from and is not an inclusion: a term is not implementation.
 	NamedBy string
+	// Documents lists a group's members: an identifier names an RFC, ADR or
+	// ref, and anything else names a spec page.
+	Documents []string
 	// Backfilled is the date the document was written to record a decision
 	// taken earlier. Optional, and the only optional key: created and decided
 	// carry the historical dates, this one says when they were written down.

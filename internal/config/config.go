@@ -48,7 +48,7 @@ type Config struct {
 // Dir is the directory holding archdoc.json. Root is relative to it.
 func (c *Config) Dir() string { return filepath.Dir(c.Path) }
 
-// RootDir is the absolute directory holding the four document directories, and
+// RootDir is the absolute directory holding the document directories, and
 // everything else archdoc generates. ValidateRoot, which Load applies, is what
 // keeps it inside the repository.
 func (c *Config) RootDir() string { return filepath.Join(c.Dir(), c.Root) }

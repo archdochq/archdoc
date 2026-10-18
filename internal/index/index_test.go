@@ -64,6 +64,26 @@ func TestGenerateAlwaysEmitsAllFourSections(t *testing.T) {
 	}
 }
 
+func TestGenerateListsGroupsOnlyWhereThereAreSome(t *testing.T) {
+	if got := string(index.Generate(repotest.NewWith(t, `{"name":"Empty"}`, nil))); strings.Contains(got, "Groups") {
+		t.Errorf("a repository with no groups gained a Groups section:\n%s", got)
+	}
+
+	r := repotest.NewWith(t, `{"name":"Grouped"}`, map[string]string{
+		"spec/thing.md":    "---\ntitle: Thing\nincludes: []\n---\n\n# Thing\n",
+		"group/team.md":    "---\ntitle: Team | core\ndocuments: [thing, RFC-0009]\n---\n\n# Team | core\n",
+		"group/team-v2.md": "---\ntitle: Later\ndocuments: []\n---\n\n# Later\n",
+	})
+	// By slug, so team before team-v2, though the paths sort the other way, and
+	// the title escaped like every other free-text cell.
+	want := "\n## Groups\n\n| Group | Title | Documents |\n|---|---|---|\n" +
+		"| [team](group/team.md) | Team \\| core | [thing](spec/thing.md), RFC-0009 |\n" +
+		"| [team-v2](group/team-v2.md) | Later |  |\n"
+	if got := string(index.Generate(r)); !strings.HasSuffix(got, want) {
+		t.Errorf("the Groups section is not last, or a member is wrong:\n%s", got)
+	}
+}
+
 func TestGenerateProtectsTheTableFromTitleContent(t *testing.T) {
 	// A pipe would end the cell; a newline would end the row.
 	body := "---\nid: RFC-0001\ntitle: \"A | B\\nand more\"\nstatus: draft\ncreated: 2026-01-01\ndecided:\ndepends: []\nupdates: []\nobsoletes: []\n---\n\n# X\n"

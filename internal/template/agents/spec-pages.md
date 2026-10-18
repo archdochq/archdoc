@@ -1,6 +1,6 @@
 ---
 name: archdoc-spec-pages
-description: Use when editing spec pages, the glossary, or includes lists in an ArchDoc repository, covering present-tense description, keeping argument out, recording implementation, and staleness.
+description: Use when editing spec pages, the glossary, groups, or includes lists in an ArchDoc repository, covering present-tense description, keeping argument out, recording implementation, and staleness.
 ---
 
 # Spec pages
@@ -90,6 +90,27 @@ reports as L19. Nothing is read from that page any more. Move each entry across 
 `archdoc term add`, repoint links from editable documents at `GLOSSARY.md`, then delete the page.
 If a frozen document links into it, leave the page in place: the links it holds can never be
 repointed, and the L19 warning is then a record, not a task.
+
+## Groups
+
+A group names documents that belong together, such as those concerning one application in a
+repository describing several. Each group is one file, `group/<slug>.md`, written by hand:
+`archdoc new` does not create one. (PROCESS.md, Document types)
+
+```yaml
+---
+title: Storage
+documents: [RFC-0001, RFC-0004, ADR-0002, database]
+---
+```
+
+The body is an H1 reading the title, then what the members have in common. A member written as
+an identifier names that RFC, ADR or ref; any other member names a spec page by its path below
+`spec/`. A term or another group is never a member.
+
+A group has no status and is never frozen, so a frozen document is grouped, or moved between
+groups, by editing the group. Moving or renaming a spec page leaves its old name in every group
+listing it, which L04 reports. A document in no group is not reported.
 
 ## After any edit
 

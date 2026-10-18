@@ -1,11 +1,11 @@
 ---
 title: Relationships
-includes: [ADR-0003, ADR-0014]
+includes: [ADR-0003, ADR-0014, RFC-0011]
 ---
 
 # Relationships
 
-Front matter records forward relationships: `depends`, `updates` and `obsoletes` on an RFC or ADR, and `includes` on a spec page. Every reverse relationship is derived by reading the whole repository, and published in the index and the export.
+Front matter records forward relationships: `depends`, `updates` and `obsoletes` on an RFC or ADR, `includes` on a spec page, and `documents` on a group. Every reverse relationship is derived by reading the whole repository, and published in the export. `updated_by` and `obsoleted_by` are also published in the index, and `included_in`, less the glossary, as `Implemented in`.
 
 ## Derived
 
@@ -15,6 +15,7 @@ For each document:
 - `obsoleted_by`: every document listing it in `obsoletes`.
 - `depended_on_by`: every document listing it in `depends`.
 - `included_in`: for an RFC or ADR, every spec page listing it in `includes`.
+- `groups`: for an RFC, ADR, ref or spec page, the slug of every group listing it in `documents`, in order of slug. A group listing a member twice counts once.
 
 And three facts:
 

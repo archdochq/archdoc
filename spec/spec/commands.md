@@ -1,6 +1,6 @@
 ---
 title: Commands
-includes: [RFC-0001, RFC-0002, RFC-0003, RFC-0005, ADR-0016]
+includes: [RFC-0001, RFC-0002, RFC-0003, RFC-0005, RFC-0011, ADR-0016]
 ---
 
 # Commands
@@ -41,7 +41,7 @@ The generated workflow runs on push and pull request. It checks out the full his
 
 ## `archdoc new <rfc|adr|ref> <title>`
 
-Creates the next-numbered document of the type from its template, with `ID`, `Title` and `Date` substituted, and prints the path. Refuses a title that is empty, slugs to nothing, or contains a line break, and refuses if the derived filename exists. Refuses to write a heading that does not read back as the title given.
+Creates the next-numbered document of the type from its template, with `ID`, `Title` and `Date` substituted, and prints the path. Refuses a title that is empty, slugs to nothing, or contains a line break, and refuses if the derived filename exists. Refuses `spec`, `term` and `group`, saying the type is named by its path, not numbered. Refuses to write a heading that does not read back as the title given.
 
 | Option | Effect |
 |---|---|
@@ -51,7 +51,7 @@ Creates the next-numbered document of the type from its template, with `ID`, `Ti
 
 ## `archdoc renumber <id|path> [new-id]`
 
-Changes a numbered document's identifier. Rewrites the filename keeping the slug, the front matter `id`, the H1, and every reference to the old identifier: the `depends`, `updates`, `obsoletes` and `includes` lists of every other document, `[[...]]` links naming it, and link destinations pointing at the renamed file. With no target, the next free number for the type is taken.
+Changes a numbered document's identifier. Rewrites the filename keeping the slug, the front matter `id`, the H1, and every reference to the old identifier: the `depends`, `updates`, `obsoletes` and `includes` lists of every other document and the `documents` list of every group, `[[...]]` links naming it, and link destinations pointing at the renamed file. With no target, the next free number for the type is taken.
 
 The selector is an identifier or a path. Given an identifier carried by more than one document, the command lists the candidates and refuses. Refuses a frozen document, and refuses when any frozen document references the one being renamed. Nothing is written unless everything can be. The index is not regenerated, and the command says so.
 

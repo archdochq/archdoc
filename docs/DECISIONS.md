@@ -53,6 +53,15 @@ only showed up on a real document, and the reasoning is kept so the shape is not
   so a file naming it is an unknown-field error rather than a way to set it. The decoder must also reach
   end of file: `Decode` reads one value and leaves the rest of the stream, so a second object or any
   trailing text was silently ignored.
+- **Membership is held by the group, not by its members.** A frozen document can never gain a key, so
+  a key on each document would leave every accepted document ungrouped for good, and could not follow a
+  division that changes after the documents inside it froze. A group has no status and is never
+  frozen, so regrouping is always an edit to the group. Each document's groups are derived, as every
+  other reverse relationship is.
+- **A group's member that is not an identifier resolves to a spec page and nothing else.** `Member`
+  checks the identifier's shape before looking in `byID`, and looks only among spec pages otherwise. A
+  term and a group are named by slug as a spec page is, and would otherwise answer for a page of the
+  same name, which is the `ByPage` defect that let a term stand in for a spec page in the index.
 
 ## Markdown
 
@@ -355,7 +364,9 @@ the result can delete content it never read.
   would disable the freeze check altogether.
 - **Only a type with a lifecycle can be frozen.** A status key can be read out of any committed blob, so
   a spec page or a ref carrying one by mistake was treated as frozen and every later edit to it became
-  an error on a type that has no lifecycle at all.
+  an error on a type that has no lifecycle at all. The same holds for a document deleted from the
+  working tree, which L11 reads from the branch: it was checked for a terminal status without asking
+  its type, so a group committed with a stray `status: accepted` was reported as frozen once removed.
 - **An empty status is never rendered into a message.** A ref has none by design, and a document may
   carry the key with nothing after it; the rules that compare statuses stay quiet rather than producing
   "which is , while".
@@ -377,6 +388,9 @@ the result can delete content it never read.
   own workflow runs.
 - **All four sections are always emitted** with their header rows, so the file does not change shape as
   the repository grows and `index --check` is stable immediately after `init`.
+- **The `Groups` section is emitted only where there are groups.** Always emitting it would change the
+  index of every repository on upgrade, so `index --check` would fail in every one until it was
+  regenerated, for a section most repositories never use.
 - **Every cell is escaped, and every destination is encoded.** One renderer percent-encodes each
   character that would end a destination, a link or the table cell around it, and one escape function
   handles labels. A filename and a title are both free text reaching a file headed "Do not edit".

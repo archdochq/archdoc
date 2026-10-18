@@ -1,15 +1,15 @@
 ---
 title: Documents
-includes: [ADR-0002, ADR-0004]
+includes: [ADR-0002, ADR-0004, RFC-0011]
 ---
 
 # Documents
 
-A document is a Markdown file with a YAML front matter block. There are four types: RFC, ADR, spec page and ref. Each type lives in its own directory under `root`.
+A document is a Markdown file with a YAML front matter block. There are six types: RFC, ADR, spec page, ref, term and group. Each type lives in its own directory under `root`. Terms are described under [Links and the glossary](links.md).
 
 ## Discovery
 
-Every `*.md` file in `rfc/`, `adr/`, `ref/` and `spec/` is a document of that type. Files elsewhere are not documents. Subdirectories are ignored except under `spec/`, where they are permitted and a page is addressed by its path relative to `spec/`.
+Every `*.md` file in `rfc/`, `adr/`, `ref/`, `spec/`, `term/` and `group/` is a document of that type. Files elsewhere are not documents. Subdirectories are ignored except under `spec/`, where they are permitted and a page is addressed by its path relative to `spec/`.
 
 ## Identifiers
 
@@ -19,7 +19,7 @@ The identifier is derived from the filename. The `id` in the front matter is che
 
 The filename is `<NNNN>-<slug>.md`. The slug is derived from the title at creation: lowercased, runs of non-alphanumeric characters collapsed to single hyphens, leading and trailing hyphens trimmed. The tool never renames a file. A title changed after creation leaves the slug as it was.
 
-Spec pages are not numbered. A spec page is identified by its path relative to `spec/` without the extension: `spec/database.md` is `database`, and `spec/http/routing.md` is `http/routing`.
+Spec pages are not numbered. A spec page is identified by its path relative to `spec/` without the extension: `spec/database.md` is `database`, and `spec/http/routing.md` is `http/routing`. A group is not numbered either, and is identified by its slug, the filename without the extension: `group/storage.md` is `storage`. `new` refuses both types.
 
 ## Front matter
 
@@ -57,5 +57,14 @@ Ref:
 | `id` | string | Required. Equals the derived identifier. |
 | `title` | string | Required, non-empty. |
 | `verified` | date | Required. ISO 8601. |
+
+Group:
+
+| Key | Type | Rules |
+|---|---|---|
+| `title` | string | Required, non-empty. |
+| `documents` | list | Required key, may be empty. The members, in any order. A member of the form of an identifier names that RFC, ADR or ref. Any other member names a spec page by its path below `spec/` without the extension, and never a term or a group. |
+
+A group has no status and is never frozen.
 
 A byte order mark before the opening `---` is disregarded, and a carriage return after it. Neither is removed from the file.

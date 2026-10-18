@@ -2,9 +2,9 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://raw.githubusercontent.com/archdochq/archdoc/main/schema/export/v3.json",
   "title": "ArchDoc export",
-  "description": "A specification repository, the relationships ArchDoc derives from it, and every document as a flat ordered list of its headings, with its questions, Changelog and rejection rationale as data of their own. Before ArchDoc 1.0 a change that removes a field, or changes a field's type or meaning, moves schema to the next integer; from 1.0 the shape only gains optional fields.",
+  "description": "A specification repository, the relationships ArchDoc derives from it, and every document as a flat ordered list of its headings, with its questions, Changelog and rejection rationale as data of their own, and the groups the documents belong to. Before ArchDoc 1.0 a change that removes a field, or changes a field's type or meaning, moves schema to the next integer; from 1.0 the shape only gains optional fields.",
   "type": "object",
-  "required": ["schema", "config", "has_glossary", "documents"],
+  "required": ["schema", "config", "has_glossary", "documents", "groups"],
   "additionalProperties": false,
   "properties": {
     "schema": {"type": "integer", "const": 3},
@@ -14,6 +14,8 @@
     "has_glossary": {"type": "boolean",
                      "description": "Whether the repository has a glossary page. Present even where glossary is not, so a tree's index.json still answers it."},
     "documents": {"type": "array", "items": {"$ref": "#/$defs/document"}},
+    "groups": {"type": "array", "items": {"$ref": "#/$defs/group"},
+               "description": "Every group, in order of slug. Empty where there are none. A group appears here and nowhere else."},
     "glossary": {"type": "array", "items": {"$ref": "#/$defs/term"}}
   },
   "$defs": {
@@ -34,7 +36,7 @@
     "document": {
       "type": "object",
       "required": ["type", "path", "title", "depends", "updates", "obsoletes", "includes",
-                   "updated_by", "obsoleted_by", "depended_on_by", "included_in",
+                   "updated_by", "obsoleted_by", "depended_on_by", "included_in", "groups",
                    "effectively_obsolete", "implemented", "stale",
                    "required_sections", "contents", "questions", "changelog", "rejection_rationale", "links"],
       "additionalProperties": false,
@@ -64,6 +66,8 @@
         "depended_on_by": {"$ref": "#/$defs/identifiers"},
         "included_in": {"type": "array", "items": {"type": "string"},
                         "description": "Names of the spec pages including this document."},
+        "groups": {"type": "array", "items": {"type": "string"},
+                   "description": "Slugs of the groups listing this document, in order of slug."},
 
         "effectively_obsolete": {"type": "boolean",
                                  "description": "An accepted document obsoletes this one."},
@@ -198,6 +202,21 @@
         "resolves_to": {"type": "string", "description": "The identifier, or a spec page's name. Absent when the destination is not a document."},
         "anchor": {"type": "string"},
         "line": {"type": "integer", "minimum": 1}
+      }
+    },
+    "group": {
+      "type": "object",
+      "description": "Documents that belong together, listed by the group rather than by its members. A group is a file under group/ but is published only here.",
+      "required": ["slug", "title", "path", "documents", "links"],
+      "additionalProperties": false,
+      "properties": {
+        "slug": {"type": "string", "description": "The group's filename without the extension. Each document's groups name it by this."},
+        "title": {"type": "string"},
+        "path": {"type": "string", "description": "Slash-separated, relative to root."},
+        "description": {"type": "string", "description": "The body after the group's H1, as written, or the whole body where its first heading is not an H1. Absent where bodies were excluded."},
+        "documents": {"type": "array", "items": {"type": "string"},
+                      "description": "The members as written, whether or not they resolve. An identifier names an RFC, ADR or ref; anything else names a spec page."},
+        "links": {"type": "array", "items": {"$ref": "#/$defs/link"}}
       }
     },
     "term": {

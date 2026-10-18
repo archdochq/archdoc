@@ -154,6 +154,7 @@ func TestRenumberUpdatesReferencesInEditableDocuments(t *testing.T) {
 		"rfc/0001-base.md":  draft("RFC-0001", "Base"),
 		"rfc/0002-later.md": draftDepending("RFC-0002", "Later", "RFC-0001"),
 		"spec/thing.md":     "---\ntitle: Thing\nincludes: [RFC-0001]\n---\n\n# Thing\n\nWords.\n",
+		"group/team.md":     "---\ntitle: Team\ndocuments:\n  - thing\n  - RFC-0001\n---\n\n# Team\n",
 	})
 	if _, err := repo.Renumber(r, "RFC-0001", "RFC-0009", nothingFrozen); err != nil {
 		t.Fatalf("Renumber: %v", err)
@@ -161,6 +162,7 @@ func TestRenumberUpdatesReferencesInEditableDocuments(t *testing.T) {
 	for _, check := range []struct{ path, want string }{
 		{"rfc/0002-later.md", "depends: [RFC-0009]"},
 		{"spec/thing.md", "includes: [RFC-0009]"},
+		{"group/team.md", "  - RFC-0009\n"},
 	} {
 		body, err := os.ReadFile(filepath.Join(r.Config().RootDir(), filepath.FromSlash(check.path)))
 		if err != nil {

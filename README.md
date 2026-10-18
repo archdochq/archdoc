@@ -4,11 +4,13 @@ A CLI that manages a specification repository: a directory of Markdown documents
 with YAML front matter, a fixed lifecycle, and cross-references the tool derives
 rather than asks you to maintain.
 
-There are four kinds of document. An **RFC** proposes how something should work
+There are five types of document, and a glossary of terms. An **RFC** proposes how something should work
 and gets a spec page once it is built. An **ADR** records a decision that
 constrains designs without being a thing the spec describes. The **spec**
 describes how the project works right now and is always current. A **ref** holds
-research and background, and is never normative.
+research and background, and is never normative. A **group**, optional, lists
+the documents that belong together, such as those concerning one application in
+a repository describing several.
 
 RFCs and ADRs are frozen once they reach a terminal status. To change what an
 accepted document says you write a new one that updates or obsoletes it, and the

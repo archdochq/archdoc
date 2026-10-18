@@ -186,10 +186,32 @@ func references(d *repo.Document) []reference {
 }
 
 // L04 checks that every reference resolves to an existing document of a type
-// the field permits.
+// the field permits, and that every member of a group resolves and is listed
+// once.
 func L04(ctx Context) []Finding {
 	var rep report
 	for _, d := range ctx.Repo().Documents() {
+		if d.Type == repo.TypeGroup {
+			line := d.FrontMatter.LineOf("documents")
+			seen := map[string]bool{}
+			for _, name := range d.FrontMatter.Documents {
+				if seen[name] {
+					rep.errorf(d, line, "documents lists %q more than once", name)
+					continue
+				}
+				seen[name] = true
+				if ctx.Repo().Member(name) != nil {
+					continue
+				}
+				// A group never names a term or another group: a name that is
+				// not an identifier resolves to a spec page or to nothing.
+				if _, _, ok := repo.ParseIdentifier(name); ok {
+					rep.errorf(d, line, "documents lists %q, which does not exist", name)
+				} else {
+					rep.errorf(d, line, "documents lists %q, which is not a spec page", name)
+				}
+			}
+		}
 		for _, ref := range references(d) {
 			target := ctx.Repo().ByID(ref.id)
 			if target == nil {
@@ -613,7 +635,10 @@ func L11(ctx Context) []Finding {
 				continue
 			}
 		}
-		if _, isDoc := repo.TypeOf(docPath); !isDoc || inTree[docPath] {
+		// Only an RFC or ADR can be frozen. A spec page, ref, term or group
+		// carrying a status key by mistake is not, whatever the key says, as
+		// branchFiles already decides for one still in the tree.
+		if t, isDoc := repo.TypeOf(docPath); !isDoc || !t.HasLifecycle() || inTree[docPath] {
 			continue
 		}
 		gone = append(gone, file)

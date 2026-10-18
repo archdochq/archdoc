@@ -6,6 +6,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 )
@@ -214,6 +215,71 @@ func TestOutPrunesWhatTheRepositoryNoLongerHolds(t *testing.T) {
 	}
 	if _, err := os.Stat(filepath.Join(target, "rfc", "0001-first-design.json")); err != nil {
 		t.Errorf("a document still in the repository was removed: %v", err)
+	}
+}
+
+// TestOutWritesGroupsAndPrunesThemOnceNoneRemain covers groups.json: written
+// where there are groups, with descriptions, while index.json keeps the groups
+// without them, and removed by the export after the last group goes.
+func TestOutWritesGroupsAndPrunesThemOnceNoneRemain(t *testing.T) {
+	dir := t.TempDir()
+	if out, code := run(t, dir, "init", "--name", "T"); code != exitOK {
+		t.Fatalf("init exited %d: %s", code, out)
+	}
+	if out, code := run(t, dir, "new", "rfc", "A design"); code != exitOK {
+		t.Fatalf("new exited %d: %s", code, out)
+	}
+	group := filepath.Join(dir, "group", "team.md")
+	if err := os.MkdirAll(filepath.Dir(group), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(group, []byte("---\ntitle: Team\ndocuments: [RFC-0001]\n---\n\n# Team\n\nOwned together.\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	target := filepath.Join(dir, "dist")
+	if out, code := run(t, dir, "export", "--out", target); code != exitOK {
+		t.Fatalf("export exited %d: %s", code, out)
+	}
+
+	type grouped struct {
+		Slug        string  `json:"slug"`
+		Description *string `json:"description"`
+	}
+	var groups []grouped
+	var index struct {
+		Groups    []grouped `json:"groups"`
+		Documents []struct {
+			Groups []string `json:"groups"`
+		} `json:"documents"`
+	}
+	for rel, into := range map[string]any{"groups.json": &groups, "index.json": &index} {
+		body, err := os.ReadFile(filepath.Join(target, rel))
+		if err != nil {
+			t.Fatalf("%s was not written: %v", rel, err)
+		}
+		if err := json.Unmarshal(body, into); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if len(groups) != 1 || groups[0].Slug != "team" || groups[0].Description == nil || *groups[0].Description != "\nOwned together.\n" {
+		t.Errorf("groups.json holds %+v, want the group with its description", groups)
+	}
+	if len(index.Groups) != 1 || index.Groups[0].Slug != "team" || index.Groups[0].Description != nil {
+		t.Errorf("index.json holds groups %+v, want the group without its description", index.Groups)
+	}
+	if len(index.Documents) != 1 || !slices.Equal(index.Documents[0].Groups, []string{"team"}) {
+		t.Errorf("index.json's document belongs to %+v, want team", index.Documents)
+	}
+
+	if err := os.Remove(group); err != nil {
+		t.Fatal(err)
+	}
+	out, code := run(t, dir, "export", "--out", target)
+	if code != exitOK {
+		t.Fatalf("second export exited %d: %s", code, out)
+	}
+	if _, err := os.Stat(filepath.Join(target, "groups.json")); !errors.Is(err, fs.ErrNotExist) {
+		t.Error("groups.json outlived the last group")
 	}
 }
 

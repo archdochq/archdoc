@@ -1,6 +1,6 @@
 ---
 title: Lint
-includes: [ADR-0008, ADR-0009, ADR-0010, RFC-0008, RFC-0009]
+includes: [ADR-0008, ADR-0009, ADR-0010, RFC-0008, RFC-0009, RFC-0011]
 ---
 
 # Lint
@@ -16,7 +16,7 @@ Every rule reports an error unless stated. A finding that no permitted edit to t
 - **L01** Front matter parses and matches the schema for the type: no unknown keys, no missing required keys, no wrong types, no required key left empty.
 - **L02** `id` equals the identifier derived from type and filename. The filename matches `<NNNN>-<slug>.md`.
 - **L03** No identifier appears on more than one document.
-- **L04** Every identifier in `depends`, `updates`, `obsoletes` and `includes` resolves to an existing document of a permitted type.
+- **L04** Every identifier in `depends`, `updates`, `obsoletes` and `includes` resolves to an existing document of a permitted type. Every member of a group resolves, an identifier to an RFC, ADR or ref and any other member to a spec page, and no group lists a member twice. Each finding is reported at the line of the list. A document in no group is not reported.
 - **L05** `updates` and `obsoletes` reference only accepted documents of the same type. No document updates or obsoletes itself. No document appears in both lists of the same document.
 - **L06** `includes` references only accepted documents.
 - **L07** `decided` is set if and only if the status is terminal. `decided` is not before `created`. If `backfilled` is set, the status is terminal and `backfilled` is not before `decided`.

@@ -14,6 +14,16 @@ func (r *Repo) ByID(id string) *Document { return r.byID[id] }
 // ByPage returns the spec page with this name, or nil.
 func (r *Repo) ByPage(page string) *Document { return r.byPage[page] }
 
+// Member returns the document a group's member names, or nil. An identifier
+// names an RFC, ADR or ref, and anything else a spec page, so a member never
+// resolves to a term or another group, whatever it is called.
+func (r *Repo) Member(name string) *Document {
+	if _, _, ok := ParseIdentifier(name); ok {
+		return r.byID[name]
+	}
+	return r.byPage[name]
+}
+
 // ByPath returns the document at this path relative to root, or nil.
 func (r *Repo) ByPath(path string) *Document { return r.byPath[path] }
 
@@ -31,6 +41,9 @@ func (r *Repo) derive() {
 		slices.Sort(d.ObsoletedBy)
 		slices.Sort(d.DependedOnBy)
 		slices.Sort(d.IncludedIn)
+		// By slug, not by the path groups are read in: "a-b.md" sorts before
+		// "a.md", while the slug "a" sorts before "a-b".
+		slices.Sort(d.Groups)
 	}
 	r.deriveFacts()
 }
@@ -82,6 +95,15 @@ func (r *Repo) contribute(d *Document) {
 		}
 	}
 
+	if d.Type == TypeGroup {
+		for _, name := range d.FrontMatter.Documents {
+			// A member listed twice is L04's to report, and is one membership.
+			if target := r.Member(name); target != nil && !slices.Contains(target.Groups, d.Page) {
+				target.Groups = append(target.Groups, d.Page)
+			}
+		}
+		return
+	}
 	if d.Type != TypeSpec {
 		return
 	}
