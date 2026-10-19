@@ -13,7 +13,7 @@ obsoletes: []
 
 ## Abstract
 
-`archdoc lint --merge` checks a pull request, as checked out merged into the configured branch, under three rules of its own: no draft lands, a document arriving with a number the branch already gives another document is named for renumbering, and every change of status is a move the lifecycle permits from the status on the branch. `archdoc changes` summarises what the pull request does to the record, and documents land on the configured branch never as drafts, with their authors proposing them before review and maintainers holding the verdicts.
+`archdoc lint --merge` checks a pull request, as checked out merged into the configured branch, under four rules of its own: no draft lands, a document arriving with a number the branch already gives another document is named for renumbering, every change of status is a move the lifecycle permits from the status on the branch, and a document proposed on the branch is withdrawn rather than deleted. `archdoc changes` summarises what the pull request does to the record, and documents land on the configured branch never as drafts, with their authors proposing them before review and maintainers holding the verdicts.
 
 ## Motivation
 
@@ -35,14 +35,15 @@ Lint judges a tree on its own. It reads the configured branch to keep frozen doc
 
 | Component | Responsibility |
 |---|---|
-| `internal/lint` | M01, M02 and M03, as entries of `Rules` marked as merge rules, which `archdoc lint` skips without `--merge`. They read the base through the branch snapshot, which already uses the base's file listing to tell which documents are new. `Run` skips a merge rule unless the context asks for merge rules, so `archdoc lint` without `--merge` and the transition commands, which run lint before writing, are unaffected |
+| `internal/repo` | The transitions PROCESS.md permits from each status, moved from `internal/lifecycle`, which imports `internal/lint`, so that M03 and the transition commands read one table |
+| `internal/lint` | M01, M02, M03 and M04, as entries of `Rules` marked as merge rules, which `archdoc lint` skips without `--merge`. They read the base through the branch snapshot, which already uses the base's file listing to tell which documents are new, and M04 reads that listing for documents absent from the working tree. `Run` skips a merge rule unless the context asks for merge rules, so `archdoc lint` without `--merge` and the transition commands, which run lint before writing, are unaffected |
 | `internal/changes` | The account `archdoc changes` gives, reading the base's file listing for documents removed |
 | `cmd/archdoc` | `lint --merge`, and the `changes` command with `--json` |
 | `archdochq/lint` | A `merge` input, which runs `archdoc lint --merge` in place of `archdoc lint`, so merge findings are annotated as every other finding is |
-| `internal/template` | The scaffolded workflow, as below, for which `Data` gains the configured branch. In `PROCESS.md`: the Workflow section rewritten, the lint rules gaining the merge rules, and the commands gaining `changes` and `lint --merge`. The contributing guide: proposing before review, recording each review edit in an RFC's Changelog or an ADR's commit message, withdrawing one's own document, and its section on collisions, which gives the document as still a draft when it is renumbered. The authoring guide: a verdict following once the proposal is on the branch, pushed or in a pull request of its own. The triage guide: M01, M02 and M03. The working guide: the commands |
+| `internal/template` | The scaffolded workflow, as below, for which `Data` gains the configured branch. In `PROCESS.md`: the Workflow section rewritten, the lint rules gaining the merge rules, and the commands gaining `changes` and `lint --merge`. The contributing guide: proposing before review, recording each review edit in an RFC's Changelog or an ADR's commit message, withdrawing one's own document, and its section on collisions, which gives the document as still a draft when it is renumbered. The authoring guide: a verdict following once the proposal is on the branch, pushed or in a pull request of its own. The triage guide: M01, M02, M03 and M04. The working guide: the commands |
 | Specification pages | `lint.md`: the merge rules. `commands.md`: `lint --merge`, `changes`, and the generated workflow. `lifecycle.md`: M03 judging a change by the same permitted transitions as the transition commands. `architecture.md`: `internal/changes` |
 | Documentation | `README.md`: the commands, and what the generated workflow runs |
-| Tests | Each merge rule against a base built in a temporary git repository, including a draft already on the base, a document proposed and accepted at once under each `strict`, a backfilled document arriving accepted, a document renamed, and a missing base; `changes` in both forms |
+| Tests | Each merge rule against a base built in a temporary git repository, including a draft already on the base, a document proposed and accepted at once under each `strict`, a backfilled document arriving accepted, a document renamed, a proposed document deleted and renumbered, a draft deleted, a base with no `archdoc.json`, and a missing base; `changes` in both forms |
 
 ### Who moves a document
 
@@ -60,7 +61,8 @@ The tool does not enforce this table. The merge rules check what a pull request 
 |---|---|---|
 | M01 | An arriving RFC or ADR whose status is `draft` | Error |
 | M02 | An arriving numbered document whose identifier is also carried by a document that is on the base and still in the working tree. The finding names that document's path and `archdoc renumber` | Error |
-| M03 | A change of status that is not a transition PROCESS.md permits from the status on the base, under the `strict` of the base's `archdoc.json`, so a pull request cannot relax the rule it is judged by. An arriving RFC or ADR is judged as moving from `draft`, unless it carries `backfilled` | Error |
+| M03 | A change of status that is not a transition PROCESS.md permits from the status on the base, under the `strict` of the base's `archdoc.json`, so a pull request cannot relax the rule it is judged by, or of the working tree's where the base has none. An arriving RFC or ADR is judged as moving from `draft`, unless it carries `backfilled` | Error |
+| M04 | An RFC or ADR that is `proposed` on the base and absent from the working tree under its identifier, deleted or renumbered by the pull request. The finding names the base's path and `archdoc withdraw` | Error |
 
 | Rule | Detail |
 |---|---|
@@ -71,10 +73,11 @@ The tool does not enforce this table. The merge rules check what a pull request 
 | Terminal on the base | M03 does not judge a document terminal on the base, whose every change L11 reports |
 | Identifiers | The base's identifiers are read from its filenames, which under [ADR-0002](../adr/0002-identity-is-the-filename-number.md) carry them. A document renamed in the pull request is not arriving, so M01 and M02 do not report it, and M03 judges it from its status on the base, unless it is terminal there, where L11 reports the rename |
 | Types | Only RFCs and ADRs have a status. M02 applies to every numbered type, refs included |
+| Removal | A draft on the base may be deleted or renumbered, and M04 does not report it. A document terminal on the base is not judged by M04, since L11 reports its deletion. A document renamed with its identifier kept is not absent |
 | No base | Where the base does not exist, or there is no git repository, `--merge` exits 1 naming the branch, as a usage error, and reports nothing |
 | Merge checkout | The rules are defined on a merge checkout. On a branch not brought up to date with the base, a document the base has gained since it branched is absent from the working tree and nothing reports it. A contributor checking locally brings the configured branch up to date with the repository the pull request targets, rebases onto it, and then runs `--merge` |
 | Without `--merge` | `archdoc lint` is unchanged, and never runs a merge rule |
-| Rule entries | Where [RFC-0014](0014-lint-rules-and-the-command-reference-are-published-as-data.md) is built, M01, M02 and M03 carry the fields it gives every entry of `Rules` |
+| Rule entries | Where [RFC-0014](0014-lint-rules-and-the-command-reference-are-published-as-data.md) is built, M01, M02, M03 and M04 carry the fields it gives every entry of `Rules` |
 | Direct pushes | The merge rules apply to pull requests only. A commit pushed to the configured branch is checked by the L rules, as now, and by no merge rule, and a repository requiring every change to be reviewed does so through branch protection |
 
 ### `archdoc changes`
@@ -137,7 +140,7 @@ The step carries the same `working-directory` as the other steps where the repos
 
 ### Process
 
-PROCESS.md's Workflow section is rewritten. A document is written on a branch, offered as a pull request, and proposed by its author before review, so that it never reaches the configured branch as a draft. Edits made in review to a proposed RFC are recorded in its Changelog, and to a proposed ADR in the commit message, as for any proposed document. Discussion of a document happens on its pull request, and the sentence giving the repository's discussions as the place for it is removed. The table of who moves a document is added to the section. Its number becomes permanent when the pull request merges, and a collision before that is resolved with `renumber`. Where `strict` is on, a verdict follows once the proposal is on the branch, as a commit a maintainer pushes to it or a pull request of its own, never in the pull request that proposes the document. A backfilled document arrives already terminal, as before. The sentences giving the main branch as the place drafts are committed, and merging a draft as what assigns its number, are removed.
+PROCESS.md's Workflow section is rewritten. A document is written on a branch, offered as a pull request, and proposed by its author before review, so that it never reaches the configured branch as a draft. Edits made in review to a proposed RFC are recorded in its Changelog, and to a proposed ADR in the commit message, as for any proposed document. Discussion of a document happens on its pull request, and the sentence giving the repository's discussions as the place for it is removed. The table of who moves a document is added to the section. Its number becomes permanent when the pull request merges, and a collision before that is resolved with `renumber`. A document proposed on the branch that is no longer wanted is withdrawn, never deleted or renumbered. Where `strict` is on, a verdict follows once the proposal is on the branch, as a commit a maintainer pushes to it or a pull request of its own, never in the pull request that proposes the document. A backfilled document arrives already terminal, as before. The sentences giving the main branch as the place drafts are committed, and merging a draft as what assigns its number, are removed.
 
 ### Out of scope
 
@@ -152,7 +155,7 @@ The design rests on [ADR-0016](../adr/0016-the-scaffolded-workflow-uses-the-publ
 
 ## Backwards compatibility
 
-`archdoc lint` without `--merge` is unchanged, and so is every L rule. A repository whose workflow predates this design runs no merge rule until `archdoc update` brings the workflow up to date, which also needs an `archdochq/lint` release with the `merge` input. From then on, a pull request into the configured branch that lands a draft, arrives with a number taken on the base, or makes a transition the lifecycle does not permit from the base fails the check. Where `strict` is on, a document proposed and accepted in one pull request fails it, and so does a new document arriving accepted without `backfilled`; the proposal merges first, and the verdict is pushed or merged after it.
+`archdoc lint` without `--merge` is unchanged, and so is every L rule. A repository whose workflow predates this design runs no merge rule until `archdoc update` brings the workflow up to date, which also needs an `archdochq/lint` release with the `merge` input. From then on, a pull request into the configured branch that lands a draft, arrives with a number taken on the base, makes a transition the lifecycle does not permit from the base, or deletes or renumbers a document proposed on the base fails the check. Where `strict` is on, a document proposed and accepted in one pull request fails it, and so does a new document arriving accepted without `backfilled`; the proposal merges first, and the verdict is pushed or merged after it.
 
 Drafts already on the configured branch are not reported, and nothing checks a direct push. The contributing guide reverses its instruction not to run `propose`, and its instruction to leave the Changelog empty.
 
@@ -161,3 +164,7 @@ This repository's specification is checked by its own workflow, which under [ADR
 ## Open questions
 
 ## Changelog
+
+- 2026-10-19: M04 reports a document proposed on the branch that a pull request deletes or renumbers; M03 reads the working tree's
+  `strict` where the base has no `archdoc.json`; the permitted transitions move to `internal/repo`, which lint and the
+  transition commands both import.
