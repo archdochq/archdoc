@@ -126,6 +126,21 @@ would have to round-trip everything it parsed.
   before comparing against a path on disk. `repo.LinkDestination` percent-encodes on the way out. The
   two are inverses, and encoding rather than escaping avoids the interaction where a path's own
   backslash pairs with an added one and lets the destination close early.
+- **Link text is read across a paragraph by a scanner, not a pattern.** A pattern matched one line at a
+  time with `[^\]]*` for the text, so link text wrapped across lines, a linked image and brackets in the
+  text were not links, and L17, `export`, `term remove` and `renumber` all passed over them. The scanner
+  keeps the brackets left open across a paragraph's lines, as CommonMark's bracket stack does, and reads
+  the masked view, so a bracket in code or a comment is not one. A link sits on the line holding its
+  destination, which is where a writer edits it. A reference link ends the link around it as an inline
+  one does, so the document's definitions are read before its links; without that, `[RFC [1]](x.md)`
+  beside a definition of `[1]` was read as a link to `x.md`, which GitHub does not render. Each block
+  that ends a paragraph ends the text, since text carried into the next block made a link of a `](`
+  whose `[` was in a heading, a table row or another list item.
+- **Reading links is linear in the length of a line.** The first scanner ran the destination pattern
+  from every `]` to the end of the line when no `)` followed, and made every open bracket inactive one
+  at a time when a link closed, so a 60 KB line took ten seconds. The pattern is not tried after a
+  line's last `)`, inactivity is one bound on the stack rather than a flag on each bracket, and a
+  label's length is measured only as far as the longest label can run.
 - **A line is a link reference definition only if that is all it is.** The pattern is anchored at both
   ends, requires a non-empty label, allows a title and does not count a line that interrupts a
   paragraph. Without the end anchor a footnote, a numbered citation or any sentence beginning with a

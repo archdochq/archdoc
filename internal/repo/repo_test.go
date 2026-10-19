@@ -7,6 +7,7 @@ import (
 	"slices"
 	"strings"
 	"testing"
+	"time"
 
 	"archdoc.dev/internal/repo"
 	"archdoc.dev/internal/repotest"
@@ -1325,5 +1326,147 @@ func TestByPageNamesOnlySpecPages(t *testing.T) {
 	}
 	if d := r.ByPage(repo.GlossaryPage); d != nil {
 		t.Errorf("ByPage(%s) = %s, want nil: a term is not a page", repo.GlossaryPage, d.Path)
+	}
+}
+
+// linksOf renders a document's links as "type destination line: text", with
+// the destination taken from the line at its columns, so a test pins all of
+// what a writer relies on.
+func linksOf(t *testing.T, body string) []string {
+	t.Helper()
+	source := "---\ntitle: Page\nincludes: []\n---\n\n# Page\n\n" + body
+	r := repotest.New(t, map[string]string{"spec/page.md": source})
+	d := repotest.Document(t, r, "spec/page.md")
+	lines := strings.Split(source, "\n")
+	var got []string
+	for _, l := range d.Links() {
+		got = append(got, fmt.Sprintf("%s %s %d: %s", l.Type, lines[l.Line-1][l.Start:l.End], l.Line, l.Text))
+	}
+	return got
+}
+
+// TestALinkIsReadAsCommonMarkReadsIt: link text runs across the lines of a
+// paragraph and holds brackets in balanced pairs, and an image can be the text
+// of a link. Each is a link, on the line holding its destination.
+func TestALinkIsReadAsCommonMarkReadsIt(t *testing.T) {
+	got := linksOf(t, "See [the storage\nRFC](../rfc/0001-storage.md), [![badge](b.png)](0002-x.md#y)\nor [RFC [1]](0003-z.md).\n")
+	want := []string{
+		"inline ../rfc/0001-storage.md 9: the storage\nRFC",
+		"image b.png 9: badge",
+		"inline 0002-x.md#y 9: ![badge](b.png)",
+		"inline 0003-z.md 10: RFC [1]",
+	}
+	if strings.Join(got, "|") != strings.Join(want, "|") {
+		t.Errorf("links =\n%q\nwant\n%q", got, want)
+	}
+}
+
+// TestLinkTextStopsWhereCommonMarkStopsIt: a paragraph's end, a new block, an
+// escape and code all end or hide the text, and a link cannot hold a link.
+func TestLinkTextStopsWhereCommonMarkStopsIt(t *testing.T) {
+	got := linksOf(t, "[across\n\na paragraph](n1.md)\n\n- [one item\n- another](n2.md)\n\n1. [first\n2. second](n8.md)\n\n"+
+		"## A [heading\nthen](n3.md)\n\n[a [b](inner.md)](n4.md)\n\n"+
+		"\\[escaped](n5.md).\n\n[x\\](n6.md).\n\n`[`code](n7.md).\n")
+	want := []string{"inline inner.md 21: b"}
+	if strings.Join(got, "|") != strings.Join(want, "|") {
+		t.Errorf("links = %q, want %q", got, want)
+	}
+}
+
+// TestLinkTextFollowsTheBlocksItIsIn covers what the two tests above leave
+// out: code between two lines ends a paragraph, as a heading does, a quote's
+// later lines continue it, an image may hold a link, and a destination is not
+// read again for brackets.
+func TestLinkTextFollowsTheBlocksItIsIn(t *testing.T) {
+	got := linksOf(t, "[before\n```\ncode\n```\nafter](n1.md)\n\n[open\n# heading](n2.md)\n\n"+
+		"> [quoted\n> twice](q.md)\n\n![an [inner](c.md) one](d.png)\n\n[a](<x[y>) z](n3.md)\n")
+	want := []string{
+		"inline q.md 18: quoted\n> twice",
+		"inline c.md 20: inner",
+		"image d.png 20: an [inner](c.md) one",
+		"inline x[y 22: a",
+	}
+	if strings.Join(got, "|") != strings.Join(want, "|") {
+		t.Errorf("links =\n%q\nwant\n%q", got, want)
+	}
+}
+
+func TestWrappedLinkTextLosesTheCarriageReturn(t *testing.T) {
+	got := linksOf(t, "See [the storage\r\nRFC](0001-storage.md).\r\n")
+	if want := "inline 0001-storage.md 9: the storage\nRFC"; len(got) != 1 || got[0] != want {
+		t.Errorf("links = %q, want [%q]", got, want)
+	}
+}
+
+// TestALongLineIsReadInLinearTime: every ] used to run the destination pattern
+// to the end of the line when no ) followed, and each link closed made every
+// bracket still open inactive one by one. Both made a long line quadratic: a
+// 60 KB line took ten seconds where it takes milliseconds.
+func TestALongLineIsReadInLinearTime(t *testing.T) {
+	body := strings.Repeat("[a](b ", 10000) + "\n\n" + strings.Repeat("[", 20000) + strings.Repeat("[a](b)", 20000) + "\n"
+	started := time.Now()
+	linksOf(t, body)
+	if took := time.Since(started); took > 2*time.Second {
+		t.Errorf("reading two long lines took %v", took)
+	}
+}
+
+// TestAReferenceLinkEndsTheLinkAroundIt: a reference link is a link, so the
+// text around it cannot be one, as with an inline link. Its label has to be
+// defined for it to be a link at all, compared as CommonMark compares labels,
+// and an image by reference may be the text of a link like any other image. A
+// full reference takes its [label] with it, so what follows is not read as a
+// destination, and a bracket that cannot be a link cannot be a reference.
+func TestAReferenceLinkEndsTheLinkAroundIt(t *testing.T) {
+	got := linksOf(t, "[RFC [1]](n1.md), [a [b][C] d](n2.md), [a [c][] d](n3.md),\n"+
+		"[RFC [2]](y.md) and [a ![c] d](img.md).\n[b][C](n4.md) [[x](a.md)][c](w.md)\n\n[1]: https://e.com\n[c]: z.md\n")
+	want := []string{
+		"inline y.md 9: RFC [2]",
+		"inline img.md 9: a ![c] d",
+		"inline a.md 10: x",
+		"inline w.md 10: c",
+		"definition https://e.com 12: 1",
+		"definition z.md 13: c",
+	}
+	if strings.Join(got, "|") != strings.Join(want, "|") {
+		t.Errorf("links =\n%q\nwant\n%q", got, want)
+	}
+}
+
+// TestLinkTextEndsWithEveryBlock: each of these lines begins a block, so a
+// bracket left open before it does not close after it.
+func TestLinkTextEndsWithEveryBlock(t *testing.T) {
+	for _, body := range []string{
+		"Title [x\n---\nmore](n.md)\n",
+		"Title [x\n===\nmore](n.md)\n",
+		"Title [x\n--\nmore](n.md)\n",
+		"para [x\n***\nmore](n.md)\n",
+		"- a\n    - [b\n    - c](n.md)\n",
+		"> - [a\n> - b](n.md)\n",
+		"| [c | d |\n| e](n.md) |\n",
+		"[a\n> b](n.md)\n",
+		"[a\n+\nb](n.md)\n",
+		"[a\n   - b](n.md)\n",
+	} {
+		if got := linksOf(t, body); len(got) != 0 {
+			t.Errorf("%q: links = %q, want none", body, got)
+		}
+	}
+}
+
+func TestLinkTextAcrossThreeCRLFLinesLosesEveryCarriageReturn(t *testing.T) {
+	got := linksOf(t, "[one\r\ntwo\r\nthree](n.md)\r\n\r\nA line ending in a bang!\n")
+	if want := "inline n.md 10: one\ntwo\nthree"; len(got) != 1 || got[0] != want {
+		t.Errorf("links = %q, want [%q]", got, want)
+	}
+}
+
+// TestTextLongerThanALabelIsNotAReference: a label is at most 999 characters,
+// so longer text is not one even where a definition spells it out.
+func TestTextLongerThanALabelIsNotAReference(t *testing.T) {
+	long := strings.Repeat("a", 1000)
+	got := linksOf(t, "[x ["+long+"] y](n.md)\n\n["+long+"]: z.md\n")
+	if len(got) != 2 || !strings.HasPrefix(got[0], "inline n.md 8:") {
+		t.Errorf("links = %.80q, want the link to n.md and the definition", got)
 	}
 }
