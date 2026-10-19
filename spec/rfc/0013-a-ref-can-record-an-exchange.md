@@ -36,11 +36,11 @@ A ref that records an exchange, such as a review round, a meeting or a discussio
 |---|---|
 | `internal/repo` | `as_of` in the ref schema, as an optional key, parsed as a date as `verified` is |
 | `internal/lint` | L01 reports `as_of` present and empty; L13 passes over a record of an exchange; L07 checks `as_of` against `verified` on a ref |
-| `cmd/archdoc` | `new` takes `--as-of` for a ref and prompts for `as_of` where it is not given, and its help says so |
+| `cmd/archdoc` | `new` takes `--as-of` for a ref and offers `as_of` in the form that asks for the type or title, and its help says so |
 | `internal/export` | `as_of` on a document, and its definition in `schema: 3` |
 | Published schemas | `v3.json`, which [RFC-0008](0008-questions.md) adds, gains `as_of` on a document |
 | `internal/template` | `Data` gains the `as_of` date, and `ref.md` writes it where it is given. In `PROCESS.md`, the description of the ref type, its front matter, and the lint rules on dates and on refs. In the triage guide, the L07 and L13 rows. In the classifying guide, the description of the ref type. In the survey guide, a row classifying a record of an exchange found in a project's history as a ref carrying `as_of`. The copy of `PROCESS.md` in `spec/` follows from `archdoc update` |
-| Specification pages | `documents.md`: the ref's front matter. `lint.md`: L07 and L13. `layout.md`: what `ref_stale_days` warns about. `commands.md`: `new`'s substitutions and options, the type prompt's filtering, and the prompt for `as_of` |
+| Specification pages | `documents.md`: the ref's front matter. `lint.md`: L07 and L13. `layout.md`: what `ref_stale_days` warns about. `commands.md`: `new`'s substitutions and options, the type prompt's filtering, and the prompt for `as_of` as an exception to the Interaction rule |
 | Documentation | `docs/EXPORT.md`: the account of `config`, which a consumer reads to explain when a ref goes stale |
 
 Where the rule registry carries the releases that changed each rule, as [RFC-0014](0014-lint-rules-and-the-command-reference-are-published-as-data.md) proposes, the changes to L01, L07 and L13 are recorded there.
@@ -90,7 +90,7 @@ A ref holds research, comparisons, background material, or the record of an exch
 | `--backfill` | Refused with `--as-of`, since a ref cannot be backfilled |
 | Date | Refused unless an ISO 8601 date, and refused after today, compared as a date against today's date, since `new` writes today's date to `verified` and L07 reports an `as_of` after it |
 | When | Checked before anything is prompted for, as every other flag of `new` is |
-| Prompts | At a terminal, where `--as-of` is not given, `new` prompts for `as_of` in the same form as the type and title and after them, pre-filled empty. The field is shown only once the type is a ref. Left empty, the ref is created without `as_of`. A date given there is refused as the flag's is |
+| Prompts | Where `--as-of` is not given and `new` prompts for the type or the title, `as_of` is a field of the same form, after them, pre-filled empty, and shown only once the type is a ref. Left empty, the ref is created without `as_of`. A date given there is refused as the flag's is. It does not open a form of its own: given the type and title, `new` creates the ref without `as_of` unless `--as-of` is given. This is an exception to the rule that a command prompts for every optional flag whose value is written to a file, because `as_of` is optional and most refs are not records of an exchange |
 
 ### Index
 
@@ -102,7 +102,8 @@ The design rests on [ADR-0004](../adr/0004-the-front-matter-schema-only-gains-op
 
 - **Leaving L13 as it is.** Lost because every record of an exchange would warn once older than `ref_stale_days`, and clearing it means checking again, every `ref_stale_days`, a record of something that cannot have changed. A warning that is always present on such records comes to be passed over on the refs it exists for.
 - **Setting `ref_stale_days` to `0`.** Already possible. Lost because it disables the check for every ref in the repository, including those that go out of date.
-- **Never prompting for `as_of`.** Lost because a command prompts for every optional flag whose value is written to a file, and an empty default leaves a ref that is not a record of an exchange as it would otherwise be.
+- **Never prompting for `as_of`.** Lost because a form already asking for the type or title costs nothing more for the field, and a record of an exchange created through it would otherwise need `new` run again with `--as-of`.
+- **Prompting for `as_of` whenever `--as-of` is not given.** Lost because `as_of` is optional and most refs are not records of an exchange, so `new ref` with a title would open a form for a field almost always left empty.
 - **A marker, `kind: record`.** Lost because it marks the ref without carrying the date the record describes, and a key named `kind` beside a document's type, which its directory gives, reads as a second type.
 
 ## Backwards compatibility
@@ -111,11 +112,11 @@ A ref without `as_of` is unaffected, and L13 reports it as before. Under any ear
 
 A consumer validating against `v3.json` as it stood, which allows no field it does not name, rejects a document carrying `as_of`, whether that `v3.json` was released or not. `v3.json` is regenerated from the amended embedded schema, and the test comparing the schema's declared properties against the exported types finds the field on both sides.
 
-Without a terminal, `new` without `--as-of` writes a ref as before. At a terminal it also asks for `as_of`, and left empty writes the ref as before. The lint fixtures gain a record of an exchange, a ref whose `as_of` is after its `verified`, and a ref with `as_of` present and empty, and the tests of `new` gain `--as-of` on a ref, on an RFC, with `--backfill`, with a date that is not ISO 8601, and with a date after today. No ref in this repository carries `as_of`, so its export is unchanged.
+`new` without `--as-of` writes a ref as before. Where it prompts for the type or title, the form also asks for `as_of`, and left empty writes the ref as before. The lint fixtures gain a record of an exchange, a ref whose `as_of` is after its `verified`, and a ref with `as_of` present and empty, and the tests of `new` gain `--as-of` on a ref, on an RFC, with `--backfill`, with a date that is not ISO 8601, and with a date after today. No ref in this repository carries `as_of`, so its export is unchanged.
 
 ## Open questions
 
 ## Changelog
 
 - 2026-10-19: Motivation states the need without naming a tool that writes records.
-- 2026-10-19: `new` prompts for `as_of` at a terminal, a ref carrying it is called a record of an exchange, and the survey guide and the rule registry [RFC-0014](0014-lint-rules-and-the-command-reference-are-published-as-data.md) proposes are named among what changes.
+- 2026-10-19: `new` asks for `as_of` in the form that asks for the type or title, a ref carrying it is called a record of an exchange, and the survey guide and the rule registry [RFC-0014](0014-lint-rules-and-the-command-reference-are-published-as-data.md) proposes are named among what changes.
