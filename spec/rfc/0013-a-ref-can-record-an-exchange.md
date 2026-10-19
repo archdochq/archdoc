@@ -1,9 +1,9 @@
 ---
 id: RFC-0013
 title: A ref can record an exchange
-status: proposed
+status: accepted
 created: 2026-10-18
-decided:
+decided: 2026-10-19
 depends: [ADR-0004, ADR-0019]
 updates: [RFC-0004, RFC-0008]
 obsoletes: []
