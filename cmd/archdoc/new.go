@@ -27,6 +27,7 @@ type backfillOptions struct {
 
 func newNewCommand() *cobra.Command {
 	var opts backfillOptions
+	var asOf string
 
 	cmd := &cobra.Command{
 		Use:   "new <rfc|adr|ref> <title>",
@@ -39,8 +40,8 @@ func newNewCommand() *cobra.Command {
 			}
 
 			// What the command line gave is checked before anything is prompted
-			// for. A prompted type is one of those offered, and never a ref
-			// under --backfill.
+			// for. A prompted type is one of those offered: never a ref under
+			// --backfill, and only a ref under --as-of.
 			if len(args) > 0 {
 				t, ok := repo.ParseType(args[0])
 				if !ok {
@@ -48,6 +49,9 @@ func newNewCommand() *cobra.Command {
 				}
 				if opts.On && t == repo.TypeRef {
 					return fmt.Errorf("a ref has no status, so it cannot be backfilled")
+				}
+				if asOf != "" && t != repo.TypeRef {
+					return fmt.Errorf("--as-of only applies to a ref")
 				}
 			}
 			if len(args) > 1 {
@@ -61,8 +65,18 @@ func newNewCommand() *cobra.Command {
 			if err := checkBackfill(opts, time.Now()); err != nil {
 				return err
 			}
+			if asOf != "" {
+				// Without a type given: --backfill offers no ref, and --as-of
+				// leaves only a ref to choose.
+				if opts.On {
+					return fmt.Errorf("--as-of cannot be used with --backfill, since a ref cannot be backfilled")
+				}
+				if err := checkAsOf(asOf, time.Now()); err != nil {
+					return err
+				}
+			}
 
-			kind, title, err := askForNew(cmd, args, &opts)
+			kind, title, err := askForNew(cmd, args, &opts, &asOf)
 			if err != nil {
 				return err
 			}
@@ -75,7 +89,8 @@ func newNewCommand() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			data.ID, data.Title = id, title
+			// Only the ref template writes as_of.
+			data.ID, data.Title, data.AsOf = id, title, asOf
 
 			rendered, err := template.Render(string(t)+".md", data)
 			if err != nil {
@@ -105,6 +120,7 @@ func newNewCommand() *cobra.Command {
 	cmd.Flags().StringVar(&opts.Status, "status", "", "with --backfill, the terminal status: accepted, rejected or withdrawn; accepted if not given")
 	cmd.Flags().StringVar(&opts.Created, "created", "", "with --backfill, the date the work began; required unless prompted for")
 	cmd.Flags().StringVar(&opts.Decided, "decided", "", "with --backfill, the date the decision was taken; --created if not given")
+	cmd.Flags().StringVar(&asOf, "as-of", "", "for a ref recording an exchange, the date it took place; asked for only alongside the type or title")
 	return cmd
 }
 
@@ -167,6 +183,20 @@ func newData(opts backfillOptions, now time.Time) (template.Data, error) {
 		return template.Data{}, err
 	}
 	return template.Data{Date: opts.Created, Status: opts.Status, Decided: opts.Decided, Backfilled: today}, nil
+}
+
+// checkAsOf refuses an as_of date L07 would report. new writes today's date to
+// verified, so the exchange cannot be later than today, compared as dates for
+// the reason checkBackfill gives.
+func checkAsOf(asOf string, now time.Time) error {
+	on, err := time.Parse(repo.DateLayout, asOf)
+	if err != nil {
+		return fmt.Errorf("--as-of %q is not an ISO 8601 date", asOf)
+	}
+	if on.After(repo.StartOfDay(now)) {
+		return fmt.Errorf("--as-of %s is in the future, so the exchange cannot already have taken place", asOf)
+	}
+	return nil
 }
 
 // checkBackfill refuses whichever of the status and dates is wrong, judging

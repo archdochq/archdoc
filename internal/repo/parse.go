@@ -38,6 +38,8 @@ func Schema(t Type) []string {
 	switch t {
 	case TypeRFC, TypeADR:
 		return append(RequiredKeys(t), "backfilled")
+	case TypeRef:
+		return append(RequiredKeys(t), "as_of")
 	default:
 		return RequiredKeys(t)
 	}
@@ -218,6 +220,7 @@ func parseFrontMatter(t Type, block []byte) (FrontMatter, []Problem) {
 	date("decided", &fm.Decided)
 	date("verified", &fm.Verified)
 	date("backfilled", &fm.Backfilled)
+	date("as_of", &fm.AsOf)
 	list("depends", &fm.Depends)
 	list("updates", &fm.Updates)
 	list("obsoletes", &fm.Obsoletes)

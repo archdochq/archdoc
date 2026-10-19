@@ -15,6 +15,7 @@ import (
 	"archdoc.dev/internal/link"
 	"archdoc.dev/internal/repo"
 	"archdoc.dev/internal/repotest"
+	"github.com/charmbracelet/huh"
 	"github.com/spf13/cobra"
 )
 
@@ -1361,5 +1362,75 @@ func TestRenumberSaysWhichReferencesItLeftUnchanged(t *testing.T) {
 	}
 	if !strings.Contains(out, "left unchanged") || !strings.Contains(out, "rfc/0002-cache.md:7: depends: [RFC-0001]") {
 		t.Errorf("output = %q; want the unchanged depends named with its line", out)
+	}
+}
+
+func TestNewAsOfWritesTheDateOfTheExchange(t *testing.T) {
+	dir := repository(t)
+	out, code := run(t, dir, "new", "ref", "Review round", "--as-of", "2026-01-05")
+	if code != exitOK {
+		t.Fatalf("exit = %d: %s", code, out)
+	}
+
+	written, err := os.ReadFile(filepath.Join(dir, "ref", "0001-review-round.md"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(written), "\nas_of: 2026-01-05\n") {
+		t.Errorf("the ref is missing as_of:\n%s", written)
+	}
+}
+
+func TestNewRefusesAsOfWhereNoRefCouldCarryIt(t *testing.T) {
+	tomorrow := time.Now().AddDate(0, 0, 1).Format(repo.DateLayout)
+	for _, tc := range []struct {
+		name string
+		args []string
+		want string
+	}{
+		{"an RFC", []string{"new", "rfc", "Wings", "--as-of", "2026-01-05"}, "only applies to a ref"},
+		{"an ADR", []string{"new", "adr", "Wings", "--as-of", "2026-01-05"}, "only applies to a ref"},
+		// No type given: --backfill leaves no ref to choose, and --as-of only a ref.
+		{"backfill", []string{"new", "--backfill", "--created", "2023-01-05", "--as-of", "2026-01-05"}, "--backfill"},
+		{"not a date", []string{"new", "ref", "Wings", "--as-of", "05/01/2026"}, "not an ISO 8601 date"},
+		{"tomorrow", []string{"new", "ref", "Wings", "--as-of", tomorrow}, "future"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			dir := repository(t)
+			out, code := run(t, dir, tc.args...)
+			if code != exitUsage || !strings.Contains(out, tc.want) {
+				t.Errorf("exit = %d, output = %q; want a usage error mentioning %q", code, out, tc.want)
+			}
+			for _, sub := range []string{"rfc/0003-wings.md", "adr/0001-wings.md", "ref/0001-wings.md"} {
+				if _, err := os.Stat(filepath.Join(dir, sub)); !errors.Is(err, fs.ErrNotExist) {
+					t.Errorf("%s was written: %v", sub, err)
+				}
+			}
+		})
+	}
+}
+
+func TestNewRefWithATitlePromptsForNothing(t *testing.T) {
+	// as_of is optional and most refs are not records of an exchange, so it
+	// is offered only in a form already asking for the type or title.
+	original, originalForm := onTerminal, runForm
+	onTerminal = func(*cobra.Command) bool { return true }
+	runForm = func(*huh.Form) error {
+		t.Error("a form was opened for a ref given its type and title")
+		return nil
+	}
+	t.Cleanup(func() { onTerminal, runForm = original, originalForm })
+
+	dir := repository(t)
+	out, code := runWith(t, dir, "", "new", "ref", "A survey")
+	if code != exitOK {
+		t.Fatalf("exit = %d: %s", code, out)
+	}
+	written, err := os.ReadFile(filepath.Join(dir, "ref", "0001-a-survey.md"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(string(written), "as_of") {
+		t.Errorf("a ref created without --as-of carries as_of:\n%s", written)
 	}
 }

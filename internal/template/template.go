@@ -37,6 +37,8 @@ type Data struct {
 	// Backfilled is the date the document was written, when it records a
 	// decision taken earlier. Empty for an ordinary document.
 	Backfilled string
+	// AsOf is the date of the exchange a ref records. Empty for any other ref.
+	AsOf string
 
 	// Year is the copyright year, for the licence.
 	Year string

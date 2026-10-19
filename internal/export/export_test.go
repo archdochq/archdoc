@@ -58,6 +58,40 @@ func TestTheDerivedGraphIsExported(t *testing.T) {
 	}
 }
 
+func TestARecordOfAnExchangeCarriesItsDate(t *testing.T) {
+	// A consumer computing staleness from verified and ref_stale_days has to
+	// pass over a record of an exchange, so as_of is published, and absent
+	// rather than empty on a ref that carries none.
+	ref := func(id, frontMatter string) string {
+		return "---\nid: " + id + "\ntitle: T\nverified: 2026-01-10\n" + frontMatter + "---\n\n# " + id + ": T\n\n## Sources\n\n- Somewhere.\n"
+	}
+	r := repotest.New(t, map[string]string{
+		"ref/0001-review.md": ref("REF-0001", "as_of: 2026-01-08\n"),
+		"ref/0002-survey.md": ref("REF-0002", ""),
+	})
+
+	raw, err := json.Marshal(export.Build(r, export.Options{}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var out struct {
+		Documents []map[string]any `json:"documents"`
+	}
+	if err := json.Unmarshal(raw, &out); err != nil {
+		t.Fatal(err)
+	}
+	byID := map[string]map[string]any{}
+	for _, d := range out.Documents {
+		byID[d["id"].(string)] = d
+	}
+	if got := byID["REF-0001"]["as_of"]; got != "2026-01-08" {
+		t.Errorf("REF-0001 as_of = %v, want 2026-01-08", got)
+	}
+	if got, ok := byID["REF-0002"]["as_of"]; ok {
+		t.Errorf("REF-0002 carries no as_of, but the export has %v", got)
+	}
+}
+
 // TestContentsIsInDocumentOrderAndExclusive pins the two properties the object
 // keyed by anchor could not carry. A Go map marshals its keys sorted, so a
 // document arrived alphabetical with nothing recording the order it was

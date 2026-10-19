@@ -1,6 +1,6 @@
 ---
 title: Documents
-includes: [ADR-0002, ADR-0004, RFC-0011]
+includes: [ADR-0002, ADR-0004, RFC-0011, RFC-0013]
 ---
 
 # Documents
@@ -57,6 +57,9 @@ Ref:
 | `id` | string | Required. Equals the derived identifier. |
 | `title` | string | Required, non-empty. |
 | `verified` | date | Required. ISO 8601. |
+| `as_of` | date | Optional. ISO 8601. The date of the exchange the ref records. Not empty where present. Not after `verified`. |
+
+A ref carrying `as_of` is a record of an exchange.
 
 Group:
 

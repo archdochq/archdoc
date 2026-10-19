@@ -37,6 +37,7 @@ func TestOpenDiscoversDocumentsByDirectory(t *testing.T) {
 		"group/storage.md",
 		"ref/0001-engine-comparison.md",
 		"ref/0002-queue-survey.md",
+		"ref/0003-review-round.md",
 		"rfc/0001-database.md",
 		"rfc/0002-caching.md",
 		"rfc/0003-cache-expiry.md",

@@ -80,6 +80,7 @@ type Document struct {
 	Decided    string `json:"decided,omitempty"`
 	Backfilled string `json:"backfilled,omitempty"`
 	Verified   string `json:"verified,omitempty"`
+	AsOf       string `json:"as_of,omitempty"`
 
 	// Forward relationships, as written in the front matter.
 	Depends   []string `json:"depends"`
@@ -343,6 +344,7 @@ func document(r *repo.Repo, d *repo.Document, opts Options) Document {
 		Decided:    date(fm.Decided),
 		Backfilled: date(fm.Backfilled),
 		Verified:   date(fm.Verified),
+		AsOf:       date(fm.AsOf),
 
 		Depends:   list(fm.Depends),
 		Updates:   list(fm.Updates),

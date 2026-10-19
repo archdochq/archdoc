@@ -1,6 +1,6 @@
 ---
 title: Commands
-includes: [RFC-0001, RFC-0002, RFC-0003, RFC-0005, RFC-0011, ADR-0016]
+includes: [RFC-0001, RFC-0002, RFC-0003, RFC-0005, RFC-0011, RFC-0013, ADR-0016]
 ---
 
 # Commands
@@ -15,7 +15,9 @@ Exit codes: 0 on success, 1 on a usage or validation error, 2 when lint, a check
 
 With a terminal on stdin, a command prompts for every value it was not given: required arguments, and optional flags whose value is written to a file. Flags that select a mode of operation (`--json`, `--check`, `--suggest`, `--apply`, `--strict-warnings`, `--no-interaction`, `--yes`) are never prompted for. A flag supplied on the command line is not prompted for. The prompts for one invocation form a single form, required arguments first, each optional pre-filled with its default. Without a terminal, or with `--no-interaction`, defaults apply and a missing required argument is a usage error. `--no-interaction` is a persistent flag. A terminal is detected with `term.IsTerminal`.
 
-Prompts offer a filtered choice where one exists: `new` prompts for type then title, and with `--backfill` for status, created and decided, offering no ref type, with decided pre-filled with `--created` where it was given and otherwise left empty to mean the created date; a transition command prompts with a select of the documents eligible for that transition, showing identifier, title and status; `term add` prompts for term and definition; `init` prompts for each configuration value in turn.
+Prompts offer a filtered choice where one exists: `new` prompts for type then title, offering only a ref with `--as-of`, and with `--backfill` for status, created and decided, offering no ref type, with decided pre-filled with `--created` where it was given and otherwise left empty to mean the created date; a transition command prompts with a select of the documents eligible for that transition, showing identifier, title and status; `term add` prompts for term and definition; `init` prompts for each configuration value in turn.
+
+`--as-of` is not prompted for on its own. Where `new` prompts for the type or title and `--as-of` is not given, the form also asks for `as_of`, after them, pre-filled empty and shown only once the type is a ref; left empty, the ref is created without it. Given the type and title, `new` does not ask for `as_of`, and creates a ref without it unless `--as-of` is given.
 
 ## Output
 
@@ -41,13 +43,14 @@ The generated workflow runs on push and pull request. It checks out the full his
 
 ## `archdoc new <rfc|adr|ref> <title>`
 
-Creates the next-numbered document of the type from its template, with `ID`, `Title` and `Date` substituted, and prints the path. Refuses a title that is empty, slugs to nothing, or contains a line break, and refuses if the derived filename exists. Refuses `spec`, `term` and `group`, saying the type is named by its path, not numbered. Refuses to write a heading that does not read back as the title given.
+Creates the next-numbered document of the type from its template, with `ID`, `Title` and `Date` substituted, and `AsOf` on a ref given one, and prints the path. Refuses a title that is empty, slugs to nothing, or contains a line break, and refuses if the derived filename exists. Refuses `spec`, `term` and `group`, saying the type is named by its path, not numbered. Refuses to write a heading that does not read back as the title given.
 
 | Option | Effect |
 |---|---|
 | `--backfill` | create the document already terminal. RFCs and ADRs only |
 | `--status=<accepted\|rejected\|withdrawn>` | with `--backfill`, the terminal status. Default `accepted` |
 | `--created=<date>`, `--decided=<date>` | with `--backfill`, the historical dates. `--created` has no default, and its absence is a usage error where it cannot be prompted for. `--decided` defaults to `--created` |
+| `--as-of=<date>` | the date of the exchange a ref records, written to `as_of`. Refused for any other type, with `--backfill`, unless an ISO 8601 date, and after today, compared as dates. Checked before anything is prompted for |
 
 ## `archdoc renumber <id|path> [new-id]`
 

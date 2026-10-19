@@ -16,9 +16,15 @@ import (
 // else. When stdin is not a terminal, or --no-interaction was passed, a missing
 // required value is a usage error instead.
 
+// runForm is a variable so that a test can assert no form was opened. Every
+// test runs with a non-terminal stdin, where a form cannot be driven.
+var runForm = (*huh.Form).Run
+
 // askForNew fills in the type and title of a new document and, under
-// --backfill, the status and dates it was not given, in one form.
-func askForNew(cmd *cobra.Command, args []string, backfill *backfillOptions) (kind, title string, err error) {
+// --backfill, the status and dates it was not given, in one form. Where the
+// type or title is asked for, as_of is too, once the type is a ref; it opens
+// no form of its own, since most refs are not records of an exchange.
+func askForNew(cmd *cobra.Command, args []string, backfill *backfillOptions, asOf *string) (kind, title string, err error) {
 	if len(args) > 0 {
 		kind = args[0]
 	}
@@ -32,15 +38,23 @@ func askForNew(cmd *cobra.Command, args []string, backfill *backfillOptions) (ki
 		return kind, title, nil
 	}
 
+	// Decided before any field is built: binding a select writes its first
+	// option into kind at once, which would read as an RFC given.
+	offerAsOf := !cmd.Flags().Changed("as-of") && !backfill.On && (kind == "" || kind == string(repo.TypeRef))
+
 	var fields []huh.Field
 	if kind == "" {
 		options := []huh.Option[string]{
 			huh.NewOption("RFC: a design the spec will have a page for", string(repo.TypeRFC)),
 			huh.NewOption("ADR: a decision that constrains designs", string(repo.TypeADR)),
 		}
+		if *asOf != "" {
+			// Only a ref carries as_of.
+			options = nil
+		}
 		if !backfill.On {
 			// A ref has no status, so it cannot be backfilled.
-			options = append(options, huh.NewOption("Ref: research or background, never normative", string(repo.TypeRef)))
+			options = append(options, huh.NewOption("Ref: research, background or the record of an exchange, never normative", string(repo.TypeRef)))
 		}
 		fields = append(fields, huh.NewSelect[string]().Title("Which kind of document?").Options(options...).Value(&kind))
 	}
@@ -53,7 +67,21 @@ func askForNew(cmd *cobra.Command, args []string, backfill *backfillOptions) (ki
 	if len(fields) == 0 {
 		return kind, title, nil
 	}
-	if err := huh.NewForm(huh.NewGroup(fields...)).Run(); err != nil {
+	groups := []*huh.Group{huh.NewGroup(fields...)}
+	if offerAsOf {
+		groups = append(groups, huh.NewGroup(
+			huh.NewInput().Title("As of").
+				Description("For a record of an exchange, the date it took place, YYYY-MM-DD. Leave empty otherwise.").
+				Value(asOf).
+				Validate(func(s string) error {
+					if s == "" {
+						return nil
+					}
+					return checkAsOf(s, time.Now())
+				}),
+		).WithHideFunc(func() bool { return kind != string(repo.TypeRef) }))
+	}
+	if err := runForm(huh.NewForm(groups...)); err != nil {
 		return "", "", err
 	}
 	return kind, title, nil
