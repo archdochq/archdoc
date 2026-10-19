@@ -1,9 +1,9 @@
 ---
 id: RFC-0015
 title: Pull requests are checked against the branch they merge into
-status: proposed
+status: accepted
 created: 2026-10-19
-decided:
+decided: 2026-10-19
 depends: [ADR-0002, ADR-0016]
 updates: []
 obsoletes: []
