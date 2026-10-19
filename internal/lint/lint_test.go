@@ -250,6 +250,7 @@ func TestL13WarnsThatARefIsUnverified(t *testing.T) {
 
 	mentions(t, got, "ref/0002-queue-survey.md")
 	omits(t, got, "0001-engine-comparison.md") // verified within the window
+	omits(t, got, "0003-review-round.md")      // a record of an exchange, which does not go out of date
 }
 
 func TestL14ReportsEmptyRequiredSections(t *testing.T) {
@@ -377,6 +378,39 @@ func TestL01ReportsARequiredKeyWrittenWithNoValue(t *testing.T) {
 	)
 	// decided and the relationship lists are legitimately empty.
 	omits(t, got, `"decided" is present but empty`, `"depends" is present but empty`)
+}
+
+func TestL01ReportsAsOfWrittenWithNoValue(t *testing.T) {
+	// as_of is optional, so it is not among the required keys whose emptiness
+	// the loop over them catches. An empty as_of would otherwise make the ref
+	// look like research to L13 while the author meant a record of an exchange.
+	reports(t, forRule(t, "lint", "L01"), "0005-empty-as-of.md:5:", `front matter key "as_of" is present but empty`)
+}
+
+func TestL07ChecksAsOfAgainstVerified(t *testing.T) {
+	reports(t, forRule(t, "lint", "L07"), "0004-as-of-after-verified.md:5:", "as_of 2026-08-21 is after verified 2026-08-20")
+	omits(t, forRule(t, "repo", "L07"), "0003-review-round.md")
+
+	// A record written up on the day of the exchange.
+	r := repotest.New(t, map[string]string{
+		"ref/0001-review.md": "---\nid: REF-0001\ntitle: Review\nverified: 2026-01-08\nas_of: 2026-01-08\n---\n\n# REF-0001: Review\n\n## Sources\n\n- Somewhere.\n",
+	})
+	for _, f := range lint.Run(lint.NewContext(r, nil, now)) {
+		if f.Rule == "L07" {
+			t.Errorf("as_of on the day of verified is permitted, but L07 said %q", f.Message)
+		}
+	}
+}
+
+func TestL07LeavesAnEmptyVerifiedToL01(t *testing.T) {
+	r := repotest.New(t, map[string]string{
+		"ref/0001-review.md": "---\nid: REF-0001\ntitle: Review\nverified:\nas_of: 2026-01-08\n---\n\n# REF-0001: Review\n\n## Sources\n\n- Somewhere.\n",
+	})
+	for _, f := range lint.Run(lint.NewContext(r, nil, now)) {
+		if f.Rule == "L07" {
+			t.Errorf("an empty verified is L01's to report, but L07 said %q", f.Message)
+		}
+	}
 }
 
 func TestAByteOrderMarkDoesNotHideTheFrontMatter(t *testing.T) {

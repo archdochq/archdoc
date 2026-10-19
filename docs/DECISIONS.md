@@ -320,6 +320,12 @@ the result can delete content it never read.
   prompting for them would ask the user to re-specify the command already typed. The form is built field
   by field from what the command line settled, so a fully specified invocation from a terminal writes
   immediately rather than rendering a form and waiting.
+- **`as_of` is asked for only in a form shown anyway.** It reaches a ref's front matter, but most refs
+  are not records of an exchange, and `new ref "Title"` from a terminal writing immediately is worth more
+  than a form for a field almost always left empty. Where the type or title is asked for, it is a second
+  group, hidden until the type is a ref. Whether to add that group is decided before the type select is
+  built: binding a huh select writes its first option into the bound variable at once, so a check made
+  afterwards read every prompted type as an RFC and the field never appeared.
 - **`--no-interaction` is a persistent flag on every command**, and is honoured whatever stdin is.
 - **A terminal is detected with `term.IsTerminal`, not by asking whether stdin is a character device.**
   `/dev/null` is a character device, and it is how a shell, Makefile, cron job or CI runner says "no

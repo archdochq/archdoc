@@ -1,6 +1,6 @@
 ---
 title: Layout
-includes: [RFC-0001, RFC-0007, RFC-0010, RFC-0011, ADR-0017]
+includes: [RFC-0001, RFC-0007, RFC-0010, RFC-0011, RFC-0013, ADR-0017]
 ---
 
 # Layout
@@ -91,13 +91,13 @@ A specification repository is a directory containing `archdoc.json` and, under `
 - `branch`: the branch frozen documents are compared against.
 - `root`: as above.
 - `strict`: `true` keeps the transition graph as PROCESS.md gives it; `false` additionally permits `draft → accepted` and `draft → rejected`.
-- `ref_stale_days`: refs whose `verified` date is older than this produce a lint warning. `0` disables the check; a negative value is a configuration error.
+- `ref_stale_days`: refs whose `verified` date is older than this produce a lint warning, except a ref carrying `as_of`. `0` disables the check; a negative value is a configuration error.
 
 Unknown keys are an error. A missing key takes the default shown, except `name`, which is required. The file is decoded onto a struct already holding the defaults, and the decoder must reach the end of the file.
 
 ## Templates
 
-Embedded under `internal/template`: `rfc.md`, `adr.md`, `ref.md`, `PROCESS.md`, `README.md`, `AGENTS.md`, `archdoc-lint.yml`, `LICENSE.mit`, and the guides under `agents/`. Rendered templates substitute `.ID`, `.Title`, `.Date`, `.Name`, `.Version`, `.Status`, `.Decided`, `.Backfilled`, `.Year` and `.WorkingDirectory` as applicable, through `text/template`. `AGENTS.md`, `PROCESS.md` and everything under `agents/` ship verbatim. Only `agents/` sits outside the parse glob, so a brace there is literal text; every other embedded `.md` file is parsed as a template whether or not it carries substitutions, and one that does not parse fails the build.
+Embedded under `internal/template`: `rfc.md`, `adr.md`, `ref.md`, `PROCESS.md`, `README.md`, `AGENTS.md`, `archdoc-lint.yml`, `LICENSE.mit`, and the guides under `agents/`. Rendered templates substitute `.ID`, `.Title`, `.Date`, `.Name`, `.Version`, `.Status`, `.Decided`, `.Backfilled`, `.AsOf`, `.Year` and `.WorkingDirectory` as applicable, through `text/template`. `AGENTS.md`, `PROCESS.md` and everything under `agents/` ship verbatim. Only `agents/` sits outside the parse glob, so a brace there is literal text; every other embedded `.md` file is parsed as a template whether or not it carries substitutions, and one that does not parse fails the build.
 
 One template function is registered: `yaml`, which encodes a value as a YAML scalar, quoting and escaping only where the encoding requires it. Front matter uses `title: {{ yaml .Title }}`. The H1 uses `.Title` raw and is read back by splitting on the first `": "`.
 

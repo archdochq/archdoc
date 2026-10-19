@@ -55,6 +55,8 @@
         "backfilled": {"type": "string", "format": "date",
                        "description": "The date the document was written to record a decision taken earlier."},
         "verified": {"type": "string", "format": "date", "description": "Refs only."},
+        "as_of": {"type": "string", "format": "date",
+                  "description": "Refs only. The date of the exchange the ref records. A ref carrying it does not go out of date, whatever its verified date."},
 
         "depends": {"$ref": "#/$defs/identifiers"},
         "updates": {"$ref": "#/$defs/identifiers"},

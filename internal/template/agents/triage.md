@@ -43,19 +43,19 @@ belongs.
 
 | Rule | What it means | Remedy |
 | --- | --- | --- |
-| L01 | Front matter is malformed, has an unknown key, or a required key is missing or empty | Fix the front matter |
+| L01 | Front matter is malformed, has an unknown key, a required key is missing or empty, or `as_of` is empty | Fix the front matter |
 | L02 | `id` does not match the filename, or the filename is not `<NNNN>-<slug>.md` | Rename the file, or correct `id` |
 | L03 | Two documents claim the same identifier | Renumber one with `archdoc new`, then move the content |
 | L04 | A referenced identifier does not resolve, or a group's member names nothing or is listed twice | Create the document, or correct the reference or the group's list |
 | L05 | `updates`/`obsoletes` targets something not accepted, of the wrong type, or itself | Accept the target, or correct the list |
 | L06 | `includes` targets something not accepted | Accept the target, or remove it from the page |
-| L07 | `decided` set without a terminal status, or before `created`, or backfill dates disagree | Correct the dates |
+| L07 | `decided` set without a terminal status, or before `created`, backfill dates disagree, or a ref's `as_of` is after `verified` | Correct the dates |
 | L08 | A required section is missing, misnamed, out of order, or the closing section is not last | Add or reorder. Titles must match exactly |
 | L09 | An accepted document still has content under `Open questions` | Move each question to `Resolved questions` with its answer, and remove anything else |
 | L10 | The H1 does not match the front matter | Correct whichever is wrong |
 | L11 | A frozen document changed, or was deleted | Revert it. To change what it says, write a new document that updates or obsoletes it |
 | L12 | A spec page includes something obsoleted (warning) | Update the page and its `includes` |
-| L13 | A ref's `verified` date is older than `ref_stale_days` (warning) | Re-check the content, then update `verified` |
+| L13 | A ref's `verified` date is older than `ref_stale_days`, and it carries no `as_of` (warning) | Re-check the content, then update `verified`. A record of an exchange carries `as_of` instead |
 | L14 | A required section is empty | Write it |
 | L15 | A term's definition under `term/` is not exactly one paragraph | Rewrite the definition as one paragraph |
 | L16 | An unresolved `[[...]]` link | Run `archdoc link` |

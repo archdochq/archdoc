@@ -78,6 +78,7 @@ func L01(ctx Context) []Finding {
 			"status":   d.FrontMatter.Status == "",
 			"created":  d.FrontMatter.Created.IsZero(),
 			"verified": d.FrontMatter.Verified.IsZero(),
+			"as_of":    d.FrontMatter.AsOf.IsZero(),
 		}
 		// A key whose value could not be parsed has already been reported
 		// accurately; calling it empty as well says something the file
@@ -91,9 +92,14 @@ func L01(ctx Context) []Finding {
 		for _, key := range repo.RequiredKeys(d.Type) {
 			if !d.FrontMatter.Has(key) {
 				rep.errorf(d, 1, "missing required front matter key %q", key)
-				continue
 			}
-			if blank, checked := empty[key]; checked && blank && !unparsed[d.FrontMatter.LineOf(key)] {
+		}
+		// Over the whole schema rather than the required keys, because an
+		// optional key such as as_of must still carry a value where written.
+		// A key outside the schema is reported as unknown above, and its
+		// value is never decoded, so it would read as empty here too.
+		for _, key := range repo.Schema(d.Type) {
+			if blank, checked := empty[key]; checked && blank && d.FrontMatter.Has(key) && !unparsed[d.FrontMatter.LineOf(key)] {
 				rep.errorf(d, d.FrontMatter.LineOf(key), "front matter key %q is present but empty", key)
 			}
 		}
@@ -299,14 +305,21 @@ func L06(ctx Context) []Finding {
 	return rep.findings
 }
 
-// L07 checks decided against the status and the created date.
+// L07 checks decided against the status and the created date, and a ref's
+// as_of against its verified date.
 func L07(ctx Context) []Finding {
 	var rep report
 	for _, d := range ctx.Repo().Documents() {
+		fm := d.FrontMatter
+		// as_of is decoded only on a ref, and an unset one is after nothing. A
+		// verified left empty is L01's to report, not an exchange checked early.
+		if !fm.Verified.IsZero() && fm.AsOf.After(fm.Verified) {
+			rep.errorf(d, fm.LineOf("as_of"), "as_of %s is after verified %s: a record cannot be checked before the exchange it records",
+				fm.AsOf.Format(repo.DateLayout), fm.Verified.Format(repo.DateLayout))
+		}
 		if !d.Type.HasLifecycle() {
 			continue
 		}
-		fm := d.FrontMatter
 		terminal := fm.Status.Terminal()
 		switch {
 		case terminal && fm.Decided.IsZero():
@@ -451,7 +464,8 @@ func L12(ctx Context) []Finding {
 }
 
 // L13 checks that a ref has been verified recently enough. A ref_stale_days of
-// zero disables the rule.
+// zero disables the rule, and a record of an exchange, a ref carrying as_of,
+// is never reported: what was said on a date does not go out of date.
 func L13(ctx Context) []Finding {
 	days := ctx.Repo().Config().RefStaleDays
 	if days == 0 {
@@ -464,7 +478,7 @@ func L13(ctx Context) []Finding {
 	// old was silent at midnight UTC and stale by breakfast in London.
 	cutoff := repo.StartOfDay(ctx.Now()).AddDate(0, 0, -days)
 	for _, d := range ctx.Repo().Documents() {
-		if d.Type != repo.TypeRef || d.FrontMatter.Verified.IsZero() {
+		if d.Type != repo.TypeRef || d.FrontMatter.Verified.IsZero() || !d.FrontMatter.AsOf.IsZero() {
 			continue
 		}
 		if !d.FrontMatter.Verified.Before(cutoff) {

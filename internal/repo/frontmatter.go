@@ -46,9 +46,12 @@ type FrontMatter struct {
 	// ref, and anything else names a spec page.
 	Documents []string
 	// Backfilled is the date the document was written to record a decision
-	// taken earlier. Optional, and the only optional key: created and decided
-	// carry the historical dates, this one says when they were written down.
+	// taken earlier. Optional: created and decided carry the historical dates,
+	// this one says when they were written down.
 	Backfilled time.Time
+	// AsOf is the date of the exchange a ref records. Optional; a ref carrying
+	// it is a record of an exchange, which does not go out of date.
+	AsOf time.Time
 
 	// present maps each key that was written to its 1-based line, so that a key
 	// present with an empty value is distinguishable from one that is absent,

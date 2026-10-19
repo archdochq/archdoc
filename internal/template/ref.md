@@ -2,6 +2,9 @@
 id: {{ .ID }}
 title: {{ yaml .Title }}
 verified: {{ .Date }}
+{{- with .AsOf }}
+as_of: {{ . }}
+{{- end }}
 ---
 
 # {{ .ID }}: {{ .Title }}

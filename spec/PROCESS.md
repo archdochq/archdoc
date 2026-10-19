@@ -12,7 +12,7 @@ There are five types of document, and the glossary's terms, described under Docu
 
 **Spec** (`spec/`) describes how the project works right now. It is always current. It has no lifecycle and no status; it is edited whenever the behaviour it describes changes. The spec describes and never argues. Argument belongs in the RFCs and ADRs a spec page includes.
 
-**Ref** (`ref/`) holds research, comparisons and background material. Ref documents are informational, never normative. They carry a verification date rather than a status and may be edited at any time.
+**Ref** (`ref/`) holds research, comparisons and background material, or the record of an exchange such as a review round or a meeting. Ref documents are informational, never normative. They carry a verification date rather than a status and may be edited at any time. A record of an exchange also carries the date the exchange took place, and does not go out of date.
 
 **Group** (`group/`) names documents that belong together, such as the documents concerning one application in a repository describing several. A group lists its members and describes what they have in common. It has no status and is never frozen, so a frozen document is grouped by editing the group. Groups are optional; a document may belong to any number of them, or to none.
 
@@ -64,6 +64,12 @@ Refs:
 id: REF-0001
 title: Wings implementations compared
 verified: 2026-09-07
+```
+
+A record of an exchange adds one key, the date the exchange took place, which is never after `verified`:
+
+```yaml
+as_of: 2026-09-04
 ```
 
 Groups:
@@ -195,7 +201,7 @@ Backfilled documents are written and committed like any other change, except tha
 ArchDoc provides:
 
 - `archdoc init`: scaffold a new repository in the current directory.
-- `archdoc new rfc|adr|ref "Title"`: create the next-numbered document of that type from its template, in draft.
+- `archdoc new rfc|adr|ref "Title"`: create the next-numbered document of that type from its template, in draft. `--as-of <date>` creates a ref as a record of an exchange.
 - `archdoc propose <id>`, `accept <id>`, `reject <id>`, `withdraw <id>`: move a document through its lifecycle. Each validates the transition, edits the file, and stops. Committing is left to you. `accept` and `reject` refuse a document while lint reports any error about it other than L03, a number another document shares, and `accept` refuses one with open questions, because the next push freezes it and lint would then report a fault nobody is permitted to repair.
 - `archdoc lint`: check the repository against the rules in this document.
 - `archdoc link`: resolve `[[...]]` links. With `--suggest`, offer new ones.
@@ -208,13 +214,14 @@ ArchDoc provides:
 
 Lint enforces:
 
-- Every document has valid front matter for its type, with no unknown keys and no required key left empty.
+- Every document has valid front matter for its type, with no unknown keys, and no required key or `as_of` left empty.
 - Every `id` matches its filename and type; no identifier appears twice.
 - Every identifier in `depends`, `updates`, `obsoletes` and `includes` resolves to an existing document of a permitted type.
 - Every member of a group resolves to an RFC, ADR, ref or spec page, and no group lists a member twice.
 - `includes`, `updates` and `obsoletes` reference only accepted documents. Nothing updates or obsoletes itself, and nothing appears in both lists of one document.
 - Documents with a terminal status have `decided` set; others do not, and `decided` is never before `created`.
 - A backfilled document is terminal, was written no earlier than the decision it records, and cites its sources.
+- A ref's `as_of` is not after its `verified` date.
 - The first heading matches the front matter.
 - The required sections for the type are present, with their exact titles, in the order listed above, and where the type has a closing section it is the last one.
 - No required section is left empty.
@@ -223,7 +230,7 @@ Lint enforces:
 - Every Changelog entry is a dated list item, in date order and within the document's own dates, written in a form that renders as it is read.
 - Any document that is terminal on the base branch is unchanged from the version there. Whether it changed is decided by git rather than by comparing bytes, so a checkout that rewrites line endings does not make every frozen document look edited. Deleting a frozen document is an error; a rename counts as a deletion.
 - A spec page is not stale: it includes nothing that has since been obsoleted. Warning.
-- Refs whose `verified` date is older than `ref_stale_days` produce a warning.
+- Refs whose `verified` date is older than `ref_stale_days` produce a warning, except a record of an exchange, which carries `as_of`.
 - Every term's definition is exactly one paragraph.
 - No unresolved `[[...]]` link remains anywhere.
 - Every relative link resolves to a file that exists, and to a heading or explicit anchor that exists where it carries an anchor.

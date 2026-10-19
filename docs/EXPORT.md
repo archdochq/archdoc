@@ -37,7 +37,8 @@ disagree, the schema is right.
 
 `config` is every setting `archdoc.json` holds, so you can explain what frozen
 means, which transitions exist, and when a ref goes stale, rather than choosing
-your own answers. The location the configuration was read from is not among
+your own answers. A ref carrying `as_of`, a record of an exchange, never goes
+stale, whatever its `verified` date. The location the configuration was read from is not among
 them: it describes the machine that ran the command.
 
 `commit` appears only when `--commit` was given, and is taken as written.

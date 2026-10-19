@@ -1,6 +1,6 @@
 ---
 title: Lint
-includes: [ADR-0008, ADR-0009, ADR-0010, RFC-0008, RFC-0009, RFC-0011]
+includes: [ADR-0008, ADR-0009, ADR-0010, RFC-0008, RFC-0009, RFC-0011, RFC-0013]
 ---
 
 # Lint
@@ -13,19 +13,19 @@ Every rule reports an error unless stated. A finding that no permitted edit to t
 
 ## Rules
 
-- **L01** Front matter parses and matches the schema for the type: no unknown keys, no missing required keys, no wrong types, no required key left empty.
+- **L01** Front matter parses and matches the schema for the type: no unknown keys, no missing required keys, no wrong types, no required key left empty, and no `as_of` left empty.
 - **L02** `id` equals the identifier derived from type and filename. The filename matches `<NNNN>-<slug>.md`.
 - **L03** No identifier appears on more than one document.
 - **L04** Every identifier in `depends`, `updates`, `obsoletes` and `includes` resolves to an existing document of a permitted type. Every member of a group resolves, an identifier to an RFC, ADR or ref and any other member to a spec page, and no group lists a member twice. Each finding is reported at the line of the list. A document in no group is not reported.
 - **L05** `updates` and `obsoletes` reference only accepted documents of the same type. No document updates or obsoletes itself. No document appears in both lists of the same document.
 - **L06** `includes` references only accepted documents.
-- **L07** `decided` is set if and only if the status is terminal. `decided` is not before `created`. If `backfilled` is set, the status is terminal and `backfilled` is not before `decided`.
+- **L07** `decided` is set if and only if the status is terminal. `decided` is not before `created`. If `backfilled` is set, the status is terminal and `backfilled` is not before `decided`. On a ref, `as_of` is not after `verified`.
 - **L08** Required sections are present, with exact titles, in the listed relative order. Other H2 sections are permitted between or after them. `Rejection rationale` is present if and only if the document is rejected. Where the type has a closing section, it is the document's last H2.
 - **L09** An accepted document has no non-empty `Open questions` section.
 - **L10** The H1 matches the front matter.
 - **L11** Frozen documents are unchanged. For every document whose status on `branch` is terminal, the working tree file is unchanged from the file at `branch`, as git judges it. A file absent from `branch` is new and the rule does not apply. A document terminal on `branch` and absent from the working tree is an error; a rename is a deletion and a new file. With no commits, the rule is skipped with a warning. When `branch` does not exist in a repository that has commits, the rule reports an error naming the branch. Outside a git repository, the rule is skipped with a warning.
 - **L12** A spec page includes no document that is effectively obsolete. Warning.
-- **L13** A ref's `verified` date is not older than `ref_stale_days`. Warning.
+- **L13** A ref's `verified` date is not older than `ref_stale_days`. A ref carrying `as_of` is not reported. Warning.
 - **L14** No required section is empty. Warning for `proposed`; error for a document that is terminal in the working tree but not yet on `branch`; warning once frozen. Not applied to `withdrawn`.
 - **L15** Term structure: exactly one paragraph of definition. No terms is valid.
 - **L19** A `spec/glossary.md` left behind by a repository scaffolded before terms became files. A warning: the page is valid Markdown and nothing else is wrong with the repository.

@@ -44,6 +44,7 @@ For each candidate, ask what you can actually support:
 | The behaviour, and a record of why it was chosen | A backfilled RFC or ADR, citing that record |
 | The behaviour, but no record of why | A **spec page**, describing what is true now |
 | Background reading that informed something | A ref, with a `verified` date |
+| A record of an exchange, such as a review round or a meeting | A ref carrying `as_of`, the date it took place |
 | Nothing but an inference from the code | Nothing. Note it as a gap |
 
 That middle row matters most. A spec page describes present behaviour and needs no historical
