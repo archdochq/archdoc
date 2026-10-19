@@ -78,7 +78,7 @@ var (
 	// masking pattern in internal/link may over-match, where the cost is a
 	// missed suggestion; deciding that a line IS a link is a stricter question.
 	definitionPattern = regexp.MustCompile(
-		`^[ \t]{0,3}\[([^\]]+)\]:[ \t]*(?:<([^<>\n]*)>|(\S+))(?:[ \t]+(?:"[^"]*"|'[^']*'|\([^)]*\)))?[ \t]*\r?$`)
+		`^[ \t]{0,3}\[([^\]^][^\]]*)\]:[ \t]*(?:<([^<>\n]*)>|(\S+))(?:[ \t]+(?:"[^"]*"|'[^']*'|\([^)]*\)))?[ \t]*\r?$`)
 )
 
 // Patterns for spans a suggestion must never be offered inside: an inline
@@ -741,7 +741,8 @@ type WikiLink struct {
 
 // Links returns every markdown link in the body, ignoring code, in the order
 // their destinations appear. A link reference definition counts: its
-// destination is a target like any other, and nothing was checking it.
+// destination is a target like any other, and nothing was checking it. A
+// footnote, [^label]:, is GitHub's and holds prose, so it is not one.
 func (d *Document) Links() []Link {
 	links := d.definitions()
 	labels := map[string]bool{}

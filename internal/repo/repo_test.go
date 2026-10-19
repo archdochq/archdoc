@@ -1461,6 +1461,14 @@ func TestLinkTextAcrossThreeCRLFLinesLosesEveryCarriageReturn(t *testing.T) {
 	}
 }
 
+// TestAFootnoteIsNotALinkDefinition: [^1]: is GitHub's footnote, whose text
+// is prose, and reading it as a definition reported a word as a missing file.
+func TestAFootnoteIsNotALinkDefinition(t *testing.T) {
+	if got := linksOf(t, "A claim.[^1]\n\n[^1]: note\n"); len(got) != 0 {
+		t.Errorf("links = %q, want none", got)
+	}
+}
+
 // TestTextLongerThanALabelIsNotAReference: a label is at most 999 characters,
 // so longer text is not one even where a definition spells it out.
 func TestTextLongerThanALabelIsNotAReference(t *testing.T) {
