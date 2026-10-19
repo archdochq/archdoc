@@ -19,7 +19,7 @@ A ref gains an optional `as_of` date, which marks it as a record of an exchange 
 
 A ref carries a `verified` date, the last time its content was checked against its sources, and L13 warns once that date is older than `ref_stale_days`, 180 by default. Research and comparisons go out of date, and the warning asks for them to be checked again.
 
-A ref that records an exchange, such as a review round, a meeting or a discussion, describes what was said on one date, and does not go out of date. archdoc.dev is to record a concluded review round by opening a pull request that adds such a ref. L13 cannot tell a record from research, so every record starts warning after `ref_stale_days`, asking for a check of something that cannot have changed. The edits that clear the warning are moving `verified` forward after that check, every `ref_stale_days`, or setting `ref_stale_days` to `0`, which disables the check for every ref in the repository.
+A ref that records an exchange, such as a review round, a meeting or a discussion, describes what was said on one date, and does not go out of date. L13 cannot tell a record from research, so every record starts warning after `ref_stale_days`, asking for a check of something that cannot have changed. The edits that clear the warning are moving `verified` forward after that check, every `ref_stale_days`, or setting `ref_stale_days` to `0`, which disables the check for every ref in the repository.
 
 ## Proposal
 
@@ -113,3 +113,5 @@ A consumer validating against `v3.json` as it stood, which allows no field it do
 ## Open questions
 
 ## Changelog
+
+- 2026-10-19: Motivation states the need without naming a tool that writes records.
