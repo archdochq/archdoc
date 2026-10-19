@@ -6,6 +6,7 @@ import (
 	"net/url"
 	"regexp"
 	"slices"
+	"sort"
 	"strings"
 	"unicode"
 )
@@ -54,8 +55,18 @@ var (
 	linkPattern     = regexp.MustCompile(`!?\[([^\]]*)\]\([^)]*\)`)
 	closingHashes   = regexp.MustCompile(`[ \t]+#+$`)
 	wikiLinkPattern = regexp.MustCompile(`\[\[([^\[\]]+)\]\]`)
-	// Two destination forms: <...>, which may hold spaces, and a bare run.
-	mdLinkPattern = regexp.MustCompile(`(!?)\[([^\]]*)\]\(\s*(?:<([^<>\n]*)>|([^)\s]+))[^)]*\)`)
+	// What follows a link's closing bracket: the destination in either of
+	// its two forms, <...>, which may hold spaces, and a bare run, then any
+	// title.
+	linkTailPattern = regexp.MustCompile(`^\(\s*(?:<([^<>\n]*)>|([^)\s]+))[^)]*\)`)
+	// A line, read from behind any quote markers, that ends the paragraph
+	// before it and so any link text left open there: a heading, a list item
+	// at any depth, a table row, a thematic break or a setext underline.
+	blockStartPattern = regexp.MustCompile(
+		`^[ \t]*(?:(?:#{1,6}|[-*+]|\d{1,9}[.)])(?:[ \t]|\r?$)|\|)|^ {0,3}(?:=+|-+|(?:[*_-][ \t]*){3,})[ \t]*\r?$`)
+	// A reference after a link's closing bracket: [label], or [] to use the
+	// text as the label.
+	referencePattern = regexp.MustCompile(`^\[([^\[\]]*)\]`)
 	// A link reference definition, whose destination is a link target like any
 	// other and was checked by nothing.
 	//
@@ -67,7 +78,7 @@ var (
 	// masking pattern in internal/link may over-match, where the cost is a
 	// missed suggestion; deciding that a line IS a link is a stricter question.
 	definitionPattern = regexp.MustCompile(
-		`^[ \t]{0,3}\[([^\]]+)\]:[ \t]*(?:<([^<>\n]*)>|(\S+))(?:[ \t]+(?:"[^"]*"|'[^']*'|\([^)]*\)))?[ \t]*\r?$`)
+		`^[ \t]{0,3}\[([^\]^][^\]]*)\]:[ \t]*(?:<([^<>\n]*)>|(\S+))(?:[ \t]+(?:"[^"]*"|'[^']*'|\([^)]*\)))?[ \t]*\r?$`)
 )
 
 // Patterns for spans a suggestion must never be offered inside: an inline
@@ -728,10 +739,32 @@ type WikiLink struct {
 	Line int
 }
 
-// Links returns every markdown link in the body, ignoring code. A link
-// reference definition counts: its destination is a target like any other, and
-// nothing was checking it.
+// Links returns every markdown link in the body, ignoring code, in the order
+// their destinations appear. A link reference definition counts: its
+// destination is a target like any other, and nothing was checking it. A
+// footnote, [^label]:, is GitHub's and holds prose, so it is not one.
 func (d *Document) Links() []Link {
+	links := d.definitions()
+	labels := map[string]bool{}
+	for _, l := range links {
+		labels[normalLabel(l.Text)] = true
+	}
+	inline := inlineLinks{labels: labels}
+	for line := range d.Prose() {
+		links = append(links, inline.read(line)...)
+	}
+	sort.SliceStable(links, func(i, j int) bool {
+		if links[i].Line != links[j].Line {
+			return links[i].Line < links[j].Line
+		}
+		return links[i].Start < links[j].Start
+	})
+	return links
+}
+
+// definitions returns the link reference definitions, which are read first
+// because a reference may come before the definition it uses.
+func (d *Document) definitions() []Link {
 	var links []Link
 	opensBlock := true
 	quoted := d.questionQuotes()
@@ -745,24 +778,6 @@ func (d *Document) Links() []Link {
 			if !quoted[index-1] {
 				opensBlock = true
 			}
-		}
-		for _, at := range mdLinkPattern.FindAllStringSubmatchIndex(line.Masked, -1) {
-			m := submatches(line.Masked, at)
-			// The pattern captures the leading "!" so that an image is told
-			// from a link by the match itself.
-			form := LinkInline
-			if m[1] == "!" {
-				form = LinkImage
-			}
-			start, end := destinationAt(at, 3)
-			links = append(links, Link{
-				Text:   m[2],
-				Target: destination(m[3], m[4]),
-				Type:   form,
-				Line:   line.Number,
-				Start:  start,
-				End:    end,
-			})
 		}
 		// A definition cannot interrupt a paragraph, so it only counts after a
 		// blank line or another definition.
@@ -784,6 +799,188 @@ func (d *Document) Links() []Link {
 		opensBlock = strings.TrimSpace(content) == ""
 	}
 	return links
+}
+
+// normalLabel compares labels as CommonMark does: case folded, with each run
+// of whitespace one space.
+func normalLabel(label string) string {
+	return strings.ToLower(strings.Join(strings.Fields(label), " "))
+}
+
+// maxLabel is the longest label CommonMark allows, in bytes.
+const maxLabel = 999
+
+// inlineLinks reads [text](destination) and ![text](destination) across the
+// lines of a paragraph, as CommonMark does: the text may run onto later lines
+// and hold brackets in balanced pairs, an escaped bracket is literal, an image
+// may be the text of a link, and a link, inline or by reference, may not.
+// Lines are read from the masked view, so a bracket inside code or a comment
+// is not one. A reference use is not returned; its definition is.
+type inlineLinks struct {
+	// labels are the document's definitions, normalised.
+	labels map[string]bool
+	// paragraph is the lines read since the text could last have opened, and
+	// open the brackets in them not yet closed, innermost last.
+	paragraph []ProseLine
+	open      []opener
+	// inactiveBelow is how many of open, from the outermost, a link has
+	// closed inside, which makes those that are not images inactive, since
+	// links do not nest. One bound rather than a flag on each opener, so a
+	// link closing does not walk every bracket still open.
+	inactiveBelow int
+}
+
+// opener is a [ or ![ waiting for its ].
+type opener struct {
+	line, column int // within paragraph, the column after the bracket
+	image        bool
+}
+
+// read takes the next prose line and returns the links that close on it.
+func (in *inlineLinks) read(line ProseLine) []Link {
+	gap := len(in.paragraph) > 0 && in.paragraph[len(in.paragraph)-1].Number != line.Number-1
+	if gap || strings.TrimSpace(line.Masked) == "" || startsBlock(line.Masked, in.paragraph) {
+		in.paragraph, in.open, in.inactiveBelow = nil, nil, 0
+	}
+	in.paragraph = append(in.paragraph, line)
+	here := len(in.paragraph) - 1
+
+	var links []Link
+	s := line.Masked
+	// A destination ends with a ), so after the last one on the line there is
+	// none to try for. Without this each ] ran the pattern to the end of the
+	// line, which made a long line quadratic.
+	lastClose := strings.LastIndexByte(s, ')')
+	for i := 0; i < len(s); i++ {
+		switch {
+		case s[i] == '\\':
+			i++
+		case s[i] == '[':
+			in.open = append(in.open, opener{line: here, column: i + 1})
+		case s[i] == '!' && i+1 < len(s) && s[i+1] == '[':
+			in.open = append(in.open, opener{line: here, column: i + 2, image: true})
+			i++
+		case s[i] == ']' && len(in.open) > 0:
+			o := in.open[len(in.open)-1]
+			in.open = in.open[:len(in.open)-1]
+			inactive := !o.image && len(in.open) < in.inactiveBelow
+			in.inactiveBelow = min(in.inactiveBelow, len(in.open))
+			rest := s[i+1:]
+			if at := tail(rest, i < lastClose); at != nil {
+				if inactive {
+					continue
+				}
+				m := submatches(rest, at)
+				start, end := destinationAt(at, 1)
+				link := Link{
+					Text: in.text(o, here, i), Target: destination(m[1], m[2]), Type: LinkInline,
+					Line: line.Number, Start: i + 1 + start, End: i + 1 + end,
+				}
+				if o.image {
+					link.Type = LinkImage
+				} else {
+					in.inactiveBelow = len(in.open)
+				}
+				links = append(links, link)
+				i += at[1]
+			} else if skip, ok := in.reference(o, here, i, rest); ok && !inactive {
+				if !o.image {
+					in.inactiveBelow = len(in.open)
+				}
+				i += skip
+			}
+		}
+	}
+	if headingPattern.MatchString(s) {
+		// A heading is one line, so nothing it leaves open continues.
+		in.paragraph, in.open, in.inactiveBelow = nil, nil, 0
+	}
+	return links
+}
+
+// tail matches a destination after a closing bracket, where one can follow.
+func tail(rest string, closes bool) []int {
+	if !closes {
+		return nil
+	}
+	return linkTailPattern.FindStringSubmatchIndex(rest)
+}
+
+// reference reports whether the bracket closing at column end makes a link by
+// reference, [text][label], [text][] or [text], with a label that is defined,
+// and how far its [label] runs past the bracket.
+func (in *inlineLinks) reference(o opener, last, end int, rest string) (int, bool) {
+	if len(in.labels) == 0 {
+		return 0, false
+	}
+	if at := referencePattern.FindStringSubmatchIndex(rest); at != nil {
+		if label := rest[at[2]:at[3]]; label != "" {
+			return at[1], in.labels[normalLabel(label)]
+		}
+		text, ok := in.label(o, last, end)
+		return at[1], ok && in.labels[normalLabel(text)]
+	}
+	text, ok := in.label(o, last, end)
+	return 0, ok && in.labels[normalLabel(text)]
+}
+
+// label is a link's text where it is short enough to be a label, measured
+// before it is joined, so a bracket open across a long paragraph costs no
+// more than a label can be long.
+func (in *inlineLinks) label(o opener, last, end int) (string, bool) {
+	size := end - o.column
+	if o.line != last {
+		size = len(in.paragraph[o.line].Masked) - o.column + end
+		for i := o.line + 1; i < last && size <= maxLabel; i++ {
+			size += len(in.paragraph[i].Masked)
+		}
+	}
+	if size > maxLabel {
+		return "", false
+	}
+	return in.text(o, last, end), true
+}
+
+// startsBlock reports whether a line ends the paragraph before it. The first
+// line of a quote does; its later lines continue the quote, and are read from
+// behind their markers like any other line.
+func startsBlock(line string, paragraph []ProseLine) bool {
+	inner, quoted := stripQuotes(line)
+	if quoted && (len(paragraph) == 0 || !isQuoted(paragraph[len(paragraph)-1].Masked)) {
+		return true
+	}
+	return blockStartPattern.MatchString(inner)
+}
+
+// stripQuotes removes a line's blockquote markers, each with one space after.
+func stripQuotes(line string) (string, bool) {
+	quoted := false
+	for {
+		trimmed := strings.TrimLeft(line, " ")
+		if !strings.HasPrefix(trimmed, ">") {
+			return line, quoted
+		}
+		line, quoted = strings.TrimPrefix(trimmed[1:], " "), true
+	}
+}
+
+func isQuoted(line string) bool {
+	_, quoted := stripQuotes(line)
+	return quoted
+}
+
+// text is a link's text from its opener to the closing bracket at column end
+// of paragraph line last, its lines joined by "\n" as written, quote markers
+// and indentation included.
+func (in *inlineLinks) text(o opener, last, end int) string {
+	if o.line == last {
+		return in.paragraph[last].Masked[o.column:end]
+	}
+	parts := []string{strings.TrimSuffix(in.paragraph[o.line].Masked[o.column:], "\r")}
+	for _, l := range in.paragraph[o.line+1 : last] {
+		parts = append(parts, strings.TrimSuffix(l.Masked, "\r"))
+	}
+	return strings.Join(append(parts, in.paragraph[last].Masked[:end]), "\n")
 }
 
 // submatches renders the groups a FindStringSubmatchIndex result locates, an

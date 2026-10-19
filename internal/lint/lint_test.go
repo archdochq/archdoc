@@ -1019,3 +1019,23 @@ func TestL11IgnoresFilesOutsideArchdocsOwnRoot(t *testing.T) {
 		}
 	}
 }
+
+func TestL17ReportsALinkWhateverItsTextHolds(t *testing.T) {
+	r := repotest.New(t, map[string]string{
+		"spec/page.md": "---\ntitle: Page\nincludes: []\n---\n\n# Page\n\n" +
+			"Two [wrapped\ntext](missing-two.md), three [![b](b.svg)](missing-three.md)\nand four [RFC [1]](missing-four.md).\n",
+		"spec/b.svg": "<svg></svg>\n",
+	})
+	var got []string
+	for _, f := range lint.Run(lint.NewContext(r, nil, now)) {
+		if f.Rule == "L17" {
+			got = append(got, fmt.Sprintf("%d %s", f.Line, f.Message))
+		}
+	}
+	// Each on the line holding its destination.
+	for i, want := range []string{"9 link target \"missing-two.md\"", "9 link target \"missing-three.md\"", "10 link target \"missing-four.md\""} {
+		if len(got) != 3 || !strings.HasPrefix(got[i], want) {
+			t.Fatalf("L17 findings = %q, want one each for missing-two, -three and -four, on lines 9, 9 and 10", got)
+		}
+	}
+}

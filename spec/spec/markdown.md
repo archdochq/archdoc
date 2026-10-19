@@ -17,6 +17,14 @@ The first heading is an H1 of the form `<id>: <title>` for a numbered type, or `
 
 Every heading has an anchor, computed as GitHub computes it. Link syntax is stripped first, so a heading is slugged from its rendered text. Everything that is not a letter, digit, underscore, hyphen or space is removed, the result is lowercased, and each space becomes a hyphen. A heading whose anchor is already taken within the document gains a `-1`, `-2` suffix. Anchors are assigned by walking a document's headings in order; a heading in isolation has no anchor. `## The [RFC-0007](path) approach` anchors as `the-rfc-0007-approach`.
 
+## Links
+
+A link is `[text](destination)` and an image `![text](destination)`, with the destination bare or within `<...>`, and an optional title after it. The text may run across the lines of one paragraph, and holds brackets only in balanced pairs. It is kept as written, its lines joined by a line feed, with any quote markers and indentation. A `\[` or `\]` is a literal bracket, and a bracket inside code or an HTML comment is not a bracket. A paragraph ends at a blank line, a fenced code block, a heading, a list item at any depth, a table row, a thematic break, a setext underline and the first line of a blockquote; a quote's later lines continue it. The destination follows the closing `]` on the same line, and the link is on that line.
+
+A line holding only `[label]: destination` and an optional title, after a blank line or another such line, is a link reference definition. A label beginning `^` is a footnote, not a definition. `[text][label]`, `[text][]` and `[text]` are reference links where the label, or the text for the last two, matches a definition, compared without regard to case and with each run of whitespace as one space, and is at most 999 characters. A reference link is not listed among a document's links; its definition is.
+
+An image may be the text of a link. A link within another link's text, inline or by reference, is a link, and the outer one is not.
+
 ## Sections
 
 A section is an H2 and everything under it, up to the next heading of equal or higher level. It includes its own subsections. A section is empty if it holds nothing but whitespace and HTML comments.

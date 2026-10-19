@@ -201,7 +201,7 @@
         "path": {"type": "string", "description": "Resolved against the repository root. Absent when it leaves the repository."},
         "resolves_to": {"type": "string", "description": "The identifier, or a spec page's name. Absent when the destination is not a document."},
         "anchor": {"type": "string"},
-        "line": {"type": "integer", "minimum": 1}
+        "line": {"type": "integer", "minimum": 1, "description": "1-based in the file: the line holding the destination, where the text runs across lines."}
       }
     },
     "group": {
