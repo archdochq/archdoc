@@ -27,8 +27,12 @@ jobs:
       # Every repository archdoc scaffolds pins itself to a release, and cannot
       # easily be moved off a broken one. The suite runs again here rather than
       # trusting that it ran on the commit before the tag.
+      # The tag also lets internal/lint refuse a rule entry naming a release
+      # later than this one, which it cannot check on any other run.
       - name: go test
         run: go test ./...
+        env:
+          ARCHDOC_RELEASE_TAG: ${{ github.ref_name }}
 
       # Publishes archdoc_<version>_<os>_<arch> archives and checksums.txt. The
       # archdochq/setup reconstructs those exact names to download and
