@@ -25,10 +25,10 @@
       "required": ["name", "branch", "root", "strict", "ref_stale_days"],
       "additionalProperties": false,
       "properties": {
-        "name": {"type": "string"},
+        "name": {"type": "string", "description": "The project name, used in the headings of the README and INDEX.md."},
         "branch": {"type": "string", "description": "The branch frozen documents are compared against."},
-        "root": {"type": "string", "description": "Relative to the directory holding archdoc.json."},
-        "strict": {"type": "boolean", "description": "False also permits draft to accepted and draft to rejected."},
+        "root": {"type": "string", "description": "The directory holding the document directories and the files archdoc generates, relative to the directory holding archdoc.json."},
+        "strict": {"type": "boolean", "description": "True keeps the transition graph as PROCESS.md gives it. False also permits draft to accepted and draft to rejected."},
         "ref_stale_days": {"type": "integer", "minimum": 0,
                            "description": "How old a ref's verified date may be. 0 disables the check."}
       }
