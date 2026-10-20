@@ -37,7 +37,7 @@ Anything that displays or works with the details of ArchDoc, its commands and th
 |---|---|
 | `internal/lint` | `Rule` gains `Title`, `Summary`, `Remedy`, `Since` and `Changes`, filled for every rule in `Rules`, and the test of `Since` and `Changes` against the tag being released |
 | `internal/repo` | The keys of each type's front matter as data: each key's value type, whether it must be present, whether it may be empty, and the values of an enum. The parser and L01 read it, which moves into it the keys L01 requires to carry a value, and L01's message names the statuses from it rather than listing them |
-| `internal/config` | Each key of `archdoc.json` as data: its JSON type, whether it is required, and its default where it has one. `Load` applies the defaults from it |
+| `internal/config` | Each key of `archdoc.json` as data: its JSON type, whether it is required, and its default where it has one, given by the constants `Load` and `init` already apply, and the test that `Load` applies each default the table gives |
 | `internal/export` | The descriptions of `name`, `root` and `strict` in the `config` definition of `schema: 3`, written in full, since the reference takes every key's description from that definition |
 | `internal/reference` | The reference's types, its embedded schema, and the test comparing the schema's declared properties against the types by reflection. It imports nothing that imports cobra |
 | `cmd/archdoc` | The hidden `reference` command, which walks the command tree into the reference's types; the exit codes as data beside the constants that hold them |
@@ -60,14 +60,14 @@ Anything that displays or works with the details of ArchDoc, its commands and th
 |---|---|
 | Existing text | Each `Summary` and `Remedy` starts as the triage guide's row for that rule as it stands, so the generated table is unchanged |
 | Severity | Not a field. A rule's severity depends on the document it reports, as `lint.md` gives it, and a summary says "(warning)" where the triage guide does |
-| Existing releases | `Since` is `v0.1.0-alpha.1` for L01 to L18 and `v0.5.0` for L19. L20 and L21 name the release carrying [RFC-0008](0008-questions.md) and [RFC-0009](0009-changelog.md) |
+| Existing releases | `Since` is `v0.1.0-alpha.1` for L01 to L18 and `v0.5.0` for L19. L20 and L21 name `v0.6.0`, the release carrying [RFC-0008](0008-questions.md) and [RFC-0009](0009-changelog.md) |
 | History | `Changes` starts empty for every rule and records changes made once this design is built. Changes made before it are not recorded |
 | Unreleased | A rule added, or changed, between releases names the next tag to be cut, a pre-release included |
 | Removal | A rule removed from the registry is removed from the reference with it |
 
 ### Checking `since` against the release
 
-The release workflow's test step sets `ARCHDOC_RELEASE_TAG` to the tag being released. A test in `internal/lint` refuses any `Since`, or change, naming a release later than that tag, comparing versions by their numbers and treating a pre-release as earlier than the release it precedes. Without the variable the test is skipped, so it runs in the release workflow only. A failure stops the workflow before goreleaser publishes, leaving the tag pushed and unpublished, to be deleted and cut again once the registry is corrected. The test does not check that an earlier release carried a rule its `Since` names.
+The release workflow's test step sets `ARCHDOC_RELEASE_TAG` to the tag being released. A test in `internal/lint` refuses any `Since`, or change, naming a release later than that tag, comparing versions by their numbers and treating a pre-release as earlier than the release it precedes. Without the variable the test is skipped, so it runs in the release workflow only. A failure stops the workflow before goreleaser publishes, leaving the tag pushed and unpublished, to be deleted and cut again once the registry is corrected. The test does not check that an earlier release carried a rule its `Since` names. Nothing checks that a change to what a rule reports is recorded in `Changes`.
 
 ### The triage guide
 
@@ -174,8 +174,10 @@ Nothing a repository holds breaks. `archdoc reference` is new and hidden, and li
 
 `schema: 3` is not yet released, and its `config` definition gains descriptions only, which change no field's type or meaning. Moving the front matter keys and L01's keys that must carry a value into one table in `internal/repo` changes no finding, and the existing tests of L01 hold. `commands.md`'s account of exit code `2` is completed to what the commands already do.
 
-A rule added later without a title, summary, remedy or `since` fails a test requiring each on every rule entry. The tests gain the comparison of the triage table with the registry, the reference schema's reflection test and byte comparison with its published copy, and the test of `since` against the tag being released.
+A rule added later without a title, summary, remedy or `since` fails a test requiring each on every rule entry. The tests gain the comparison of the triage table with the registry, the reference schema's reflection test and byte comparison with its published copy, the test of `since` against the tag being released, and the test that `Load` applies the defaults the configuration table gives.
 
 ## Open questions
 
 ## Changelog
+
+- 2026-10-20: L20 and L21 name `v0.6.0`, the configuration table takes its defaults from the constants `Load` already applies with a test that the two agree, and nothing checking that a change to a rule is recorded is stated.
