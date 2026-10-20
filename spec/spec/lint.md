@@ -1,6 +1,6 @@
 ---
 title: Lint
-includes: [ADR-0008, ADR-0009, ADR-0010, RFC-0008, RFC-0009, RFC-0011, RFC-0013]
+includes: [ADR-0008, ADR-0009, ADR-0010, RFC-0008, RFC-0009, RFC-0011, RFC-0013, RFC-0014]
 ---
 
 # Lint
@@ -34,6 +34,20 @@ Every rule reports an error unless stated. A finding that no permitted edit to t
 - **L18** Every `depends` entry references a document that is accepted, or that shares the referencing document's non-terminal status. Warning.
 - **L20** The question sections have the shape [Markdown](markdown.md) gives them. Reported at the first line before a section's first question that is not blank or a comment; at a question whose heading produces no anchor, or the same anchor as another heading, and of two questions at the later; at a heading beneath a question; at a blockquote line holding a heading, a comment, or a fence's opening line, the lines within a quoted fence being code; at an open question's final blockquote; at an empty `Resolved questions` section's heading, or, in a document that has an `Open questions` section, one that does not follow it; at a resolved question with no heading beneath it that does not end with a blockquote; at an answer with another blockquote before it, or an empty one; and at each `Resolved questions` heading after the first, whose questions and blockquotes are checked as the first section's are and whose section is otherwise not checked. Not applied to the `Open questions` section of an accepted document, which L09 checks, or to a withdrawn document. Error in an editable document; warning in a frozen one.
 - **L21** Every `Changelog` section has the shape [Markdown](markdown.md) gives it. Reported at the first line belonging to no entry after the section's heading and after each entry; at a heading opening or ending the section that is indented by two or three spaces, or is a heading only once a comment on its line is masked; at an entry with no date, one beginning with a date shape not followed by `:` and a space or the end of the line, one whose date is not a real date, and one with a date and no text; at an entry dated earlier than the dated entry before it, before a valid `created`, or after `decided`, the last two unchecked where `decided` is before `created`; at each `Changelog` heading after the first; and at a level two heading differing from `Changelog` only in case, spacing or punctuation. Not applied to a withdrawn document. Error in an editable document; warning in a frozen one.
+
+## Rule entries
+
+Each rule in the registry carries, besides its code and check:
+
+| Field | Content |
+|---|---|
+| `Title` | A few words naming what the rule checks |
+| `Summary` | What a finding means, as inline Markdown |
+| `Remedy` | How a finding is cleared, as inline Markdown |
+| `Since` | The tag of the first release carrying the rule: `v0.1.0-alpha.1` for L01 to L18, `v0.5.0` for L19, `v0.6.0` for L20 and L21 |
+| `Changes` | Each later release that changed what the rule reports, with a one-line account, in release order. Changes made before the registry recorded them are not listed |
+
+A test refuses an entry without a title, summary, remedy or `since`. The table of rules in the triage guide is the registry's summaries and remedies, one row per rule in code order; a test compares the two, and `go test ./internal/template -update-triage` rewrites the table. `archdoc reference` publishes every entry.
 
 ## Output
 

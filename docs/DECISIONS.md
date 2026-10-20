@@ -53,6 +53,16 @@ only showed up on a real document, and the reasoning is kept so the shape is not
   so a file naming it is an unknown-field error rather than a way to set it. The decoder must also reach
   end of file: `Decode` reads one value and leaves the rest of the stream, so a second object or any
   trailing text was silently ignored.
+- **The defaults stay four constants, which `config.Keys` names rather than supplies.** `Load` and
+  `init` apply the constants, and the table the reference prints refers to the same ones. Having `Load`
+  apply defaults from the table meant matching each entry to a struct field by its JSON name through
+  reflection, in place of four assignments. A test loads a file naming only `name` and checks every key
+  against the table, which catches either side changing alone.
+- **Each type's keys are one table, `repo.Keys`.** The parser's schema, L01 and the reference read it.
+  L01 kept its own list of the keys that must carry a value, which the table would have repeated, so
+  it now reads whether every key is empty and leaves which keys may be to the table. A test writes
+  every key of every type empty and checks L01 reports exactly the keys the table says must carry a
+  value, so a key the table marks with no way for L01 to see it empty fails.
 - **Membership is held by the group, not by its members.** A frozen document can never gain a key, so
   a key on each document would leave every accepted document ungrouped for good, and could not follow a
   division that changes after the documents inside it froze. A group has no status and is never
@@ -383,6 +393,11 @@ the result can delete content it never read.
 
 - **Every rule is a function returning findings; nothing prints or exits.** The registry is the single
   source of a rule's code, so the rule functions do not repeat it on every finding they build.
+- **A rule's title, summary, remedy and releases are on its registry entry.** The triage guide's table
+  was prose beside the registry, and is now the registry's text, compared by a test and rewritten by
+  `-update-triage` rather than generated at build time, so `archdoc agents`, `update` and the release's
+  skills keep copying a static file. Changes made to a rule before the registry recorded them are not
+  reconstructed: each would be read off the code at each tag, and a wrong one would be published.
 - **Findings are accumulated through one helper**, which separates a message that is already built from
   one that is a format string. A parse error naming a value of `100%` would otherwise be formatted a
   second time and reach the user as `100%!(MISSING)`.
@@ -455,6 +470,10 @@ the result can delete content it never read.
   scaffolded repository is pinned to the release it was written for. Both sides are resolved from their
   own file and compared, so renaming one alone fails the suite and a coordinated rename of both does
   not.
+- **A rule's `since` is checked against the tag being released, and only there.** No other run knows
+  which release it is building. The release workflow passes the tag as `ARCHDOC_RELEASE_TAG`, and a
+  second test checks it does, since a missing variable skips the check without failing. Versions are
+  compared by semantic version precedence in the test rather than through a module.
 
 ## Licence
 
@@ -489,5 +508,9 @@ the result can delete content it never read.
   subprocess per document was the whole of lint's running time on a repository of any size. Requests and
   responses are NUL-separated: git permits a newline in a path, and a line-oriented protocol pairs them
   wrongly when one contains one.
+- **`cmd/archdoc` walks the command tree into the reference; `internal/reference` builds the rest.**
+  `cobra/doc` brings `go-md2man` and writes Markdown, man pages, ReST and YAML rather than this shape.
+  The walk does not filter `--help`: cobra adds it only to the command running, which is the hidden
+  `reference`, and a test fails if it ever appears.
 - **Markdown is handled with the standard library.** The dependency list is cobra, yaml.v3 and huh, with
   goreleaser at build time. Nothing else.
