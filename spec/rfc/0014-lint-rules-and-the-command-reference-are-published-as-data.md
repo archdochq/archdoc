@@ -1,9 +1,9 @@
 ---
 id: RFC-0014
 title: Lint rules and the command reference are published as data
-status: proposed
+status: accepted
 created: 2026-10-19
-decided:
+decided: 2026-10-20
 depends: [ADR-0005, ADR-0011, ADR-0019, ADR-0022]
 updates: []
 obsoletes: []
