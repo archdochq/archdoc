@@ -69,17 +69,26 @@ func L01(ctx Context) []Finding {
 		for _, key := range d.FrontMatter.Unknown() {
 			rep.errorf(d, key.Line, "unknown front matter field %q", key.Name)
 		}
-		// Keys that must carry a value, as opposed to keys that must merely be
-		// present. `decided` and the relationship lists are legitimately empty;
-		// a document with an empty `status` would otherwise be skipped in
-		// silence by every rule that branches on it.
+		// Whether each key was left empty. The schema says which keys must
+		// carry a value: a document with an empty `status` would otherwise be
+		// skipped in silence by every rule that branches on it.
+		fm := d.FrontMatter
 		empty := map[string]bool{
-			"id":       d.FrontMatter.ID == "",
-			"title":    d.FrontMatter.Title == "",
-			"status":   d.FrontMatter.Status == "",
-			"created":  d.FrontMatter.Created.IsZero(),
-			"verified": d.FrontMatter.Verified.IsZero(),
-			"as_of":    d.FrontMatter.AsOf.IsZero(),
+			"id":         fm.ID == "",
+			"title":      fm.Title == "",
+			"status":     fm.Status == "",
+			"created":    fm.Created.IsZero(),
+			"decided":    fm.Decided.IsZero(),
+			"verified":   fm.Verified.IsZero(),
+			"backfilled": fm.Backfilled.IsZero(),
+			"as_of":      fm.AsOf.IsZero(),
+			"depends":    len(fm.Depends) == 0,
+			"updates":    len(fm.Updates) == 0,
+			"obsoletes":  len(fm.Obsoletes) == 0,
+			"includes":   len(fm.Includes) == 0,
+			"formerly":   len(fm.Formerly) == 0,
+			"named_by":   fm.NamedBy == "",
+			"documents":  len(fm.Documents) == 0,
 		}
 		// A key whose value could not be parsed has already been reported
 		// accurately; calling it empty as well says something the file
@@ -90,31 +99,27 @@ func L01(ctx Context) []Finding {
 			unparsed[p.Line] = true
 		}
 
-		for _, key := range repo.RequiredKeys(d.Type) {
-			if !d.FrontMatter.Has(key) {
-				rep.errorf(d, 1, "missing required front matter key %q", key)
+		// Over the whole schema, because an optional key such as as_of must
+		// still carry a value where written. A key outside the schema is
+		// reported as unknown above, and its value is never decoded, so it
+		// would read as empty here too.
+		for _, key := range repo.Keys(d.Type) {
+			has := d.FrontMatter.Has(key.Name)
+			line := d.FrontMatter.LineOf(key.Name)
+			if key.Required && !has {
+				rep.errorf(d, 1, "missing required front matter key %q", key.Name)
 			}
-		}
-		// Over the whole schema rather than the required keys, because an
-		// optional key such as as_of must still carry a value where written.
-		// A key outside the schema is reported as unknown above, and its
-		// value is never decoded, so it would read as empty here too.
-		for _, key := range repo.Schema(d.Type) {
-			if blank, checked := empty[key]; checked && blank && d.FrontMatter.Has(key) && !unparsed[d.FrontMatter.LineOf(key)] {
-				rep.errorf(d, d.FrontMatter.LineOf(key), "front matter key %q is present but empty", key)
+			if !key.MayBeEmpty && empty[key.Name] && has && !unparsed[line] {
+				rep.errorf(d, line, "front matter key %q is present but empty", key.Name)
 			}
-		}
-		if d.Type.HasLifecycle() {
-			if s := d.FrontMatter.Status; s != "" && !validStatus(s) {
-				rep.errorf(d, d.FrontMatter.LineOf("status"), "status %q is not one of draft, proposed, accepted, rejected, withdrawn", s)
+			if key.Name == "status" {
+				if s := string(d.FrontMatter.Status); s != "" && !slices.Contains(key.Values, s) {
+					rep.errorf(d, line, "status %q is not one of %s", s, strings.Join(key.Values, ", "))
+				}
 			}
 		}
 	}
 	return rep.findings
-}
-
-func validStatus(s repo.Status) bool {
-	return slices.Contains(repo.Statuses, s)
 }
 
 // L02 checks that the identifier matches the type and filename, and that the

@@ -35,34 +35,71 @@ type Problem struct {
 // Schema lists the keys a type's front matter may carry. A key outside this
 // list is an unknown field.
 func Schema(t Type) []string {
-	switch t {
-	case TypeRFC, TypeADR:
-		return append(RequiredKeys(t), "backfilled")
-	case TypeRef:
-		return append(RequiredKeys(t), "as_of")
-	default:
-		return RequiredKeys(t)
+	var names []string
+	for _, k := range Keys(t) {
+		names = append(names, k.Name)
 	}
+	return names
 }
 
-// RequiredKeys lists the keys that must be present, whatever their value.
+// Key is one front matter key of a type.
+type Key struct {
+	Name  string
+	Value ValueType
+	// Required is whether the key must be present, whatever its value, and
+	// MayBeEmpty whether it may be present with no value.
+	Required   bool
+	MayBeEmpty bool
+	// Values lists what an enum may hold.
+	Values []string
+}
+
+// ValueType is the type of a front matter key's value.
+type ValueType string
+
+const (
+	ValueString ValueType = "string"
+	ValueDate   ValueType = "date"
+	ValueList   ValueType = "list"
+	ValueEnum   ValueType = "enum"
+)
+
+// Keys lists a type's front matter keys, required keys first.
 //
 // A type's schema may only ever gain optional keys. A new required key would
 // put every frozen document in every existing repository in violation of L01,
 // and L11 forbids the edit that would add it. A new type's keys may be
 // required, as no existing document is of that type.
-func RequiredKeys(t Type) []string {
+func Keys(t Type) []Key {
+	id := Key{Name: "id", Value: ValueString, Required: true}
+	title := Key{Name: "title", Value: ValueString, Required: true}
+	list := func(name string) Key {
+		return Key{Name: name, Value: ValueList, Required: true, MayBeEmpty: true}
+	}
 	switch t {
 	case TypeSpec:
-		return []string{"title", "includes"}
+		return []Key{title, list("includes")}
 	case TypeRef:
-		return []string{"id", "title", "verified"}
+		return []Key{id, title,
+			{Name: "verified", Value: ValueDate, Required: true},
+			{Name: "as_of", Value: ValueDate},
+		}
 	case TypeTerm:
-		return []string{"title", "formerly", "named_by"}
+		return []Key{title, list("formerly"), {Name: "named_by", Value: ValueString, Required: true, MayBeEmpty: true}}
 	case TypeGroup:
-		return []string{"title", "documents"}
+		return []Key{title, list("documents")}
 	default:
-		return []string{"id", "title", "status", "created", "decided", "depends", "updates", "obsoletes"}
+		statuses := make([]string, len(Statuses))
+		for i, s := range Statuses {
+			statuses[i] = string(s)
+		}
+		return []Key{id, title,
+			{Name: "status", Value: ValueEnum, Required: true, Values: statuses},
+			{Name: "created", Value: ValueDate, Required: true},
+			{Name: "decided", Value: ValueDate, Required: true, MayBeEmpty: true},
+			list("depends"), list("updates"), list("obsoletes"),
+			{Name: "backfilled", Value: ValueDate, MayBeEmpty: true},
+		}
 	}
 }
 
