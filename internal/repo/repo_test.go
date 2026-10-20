@@ -611,8 +611,23 @@ func TestBackfilledIsOptionalAndParsed(t *testing.T) {
 	if !slices.Contains(repo.Schema(repo.TypeRFC), "backfilled") {
 		t.Error("backfilled is not in the RFC schema, so it would be reported as an unknown field")
 	}
-	if slices.Contains(repo.RequiredKeys(repo.TypeRFC), "backfilled") {
-		t.Error("backfilled is required; a required key cannot be added, because frozen documents cannot gain one")
+	for _, key := range repo.Keys(repo.TypeRFC) {
+		if key.Name == "backfilled" && key.Required {
+			t.Error("backfilled is required; a required key cannot be added, because frozen documents cannot gain one")
+		}
+	}
+}
+
+func TestTheStatusKeyNamesEveryStatus(t *testing.T) {
+	for _, typ := range []repo.Type{repo.TypeRFC, repo.TypeADR} {
+		i := slices.IndexFunc(repo.Keys(typ), func(k repo.Key) bool { return k.Name == "status" })
+		if i < 0 {
+			t.Fatalf("%s has no status key", typ)
+		}
+		status := repo.Keys(typ)[i]
+		if status.Value != repo.ValueEnum || !slices.Equal(status.Values, []string{"draft", "proposed", "accepted", "rejected", "withdrawn"}) {
+			t.Errorf("%s status = %+v, want an enum of the five statuses", typ, status)
+		}
 	}
 }
 
