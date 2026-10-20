@@ -91,6 +91,7 @@ func newRoot(out, errOut io.Writer) *cobra.Command {
 		newUpdateCommand(),
 		newExportCommand(),
 		newChangesCommand(),
+		newReferenceCommand(),
 	)
 	root.AddCommand(transitionCommands()...)
 	return root

@@ -1,0 +1,108 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://archdoc.dev/schema/reference/v1.json",
+  "title": "ArchDoc reference",
+  "description": "One release of ArchDoc described as data: its commands and their flags, its lint rules, the front matter of each type, the keys of archdoc.json, its exit codes and the export schema it emits. Every array is present and never null. Before ArchDoc 1.0 a change that removes a field, or changes a field's type or meaning, moves schema to the next integer; from 1.0 the shape only gains optional fields.",
+  "type": "object",
+  "required": ["schema", "version", "command", "rules", "front_matter", "config", "exit_codes", "export_schema"],
+  "additionalProperties": false,
+  "properties": {
+    "schema": {"type": "integer", "const": 1},
+    "version": {"type": "string", "description": "The version archdoc --version prints."},
+    "command": {"$ref": "#/$defs/command", "description": "The root command."},
+    "rules": {"type": "array", "items": {"$ref": "#/$defs/rule"}, "description": "Every lint rule, in code order."},
+    "front_matter": {"type": "object", "additionalProperties": {"type": "array", "items": {"$ref": "#/$defs/key"}},
+                     "description": "The front matter keys of each type, keyed by type, required keys first."},
+    "config": {"type": "array", "items": {"$ref": "#/$defs/config_key"}, "description": "Every key archdoc.json holds."},
+    "exit_codes": {"type": "array", "items": {"$ref": "#/$defs/exit_code"}},
+    "export_schema": {"type": "object",
+                      "description": "The export schema this release embeds, as export --schema prints it."}
+  },
+  "$defs": {
+    "command": {
+      "type": "object",
+      "required": ["path", "use", "short", "long", "flags", "global_flags", "commands"],
+      "additionalProperties": false,
+      "properties": {
+        "path": {"type": "string", "description": "The full command, such as \"archdoc new\"."},
+        "use": {"type": "string", "description": "The usage line, which is all that describes the arguments. A command that prompts for a missing argument accepts fewer than it shows."},
+        "short": {"type": "string"},
+        "long": {"type": "string"},
+        "flags": {"type": "array", "items": {"$ref": "#/$defs/flag"}, "description": "The command's own flags, without --help."},
+        "global_flags": {"type": "array", "items": {"$ref": "#/$defs/flag"},
+                         "description": "The persistent flags the command defines, which its subcommands inherit."},
+        "commands": {"type": "array", "items": {"$ref": "#/$defs/command"},
+                     "description": "Subcommands in the order help lists them, leaving out hidden commands, help and completion."}
+      }
+    },
+    "flag": {
+      "type": "object",
+      "required": ["name", "shorthand", "type", "default", "usage"],
+      "additionalProperties": false,
+      "properties": {
+        "name": {"type": "string"},
+        "shorthand": {"type": "string", "description": "Empty where the flag has none."},
+        "type": {"type": "string", "description": "The type name the flag library gives."},
+        "default": {"type": "string", "description": "The default as help prints it."},
+        "usage": {"type": "string"}
+      }
+    },
+    "rule": {
+      "type": "object",
+      "required": ["code", "title", "summary", "remedy", "since", "changes"],
+      "additionalProperties": false,
+      "properties": {
+        "code": {"type": "string", "pattern": "^[LM][0-9]{2}$",
+          "description": "L for a rule every run of lint applies, M for a merge rule, applied only by lint --merge."},
+        "title": {"type": "string", "description": "A few words naming what the rule checks."},
+        "summary": {"type": "string", "description": "What a finding means, as inline Markdown."},
+        "remedy": {"type": "string", "description": "How a finding is cleared, as inline Markdown."},
+        "since": {"type": "string", "description": "The tag of the first release carrying the rule, pre-releases included."},
+        "changes": {"type": "array", "items": {"$ref": "#/$defs/change"},
+                    "description": "Each later release that changed what the rule reports, in release order. Changes made before the registry recorded them are not listed."}
+      }
+    },
+    "change": {
+      "type": "object",
+      "required": ["release", "summary"],
+      "additionalProperties": false,
+      "properties": {
+        "release": {"type": "string"},
+        "summary": {"type": "string"}
+      }
+    },
+    "key": {
+      "type": "object",
+      "required": ["key", "type", "required", "may_be_empty", "values"],
+      "additionalProperties": false,
+      "properties": {
+        "key": {"type": "string"},
+        "type": {"enum": ["string", "date", "list", "enum"]},
+        "required": {"type": "boolean", "description": "Whether the key must be present."},
+        "may_be_empty": {"type": "boolean", "description": "Whether the key may be present with no value."},
+        "values": {"type": "array", "items": {"type": "string"}, "description": "An enum's values. Empty for any other type."}
+      }
+    },
+    "config_key": {
+      "type": "object",
+      "required": ["key", "type", "required", "description"],
+      "additionalProperties": false,
+      "properties": {
+        "key": {"type": "string"},
+        "type": {"enum": ["string", "boolean", "integer"]},
+        "required": {"type": "boolean"},
+        "default": {"description": "The value taken where the key is absent, in the key's type. Absent for a key with no default."},
+        "description": {"type": "string"}
+      }
+    },
+    "exit_code": {
+      "type": "object",
+      "required": ["code", "meaning"],
+      "additionalProperties": false,
+      "properties": {
+        "code": {"type": "integer"},
+        "meaning": {"type": "string"}
+      }
+    }
+  }
+}
