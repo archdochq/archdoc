@@ -420,6 +420,26 @@ the result can delete content it never read.
 - **Findings never come from map order.** Findings sharing a path, a line and a rule are ties under the
   output sort, so any rule driven from a map differed between runs. A map is never a source of order,
   and a stable sort cannot rescue an order that never existed.
+- **A merge rule is a registry entry whose code starts with M, skipped unless the context carries a
+  base.** The base is read up front by the command that asked for it, so a missing branch is a usage
+  error before any rule runs, and the transition commands, which run lint before writing, never pay
+  for reading the branch. Marking the rules by their code rather than a field leaves the registry's
+  shape alone.
+- **The base is read whole, in one batch, separately from the branch snapshot.** The snapshot covers
+  only paths in the working tree, and the merge rules need the documents that are gone from it too:
+  a rename is found by identifier at a path the working tree no longer has, and M04 is about a
+  document deleted.
+- **The base is the merge base of HEAD and the branch, not the branch's tip.** The tip moves after a
+  pull request's merge commit is made, so a re-run of an old check read everything merged since as
+  deleted here, and M04 failed it. A branch not rebased since it was cut hit the same, locally and on
+  any host that checks out the pull request's head rather than a merge. The merge base is the branch
+  as the merge was made in the first case and the fork point in the second; `HEAD^1` was GitHub's
+  case alone, and wrong where the branch's own tip merges the branch in.
+- **The transition graph is a method on the status.** M03 judges by the same table as the transition
+  commands, and `lifecycle`, where it was, imports `lint`.
+- **M03 reads `strict` from the base**, so a pull request turning it off is still judged with it on.
+  Where the base has no `archdoc.json`, as before the pull request that adds ArchDoc, the working
+  tree's is the only setting there is.
 
 ## The index
 

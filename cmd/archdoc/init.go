@@ -177,6 +177,7 @@ func plan(dir string, settings config.Config, licence string, agents bool) (file
 		Name:    settings.Name,
 		Version: resolveVersion(),
 		Year:    time.Now().Format("2006"),
+		Branch:  settings.Branch,
 	}
 	if !pinnable(data.Version) {
 		// A workflow pinned to a release that does not exist fails days later

@@ -14,8 +14,9 @@ a repository describing several.
 
 RFCs and ADRs are frozen once they reach a terminal status. To change what an
 accepted document says you write a new one that updates or obsoletes it, and the
-tool enforces that: twenty-one lint rules, a generated index of every derived
-relationship, and a CI workflow it scaffolds for you.
+tool enforces that: twenty-one lint rules, four more for pull requests, a
+generated index of every derived relationship, and a CI workflow it scaffolds for
+you.
 
 ## Installing
 
@@ -52,7 +53,10 @@ archdoc lint
 
 `archdoc init` scaffolds the repository, writes `PROCESS.md` describing the
 process it enforces, and generates a GitHub workflow that runs `archdoc lint`
-and `archdoc index --check` on every push.
+and `archdoc index --check` on every push. On a pull request into the configured
+branch it runs `archdoc lint --merge`, which also checks what the pull request
+changes in the record against that branch, and summarises those changes with
+`archdoc changes`.
 
 ## Checking before you commit
 
@@ -84,7 +88,8 @@ of the repository, add `args: [-C, <directory>]` to each hook.
 | `init` | Scaffold a repository. `--agents` adds guidance for coding agents |
 | `new rfc\|adr\|ref "Title"` | Create the next-numbered document, in draft |
 | `propose`, `accept`, `reject`, `withdraw` | Move a document through its lifecycle |
-| `lint` | Check every rule |
+| `lint [--merge]` | Check every rule. `--merge` also judges a pull request against its branch |
+| `changes [--json]` | List what the working tree changes in the record against the branch |
 | `index [--check]` | Regenerate `INDEX.md`, or verify it is current |
 | `link [--suggest]` | Resolve `[[...]]` links, or offer new ones |
 | `term add\|rename\|remove\|list\|show` | Maintain the glossary |

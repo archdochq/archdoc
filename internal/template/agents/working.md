@@ -64,7 +64,8 @@ archdoc propose|accept|reject|withdraw <id>   move it through its lifecycle
 archdoc link [--suggest]          resolve [[...]] links, or offer new ones
 archdoc term add|rename|remove|list|show      maintain the glossary, one file per term
 archdoc renumber <id|path> [new]  change a document's number, following every reference
-archdoc lint                      check every rule
+archdoc lint [--merge]            check every rule; --merge also judges a pull request against its branch
+archdoc changes [--json]          what the working tree changes in the record against the branch
 archdoc index [--check]           regenerate INDEX.md, or verify it is current
 archdoc glossary [--check]        regenerate GLOSSARY.md, or verify it is current
 archdoc export                    write the repository as JSON

@@ -177,3 +177,19 @@ func Validate(c *Config) error {
 	}
 	return rootStaysInside(c)
 }
+
+// StrictIn reads strict from an archdoc.json's contents, as Load would decide
+// it, without validating anything else. It is for a configuration as it stands
+// on a branch, which is never loaded from disk.
+func StrictIn(data []byte) (bool, error) {
+	settings := struct {
+		Strict *bool `json:"strict"`
+	}{}
+	if err := json.Unmarshal(data, &settings); err != nil {
+		return false, err
+	}
+	if settings.Strict == nil {
+		return DefaultStrict, nil
+	}
+	return *settings.Strict, nil
+}

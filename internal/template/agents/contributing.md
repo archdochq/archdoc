@@ -5,9 +5,9 @@ description: Use when submitting a document to an ArchDoc specification reposito
 
 # Contributing by pull request
 
-You are adding a **draft** to a repository you do not maintain. That is the whole of what a
-contribution is. Proposing it, accepting it and rejecting it are the maintainers' to do.
-(PROCESS.md, Workflow)
+You are offering a document to a repository you do not maintain, as a pull request. You write
+it, propose it before asking for review, and withdraw it if you no longer want it. Accepting and
+rejecting it are the maintainers' to do. (PROCESS.md, Workflow)
 
 ## Before you write anything
 
@@ -31,8 +31,16 @@ Never create the file by hand. The filename encodes the identity and lint reject
 not match. (PROCESS.md, Identity)
 
 Fill every required section. `authoring.md` lists them per type and describes the standard they
-have to meet. Leave `Changelog` empty: entries are added while the document is proposed, which
-has not happened yet.
+have to meet.
+
+When it is ready for comment, propose it:
+
+```
+archdoc propose RFC-0007
+```
+
+A pull request is where a document is offered for comment, so a draft cannot merge: the
+repository's CI runs `archdoc lint --merge`, which fails on a document arriving as a draft.
 
 ## Before you push
 
@@ -40,6 +48,7 @@ has not happened yet.
 archdoc link        resolve any [[...]] you wrote
 archdoc index       regenerate INDEX.md, which your new document changes
 archdoc lint        must exit 0
+archdoc lint --merge   once rebased onto the target branch, also exits 0
 ```
 
 `archdoc index` is not optional. Adding a document changes the generated index, and the
@@ -57,8 +66,10 @@ Lint reports it clearly:
 rfc/0002-alice.md: error: identifier RFC-0002 is also used by rfc/0002-bob.md
 ```
 
-This is expected and cheap to fix, because your document is still a draft and nothing about a
-draft is frozen. Rebase on the updated main branch, then:
+On the pull request, `lint --merge` names which of the two to renumber: the one arriving, since
+the other already holds the number on the branch. This is expected and cheap to fix, because
+your document has not reached the branch, so its number is not yet permanent and nothing about
+it is frozen. Rebase on the updated configured branch, then:
 
 ```
 archdoc renumber rfc/0002-yours.md
@@ -79,20 +90,34 @@ merge.
 
 ## What not to do
 
-- **Do not run `archdoc propose`, `accept` or `reject`.** Those record a verdict, and the
-  verdict is not yours. Submit the document as a draft and let the maintainers move it.
-  (PROCESS.md, Lifecycle)
+- **Do not run `archdoc accept` or `reject`.** Those record a verdict, and the verdict is not
+  yours. (PROCESS.md, Workflow)
 - **Do not edit anyone else's document.** Anything already `accepted`, `rejected` or
   `withdrawn` is frozen and changing it fails lint. If an existing document is wrong, say so in
   your own document's Motivation, or open an issue.
 - **Do not edit `INDEX.md` by hand.** Regenerate it.
 - **Do not renumber anyone else's document** to make room for yours.
 
+## During review
+
+Discussion of your document happens on its pull request. Record each change you make in review:
+an RFC gains an entry in its `Changelog` for each one, and an ADR, which has no Changelog,
+carries the explanation in the commit message. (PROCESS.md, Workflow)
+
+If you no longer want the document before it merges, close the pull request. Once it is on the
+branch, it is withdrawn rather than deleted, which keeps its number taken:
+
+```
+archdoc withdraw RFC-0007
+```
+
 ## What happens next
 
-Your pull request runs `archdoc lint` and `archdoc index --check`. Both must pass. Review is
-about the content; the tooling only checks the shape.
+Your pull request runs `archdoc lint --merge`, `archdoc index --check` and `archdoc changes`,
+which summarises what it does to the record. The checks must pass. Review is about the content;
+the tooling only checks the shape.
 
-If it is merged, a maintainer moves it to `proposed` when it is ready for comment. From that
-point every change to it is recorded in its `Changelog`, and when it reaches a terminal status
-it is frozen permanently. (PROCESS.md, Lifecycle)
+Once it merges, your document is proposed on the branch and its number is permanent. A
+maintainer gives the verdict. Where `strict` is on, the default, that follows the merge, as a
+commit or a pull request of its own; where it is off, it can come in your pull request. Once the
+document reaches a terminal status on the branch it is frozen permanently. (PROCESS.md, Workflow)

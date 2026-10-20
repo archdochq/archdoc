@@ -23,6 +23,30 @@ func (s Status) Terminal() bool {
 	return s == StatusAccepted || s == StatusRejected || s == StatusWithdrawn
 }
 
+// Permitted lists the statuses a document may move to from this one, in the
+// order a chooser should offer them. A terminal status has none: to change what
+// an accepted document says, write a new one that updates or obsoletes it.
+//
+// It lives here rather than beside the transitions because lint judges a pull
+// request's changes of status by the same table, and lifecycle imports lint.
+func (s Status) Permitted(strict bool) []Status {
+	switch s {
+	case StatusDraft:
+		permitted := []Status{StatusProposed, StatusWithdrawn}
+		if !strict {
+			// A document that was never proposed is a different kind of thing
+			// from one proposed and accepted the same day, so this is off by
+			// default and the record says which happened.
+			permitted = append(permitted, StatusAccepted, StatusRejected)
+		}
+		return permitted
+	case StatusProposed:
+		return []Status{StatusAccepted, StatusRejected, StatusWithdrawn}
+	default:
+		return nil
+	}
+}
+
 // FrontMatter holds every field any document type may carry. Fields that do
 // not apply to a type stay zero; lint decides which are permitted where.
 type FrontMatter struct {

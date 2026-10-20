@@ -9,6 +9,7 @@ description: Use when archdoc lint reports findings in an ArchDoc repository, to
 archdoc lint                    exit 2 if any error
 archdoc lint --strict-warnings  exit 2 on a warning too
 archdoc lint --json             findings as a JSON array on stdout
+archdoc lint --merge            also the merge rules, judging a pull request against its branch
 ```
 
 Findings are printed relative to `root`. Errors fail the build; warnings do not, unless
@@ -36,7 +37,7 @@ belongs.
   does not exist, or that is not accepted. The fix is often in the *other* document: accept it,
   or create it. Fixing the named document by deleting the reference is usually wrong.
 - **L03** names a duplicate identifier across two documents. Only one of them is wrong; work out
-  which and rename that one.
+  which and rename that one. On a pull request, M02 names it: the one arriving.
 - Everything else is fixed in the document named.
 
 ## Rules and remedies
@@ -64,6 +65,10 @@ belongs.
 | L19 | `spec/glossary.md` is left from before terms became files, and is no longer read (warning) | Move its terms to `term/` with `archdoc term add`. Guide: `spec-pages.md` |
 | L20 | A question section is not shaped as questions: something before the first question; a question with no anchor, or sharing one with another heading; a heading beneath a question; a blockquote holding a heading, fence or comment; an open question ending with a blockquote; a resolved question with no answer, an empty one, or another blockquote just before it; `Resolved questions` empty, misplaced or repeated | Rewrite it in that shape: reword a clashing question, join two blockquotes with a line holding only `>`. Guide: `authoring.md`, Questions |
 | L21 | A Changelog entry is undated, has a malformed or impossible date, has a date and no text, or is out of order or outside the document's dates; a line in the section is outside the list form the tool reads; the heading is indented, misspelt or repeated, or the heading after the section is indented | Date the entry, or rewrite the line as an entry or within one, and write the heading `## Changelog` at the start of its line. Guide: `authoring.md`, The Changelog |
+| M01 | An RFC or ADR arrives on the configured branch as a draft | Propose it with `archdoc propose` before it merges |
+| M02 | A document arrives carrying an identifier a document on the configured branch already holds | Rebase, then renumber the arriving one by path: `archdoc renumber <path>` |
+| M03 | A change of status the lifecycle does not permit from the status on the configured branch, under that branch's `strict` | Make one step at a time from the branch: where `strict` is on, merge the proposal first and give the verdict afterwards |
+| M04 | A document proposed on the configured branch is deleted or renumbered | Restore it, and withdraw it with `archdoc withdraw` if it is no longer wanted |
 
 ## Two situations that look like faults and are not
 

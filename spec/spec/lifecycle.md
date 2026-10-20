@@ -1,6 +1,6 @@
 ---
 title: Lifecycle
-includes: [ADR-0001, RFC-0008, RFC-0009]
+includes: [ADR-0001, RFC-0008, RFC-0009, RFC-0015]
 ---
 
 # Lifecycle
@@ -24,6 +24,8 @@ In strict mode, the default:
 | `withdrawn` | none |
 
 Non-strict mode adds `draft → accepted` and `draft → rejected`. No other transition exists in either mode. `proposed → draft` is never permitted.
+
+M03, run by `archdoc lint --merge`, judges a pull request's changes of status by the same table, from the status on the configured branch and under that branch's `strict`. See [Lint](lint.md#merge-rules).
 
 ## Transition commands
 

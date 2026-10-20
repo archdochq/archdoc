@@ -184,15 +184,21 @@ The glossary is not a spec page. Each term is one file, `term/<slug>.md`, whose 
 
 ## Workflow
 
-Everything lives on the main branch. A draft is committed the moment it has a number; that is what claims the number. Branches are not used for drafts.
+A document is written on a branch and offered as a pull request into the configured branch. Its author proposes it before asking for review, so it never reaches the configured branch as a draft. Discussion of the document happens on its pull request. Edits made in review to a proposed RFC are ordinary commits, each with an entry in its Changelog. A proposed ADR has no Changelog; its edits are ordinary commits and the commit message carries the explanation.
 
-Moving a document to `proposed` is a commit that changes its status. Discussion happens in the repository's GitHub Discussions; the document links to its discussion from the Motivation section or the commit message. Edits made to a proposed RFC are ordinary commits, each with an entry in its Changelog. A proposed ADR has no Changelog; its edits are ordinary commits and the commit message carries the explanation.
+A document's number becomes permanent when its pull request merges. Two pull requests branched from the same commit can claim the same number, and the second to merge resolves the collision with `archdoc renumber`. A document proposed on the configured branch that is no longer wanted is withdrawn, never deleted or renumbered.
 
-Reaching a terminal status is a single commit that sets `status` and `decided` and, for rejections, adds the Rejection rationale. The next push is what freezes the document: lint will fail any subsequent change to it.
+| Transition | Made by |
+|---|---|
+| `draft → proposed` | The document's author, before asking for review |
+| `draft → withdrawn`, `proposed → withdrawn` | The document's author |
+| `proposed → accepted`, `proposed → rejected`, and `draft → accepted` and `draft → rejected` where `strict` is off | A maintainer |
+
+ArchDoc does not check who made a change. Who may merge a pull request that accepts or rejects a document is decided by the code host, through branch protection and code owners.
+
+Reaching a terminal status is a single commit that sets `status` and `decided` and, for rejections, adds the Rejection rationale. Where `strict` is on, the verdict follows once the proposal is on the configured branch, as a commit a maintainer pushes to it or a pull request of its own, never in the pull request that proposes the document. The next push is what freezes the document: lint will fail any subsequent change to it.
 
 Spec pages are updated in a commit that references, by URL, the commit or pull request in the code repository that changed the behaviour. The `includes` list is updated in the same commit.
-
-External contributors propose by opening a pull request that adds a draft. Merging it assigns the number.
 
 Backfilled documents are written and committed like any other change, except that they arrive already terminal and are frozen by the next push.
 
@@ -203,7 +209,8 @@ ArchDoc provides:
 - `archdoc init`: scaffold a new repository in the current directory.
 - `archdoc new rfc|adr|ref "Title"`: create the next-numbered document of that type from its template, in draft. `--as-of <date>` creates a ref as a record of an exchange.
 - `archdoc propose <id>`, `accept <id>`, `reject <id>`, `withdraw <id>`: move a document through its lifecycle. Each validates the transition, edits the file, and stops. Committing is left to you. `accept` and `reject` refuse a document while lint reports any error about it other than L03, a number another document shares, and `accept` refuses one with open questions, because the next push freezes it and lint would then report a fault nobody is permitted to repair.
-- `archdoc lint`: check the repository against the rules in this document.
+- `archdoc lint`: check the repository against the rules in this document. With `--merge`, also judge a pull request, checked out merged into the configured branch, against that branch.
+- `archdoc changes`: list what the working tree changes in the record against the configured branch, as Markdown for a pull request's summary, or with `--json`.
 - `archdoc link`: resolve `[[...]]` links. With `--suggest`, offer new ones.
 - `archdoc renumber <id|path> [new-id]`: change a document's number, rewriting the filename, the `id`, the heading and every reference to it. Takes the next free number when no target is given. Refuses when the document is frozen, or when a frozen document refers to it.
 - `archdoc term add|rename|remove|list|show`: maintain the glossary.
@@ -236,6 +243,13 @@ Lint enforces:
 - Every relative link resolves to a file that exists, and to a heading or explicit anchor that exists where it carries an anchor.
 - Every `depends` entry references a document that is accepted, or one sharing the referencing document's own non-terminal status. Warning.
 - No `spec/glossary.md` is left from before terms became files. Warning.
+
+On a pull request into the configured branch, `lint --merge` also enforces, judging each change as one step from that branch:
+
+- No RFC or ADR arrives as a draft.
+- A document arriving with an identifier a document on the configured branch already carries is the one to renumber.
+- Every change of status is one the lifecycle permits from the status on the configured branch, under that branch's `strict`, or the working tree's where that branch has no `archdoc.json`. A backfilled document may arrive terminal.
+- No RFC or ADR proposed on the configured branch is deleted or renumbered. A draft may be.
 
 `INDEX.md` and `GLOSSARY.md` are generated. Do not edit them by hand.
 

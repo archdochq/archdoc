@@ -87,7 +87,7 @@ func eligibleFor(r *repo.Repo, to repo.Status) []*repo.Document {
 		if !d.Type.HasLifecycle() {
 			continue
 		}
-		if slices.Contains(lifecycle.Permitted(d.FrontMatter.Status, strict), to) {
+		if slices.Contains(d.FrontMatter.Status.Permitted(strict), to) {
 			eligible = append(eligible, d)
 		}
 	}

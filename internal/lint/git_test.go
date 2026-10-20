@@ -271,6 +271,7 @@ func (s stubGit) FilesAt(string, []string) (map[string][]byte, error) { return n
 
 // ListFiles succeeds, so the failure under test is the blob read, not the listing.
 func (s stubGit) ListFiles(string) ([]string, error) { return nil, nil }
+func (s stubGit) MergeBase(string) (string, error)   { return "", s.err }
 func (s stubGit) CurrentBranch() (string, error)     { return "main", nil }
 func (s stubGit) RepoRoot() (string, error)          { return "/", nil }
 

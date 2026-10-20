@@ -22,6 +22,24 @@ func scaffolded(t *testing.T, args ...string) string {
 	return dir
 }
 
+func TestUpdateWritesTheConfiguredBranchIntoTheWorkflow(t *testing.T) {
+	dir := scaffolded(t, "--branch", "trunk")
+	workflow := filepath.Join(dir, ".github", "workflows", "archdoc-lint.yml")
+	if err := os.WriteFile(workflow, []byte("name: from an older archdoc\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if out, code := run(t, dir, "update", "--yes"); code != exitOK {
+		t.Fatalf("update exited %d: %s", code, out)
+	}
+	got, err := os.ReadFile(workflow)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if n := strings.Count(string(got), "github.base_ref == 'trunk'"); n != 2 {
+		t.Errorf("the configured branch appears in %d conditions, want 2:\n%s", n, got)
+	}
+}
+
 // TestUpdateRefreshesWhatArchdocGenerates covers the reason the command exists:
 // a defect in archdoc puts a wrong file into every repository it scaffolds, and
 // without this the only remedy is a hand edit in each one.

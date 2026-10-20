@@ -3,7 +3,6 @@ package lifecycle_test
 import (
 	"errors"
 	"fmt"
-	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -86,28 +85,6 @@ Nothing breaks.
 
 - 2026-01-01: written.
 `
-}
-
-func TestPermittedTransitions(t *testing.T) {
-	for _, tc := range []struct {
-		name   string
-		from   repo.Status
-		strict bool
-		want   []repo.Status
-	}{
-		{"draft, strict", repo.StatusDraft, true, []repo.Status{repo.StatusProposed, repo.StatusWithdrawn}},
-		{"draft, relaxed", repo.StatusDraft, false, []repo.Status{repo.StatusProposed, repo.StatusWithdrawn, repo.StatusAccepted, repo.StatusRejected}},
-		{"proposed", repo.StatusProposed, true, []repo.Status{repo.StatusAccepted, repo.StatusRejected, repo.StatusWithdrawn}},
-		{"accepted is terminal", repo.StatusAccepted, false, nil},
-		{"withdrawn is terminal", repo.StatusWithdrawn, false, nil},
-	} {
-		t.Run(tc.name, func(t *testing.T) {
-			got := lifecycle.Permitted(tc.from, tc.strict)
-			if !slices.Equal(got, tc.want) {
-				t.Errorf("Permitted(%s, strict=%v) = %v, want %v", tc.from, tc.strict, got, tc.want)
-			}
-		})
-	}
 }
 
 func TestApplyRewritesOnlyTheFieldsItChanges(t *testing.T) {

@@ -25,13 +25,19 @@ jobs:
       # is held to do not change underneath it. Raise it deliberately.
       #
       # The action reports each finding as an annotation on the line of the
-      # document that caused it, and leaves archdoc on PATH for the step below.
+      # document that caused it, and leaves archdoc on PATH for the steps below.
+      #
+      # On a pull request into the configured branch it also runs the merge
+      # rules, which judge what the pull request changes in the record against
+      # that branch: no draft lands, and every change of status is one the
+      # lifecycle permits from there.
       - uses: archdochq/lint@v1
         with:
           version: {{ .Version }}
 {{- if ne .WorkingDirectory "." }}
           path: {{ yaml .WorkingDirectory }}
 {{- end }}
+          merge: {{ "${{" }} github.event_name == 'pull_request' && github.base_ref == {{ expr .Branch }} {{ "}}" }}
 
       # Both generated files. A stale glossary is not cosmetic: every link to
       # a term resolves to an anchor on it, so one that has not been
@@ -43,3 +49,12 @@ jobs:
         run: |
           archdoc index --check
           archdoc glossary --check
+
+      # What the pull request changes in the record, on the run's summary page,
+      # whatever the checks above found.
+      - name: Summarise the changes to the record
+        if: {{ "${{" }} !cancelled() && github.event_name == 'pull_request' && github.base_ref == {{ expr .Branch }} {{ "}}" }}
+{{- if ne .WorkingDirectory "." }}
+        working-directory: {{ yaml .WorkingDirectory }}
+{{- end }}
+        run: archdoc changes >> "$GITHUB_STEP_SUMMARY"
