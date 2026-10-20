@@ -31,6 +31,26 @@ const (
 	DefaultRefStaleDays = 180
 )
 
+// Key is one key of archdoc.json, as the reference publishes it.
+type Key struct {
+	Name string
+	// Type is the key's JSON type.
+	Type     string
+	Required bool
+	// Default is what Load applies where the key is absent, nil for a
+	// required key.
+	Default any
+}
+
+// Keys is every key of archdoc.json, in the order init writes them.
+var Keys = []Key{
+	{Name: "name", Type: "string", Required: true},
+	{Name: "branch", Type: "string", Default: DefaultBranch},
+	{Name: "root", Type: "string", Default: DefaultRoot},
+	{Name: "strict", Type: "boolean", Default: DefaultStrict},
+	{Name: "ref_stale_days", Type: "integer", Default: DefaultRefStaleDays},
+}
+
 // Config is the contents of archdoc.json.
 type Config struct {
 	Name         string `json:"name"`
