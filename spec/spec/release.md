@@ -1,6 +1,6 @@
 ---
 title: Release
-includes: [RFC-0010, ADR-0012, ADR-0013, ADR-0015, ADR-0018]
+includes: [RFC-0010, RFC-0014, ADR-0012, ADR-0013, ADR-0015, ADR-0018]
 ---
 
 # Release
@@ -17,7 +17,7 @@ Asset names are fixed by `.goreleaser.yaml` and reconstructed by `archdochq/setu
 
 A stable release also writes `archdochq/skills`, which publishes the guides as skills. A job in the release workflow, run once the release is published and skipped for a tag carrying a prerelease identifier, checks out the tag and `archdochq/skills`, the second through the `SKILLS_DEPLOY_KEY` deploy key, and runs `go run ./plugin/build.go` against the second with the tag less its leading `v`. The generator refuses a directory holding the working directory, empties the one it is given except for `.git`, copies the skeleton under `plugin/` without `build.go`, writes each guide to `skills/<name>/SKILL.md` and `LICENSE` beside them, and sets `version` in `.claude-plugin/plugin.json`, `.cursor-plugin/plugin.json`, `plugin.json` and `gemini-extension.json`. The job commits the result as `github-actions[bot]`, tags the commit with a lightweight tag named for the release, and pushes the branch and the tag atomically.
 
-The repository's own continuous integration runs `gofmt`, `go vet`, `go test ./...` and `goreleaser check` on push to `main` and on every pull request, and the release workflow runs the test suite before publishing.
+The repository's own continuous integration runs `gofmt`, `go vet`, `go test ./...` and `goreleaser check` on push to `main` and on every pull request, and the release workflow runs the test suite before publishing, with the tag in `ARCHDOC_RELEASE_TAG`. Under it, a test refuses any rule entry whose `since`, or a change, names a release later than the tag, comparing by semantic version precedence, which orders a pre-release before the release it precedes. A refusal stops the workflow before goreleaser runs. Without the variable the test is skipped, and a test checks that the release workflow sets it.
 
 The specification under `spec/` is checked by a second workflow, which builds `archdoc` from the commit under test rather than downloading a release. It lints through `archdochq/lint` with no `version` input, which leaves the binary just built on `PATH` in place and annotates each finding on the line that caused it, then runs `archdoc index --check` against the same binary. It carries no version pin.
 

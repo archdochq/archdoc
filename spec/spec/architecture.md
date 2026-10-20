@@ -1,6 +1,6 @@
 ---
 title: Architecture
-includes: [ADR-0005, ADR-0011, RFC-0008, RFC-0009, RFC-0015]
+includes: [ADR-0005, ADR-0011, RFC-0008, RFC-0009, RFC-0014, RFC-0015]
 ---
 
 # Architecture
@@ -18,13 +18,14 @@ archdoc/
 │   ├── lifecycle/       the transition gate
 │   ├── index/           INDEX.md generation
 │   ├── export/          the JSON shape and its published schema
+│   ├── reference/       ArchDoc's own reference and its published schema
 │   ├── link/            wiki link resolution and suggestion
 │   ├── glossary/        term files and GLOSSARY.md
 │   ├── git/             an interface with a shell-out implementation
 │   ├── repotest/        throwaway repositories for tests
 │   └── template/        embedded files, including agents/
 ├── plugin/              the skills repository's skeleton and generator
-└── schema/              the published export schema
+└── schema/              the published export and reference schemas
 ```
 
 `cmd/archdoc` is the only package that imports cobra. No package under `internal/` prints, prompts, or calls `os.Exit`; each is usable without a terminal. Every command takes its writer from cobra.
@@ -34,6 +35,8 @@ archdoc/
 `internal/git` is an interface exposing `FilesAt`, `Changed`, `HasCommits`, `BranchExists`, `ListFiles`, `CurrentBranch`, `Prefix` and `RepoRoot`. It returns a sentinel error when the directory is not inside a git repository. `FilesAt` reads many blobs through one `cat-file --batch`; `Changed` asks one `diff` which paths differ, with pathspecs anchored to the repository root and `diff.relative` off. Requests and responses are NUL-separated. The repository root, existence and file listing are memoised per process. `PathOf` turns a path relative to the directory git was opened in into one from the repository root, as those operations take paths, by joining it to `Prefix`.
 
 `internal/changes` reads every document at the merge base of HEAD and the configured branch, and its `strict`, in one `FilesAt` batch, for the merge rules and `archdoc changes`. `internal/lint` imports it.
+
+`internal/reference` builds the reference from the rule registry, `repo.Keys`, `config.Keys` and the export schema. The command tree is walked into it by `cmd/archdoc`.
 
 `internal/repotest` builds throwaway repositories for tests and imports `testing`.
 

@@ -1,6 +1,6 @@
 ---
 title: Commands
-includes: [RFC-0001, RFC-0002, RFC-0003, RFC-0005, RFC-0011, RFC-0013, RFC-0015, ADR-0016]
+includes: [RFC-0001, RFC-0002, RFC-0003, RFC-0005, RFC-0011, RFC-0013, RFC-0014, RFC-0015, ADR-0016]
 ---
 
 # Commands
@@ -9,7 +9,7 @@ includes: [RFC-0001, RFC-0002, RFC-0003, RFC-0005, RFC-0011, RFC-0013, RFC-0015,
 
 Every command except `init` locates `archdoc.json` by walking up from the working directory and fails if none is found. `-C <dir>`, `--chdir <dir>`, is a persistent flag that runs the command as if it had been started in that directory, applied before anything reads the working directory. Every command operates relative to `root`.
 
-Exit codes: 0 on success, 1 on a usage or validation error, 2 when lint, a check or a link scan finds errors. Nothing under `internal/` calls `os.Exit`; the status travels as an error type to the command layer.
+Exit codes: 0 on success; 1 on a usage or validation error, or any other failure, printed to stderr; 2 when lint reports an error, or a warning under `--strict-warnings`, when a `--check` finds a file to change, when `link` reports an error, and when `link --suggest` prints a suggestion where it cannot prompt and `--apply` is not given. Nothing under `internal/` calls `os.Exit`; the status travels as an error type to the command layer.
 
 ## Interaction
 
@@ -88,3 +88,20 @@ The workflow's `version` pin is raised to the version doing the update. It is ke
 ## `archdoc agents`
 
 Writes the guides under `agents/`, replacing what is there, and creates `AGENTS.md` only when it is absent. Reports, for each path, whether it was written, updated or kept. Creates `agents/` where the repository was scaffolded without it.
+
+## `archdoc reference [--schema]`
+
+Prints ArchDoc's own reference as one JSON document on stdout, and needs no repository. Hidden from `archdoc --help` and from shell completion. `--schema` prints the JSON Schema the output conforms to, published at `schema/reference/v1.json` with the `$id` `https://archdoc.dev/schema/reference/v1.json`.
+
+| Field | Content |
+|---|---|
+| `schema` | `1` |
+| `version` | The version `archdoc --version` prints |
+| `command` | The root command. Each command carries `path`, `use`, `short`, `long`, its own `flags`, the persistent flags it defines as `global_flags`, and its subcommands as `commands`, in the order help lists them. Hidden commands, `help`, `completion` and `--help` are left out, and the root carries `--version` |
+| `rules` | Every rule entry, the merge rules included, in code order, as [Lint](lint.md) gives it. A code is `L` and two digits, or `M` and two digits for a merge rule |
+| `front_matter` | For each type, its keys, each with its value type (`string`, `date`, `list` or `enum`), whether it must be present, whether it may be present with no value, and an enum's values |
+| `config` | Every key of `archdoc.json`, with its JSON type, whether it is required, its default where it has one, and its description from the export schema's `config` definition |
+| `exit_codes` | `0`, `1` and `2`, each with its meaning as given above |
+| `export_schema` | The export schema, as `export --schema` prints it |
+
+A flag's `type` and `default` are strings, as the flag library gives them. Every array is an array and never `null`. A test compares the schema's declared properties against the reference's types, the published schema against the embedded one byte for byte, and every rule's code against the schema's pattern for one.
