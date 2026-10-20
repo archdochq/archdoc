@@ -31,27 +31,6 @@ const writtenRationale = "## " + repo.RejectionRationale + "\n\nWritten by its a
 // the templates.
 func AppendRationale(source []byte) []byte { return appendSection(source, rationale) }
 
-// Permitted lists the statuses a document may move to from this one, in the
-// order a chooser should offer them. A terminal status has none: to change what
-// an accepted document says, write a new one that updates or obsoletes it.
-func Permitted(from repo.Status, strict bool) []repo.Status {
-	switch from {
-	case repo.StatusDraft:
-		permitted := []repo.Status{repo.StatusProposed, repo.StatusWithdrawn}
-		if !strict {
-			// A document that was never proposed is a different kind of thing
-			// from one proposed and accepted the same day, so this is off by
-			// default and the record says which happened.
-			permitted = append(permitted, repo.StatusAccepted, repo.StatusRejected)
-		}
-		return permitted
-	case repo.StatusProposed:
-		return []repo.Status{repo.StatusAccepted, repo.StatusRejected, repo.StatusWithdrawn}
-	default:
-		return nil
-	}
-}
-
 // Apply moves a document to a new status and returns the rewritten file. The
 // document on disk is not touched; writing it is the caller's business. g is
 // the repository lint compares frozen documents against, nil outside git.
@@ -69,7 +48,7 @@ func Apply(d *repo.Document, to repo.Status, now time.Time, g git.Repository) ([
 		return nil, fmt.Errorf("status %q is not one of %s, so no transition applies; fix the front matter",
 			from, strings.Join(statusNames(repo.Statuses), ", "))
 	}
-	permitted := Permitted(from, strict)
+	permitted := from.Permitted(strict)
 	if !slices.Contains(permitted, to) {
 		return nil, transitionError(from, to, permitted)
 	}

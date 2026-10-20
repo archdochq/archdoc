@@ -1,6 +1,6 @@
 ---
 title: Commands
-includes: [RFC-0001, RFC-0002, RFC-0003, RFC-0005, RFC-0011, RFC-0013, ADR-0016]
+includes: [RFC-0001, RFC-0002, RFC-0003, RFC-0005, RFC-0011, RFC-0013, RFC-0015, ADR-0016]
 ---
 
 # Commands
@@ -13,7 +13,7 @@ Exit codes: 0 on success, 1 on a usage or validation error, 2 when lint, a check
 
 ## Interaction
 
-With a terminal on stdin, a command prompts for every value it was not given: required arguments, and optional flags whose value is written to a file. Flags that select a mode of operation (`--json`, `--check`, `--suggest`, `--apply`, `--strict-warnings`, `--no-interaction`, `--yes`) are never prompted for. A flag supplied on the command line is not prompted for. The prompts for one invocation form a single form, required arguments first, each optional pre-filled with its default. Without a terminal, or with `--no-interaction`, defaults apply and a missing required argument is a usage error. `--no-interaction` is a persistent flag. A terminal is detected with `term.IsTerminal`.
+With a terminal on stdin, a command prompts for every value it was not given: required arguments, and optional flags whose value is written to a file. Flags that select a mode of operation (`--json`, `--check`, `--suggest`, `--apply`, `--strict-warnings`, `--merge`, `--no-interaction`, `--yes`) are never prompted for. A flag supplied on the command line is not prompted for. The prompts for one invocation form a single form, required arguments first, each optional pre-filled with its default. Without a terminal, or with `--no-interaction`, defaults apply and a missing required argument is a usage error. `--no-interaction` is a persistent flag. A terminal is detected with `term.IsTerminal`.
 
 Prompts offer a filtered choice where one exists: `new` prompts for type then title, offering only a ref with `--as-of`, and with `--backfill` for status, created and decided, offering no ref type, with decided pre-filled with `--created` where it was given and otherwise left empty to mean the created date; a transition command prompts with a select of the documents eligible for that transition, showing identifier, title and status; `term add` prompts for term and definition; `init` prompts for each configuration value in turn.
 
@@ -39,7 +39,7 @@ Scaffolds a repository in the current directory.
 
 Writes `archdoc.json` at the git repository root, or in the current directory where there is no repository, setting `root` to the path from there down to the current directory joined with any `--root` given, so the documents land where the command was run. Writes `README.md`, `PROCESS.md`, `INDEX.md`, `GLOSSARY.md`, `rfc/.gitkeep`, `adr/.gitkeep`, `ref/.gitkeep`, `term/.gitkeep`, `LICENSE` if requested, and `AGENTS.md` with `agents/` if requested, under `root`; and `.github/workflows/archdoc-lint.yml` at the git repository root, or in the current directory where there is no repository. Every file is planned before any is written, collisions are tested with `Lstat`, and files are created with `O_EXCL`. Prints every path written. Refuses if `archdoc.json` already exists or any other planned file is in the way. Validates the configuration through the same path that loads one, after prompting and before writing. Does not initialise git and does not commit.
 
-The generated workflow runs on push and pull request. It checks out the full history, uses `archdochq/lint` pinned to the version that ran `init`, which installs `archdoc` and reports each finding as an annotation on the line of the document that caused it, then runs `archdoc index --check` and `archdoc glossary --check`. Its `working-directory` is the path from the git repository root to the directory holding `archdoc.json`, as git reports it, and is omitted when the two are the same, which is every repository `init` scaffolds.
+The generated workflow runs on push and pull request. It checks out the full history, uses `archdochq/lint` pinned to the version that ran `init`, which installs `archdoc` and reports each finding as an annotation on the line of the document that caused it, then runs `archdoc index --check` and `archdoc glossary --check`. On a pull request into the configured branch, the lint step passes the action's `merge` input, which runs `archdoc lint --merge`, and a last step, run unless the job was cancelled, appends `archdoc changes` to the job summary. The branch is written into both conditions as a GitHub Actions string literal. Its `working-directory` is the path from the git repository root to the directory holding `archdoc.json`, as git reports it, and is omitted when the two are the same, which is every repository `init` scaffolds.
 
 ## `archdoc new <rfc|adr|ref> <title>`
 
@@ -51,6 +51,23 @@ Creates the next-numbered document of the type from its template, with `ID`, `Ti
 | `--status=<accepted\|rejected\|withdrawn>` | with `--backfill`, the terminal status. Default `accepted` |
 | `--created=<date>`, `--decided=<date>` | with `--backfill`, the historical dates. `--created` has no default, and its absence is a usage error where it cannot be prompted for. `--decided` defaults to `--created` |
 | `--as-of=<date>` | the date of the exchange a ref records, written to `as_of`. Refused for any other type, with `--backfill`, unless an ISO 8601 date, and after today, compared as dates. Checked before anything is prompted for |
+
+## `archdoc changes [--json]`
+
+Lists what the working tree changes in the record against the base `lint --merge` reads: the merge base of HEAD and the configured branch, resolved as L11 resolves it. Outside a git repository, where the branch does not exist, or where HEAD shares no history with it, exits 1 naming the branch. Otherwise exits 0 whatever it lists.
+
+| Change | Listed when |
+|---|---|
+| `arrives` | A document is at a path absent from the branch, with its status in `to` where it has one |
+| `status` | An RFC or ADR's status differs from the branch, with `from` and `to`, both present |
+| `edited` | A document's file differs from the branch, as git judges it, with no change of status. `terminal` is true where the document is terminal on the branch |
+| `removed` | A document on the branch is absent from the working tree, with its status in `from` where it has one |
+
+A rename is a removal and an arrival. `INDEX.md` and `GLOSSARY.md` are not documents and are not listed. Changes are ordered by type, RFC, ADR, spec page, ref, term, group, then by number, then by path.
+
+Without `--json`, prints a `## Changes to the record` heading and a table of document and change. A numbered document is named by its identifier and title, or its identifier alone where it has no title, any other by its path in backticks. The change reads `Arrives` or `Removed`, followed by the status where there is one, `<from> → <to>`, or `Edited`, with `terminal on` the branch added for a terminal document. A `|` in a cell is escaped, and a line break becomes a space. With nothing listed, the table is replaced by one line saying the record is unchanged against the branch.
+
+With `--json`, prints an object holding `base`, the branch, and `changes`, an array, empty where nothing is listed, of objects with `type`, `id`, `path`, `title`, `change`, `from`, `to` and `terminal`. `id` and `title` are omitted where the document has none, `from` and `to` where they do not apply, and `terminal` on every change but an edit to an RFC or ADR.
 
 ## `archdoc renumber <id|path> [new-id]`
 

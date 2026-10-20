@@ -1,11 +1,11 @@
 ---
 title: Lint
-includes: [ADR-0008, ADR-0009, ADR-0010, RFC-0008, RFC-0009, RFC-0011, RFC-0013]
+includes: [ADR-0008, ADR-0009, ADR-0010, RFC-0008, RFC-0009, RFC-0011, RFC-0013, RFC-0015]
 ---
 
 # Lint
 
-`archdoc lint` runs every rule over every document and prints findings. Exit code 2 if any error, 0 otherwise. Warnings do not affect the exit code unless `--strict-warnings` is given, in which case a warning alone exits 2.
+`archdoc lint` runs every L rule over every document and prints findings. With `--merge` it also runs the merge rules. Exit code 2 if any error, 0 otherwise. Warnings do not affect the exit code unless `--strict-warnings` is given, in which case a warning alone exits 2.
 
 ## Severity
 
@@ -34,6 +34,17 @@ Every rule reports an error unless stated. A finding that no permitted edit to t
 - **L18** Every `depends` entry references a document that is accepted, or that shares the referencing document's non-terminal status. Warning.
 - **L20** The question sections have the shape [Markdown](markdown.md) gives them. Reported at the first line before a section's first question that is not blank or a comment; at a question whose heading produces no anchor, or the same anchor as another heading, and of two questions at the later; at a heading beneath a question; at a blockquote line holding a heading, a comment, or a fence's opening line, the lines within a quoted fence being code; at an open question's final blockquote; at an empty `Resolved questions` section's heading, or, in a document that has an `Open questions` section, one that does not follow it; at a resolved question with no heading beneath it that does not end with a blockquote; at an answer with another blockquote before it, or an empty one; and at each `Resolved questions` heading after the first, whose questions and blockquotes are checked as the first section's are and whose section is otherwise not checked. Not applied to the `Open questions` section of an accepted document, which L09 checks, or to a withdrawn document. Error in an editable document; warning in a frozen one.
 - **L21** Every `Changelog` section has the shape [Markdown](markdown.md) gives it. Reported at the first line belonging to no entry after the section's heading and after each entry; at a heading opening or ending the section that is indented by two or three spaces, or is a heading only once a comment on its line is masked; at an entry with no date, one beginning with a date shape not followed by `:` and a space or the end of the line, one whose date is not a real date, and one with a date and no text; at an entry dated earlier than the dated entry before it, before a valid `created`, or after `decided`, the last two unchecked where `decided` is before `created`; at each `Changelog` heading after the first; and at a level two heading differing from `Changelog` only in case, spacing or punctuation. Not applied to a withdrawn document. Error in an editable document; warning in a frozen one.
+
+## Merge rules
+
+`archdoc lint --merge` also runs M01 to M04, which compare the working tree with the base: the merge base of HEAD and the configured branch, the branch resolved as L11 resolves it, with the same fallback to `origin/<branch>`. In a checkout of a pull request merged into the branch, that is the branch as the merge was made; on a branch not rebased since it was cut, it is the commit it was cut from. Every document on the base, and the base's `archdoc.json`, are read in one batch from its file listing. Outside a git repository, where the branch does not exist, or where HEAD shares no history with it, `--merge` exits 1 naming the branch and reports nothing. Without `--merge` no merge rule runs, including in the transition commands. The merge rules report alongside the L rules, with the same output, `--json`, `--strict-warnings` and exit codes, and every one reports an error.
+
+A document in the working tree was on the base when the base holds a document at its path, or, for a numbered document, one carrying its identifier at a path absent from the working tree, which is a rename. Any other document arrives.
+
+- **M01** An RFC or ADR arrives as a draft. Reported at its `status` line, naming `archdoc propose` with its identifier where it has one.
+- **M02** A numbered document arrives carrying an identifier that a document on the base, still in the working tree, carries. Reported at the arriving document's `id` line, naming the other document's path and `archdoc renumber` with the arriving document's path.
+- **M03** An RFC or ADR's status differs from its status on the base by a transition [Lifecycle](lifecycle.md) does not permit, under the `strict` of the base's `archdoc.json`, or of the working tree's where the base holds none. An arriving document is judged as moving from `draft`, except an arriving draft, which M01 reports, and one carrying `backfilled`, which L07 requires to be terminal. A document terminal on the base, and a status on either side that is not one of the five, are not judged. Reported at the `status` line; where the base's `strict` is on and the move is from `draft`, the message says to merge the proposal first.
+- **M04** An RFC or ADR proposed on the base whose identifier no document in the working tree carries: deleted, or renumbered. Reported at its path on the base, naming `archdoc withdraw`. A draft may be deleted, and a terminal document's deletion is L11's.
 
 ## Output
 

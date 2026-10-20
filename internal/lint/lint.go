@@ -10,6 +10,7 @@ import (
 	"sync"
 	"time"
 
+	"archdoc.dev/internal/changes"
 	"archdoc.dev/internal/git"
 	"archdoc.dev/internal/repo"
 )
@@ -58,6 +59,9 @@ type Context struct {
 	// Context is copied by value into every rule and Frozen has a value
 	// receiver: a plain lazily filled map would be rebuilt by each of them.
 	branch *snapshot
+	// base is the record on the configured branch, set only when lint is
+	// asked to judge a pull request. The merge rules run only when it is.
+	base *changes.Base
 }
 
 // snapshot defers reading the branch until something asks.
@@ -113,6 +117,10 @@ type Rule struct {
 	Code  string
 	Check func(Context) []Finding
 }
+
+// Merge reports whether a rule judges a pull request against its base, which
+// Run applies only to a context carrying one. Their codes start with M.
+func (r Rule) Merge() bool { return strings.HasPrefix(r.Code, "M") }
 
 // NewContext builds a Context with the branch snapshot populated. Any caller
 // whose rules depend on whether a document is frozen must use this rather than
@@ -213,6 +221,10 @@ var Rules = []Rule{
 	{"L19", L19},
 	{"L20", L20},
 	{"L21", L21},
+	{"M01", M01},
+	{"M02", M02},
+	{"M03", M03},
+	{"M04", M04},
 }
 
 // Run applies every rule and returns the findings, ordered by path, then line,
@@ -222,6 +234,9 @@ func Run(ctx Context) []Finding {
 	// functions do not repeat it on every finding they build.
 	var findings []Finding
 	for _, rule := range Rules {
+		if rule.Merge() && ctx.base == nil {
+			continue
+		}
 		for _, f := range rule.Check(ctx) {
 			f.Rule = rule.Code
 			findings = append(findings, f)
