@@ -339,6 +339,19 @@ func TestEveryRuleHasAFixtureCase(t *testing.T) {
 	}
 }
 
+func TestEveryRuleEntryIsFilled(t *testing.T) {
+	for _, rule := range lint.Rules {
+		if rule.Title == "" || rule.Summary == "" || rule.Remedy == "" || rule.Since == "" {
+			t.Errorf("%s lacks a title, summary, remedy or since: %+v", rule.Code, rule)
+		}
+		for _, c := range rule.Changes {
+			if c.Release == "" || c.Summary == "" {
+				t.Errorf("%s has a change lacking a release or summary: %+v", rule.Code, c)
+			}
+		}
+	}
+}
+
 func TestL20ReportsQuestionsOfTheWrongShape(t *testing.T) {
 	got := forRule(t, "lint", "L20")
 
