@@ -144,7 +144,7 @@ func Build(version string, command Command, exitCodes []ExitCode) (Reference, er
 			if values == nil {
 				values = []string{}
 			}
-			keys = append(keys, Key{Key: k.Name, Type: string(k.Value), Required: k.Required, MayBeEmpty: k.MayBeEmpty, Values: values})
+			keys = append(keys, Key{Key: k.Name, Type: string(k.Type), Required: k.Required, MayBeEmpty: k.MayBeEmpty, Values: values})
 		}
 		ref.FrontMatter[string(t)] = keys
 	}

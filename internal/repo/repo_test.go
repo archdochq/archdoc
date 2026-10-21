@@ -625,7 +625,7 @@ func TestTheStatusKeyNamesEveryStatus(t *testing.T) {
 			t.Fatalf("%s has no status key", typ)
 		}
 		status := repo.Keys(typ)[i]
-		if status.Value != repo.ValueEnum || !slices.Equal(status.Values, []string{"draft", "proposed", "accepted", "rejected", "withdrawn"}) {
+		if status.Type != repo.ValueEnum || !slices.Equal(status.Values, []string{"draft", "proposed", "accepted", "rejected", "withdrawn"}) {
 			t.Errorf("%s status = %+v, want an enum of the five statuses", typ, status)
 		}
 	}
