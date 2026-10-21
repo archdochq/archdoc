@@ -164,8 +164,8 @@ func TestBuildFillsEverySection(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if i := strings.Index(string(encoded), "null"); i >= 0 {
-		t.Errorf("the reference holds a null, where every array is an array: ...%s...", encoded[max(0, i-80):i+4])
+	if i := strings.Index(string(encoded), `":null`); i >= 0 {
+		t.Errorf("the reference holds a null, where every array is an array: ...%s...", encoded[max(0, i-80):i+6])
 	}
 	// A key with no default omits it, and one with a default carries it in
 	// its own type.

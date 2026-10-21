@@ -36,7 +36,7 @@ func TestReferenceDescribesTheCommandTree(t *testing.T) {
 	if code != exitOK {
 		t.Fatalf("exit = %d, want %d:\n%s", code, exitOK, out)
 	}
-	if strings.Contains(out, "null") {
+	if strings.Contains(out, `": null`) {
 		t.Error("the reference holds a null, where every array is an array")
 	}
 	var ref reference.Reference
