@@ -44,8 +44,8 @@ func Schema(t Type) []string {
 
 // Key is one front matter key of a type.
 type Key struct {
-	Name  string
-	Value ValueType
+	Name string
+	Type ValueType
 	// Required is whether the key must be present, whatever its value, and
 	// MayBeEmpty whether it may be present with no value.
 	Required   bool
@@ -71,21 +71,21 @@ const (
 // and L11 forbids the edit that would add it. A new type's keys may be
 // required, as no existing document is of that type.
 func Keys(t Type) []Key {
-	id := Key{Name: "id", Value: ValueString, Required: true}
-	title := Key{Name: "title", Value: ValueString, Required: true}
+	id := Key{Name: "id", Type: ValueString, Required: true}
+	title := Key{Name: "title", Type: ValueString, Required: true}
 	list := func(name string) Key {
-		return Key{Name: name, Value: ValueList, Required: true, MayBeEmpty: true}
+		return Key{Name: name, Type: ValueList, Required: true, MayBeEmpty: true}
 	}
 	switch t {
 	case TypeSpec:
 		return []Key{title, list("includes")}
 	case TypeRef:
 		return []Key{id, title,
-			{Name: "verified", Value: ValueDate, Required: true},
-			{Name: "as_of", Value: ValueDate},
+			{Name: "verified", Type: ValueDate, Required: true},
+			{Name: "as_of", Type: ValueDate},
 		}
 	case TypeTerm:
-		return []Key{title, list("formerly"), {Name: "named_by", Value: ValueString, Required: true, MayBeEmpty: true}}
+		return []Key{title, list("formerly"), {Name: "named_by", Type: ValueString, Required: true, MayBeEmpty: true}}
 	case TypeGroup:
 		return []Key{title, list("documents")}
 	default:
@@ -94,11 +94,11 @@ func Keys(t Type) []Key {
 			statuses[i] = string(s)
 		}
 		return []Key{id, title,
-			{Name: "status", Value: ValueEnum, Required: true, Values: statuses},
-			{Name: "created", Value: ValueDate, Required: true},
-			{Name: "decided", Value: ValueDate, Required: true, MayBeEmpty: true},
+			{Name: "status", Type: ValueEnum, Required: true, Values: statuses},
+			{Name: "created", Type: ValueDate, Required: true},
+			{Name: "decided", Type: ValueDate, Required: true, MayBeEmpty: true},
 			list("depends"), list("updates"), list("obsoletes"),
-			{Name: "backfilled", Value: ValueDate, MayBeEmpty: true},
+			{Name: "backfilled", Type: ValueDate, MayBeEmpty: true},
 		}
 	}
 }
