@@ -9,9 +9,9 @@ includes: [ADR-0019, ADR-0020, ADR-0021, ADR-0022, RFC-0004, RFC-0006, RFC-0007,
 
 ## Shape
 
-The output is an object with `schema`, currently `3`; `config`, every setting `archdoc.json` holds; `has_glossary`; `documents`, an array; `groups`, an array; `glossary`, an array present when the glossary page exists; and `commit`, present only when `--commit` was given. The revision is taken as written and is not checked against a repository. `has_glossary` is present even where `glossary` is not, because `index.json` carries no glossary and a consumer reading only that still has to know whether one exists.
+The output is an object with `schema`, currently `3`; `config`, every setting `archdoc.json` holds; `has_glossary`; `documents`, an array; `groups`, an array; `glossary`, an array of every term, present where `term/` exists and empty where it holds no terms; and `commit`, present only when `--commit` was given. The revision is taken as written and is not checked against a repository. `has_glossary` is present even where `glossary` is not, because `index.json` carries no glossary and a consumer reading only that still has to know whether one exists.
 
-Each document carries its front matter, the derived reverse relationships (`updated_by`, `obsoleted_by`, `depended_on_by`, `included_in`, `groups`), the derived facts (`effectively_obsolete`, `implemented`, `stale`), `required_sections`, `contents`, `questions`, `changelog`, `rejection_rationale` and `links`, and `source` where it was asked for. Dates are ISO 8601 strings. Every array field is an array and never null.
+Each document carries its front matter, the derived reverse relationships (`updated_by`, `obsoleted_by`, `depended_on_by`, `included_in`, `groups`), the derived facts (`effectively_obsolete`, `implemented`, `stale`), `required_sections`, `contents`, `questions`, `changelog`, `rejection_rationale` and `links`, and `source` where it was asked for. Dates are ISO 8601 strings. A date or status that is not valid is omitted. Every array field is an array and never null.
 
 `required_sections` lists the H2 headings the document calls for, in order, as objects with `title` and `anchor`. Any of them may be absent from `contents`; the anchor given for an absent one is the anchor it would have had. A rejected document's `Rejection rationale` is absent from `contents` whenever it is present, unless `--all-headings` is given, and is in `rejection_rationale` under the anchor given either way.
 
@@ -38,7 +38,7 @@ Bodies are raw Markdown. Nothing is rendered. `source` is the file exactly as it
 ```
 <dir>/
 ├── index.json          every document, without bodies
-├── glossary.json       when there is a glossary
+├── glossary.json       where term/ exists
 ├── groups.json         when there are groups
 └── <document path>.json   one per document, with bodies
 ```

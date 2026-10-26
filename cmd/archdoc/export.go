@@ -28,8 +28,8 @@ func newExportCommand() *cobra.Command {
 			"relationships ArchDoc derives, so a consumer does not reimplement any of it.\n\n" +
 			"Bodies are raw Markdown. ArchDoc has no renderer and is not going to acquire one.\n\n" +
 			"With --out, writes a tree instead of one document: index.json carrying every document " +
-			"without bodies, one file per document beside it, glossary.json when there is a " +
-			"glossary and groups.json when there are groups. A page rendering one RFC should not " +
+			"without bodies, one file per document beside it, glossary.json where term/ " +
+			"exists and groups.json when there are groups. A page rendering one RFC should not " +
 			"have to fetch the whole specification.\n\n" +
 			"The output is deterministic. Nothing in it records when it was generated, so it can be " +
 			"cached, diffed and committed.",
@@ -146,7 +146,7 @@ func writeTree(cmd *cobra.Command, r *repo.Repo, dir string, opts export.Options
 			return err
 		}
 	}
-	if len(full.Glossary) > 0 {
+	if full.HasGlossary {
 		if err := write("glossary.json", full.Glossary); err != nil {
 			return err
 		}

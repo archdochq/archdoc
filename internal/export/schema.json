@@ -12,7 +12,7 @@
                "description": "The revision this export describes, as given to --commit. Absent when it was not given. Taken as written and not checked against a repository."},
     "config": {"$ref": "#/$defs/config"},
     "has_glossary": {"type": "boolean",
-                     "description": "Whether the repository has a glossary page. Present even where glossary is not, so a tree's index.json still answers it."},
+                     "description": "Whether the repository has a term/ directory, which is when glossary is present. Present even where glossary is not, so a tree's index.json still answers it."},
     "documents": {"type": "array", "items": {"$ref": "#/$defs/document"}},
     "groups": {"type": "array", "items": {"$ref": "#/$defs/group"},
                "description": "Every group, in order of slug. Empty where there are none. A group appears here and nowhere else."},

@@ -45,8 +45,10 @@ them: it describes the machine that ran the command.
 ArchDoc does not ask git, because a revision read from a working tree holding
 uncommitted edits would describe something other than the output.
 
-`has_glossary` is present even when `glossary` is not, because `index.json`
-carries no glossary and a consumer reading only that still has to know.
+`has_glossary` is true where `term/` exists, and `glossary` is then present,
+empty where `term/` holds no terms. `has_glossary` is present even when
+`glossary` is not, because `index.json` carries no glossary and a consumer
+reading only that still has to know.
 
 ## One document
 
@@ -307,7 +309,7 @@ structured terms, so you do not re-parse the page.
 ```
 dist/
 ├── index.json                    every document, no bodies
-├── glossary.json                 the terms, when there is a glossary
+├── glossary.json                 the terms, where term/ exists
 ├── groups.json                   every group, when there are groups
 ├── rfc/0004-database-....json    one file per document, bodies included
 └── spec/database.json
@@ -353,5 +355,6 @@ stay published: each describes output that was real, and its URL is the one a
 consumer of that shape holds.
 
 Every array is an array and never `null`, so `included_in` on a document nothing
-references is `[]`. The output is deterministic and records no generation time,
+references is `[]`. A date or status that is not valid is omitted rather than
+published. The output is deterministic and records no generation time,
 so it can be cached, diffed and committed.

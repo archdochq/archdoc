@@ -168,6 +168,41 @@ func TestExportOutWritesATree(t *testing.T) {
 	}
 }
 
+// A freshly initialised repository has no documents and an empty term/, and
+// the schema still requires an array of each.
+func TestAFreshRepositoryExportsEmptyArrays(t *testing.T) {
+	dir := t.TempDir()
+	if out, code := run(t, dir, "init", "--name", "T"); code != exitOK {
+		t.Fatalf("init exited %d: %s", code, out)
+	}
+	got := exported(t, dir)
+	for _, field := range []string{"documents", "glossary"} {
+		if list, ok := got[field].([]any); !ok || len(list) != 0 {
+			t.Errorf("%s = %#v, want []", field, got[field])
+		}
+	}
+}
+
+// init creates an empty term/, so index.json says has_glossary, and the
+// glossary.json it promises has to be there.
+func TestOutWritesAnEmptyGlossary(t *testing.T) {
+	dir := t.TempDir()
+	if out, code := run(t, dir, "init", "--name", "T"); code != exitOK {
+		t.Fatalf("init exited %d: %s", code, out)
+	}
+	target := filepath.Join(dir, "dist")
+	if out, code := run(t, dir, "export", "--out", target); code != exitOK {
+		t.Fatalf("export --out exited %d: %s", code, out)
+	}
+	body, err := os.ReadFile(filepath.Join(target, "glossary.json"))
+	if err != nil {
+		t.Fatalf("glossary.json was not written: %v", err)
+	}
+	if strings.TrimSpace(string(body)) != "[]" {
+		t.Errorf("glossary.json holds %s", body)
+	}
+}
+
 // TestOutPrunesWhatTheRepositoryNoLongerHolds covers the reason --out reads the
 // index it is about to overwrite. Without it a document deleted from the
 // repository is served from the exported tree for as long as that tree lives.
