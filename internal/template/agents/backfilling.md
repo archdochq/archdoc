@@ -70,7 +70,7 @@ claiming to have existed all along.
 
 Every backfilled document carries a `Sources` section naming what it was reconstructed from,
 for the same reason a ref does: the claim needs something it can be checked against. It must be
-the document's last H2.
+the document's last H2, except on a rejected document, where `Rejection rationale` follows it.
 
 Name specific, findable things. A pull request number, a commit hash, an issue thread, a
 changelog entry, a dated conversation. "Team knowledge" is not a source.
