@@ -120,6 +120,11 @@ By default `draft` cannot go straight to `accepted`. That is deliberate: a docum
 never proposed is a different kind of thing from one proposed and accepted the same day.
 (PROCESS.md, Lifecycle)
 
+Propose a document before its pull request is reviewed: a draft cannot merge into the
+configured branch. Where `strict` is on, the verdict follows once the proposal is on that branch,
+as a commit a maintainer pushes to it or a pull request of its own, never in the pull request
+that proposes the document. `archdoc lint --merge` refuses the two in one. (PROCESS.md, Workflow)
+
 ## The point of no return
 
 **The push after a terminal transition freezes the document permanently.** Before it, every

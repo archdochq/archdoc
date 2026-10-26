@@ -454,8 +454,9 @@ func (g *countingGit) FilesAt(_ string, p []string) (map[string][]byte, error) {
 	g.read += len(p)
 	return nil, nil
 }
-func (g *countingGit) CurrentBranch() (string, error) { return "main", nil }
-func (g *countingGit) RepoRoot() (string, error)      { return "/", nil }
+func (g *countingGit) MergeBase(string) (string, error) { return "", nil }
+func (g *countingGit) CurrentBranch() (string, error)   { return "main", nil }
+func (g *countingGit) RepoRoot() (string, error)        { return "/", nil }
 
 func (g *countingGit) Prefix() (string, error) { return "", nil }
 

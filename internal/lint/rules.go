@@ -8,6 +8,7 @@ import (
 	"slices"
 	"strings"
 
+	"archdoc.dev/internal/git"
 	"archdoc.dev/internal/repo"
 )
 
@@ -536,23 +537,10 @@ func plural(n int, one, many string) string {
 }
 
 // gitPrefix is the path from the git repository root to archdoc's root, which
-// is how a path relative to root becomes a path git understands. Both sides are
-// resolved first, because a repository reached through a symlink would
-// otherwise produce a relative path that climbs out of the tree.
+// is how a path relative to root becomes a path git understands. The git handle
+// is opened in the directory holding archdoc.json, which root is relative to.
 func gitPrefix(ctx Context) string {
-	top, err := ctx.Git().RepoRoot()
-	if err != nil {
-		return ""
-	}
-	local := ctx.Repo().Config().RootDir()
-	if resolved, err := filepath.EvalSymlinks(local); err == nil {
-		local = resolved
-	}
-	rel, err := filepath.Rel(top, local)
-	if err != nil || rel == "." {
-		return ""
-	}
-	return filepath.ToSlash(rel)
+	return git.PathOf(ctx.Git(), ctx.Repo().Config().Root)
 }
 
 // L11 checks that a frozen document is unchanged. A document is frozen once it

@@ -1,6 +1,6 @@
 ---
 title: Architecture
-includes: [ADR-0005, ADR-0011, RFC-0008, RFC-0009]
+includes: [ADR-0005, ADR-0011, RFC-0008, RFC-0009, RFC-0015]
 ---
 
 # Architecture
@@ -12,9 +12,10 @@ archdoc/
 ├── cmd/archdoc/         cobra commands; argument handling only
 ├── internal/
 │   ├── config/          archdoc.json loading and defaults
-│   ├── repo/            discovery, parsing, identifiers, derivation, writers
+│   ├── repo/            discovery, parsing, identifiers, derivation, writers, the transition graph
 │   ├── lint/            rules, each a function returning findings
-│   ├── lifecycle/       the transition graph and the transition gate
+│   ├── changes/         the record on the configured branch, and what the working tree changes in it
+│   ├── lifecycle/       the transition gate
 │   ├── index/           INDEX.md generation
 │   ├── export/          the JSON shape and its published schema
 │   ├── link/            wiki link resolution and suggestion
@@ -30,7 +31,9 @@ archdoc/
 
 `internal/repo` opens a repository without failing on a malformed document: faults are recorded on the document as problems carrying a line and a message, and `lint` decides their severity. A document's body is walked once, and every reader of it, sections, headings, links and the glossary, reads the same masked text. A `Changelog`'s entries and a resolved question's answer are taken from the lines as written, within sections found in the masked text.
 
-`internal/git` is an interface exposing `FilesAt`, `Changed`, `HasCommits`, `BranchExists`, `ListFiles`, `CurrentBranch`, `Prefix` and `RepoRoot`. It returns a sentinel error when the directory is not inside a git repository. `FilesAt` reads many blobs through one `cat-file --batch`; `Changed` asks one `diff` which paths differ, with pathspecs anchored to the repository root and `diff.relative` off. Requests and responses are NUL-separated. The repository root, existence and file listing are memoised per process.
+`internal/git` is an interface exposing `FilesAt`, `Changed`, `HasCommits`, `BranchExists`, `ListFiles`, `CurrentBranch`, `Prefix` and `RepoRoot`. It returns a sentinel error when the directory is not inside a git repository. `FilesAt` reads many blobs through one `cat-file --batch`; `Changed` asks one `diff` which paths differ, with pathspecs anchored to the repository root and `diff.relative` off. Requests and responses are NUL-separated. The repository root, existence and file listing are memoised per process. `PathOf` turns a path relative to the directory git was opened in into one from the repository root, as those operations take paths, by joining it to `Prefix`.
+
+`internal/changes` reads every document at the merge base of HEAD and the configured branch, and its `strict`, in one `FilesAt` batch, for the merge rules and `archdoc changes`. `internal/lint` imports it.
 
 `internal/repotest` builds throwaway repositories for tests and imports `testing`.
 

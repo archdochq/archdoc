@@ -90,6 +90,7 @@ func newRoot(out, errOut io.Writer) *cobra.Command {
 		newRenumberCommand(),
 		newUpdateCommand(),
 		newExportCommand(),
+		newChangesCommand(),
 	)
 	root.AddCommand(transitionCommands()...)
 	return root

@@ -120,7 +120,7 @@ func plannedRefresh(r *repo.Repo) (files []refresh, notes []string, err error) {
 	files = append(files, refresh{root, "PROCESS.md", process})
 
 	workflowDir, workingDirectory := workflowLocation(configDir)
-	data := template.Data{Name: c.Name, WorkingDirectory: workingDirectory}
+	data := template.Data{Name: c.Name, WorkingDirectory: workingDirectory, Branch: c.Branch}
 	// The pin says which ArchDoc this repository's CI runs. Raising it is the
 	// point: this command also rewrites PROCESS.md, which describes what lint
 	// enforces, so leaving CI on an older ArchDoc would leave the repository

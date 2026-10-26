@@ -211,6 +211,27 @@ func TestInitOmitsTheWorkingDirectoryAtTheRoot(t *testing.T) {
 	}
 }
 
+func TestInitRunsTheMergeRulesOnAPullRequestIntoTheBranch(t *testing.T) {
+	dir := t.TempDir()
+	if out, code := run(t, dir, "init", "--name", "X", "--branch", "it's-trunk"); code != exitOK {
+		t.Fatalf("init exited %d: %s", code, out)
+	}
+	workflow, err := os.ReadFile(filepath.Join(dir, ".github", "workflows", "archdoc-lint.yml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	const onPullRequest = "github.event_name == 'pull_request' && github.base_ref == 'it''s-trunk'"
+	for _, want := range []string{
+		"merge: ${{ " + onPullRequest + " }}",
+		"if: ${{ !cancelled() && " + onPullRequest + " }}",
+		`run: archdoc changes >> "$GITHUB_STEP_SUMMARY"`,
+	} {
+		if !strings.Contains(string(workflow), want) {
+			t.Errorf("the workflow lacks %q:\n%s", want, workflow)
+		}
+	}
+}
+
 func TestInitCanBeRetriedAfterAFailedWrite(t *testing.T) {
 	// A write that fails part-way leaves what came before it. If archdoc.json is
 	// among those, every later attempt refuses and the user has to clean up by
@@ -658,6 +679,10 @@ func TestTheWorkflowRunsInTheConfigDirectory(t *testing.T) {
 	}
 	if !strings.Contains(string(workflow), "working-directory: spec") {
 		t.Errorf("expected working-directory: spec\n%s", workflow)
+	}
+	// The generated-files step and the summary of changes both run archdoc.
+	if n := strings.Count(string(workflow), "working-directory: spec"); n != 2 {
+		t.Errorf("working-directory: spec appears %d times, want once per run step\n%s", n, workflow)
 	}
 }
 

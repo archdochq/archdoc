@@ -342,23 +342,43 @@ func discover(root string, t Type) ([]*Document, error) {
 		if _, isDoc := TypeOf(docPath); !isDoc {
 			return nil
 		}
-		d := &Document{Type: t, Path: docPath}
-		if t.Numbered() {
-			// A filename that does not match leaves ID empty; L02 reports it.
-			if m := filenamePattern.FindStringSubmatch(e.Name()); m != nil {
-				d.Number, _ = strconv.Atoi(m[1])
-				d.ID = Identifier(t, d.Number)
-			}
-		} else {
-			d.Page = strings.TrimSuffix(filepath.ToSlash(rel), ".md")
-		}
-		found = append(found, d)
+		found = append(found, located(t, docPath))
 		return nil
 	})
 	if err != nil && !errors.Is(err, os.ErrNotExist) {
 		return nil, err
 	}
 	return found, nil
+}
+
+// located is a document at docPath with everything its path decides filled in
+// and nothing read.
+func located(t Type, docPath string) *Document {
+	d := &Document{Type: t, Path: docPath}
+	if t.Numbered() {
+		// A filename that does not match leaves ID empty; L02 reports it.
+		if m := filenamePattern.FindStringSubmatch(path.Base(docPath)); m != nil {
+			d.Number, _ = strconv.Atoi(m[1])
+			d.ID = Identifier(t, d.Number)
+		}
+	} else {
+		d.Page = strings.TrimSuffix(strings.TrimPrefix(docPath, string(t)+"/"), ".md")
+	}
+	return d
+}
+
+// Parse reads source as the document at docPath, outside any repository, so
+// nothing is derived and Repo is nil. It is for a document as it stands on a
+// branch, where only what the document itself says is wanted. ok is false when
+// docPath is not a document's path.
+func Parse(docPath string, source []byte) (d *Document, ok bool) {
+	t, ok := TypeOf(docPath)
+	if !ok {
+		return nil, false
+	}
+	d = located(t, docPath)
+	d.parse(source)
+	return d, true
 }
 
 // slugSeparators are the characters a slug collapses to a single hyphen:

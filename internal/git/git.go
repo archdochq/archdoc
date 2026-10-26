@@ -7,6 +7,8 @@ import (
 	"errors"
 	"fmt"
 	"os/exec"
+	"path"
+	"path/filepath"
 	"slices"
 	"strconv"
 	"strings"
@@ -46,6 +48,9 @@ type Repository interface {
 	// notice a frozen document deleted from the working tree, which discovery
 	// cannot see.
 	ListFiles(branch string) ([]string, error)
+	// MergeBase is the commit HEAD and branch last had in common, and empty
+	// when they share no history.
+	MergeBase(branch string) (string, error)
 	// CurrentBranch is the checked-out branch.
 	CurrentBranch() (string, error)
 	// RepoRoot is the absolute path of the repository's top level.
@@ -312,6 +317,17 @@ func (s *shell) BranchExists(branch string) (bool, error) {
 	return s.exists(s.rev(branch) + "^{commit}")
 }
 
+func (s *shell) MergeBase(branch string) (string, error) {
+	out, code, err := s.run("merge-base", "HEAD", s.rev(branch))
+	if code == 1 {
+		return "", nil // no common ancestor
+	}
+	if err != nil {
+		return "", err
+	}
+	return strings.TrimSpace(string(out)), nil
+}
+
 func (s *shell) CurrentBranch() (string, error) {
 	// symbolic-ref, not rev-parse: rev-parse resolves HEAD to a commit, so on a
 	// repository with no commits yet it fails outright. That is the state
@@ -349,4 +365,23 @@ func (s *shell) Prefix() (string, error) {
 	}
 	// git prints "spec/" with a trailing slash, and nothing at all at the root.
 	return strings.TrimSuffix(strings.TrimSpace(string(out)), "/"), nil
+}
+
+// PathOf is rel, a path relative to the directory g was opened in, as a path
+// from the repository's top level, which is what ListFiles and FilesAt take.
+// It is empty for the top level itself.
+//
+// Built from Prefix rather than by comparing the top level with an absolute
+// path, for the reason Prefix gives: on a case-insensitive filesystem the two
+// spellings of one directory diverge, and the result climbs out of the
+// repository.
+func PathOf(g Repository, rel string) string {
+	prefix, err := g.Prefix()
+	if err != nil {
+		prefix = ""
+	}
+	if joined := path.Join(prefix, filepath.ToSlash(rel)); joined != "." {
+		return joined
+	}
+	return ""
 }

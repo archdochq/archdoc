@@ -6,6 +6,7 @@ package template
 import (
 	"bytes"
 	"embed"
+	"errors"
 	"fmt"
 	"strings"
 	"text/template"
@@ -45,10 +46,23 @@ type Data struct {
 	// WorkingDirectory is where the generated workflow runs archdoc: the path
 	// from the git repository root to the directory holding archdoc.json.
 	WorkingDirectory string
+	// Branch is the configured branch, into which a pull request is checked
+	// with the merge rules.
+	Branch string
 }
 
 // funcs are the functions available to every template.
 var funcs = template.FuncMap{
+	// expr quotes a value as a GitHub Actions expression string literal, in
+	// which a single quote is written twice. An empty value is refused: it is
+	// the configured branch, and a condition comparing against '' is never true,
+	// so the steps it guards would silently never run.
+	"expr": func(s string) (string, error) {
+		if s == "" {
+			return "", errors.New("expr: empty value")
+		}
+		return "'" + strings.ReplaceAll(s, "'", "''") + "'", nil
+	},
 	// yaml encodes a value as a YAML scalar, quoting and escaping only where
 	// the encoding requires it. Without it a title containing a colon would
 	// produce front matter that does not parse.
