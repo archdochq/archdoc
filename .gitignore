@@ -3,3 +3,6 @@ spec/AGENTS.md
 
 # Local review notes, never committed.
 REVIEW-*.md
+
+# Where docs/build.go writes the docs bundle and install.sh for a release.
+build/

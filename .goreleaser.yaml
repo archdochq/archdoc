@@ -5,6 +5,10 @@ project_name: archdoc
 before:
   hooks:
     - go mod tidy
+    # The docs bundle and install.sh, written outside dist/, which goreleaser
+    # requires to be empty after these hooks run. A failure here stops the
+    # release before anything is published.
+    - go run ./docs/build.go build/docs {{ .Tag }} {{ .FullCommit }}
 
 builds:
   - id: archdoc
@@ -42,6 +46,8 @@ checksum:
   # contract with every scaffolded repository.
   name_template: checksums.txt
   algorithm: sha256
+  extra_files:
+    - glob: build/docs/*
 
 changelog:
   sort: asc
@@ -54,6 +60,8 @@ changelog:
 release:
   draft: false
   prerelease: auto
+  extra_files:
+    - glob: build/docs/*
 
 homebrew_casks:
   # Writes Casks/archdoc.rb into the tap. The cask downloads the archives

@@ -1,0 +1,3 @@
+# A shell script with CRLF endings does not run under sh, and docs/build.go
+# looks for its release line exactly.
+install.sh text eol=lf

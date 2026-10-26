@@ -1,6 +1,6 @@
 ---
 title: Architecture
-includes: [ADR-0005, ADR-0011, RFC-0008, RFC-0009, RFC-0014, RFC-0015]
+includes: [ADR-0005, ADR-0011, RFC-0008, RFC-0009, RFC-0014, RFC-0015, RFC-0016]
 ---
 
 # Architecture
@@ -24,6 +24,9 @@ archdoc/
 │   ├── git/             an interface with a shell-out implementation
 │   ├── repotest/        throwaway repositories for tests
 │   └── template/        embedded files, including agents/
+├── docs/guides/         the user guides a release's docs bundle carries
+├── docs/build.go        the docs bundle's generator
+├── install.sh           the install script a release attaches with its release set
 ├── plugin/              the skills repository's skeleton and generator
 └── schema/              the published export and reference schemas
 ```

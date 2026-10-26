@@ -503,6 +503,13 @@ the result can delete content it never read.
   which release it is building. The release workflow passes the tag as `ARCHDOC_RELEASE_TAG`, and a
   second test checks it does, since a missing variable skips the check without failing. Versions are
   compared by semantic version precedence in the test rather than through a module.
+- **The docs bundle and `install.sh` are written by a goreleaser `before` hook**, so they are checked
+  before anything is published and listed in the `checksums.txt` goreleaser writes. Written after
+  publishing, they would mean replacing the file `archdochq/setup` downloads.
+- **Every entry in the bundle is dated the Unix epoch**, so one commit and tag always give the same
+  bundle.
+- **A guide's links are read with `internal/repo`**, as a page whose body is the whole file, so the
+  generator reads links exactly as lint does.
 
 ## Licence
 
