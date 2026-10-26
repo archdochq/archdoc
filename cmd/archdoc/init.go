@@ -121,7 +121,7 @@ func newInitCommand() *cobra.Command {
 	cmd.Flags().BoolVar(&settings.Strict, "strict", config.DefaultStrict, "keep the transition graph as PROCESS.md describes it")
 	// pflag has no notion of a negative flag, so the spelling spec/spec/commands.md
 	// documents has to be registered as one of its own.
-	cmd.Flags().Bool("no-strict", false, "permit any transition between statuses; the opposite of --strict")
+	cmd.Flags().Bool("no-strict", false, "also permit draft to accepted and draft to rejected; the opposite of --strict")
 	cmd.Flags().IntVar(&settings.RefStaleDays, "ref-stale-days", config.DefaultRefStaleDays, "how old a ref's verified date may be")
 	cmd.Flags().StringVar(&licence, "license", "none", "licence to write: none or mit")
 	cmd.Flags().BoolVar(&agents, "agents", false, "write AGENTS.md and the agents/ guides, for coding agents working in the repository")
