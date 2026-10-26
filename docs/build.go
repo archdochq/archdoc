@@ -24,6 +24,7 @@ import (
 	"os/exec"
 	"path"
 	"path/filepath"
+	"regexp"
 	"slices"
 	"strings"
 	"time"
@@ -31,6 +32,10 @@ import (
 	"archdoc.dev/internal/repo"
 	"archdoc.dev/internal/template"
 )
+
+// absolute is a link that names its scheme, such as https: or mailto:, which a
+// guide may link to wherever it is displayed.
+var absolute = regexp.MustCompile(`^[A-Za-z][A-Za-z0-9+.-]*:`)
 
 // releaseLine is the line install.sh carries with no release set, which the
 // attached copy sets to the tag.
@@ -160,7 +165,12 @@ func run(args []string) error {
 	if err := os.WriteFile(filepath.Join(dir, name), bundle, 0o644); err != nil {
 		return err
 	}
-	return os.WriteFile(filepath.Join(dir, "install.sh"), script, 0o755)
+	installer := filepath.Join(dir, "install.sh")
+	if err := os.WriteFile(installer, script, 0o755); err != nil {
+		return err
+	}
+	// WriteFile's mode is narrowed by the umask; the attached script is 0755.
+	return os.Chmod(installer, 0o755)
 }
 
 // onlyOurs refuses a directory holding anything this did not write, which
@@ -197,6 +207,9 @@ func readGuides(dir string) (contents, []entry, error) {
 	}
 	if decoder.More() {
 		return toc, nil, errors.New("contents.json: more than one JSON value")
+	}
+	if len(toc.Sections) == 0 {
+		return toc, nil, errors.New("contents.json lists no sections")
 	}
 
 	listed := map[string]bool{}
@@ -255,12 +268,12 @@ func linksResolve(name string, body []byte, listed map[string]bool) error {
 	// A guide has no front matter, so it is read as a page whose body is the
 	// whole file, which is all Links needs. One opening as if it had some would
 	// hide those lines from the check.
-	if first, _, _ := strings.Cut(string(body), "\n"); strings.TrimSpace(first) == "---" {
+	if first, _, _ := strings.Cut(string(body), "\n"); strings.TrimSpace(strings.TrimPrefix(first, "\ufeff")) == "---" {
 		return fmt.Errorf("%s opens with ---; a guide has no front matter", name)
 	}
 	d, _ := repo.Parse(path.Join(string(repo.TypeSpec), name), body)
 	for _, l := range d.Links() {
-		if strings.Contains(l.Target, "://") || strings.HasPrefix(l.Target, "mailto:") {
+		if absolute.MatchString(l.Target) {
 			continue
 		}
 		target, _, _ := strings.Cut(l.Target, "#")

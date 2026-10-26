@@ -212,6 +212,13 @@ func TestTheGeneratorRefusesWhatTheGuidesDoNotPermit(t *testing.T) {
 		"a link to an unlisted guide": {map[string]string{"contents.json": oneGuide, "a.md": "# A\n\nSee [b](b.md#top).\n"}, "a.md:3: b.md#top is not a listed guide"},
 		"an unknown key":              {map[string]string{"contents.json": `{"sections": [{"title": "S", "guides": [{"path": "a.md", "title": "A", "order": 1}]}]}`, "a.md": "# A\n"}, `unknown field "order"`},
 		"a second JSON value":         {map[string]string{"contents.json": oneGuide + ` {}`, "a.md": "# A\n"}, "more than one JSON value"},
+		"malformed contents":          {map[string]string{"contents.json": `{"sections": [`, "a.md": "# A\n"}, "contents.json: unexpected EOF"},
+		"no sections":                 {map[string]string{"contents.json": `null`}, "contents.json lists no sections"},
+		"a blank section title":       {map[string]string{"contents.json": `{"sections": [{"title": " ", "guides": [{"path": "a.md", "title": "A"}]}]}`, "a.md": "# A\n"}, "a section has no title"},
+		"a backslash in a path":       {map[string]string{"contents.json": `{"sections": [{"title": "S", "guides": [{"path": "a.md", "title": "A"}, {"path": "more\\b.md", "title": "B"}]}]}`, "a.md": "# A\n"}, `is not a .md file`},
+		"a path of .md alone":         {map[string]string{"contents.json": `{"sections": [{"title": "S", "guides": [{"path": ".md", "title": "A"}]}]}`, ".md": "# A\n"}, `".md" is not a .md file`},
+		"a guide opening with a BOM":  {map[string]string{"contents.json": oneGuide, "a.md": "\ufeff---\n[x](../../secret.md)\n---\n# A\n"}, "a.md opens with ---"},
+		"a link carrying a scheme":    {map[string]string{"contents.json": oneGuide, "a.md": "# A\n\n[x](../x.md?u=http://a)\n"}, "a.md:3: ../x.md?u=http://a is not a listed guide"},
 		"a guide opening with ---":    {map[string]string{"contents.json": oneGuide, "a.md": "---\n[x](../../secret.md)\n---\n# A\n"}, "a.md opens with ---"},
 	}
 	for name, fault := range faults {
@@ -240,6 +247,25 @@ func TestTheGeneratorRefusesWhatTheGuidesDoNotPermit(t *testing.T) {
 			t.Errorf("the generator wrote %v", left)
 		}
 	})
+	t.Run("an empty argument", func(t *testing.T) {
+		if said, err := runGenerator(t, bin, t.TempDir(), "", "abc"); err == nil || !strings.Contains(said, "usage:") {
+			t.Errorf("the generator gave %v with an empty tag, saying %q", err, said)
+		}
+	})
+	t.Run("an empty guides directory", func(t *testing.T) {
+		if said, err := runGenerator(t, bin, "-guides", "", t.TempDir(), "v1.2.3", "abc"); err == nil || !strings.Contains(said, "usage:") {
+			t.Errorf("the generator gave %v with -guides empty, saying %q", err, said)
+		}
+	})
+	t.Run("a directory where it writes", func(t *testing.T) {
+		out := t.TempDir()
+		if err := os.Mkdir(filepath.Join(out, "install.sh"), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if said, err := runGenerator(t, bin, out, "v1.2.3", "abc"); err == nil || !strings.Contains(said, "holds install.sh") {
+			t.Errorf("the generator gave %v for a directory named install.sh, saying %q", err, said)
+		}
+	})
 	t.Run("a file it did not write", func(t *testing.T) {
 		out := t.TempDir()
 		if err := os.WriteFile(filepath.Join(out, "notes.txt"), nil, 0o644); err != nil {
@@ -249,6 +275,22 @@ func TestTheGeneratorRefusesWhatTheGuidesDoNotPermit(t *testing.T) {
 			t.Errorf("the generator gave %v for a directory holding a file it did not write, saying %q", err, said)
 		}
 	})
+}
+
+func TestTheGeneratorWritesTheScriptExecutableWhateverTheUmask(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("no umask")
+	}
+	bin, _ := filepath.Abs(generator(t))
+	out := t.TempDir()
+	cmd := exec.Command("sh", "-c", `umask 077 && exec "$0" "$@"`, bin, out, "v1.2.3", "abc")
+	cmd.Dir = repositoryRoot
+	if said, err := cmd.CombinedOutput(); err != nil {
+		t.Fatalf("%v: %s", err, said)
+	}
+	if info, err := os.Stat(filepath.Join(out, "install.sh")); err != nil || info.Mode().Perm() != 0o755 {
+		t.Errorf("install.sh is %v, %v; want 0755", info.Mode().Perm(), err)
+	}
 }
 
 func TestTheGeneratorAcceptsLinksBetweenListedGuides(t *testing.T) {
@@ -436,6 +478,13 @@ func TestGoreleaserAttachesTheGeneratorsOutput(t *testing.T) {
 // digest, and returns install.sh rendered for the release.
 func installFixture(t *testing.T, checksums func(name, digest string) string) (script, url string) {
 	t.Helper()
+	return installFixtureHolding(t, "archdoc", checksums)
+}
+
+// installFixtureHolding is installFixture with the archive's one file named
+// member.
+func installFixtureHolding(t *testing.T, member string, checksums func(name, digest string) string) (script, url string) {
+	t.Helper()
 	arch := map[string]string{"amd64": "amd64", "arm64": "arm64"}[runtime.GOARCH]
 	if (runtime.GOOS != "linux" && runtime.GOOS != "darwin") || arch == "" {
 		t.Skipf("install.sh does not support %s/%s", runtime.GOOS, runtime.GOARCH)
@@ -459,7 +508,7 @@ func installFixture(t *testing.T, checksums func(name, digest string) string) (s
 	gz := gzip.NewWriter(&archive)
 	tw := tar.NewWriter(gz)
 	binary := []byte("#!/bin/sh\necho installed\n")
-	if err := tw.WriteHeader(&tar.Header{Name: "archdoc", Mode: 0o755, Size: int64(len(binary)), Typeflag: tar.TypeReg}); err != nil {
+	if err := tw.WriteHeader(&tar.Header{Name: member, Mode: 0o755, Size: int64(len(binary)), Typeflag: tar.TypeReg}); err != nil {
 		t.Fatal(err)
 	}
 	tw.Write(binary)
@@ -485,12 +534,135 @@ func installFixture(t *testing.T, checksums func(name, digest string) string) (s
 	return script, server.URL
 }
 
-func runInstall(t *testing.T, script, url, dir string) (string, error) {
+func runInstall(t *testing.T, script, url, dir string, env ...string) (string, error) {
 	t.Helper()
 	cmd := exec.Command("sh", script)
-	cmd.Env = append(os.Environ(), "ARCHDOC_DOWNLOAD_URL="+url, "ARCHDOC_INSTALL_DIR="+dir)
+	// The caller's own ARCHDOC_ settings would override the fixture's.
+	for _, v := range os.Environ() {
+		if !strings.HasPrefix(v, "ARCHDOC_") {
+			cmd.Env = append(cmd.Env, v)
+		}
+	}
+	cmd.Env = append(cmd.Env, "ARCHDOC_DOWNLOAD_URL="+url, "ARCHDOC_INSTALL_DIR="+dir)
+	cmd.Env = append(cmd.Env, env...)
 	out, err := cmd.CombinedOutput()
 	return string(out), err
+}
+
+// fakeTool puts a command named name, running body, ahead of the real ones on
+// PATH.
+func fakeTool(t *testing.T, name, body string) string {
+	t.Helper()
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, name), []byte("#!/bin/sh\n"+body+"\n"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	return "PATH=" + dir + string(os.PathListSeparator) + os.Getenv("PATH")
+}
+
+// toolsWithout is a PATH directory linking every tool install.sh runs but the
+// ones named.
+func toolsWithout(t *testing.T, missing ...string) string {
+	t.Helper()
+	dir := t.TempDir()
+	for _, tool := range []string{"sh", "uname", "curl", "wget", "sha256sum", "shasum", "cut", "mktemp", "awk", "tar", "gzip", "mkdir", "cp", "chmod", "mv", "rm", "perl"} {
+		real, err := exec.LookPath(tool)
+		if err != nil || slices.Contains(missing, tool) {
+			continue
+		}
+		if err := os.Symlink(real, filepath.Join(dir, tool)); err != nil {
+			t.Fatal(err)
+		}
+	}
+	return dir
+}
+
+func goodChecksums(name, digest string) string { return digest + "  " + name + "\n" }
+
+func TestInstallScriptRefusesWhatItCannotInstall(t *testing.T) {
+	cases := map[string]struct {
+		member string
+		env    func(t *testing.T, dir string) []string
+		says   string
+	}{
+		"an unsupported system": {"archdoc", func(t *testing.T, _ string) []string {
+			return []string{fakeTool(t, "uname", `if [ "$1" = -s ]; then echo Plan9; else echo x86_64; fi`)}
+		}, "Plan9 is not supported"},
+		"an unsupported architecture": {"archdoc", func(t *testing.T, _ string) []string {
+			return []string{fakeTool(t, "uname", `if [ "$1" = -s ]; then echo Linux; else echo mips; fi`)}
+		}, "mips is not supported"},
+		"an archive without the binary": {"something-else", nil, "holds no archdoc"},
+		"an install directory that cannot be created": {"archdoc", func(t *testing.T, dir string) []string {
+			blocker := filepath.Join(dir, "file")
+			if err := os.WriteFile(blocker, nil, 0o644); err != nil {
+				t.Fatal(err)
+			}
+			return []string{"ARCHDOC_INSTALL_DIR=" + filepath.Join(blocker, "bin")}
+		}, "could not create"},
+		"a copy that fails": {"archdoc", func(t *testing.T, _ string) []string {
+			return []string{fakeTool(t, "cp", "exit 1")}
+		}, "could not write to"},
+		"no curl or wget": {"archdoc", func(t *testing.T, _ string) []string {
+			return []string{"PATH=" + toolsWithout(t, "curl", "wget")}
+		}, "neither curl nor wget is installed"},
+		"no sha256sum or shasum": {"archdoc", func(t *testing.T, _ string) []string {
+			return []string{"PATH=" + toolsWithout(t, "sha256sum", "shasum")}
+		}, "neither sha256sum nor shasum is installed"},
+		"a release that is not there": {"archdoc", func(t *testing.T, _ string) []string {
+			return []string{"ARCHDOC_VERSION=v9.9.9"}
+		}, "could not download"},
+	}
+	for name, c := range cases {
+		t.Run(name, func(t *testing.T) {
+			script, url := installFixtureHolding(t, c.member, goodChecksums)
+			dir, temp := t.TempDir(), t.TempDir()
+			env := []string{"TMPDIR=" + temp}
+			if c.env != nil {
+				env = append(env, c.env(t, dir)...)
+			}
+			said, err := runInstall(t, script, url, dir, env...)
+			if err == nil || !strings.Contains(said, c.says) {
+				t.Fatalf("install.sh gave %v, saying %q; want a failure saying %q", err, said, c.says)
+			}
+			for _, d := range []string{dir, temp} {
+				left, _ := os.ReadDir(d)
+				for _, e := range left {
+					if e.Name() != "file" {
+						t.Errorf("install.sh left %s in %s", e.Name(), d)
+					}
+				}
+			}
+		})
+	}
+}
+
+func TestInstallScriptNeedsAReleaseUnlessOneIsSet(t *testing.T) {
+	_, url := installFixture(t, goodChecksums)
+	unset := filepath.Join(repositoryRoot, "install.sh")
+	if said, err := runInstall(t, unset, url, t.TempDir()); err == nil || !strings.Contains(said, "set ARCHDOC_VERSION") {
+		t.Fatalf("the repository's install.sh gave %v, saying %q", err, said)
+	}
+	dir := t.TempDir()
+	if said, err := runInstall(t, unset, url, dir, "ARCHDOC_VERSION=v1.2.3"); err != nil {
+		t.Fatalf("the repository's install.sh with ARCHDOC_VERSION gave %v: %s", err, said)
+	}
+}
+
+func TestATruncatedInstallScriptRunsNothing(t *testing.T) {
+	script, url := installFixture(t, goodChecksums)
+	whole := read(t, script)
+	cut := strings.TrimSuffix(strings.TrimRight(whole, "\n"), "main")
+	if cut == strings.TrimRight(whole, "\n") {
+		t.Fatal("install.sh does not end by calling main")
+	}
+	if err := os.WriteFile(script, []byte(cut), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	dir := t.TempDir()
+	runInstall(t, script, url, dir)
+	if left, _ := os.ReadDir(dir); len(left) != 0 {
+		t.Errorf("a truncated install.sh installed %v", left)
+	}
 }
 
 func TestInstallScriptInstallsTheRelease(t *testing.T) {

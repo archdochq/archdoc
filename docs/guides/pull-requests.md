@@ -60,7 +60,7 @@ archdoc lint --merge
 
 `--merge` compares the working tree with the merge base of `HEAD` and the configured branch, falling back to `origin/<branch>` where there is no local branch. On a branch that has not been rebased, that is the commit it was cut from, so rebase first to be judged against the branch as it is now. Outside a git repository, or where the branch does not exist, it exits 1 naming the branch.
 
-`archdoc lint` exits 2 when it reports an error and 0 otherwise. Warnings, such as a section left empty in a proposed document, do not change the exit code unless you pass `--strict-warnings`.
+`archdoc lint` exits 2 when it reports an error, 1 when it cannot run, and 0 otherwise. Warnings, such as a section left empty in a proposed document, do not change the exit code unless you pass `--strict-warnings`.
 
 ## During review
 
@@ -152,7 +152,7 @@ Once your pull request merges, your document is proposed on the configured branc
 
 Where `strict` is on, which is the default, the verdict follows once the proposal is on the configured branch, as a commit a maintainer pushes to it or as a pull request of its own, never in the pull request that proposes the document. M03 fails a pull request that brings a document in and accepts or rejects it at once. Where `strict` is off, `draft → accepted` and `draft → rejected` are permitted, and the verdict can come in your pull request.
 
-`archdoc accept` refuses a document with open questions, and both `accept` and `reject` refuse one while lint reports an error about it other than L03, a number another document shares. Reaching a terminal status is a single commit that sets `status` and `decided`, and for a rejection adds the Rejection rationale. The next push to the configured branch freezes the document: lint fails any later change to it, and changing what it says takes a new document that updates or obsoletes it.
+`archdoc accept` refuses a document with open questions, and both `accept` and `reject` refuse one while lint reports an error about it other than L03, a number another document shares. Reaching a terminal status is a single commit that sets `status` and `decided`, and for a rejection adds the Rejection rationale. Once the terminal status is on the configured branch, the document is frozen: lint fails any later change to it, and changing what it says takes a new document that updates or obsoletes it.
 
 ## What not to do
 

@@ -38,7 +38,7 @@ INDEX.md
 GLOSSARY.md
 ```
 
-- `archdoc.json` holds the settings. Every other command finds the repository by walking up from the current directory to this file.
+- `archdoc.json` holds the settings. Every command that works on a repository finds it by walking up from the current directory to this file.
 - `PROCESS.md` describes the process ArchDoc enforces: the document types, the lifecycle, and the rules. Read it once.
 - `INDEX.md` and `GLOSSARY.md` are generated. Do not edit them by hand.
 - `rfc/`, `adr/`, `ref/` and `term/` hold RFCs, ADRs, refs and glossary terms. Spec pages go in `spec/`, which you create when you write the first one.
@@ -173,7 +173,7 @@ git add -A
 git commit -m "Accept RFC-0001"
 ```
 
-`reject` and `withdraw` work the same way. `reject` also appends a `Rejection rationale` section for you to fill in.
+`reject` refuses in the same way while lint reports an error, and appends a `Rejection rationale` section for you to fill in. `withdraw` runs neither check.
 
 ## See the freeze
 

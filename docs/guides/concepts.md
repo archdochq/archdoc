@@ -4,7 +4,7 @@ ArchDoc manages a specification repository: a directory of Markdown documents, e
 
 ## The repository
 
-A specification repository is the directory holding `archdoc.json`. Every command except `archdoc init` finds that file by walking up from the current directory, so you can run commands from anywhere inside the repository. `-C <dir>` runs a command as if it had been started in another directory.
+A specification repository is the directory holding `archdoc.json`. Every command that works on a repository, which is every command but `archdoc init` and `archdoc reference`, finds that file by walking up from the current directory, so you can run commands from anywhere inside the repository. `-C <dir>` runs a command as if it had been started in another directory.
 
 The documents live in one directory per type, under the directory `archdoc.json` names as `root`: `rfc/`, `adr/`, `spec/`, `ref/`, `term/` and `group/`. Every `*.md` file in one of those directories is a document of that type, and files anywhere else are not documents. `spec/` may have subdirectories, each page addressed by its path below `spec/`; subdirectories of the other directories are ignored. `archdoc init` creates `rfc/`, `adr/`, `ref/` and `term/`; you create `spec/` and `group/` when you need them.
 

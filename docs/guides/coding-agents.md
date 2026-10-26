@@ -108,7 +108,7 @@ In Claude Code, for example:
 /plugin install archdoc@archdoc
 ```
 
-Each release is tagged in archdochq/skills with its own tag. To stay on one release, add the marketplace as `archdochq/skills#v0.6.0` in Claude Code, or pass `--ref v0.6.0` to Gemini CLI.
+Each stable release is tagged in archdochq/skills with its own tag. To stay on one release, add the marketplace as `archdochq/skills#v0.6.0` in Claude Code, or pass `--ref v0.6.0` to Gemini CLI.
 
 archdochq/skills is written only by ArchDoc's release workflow, and does not take pull requests. A change to a guide is made in [archdochq/archdoc](https://github.com/archdochq/archdoc) and published by the next release.
 

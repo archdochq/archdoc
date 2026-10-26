@@ -38,7 +38,7 @@ myproject/
     └── term/
 ```
 
-Running `archdoc init --root docs` from the root of the repository produces the same result. `--root` is joined to the path from the repository root to where you ran `init`, so both forms put the documents in `docs/`.
+Running `archdoc init --root docs` from the root of the repository puts the documents in the same place, though the name it offers is then the repository's directory name. `--root` is joined to the path from the repository root to where you ran `init`, so both forms put the documents in `docs/`.
 
 On a terminal, `init` asks for each setting no flag gives, offering a default. Pass `--name` to set the name without being asked. Its default is the name of the directory you ran `init` in, with a trailing `-spec` removed, which here would be `docs`. The name appears in the headings of `README.md` and `INDEX.md`.
 

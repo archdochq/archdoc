@@ -2,7 +2,7 @@
 
 ArchDoc is a single binary called `archdoc`. Install it in any one of the ways below, then check it with `archdoc --version`.
 
-ArchDoc also needs git on `PATH`. Whether a document is frozen is read from the branch your repository is configured with, so the frozen-document check cannot run without it.
+ArchDoc also needs git on `PATH`. Whether a document is frozen is read from the branch your repository is configured with, so the commands that need to know, such as `lint`, `changes`, `link` and the transition commands, refuse to run without it.
 
 ## Homebrew
 
@@ -142,7 +142,7 @@ You do not need it for the workflow `archdoc init` writes. That workflow uses `a
 archdoc --version
 ```
 
-A release binary, whether from Homebrew, the install script or an archive, prints its tag, such as `v0.6.0`. A binary from `go install` prints the module version it was built from. A binary built with `go build` from a checkout prints the tag at a tagged commit, a pseudo-version such as `v0.5.2-0.20261026120114-a9241aa1ac5f` at any other, and `dev` where the build records no version control information, as with uncommitted changes.
+A release binary, whether from Homebrew, the install script or an archive, prints its tag, such as `v0.6.0`. A binary from `go install` prints the module version it was built from. A binary built with `go build` from a checkout prints the tag at a tagged commit, a pseudo-version such as `v0.5.2-0.20261026120114-a9241aa1ac5f` at any other, with `+dirty` appended where the checkout has uncommitted changes, and `dev` where the build records no version control information, as with `-buildvcs=false` or a tree without `.git`.
 
 `archdoc init` pins the workflow it writes to this version when it is a release tag. Anything else, a pseudo-version or `dev`, is written to the workflow as `latest`, with a warning that the workflow is unpinned.
 

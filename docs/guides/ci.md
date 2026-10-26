@@ -100,7 +100,7 @@ After upgrading `archdoc`, regenerate the files it owns:
 archdoc update
 ```
 
-`update` regenerates `PROCESS.md`, the workflow, and the guides under `agents/` where that directory exists. It shows a unified diff of everything that would change and asks before writing. Run from a release binary, regenerating the workflow sets `version` to that release; any other binary keeps the pin the workflow has. `--check` shows the diff and exits 2 without writing where anything would change, and `--yes` applies without asking. Without a terminal and without either flag, it refuses. `update` does not touch `archdoc.json`, `README.md`, `AGENTS.md`, `LICENSE`, `INDEX.md`, `GLOSSARY.md` or any document.
+`update` regenerates `PROCESS.md`, the workflow, and the guides under `agents/` where that directory exists. It shows a unified diff of everything that would change and asks before writing. Run from a release binary, regenerating the workflow sets `version` to that release; any other binary keeps the pin the workflow has. `--check` shows the diff and exits 2 without writing where anything would change, and `--yes` applies without asking. Without a terminal and without either flag, it refuses when anything would change. `update` does not touch `archdoc.json`, `README.md`, `AGENTS.md`, `LICENSE`, `INDEX.md`, `GLOSSARY.md` or any document.
 
 ## GitLab CI
 
@@ -138,7 +138,7 @@ archdoc-merge:
 - `ARCHDOC_VERSION` pins the release. The install script downloads that release's archive for the runner's platform and `checksums.txt`, checks the archive against the checksums, and installs `archdoc` into `/usr/local/bin` where that is writable, and otherwise into `$HOME/.local/bin`. It needs `curl` or `wget`, `sha256sum` or `shasum`, and `tar`, and runs on Linux and macOS. Raise the pin deliberately, as with the GitHub workflow.
 - `GIT_DEPTH: "0"` turns off GitLab's shallow clone, so the merge base can be found.
 - The `git fetch` makes `origin/main` present whatever the pipeline fetched. `archdoc` reads it when there is no local `main`.
-- `archdoc` runs in pipelines for branches, and `archdoc-merge` in merge request pipelines whose target is the configured branch. A job with `rules` runs in merge request pipelines and one without runs in branch pipelines, so each pipeline runs one of the two.
+- `archdoc` runs in pipelines for branches and tags, and `archdoc-merge` in merge request pipelines whose target is the configured branch. A job with `rules` runs in merge request pipelines and one without runs in branch and tag pipelines, so each pipeline runs one of the two.
 - `archdoc changes` prints its table to the job log. It is the script's last line, so it runs only when the checks before it pass, where the GitHub step runs whatever they found.
 
 `archdoc lint --merge` always compares against the configured branch in `archdoc.json`, not the merge request's target. The condition on `CI_MERGE_REQUEST_TARGET_BRANCH_NAME` keeps it to merge requests into that branch. Write the same branch there and in the fetch.
