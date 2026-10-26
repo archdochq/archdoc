@@ -89,7 +89,7 @@ On a pull request, the merge rules judge each change of status under the `strict
 
 ## Freezing
 
-A document with a terminal status is frozen once it is on the configured branch, the `branch` in `archdoc.json`. From then on lint reports any change to it (rule L11), and deleting or renaming it is reported too. Whether it changed is decided by git, against the local branch, or `origin/<branch>` where there is no local one. A document that is terminal in your working tree but not yet on the branch is not frozen, so you can still correct it before it merges.
+A document with a terminal status is frozen once it is on the configured branch, the `branch` in `archdoc.json`. From then on lint reports any change to it (rule L11), and deleting or renaming it is reported too. Whether it changed is decided by git, against the merge base of `HEAD` and the local branch, or `origin/<branch>` where there is no local one, so a branch cut before a document was accepted is not reported for holding the earlier version. A document that is terminal in your working tree but not yet on the branch is not frozen, so you can still correct it before it merges.
 
 To change what a frozen document says, write a new document that updates or obsoletes it. To correct a typo in one, write a new document that updates it, or leave the typo.
 

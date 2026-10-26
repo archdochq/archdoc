@@ -27,7 +27,7 @@ Warnings do not fail `archdoc lint` unless you pass `--strict-warnings`.
 
 ### History
 
-The checks read the configured branch, named by `branch` in `archdoc.json`, from git. Frozen documents are compared with that branch, and `lint --merge` and `changes` compare against the merge base of `HEAD` and that branch. Where there is no local branch of that name, `archdoc` reads `origin/<branch>`, which is what a CI checkout usually has.
+The checks read the configured branch, named by `branch` in `archdoc.json`, from git. A document is frozen when it is terminal on that branch, and frozen documents, `lint --merge` and `changes` are all judged against the merge base of `HEAD` and that branch. Where there is no local branch of that name, `archdoc` reads `origin/<branch>`, which is what a CI checkout usually has.
 
 A shallow clone holding only the commit under test fails these checks. Without the branch, `archdoc lint` reports:
 
@@ -35,7 +35,7 @@ A shallow clone holding only the commit under test fails these checks. Without t
 .: error: branch "main" does not exist, so no document can be checked against it
 ```
 
-and `archdoc lint --merge` exits 1 with `no branch to compare against`. With the branch but too little history to find a merge base, it exits 1 saying `HEAD shares no history with main`. Every CI setup below fetches the full history and the configured branch.
+and `archdoc lint --merge` exits 1 with `no branch to compare against`. With the branch but too little history to find a merge base, `archdoc lint` reports `.: error: HEAD shares no history with main; a shallow clone needs its full history (fetch-depth: 0)`, and `lint --merge` exits 1 saying the same. Every CI setup below fetches the full history and the configured branch.
 
 ## GitHub Actions
 
@@ -143,7 +143,7 @@ archdoc-merge:
 
 `archdoc lint --merge` always compares against the configured branch in `archdoc.json`, not the merge request's target. The condition on `CI_MERGE_REQUEST_TARGET_BRANCH_NAME` keeps it to merge requests into that branch. Write the same branch there and in the fetch.
 
-`archdoc lint` compares frozen documents with the tip of the configured branch, wherever it runs. A branch that is behind it reports a document accepted there after the branch was cut as changed, because the branch still holds the earlier version, or as deleted where the branch does not hold it at all. That holds for branch pipelines, merge request pipelines on the source branch, the GitHub workflow's push runs and the pre-commit hook alike. Rebasing the branch, or merging the configured branch into it, clears the finding.
+A merge request pipeline runs on the source branch as it is, not merged into the target, unless merged results pipelines are turned on. The checks then judge the branch against the commit it was cut from, so a document the configured branch has accepted since is not reported, and a number it has taken since is not reported until the branch is rebased.
 
 Where `archdoc.json` is not at the root of the repository, add `-C <directory>` to each command, such as `archdoc -C spec lint`.
 
