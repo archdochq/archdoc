@@ -20,6 +20,13 @@ import (
 // which is a usage error rather than a finding: there is nothing to judge.
 var ErrNoBase = errors.New("no branch to compare against")
 
+// NoSharedHistory says HEAD and branch share no commit, formatted with the
+// branch. actions/checkout fetches a depth of one by default, which holds HEAD
+// alone and is the usual way to arrive here.
+func NoSharedHistory(branch string) string {
+	return fmt.Sprintf("HEAD shares no history with %s; a shallow clone needs its full history (fetch-depth: 0)", branch)
+}
+
 // Base is the record on the configured branch as HEAD last took it in: the
 // commit GitHub merged a pull request against, or the point an unrebased branch
 // was cut from, so that what the branch merged since is not read as removed.
@@ -54,7 +61,7 @@ func ReadBase(r *repo.Repo, g git.Repository) (*Base, error) {
 		return nil, err
 	}
 	if commit == "" {
-		return nil, fmt.Errorf("%w: HEAD shares no history with %s", ErrNoBase, branch)
+		return nil, fmt.Errorf("%w: %s", ErrNoBase, NoSharedHistory(branch))
 	}
 	files, err := g.ListFiles(commit)
 	if err != nil {

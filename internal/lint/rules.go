@@ -8,6 +8,7 @@ import (
 	"slices"
 	"strings"
 
+	"archdoc.dev/internal/changes"
 	"archdoc.dev/internal/git"
 	"archdoc.dev/internal/repo"
 )
@@ -607,7 +608,20 @@ func L11(ctx Context) []Finding {
 		}
 	}
 
-	changed, err := ctx.Git().Changed(branch, frozen)
+	// Changed and deleted against where HEAD left the branch, not against its
+	// tip: a branch cut before a document was frozen there holds it as it was
+	// then, or not at all, and merging leaves it as the branch has it.
+	base, err := ctx.Git().MergeBase(branch)
+	if err != nil {
+		rep.add(Error, ".", 0, err.Error())
+		return rep.findings
+	}
+	if base == "" {
+		rep.add(Error, ".", 0, changes.NoSharedHistory(branch))
+		return rep.findings
+	}
+
+	changed, err := ctx.Git().Changed(base, frozen)
 	if err != nil {
 		rep.add(Error, ".", 0, err.Error())
 		return rep.findings
@@ -661,9 +675,16 @@ func L11(ctx Context) []Finding {
 		}
 		return rep.findings
 	}
+	// Deleted only where the base had it: one added on the branch since the
+	// cut was never in HEAD's history to delete.
+	deleted, err := ctx.Git().Changed(base, gone)
+	if err != nil {
+		rep.add(Error, ".", 0, err.Error())
+		return rep.findings
+	}
 	for _, file := range gone {
 		content, ok := committed[file]
-		if !ok || !repo.StatusIn(content).Terminal() {
+		if !ok || !deleted[file] || !repo.StatusIn(content).Terminal() {
 			continue
 		}
 		rep.addf(Error, docPaths[file], 0, "frozen on %s but deleted from the working tree", branch)
