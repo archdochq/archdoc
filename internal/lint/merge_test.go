@@ -261,3 +261,24 @@ func commit(t *testing.T, dir, message string) {
 	run(t, dir, "add", "-A")
 	run(t, dir, "commit", "-q", "-m", message)
 }
+
+func TestReadBaseNamesAShallowCloneWhereHEADSharesNoHistory(t *testing.T) {
+	dir := gitFixture(t, nil)
+	run(t, dir, "checkout", "-q", "--orphan", "unrelated")
+	commit(t, dir, "no shared history")
+	c, err := config.Find(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	r, err := repo.Open(c)
+	if err != nil {
+		t.Fatal(err)
+	}
+	g, err := git.Open(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := changes.ReadBase(r, g); !errors.Is(err, changes.ErrNoBase) || !strings.Contains(err.Error(), "fetch-depth: 0") {
+		t.Errorf("ReadBase with no shared history = %v, want ErrNoBase naming fetch-depth: 0", err)
+	}
+}

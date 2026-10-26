@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 
@@ -271,9 +272,18 @@ func (s stubGit) FilesAt(string, []string) (map[string][]byte, error) { return n
 
 // ListFiles succeeds, so the failure under test is the blob read, not the listing.
 func (s stubGit) ListFiles(string) ([]string, error) { return nil, nil }
-func (s stubGit) MergeBase(string) (string, error)   { return "", s.err }
-func (s stubGit) CurrentBranch() (string, error)     { return "main", nil }
-func (s stubGit) RepoRoot() (string, error)          { return "/", nil }
+
+// MergeBase gives a base unless the stub fails, so that the stubs embedding
+// this one reach the failure they stand for rather than stopping at a branch
+// that shares no history.
+func (s stubGit) MergeBase(string) (string, error) {
+	if s.err != nil {
+		return "", s.err
+	}
+	return "base", nil
+}
+func (s stubGit) CurrentBranch() (string, error) { return "main", nil }
+func (s stubGit) RepoRoot() (string, error)      { return "/", nil }
 
 func (s stubGit) Prefix() (string, error) { return "", nil }
 
@@ -723,4 +733,121 @@ func TestL20AndL21SoftenToWarningsOnAFrozenDocument(t *testing.T) {
 			}
 		}
 	}
+}
+
+// cutBranch commits files on main, cuts feature from it, commits onFeature
+// there, then commits onMain on main after the cut and checks feature out.
+// Empty contents delete the path.
+func cutBranch(t *testing.T, files, onFeature, onMain map[string]string) string {
+	t.Helper()
+	dir := gitFixture(t, files)
+	apply := func(changes map[string]string, message string) {
+		for path, contents := range changes {
+			if contents == "" {
+				remove(t, dir, path)
+				continue
+			}
+			write(t, dir, path, contents)
+		}
+		commit(t, dir, message)
+	}
+	run(t, dir, "checkout", "-q", "-b", "feature")
+	apply(onFeature, "feature")
+	run(t, dir, "checkout", "-q", "main")
+	apply(onMain, "after the cut")
+	run(t, dir, "checkout", "-q", "feature")
+	return dir
+}
+
+func TestL11IsSilentForWhatTheBranchFrozeAfterItWasCut(t *testing.T) {
+	const older, newer = "rfc/0001-older.md", "rfc/0002-newer.md"
+	dir := cutBranch(t,
+		map[string]string{older: rfc("RFC-0001", "Older", "proposed", "", "Proposed at the cut.")},
+		map[string]string{"rfc/0003-feature.md": rfc("RFC-0003", "Feature", "proposed", "", "The branch's own.")},
+		map[string]string{
+			older: rfc("RFC-0001", "Older", "accepted", " 2026-02-01", "Proposed at the cut."),
+			newer: rfc("RFC-0002", "Newer", "accepted", " 2026-02-01", "Added after the cut."),
+		},
+	)
+
+	got := lintDir(t, dir)
+	for _, path := range []string{older, newer} {
+		if f := findingsFor(got, "L11", path); len(f) != 0 {
+			t.Errorf("L11 reported %s, which the branch never touched: %v", path, f)
+		}
+	}
+}
+
+func TestL11StillReportsWhatABranchChangesOrDeletes(t *testing.T) {
+	const edited, deleted, since = "rfc/0001-edited.md", "rfc/0002-deleted.md", "rfc/0003-since.md"
+	dir := cutBranch(t,
+		map[string]string{
+			edited:  rfc("RFC-0001", "Edited", "accepted", " 2026-02-01", "Frozen at the cut."),
+			deleted: rfc("RFC-0002", "Deleted", "accepted", " 2026-02-01", "Frozen at the cut."),
+			since:   rfc("RFC-0003", "Since", "proposed", "", "Proposed at the cut."),
+		},
+		map[string]string{
+			edited:  rfc("RFC-0001", "Edited", "accepted", " 2026-02-01", "Edited on the branch."),
+			deleted: "",
+			since:   rfc("RFC-0003", "Since", "proposed", "", "Edited on the branch."),
+		},
+		// Accepted on main after the cut, so merging the branch's edit would
+		// change a frozen document.
+		map[string]string{since: rfc("RFC-0003", "Since", "accepted", " 2026-02-01", "Proposed at the cut.")},
+	)
+
+	got := lintDir(t, dir)
+	expect(t, got, "L11", edited, 1, "changed since it was frozen on main")
+	expect(t, got, "L11", deleted, 1, "frozen on main but deleted from the working tree")
+	expect(t, got, "L11", since, 1, "changed since it was frozen on main")
+}
+
+func TestL11NamesAShallowCloneWhereHEADSharesNoHistoryWithTheBranch(t *testing.T) {
+	dir := gitFixture(t, map[string]string{
+		"rfc/0001-frozen.md": rfc("RFC-0001", "Frozen", "accepted", " 2026-02-01", "Committed."),
+	})
+	run(t, dir, "checkout", "-q", "--orphan", "unrelated")
+	run(t, dir, "commit", "-q", "-m", "no shared history")
+
+	expect(t, lintDir(t, dir), "L11", ".", 1, "a shallow clone needs its full history (fetch-depth: 0)")
+}
+
+// failingMergeBase reads the branch fine but cannot find where HEAD left it.
+type failingMergeBase struct{ stubGit }
+
+func (failingMergeBase) MergeBase(string) (string, error) {
+	return "", errors.New("merge-base exploded")
+}
+
+func TestL11ReportsAFailureToFindTheMergeBase(t *testing.T) {
+	findings := lint.Run(lint.NewContext(repotest.Fixture(t, "repo"), failingMergeBase{}, now))
+
+	expect(t, findings, "L11", ".", 1, "merge-base exploded")
+}
+
+// failingDeletion lists a frozen document the working tree does not have, and
+// cannot ask whether the base had it.
+type failingDeletion struct{ stubGit }
+
+const goneDocument = "rfc/0099-gone.md"
+
+func (failingDeletion) ListFiles(string) ([]string, error) { return []string{goneDocument}, nil }
+func (failingDeletion) FilesAt(_ string, paths []string) (map[string][]byte, error) {
+	out := map[string][]byte{}
+	for _, p := range paths {
+		out[p] = []byte("---\nstatus: accepted\n---\n")
+	}
+	return out, nil
+}
+func (failingDeletion) Changed(_ string, paths []string) (map[string]bool, error) {
+	if slices.Contains(paths, goneDocument) {
+		return nil, errors.New("diff of the deletions exploded")
+	}
+	return nil, nil
+}
+
+func TestL11ReportsAFailureToAskWhetherADocumentWasDeleted(t *testing.T) {
+	findings := lint.Run(lint.NewContext(repotest.Fixture(t, "repo"), failingDeletion{}, now))
+
+	expect(t, findings, "L11", ".", 1, "diff of the deletions exploded")
 }

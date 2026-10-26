@@ -304,6 +304,9 @@ var Rules = []Rule{
 		Summary: "A frozen document changed, or was deleted",
 		Remedy:  "Revert it. To change what it says, write a new document that updates or obsoletes it",
 		Since:   "v0.1.0-alpha.1",
+		Changes: []Change{
+			{Release: "v0.6.0", Summary: "Judges what changed or was deleted against the merge base of HEAD and the branch, not the branch's tip"},
+		},
 	},
 	{
 		Code:    "L12",

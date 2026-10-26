@@ -54,7 +54,7 @@ Creates the next-numbered document of the type from its template, with `ID`, `Ti
 
 ## `archdoc changes [--json]`
 
-Lists what the working tree changes in the record against the base `lint --merge` reads: the merge base of HEAD and the configured branch, resolved as L11 resolves it. Outside a git repository, where the branch does not exist, or where HEAD shares no history with it, exits 1 naming the branch. Otherwise exits 0 whatever it lists.
+Lists what the working tree changes in the record against the base `lint --merge` reads: the merge base of HEAD and the configured branch, resolved as L11 resolves it. Outside a git repository, where the branch does not exist, or where HEAD shares no history with it, exits 1 naming the branch, saying in the last case that a shallow clone needs its full history (`fetch-depth: 0`). Otherwise exits 0 whatever it lists.
 
 | Change | Listed when |
 |---|---|

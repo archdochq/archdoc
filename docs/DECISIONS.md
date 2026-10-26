@@ -412,6 +412,15 @@ the result can delete content it never read.
   normalisation, the default on Windows, every frozen document differed from its blob while the tree was
   clean. Pathspecs are anchored to the repository root and `diff.relative` is forced off, because both
   sides of that assumption resolve paths relative to the working directory otherwise.
+- **L11 reads which documents are frozen from the branch's tip, and what changed from the merge base.**
+  Compared with the tip, a branch cut before a document was accepted there held it as it was, or not
+  at all, and L11 reported it changed or deleted although merging leaves it as the branch has it; a
+  pull request's check re-run after the branch moved failed the same way. Frozen is still the tip's
+  answer, so a document accepted there since the cut and edited on the branch is reported, because
+  merging would change it. A deletion counts only where the merge base held the document. Where HEAD
+  and the branch share no commit, as in a clone of depth one that fetched the branch, the rule fails
+  naming `fetch-depth: 0` rather than falling back to the tip, which would report every document
+  frozen there since.
 - **A missing branch is two different situations.** With no commits at all nothing can be frozen, so the
   rule is skipped with a warning: `archdoc init` followed by `archdoc lint` is the first thing anyone
   does. With commits present a missing branch means the configured name is wrong, and passing quietly
