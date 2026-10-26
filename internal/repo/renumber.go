@@ -2,6 +2,7 @@ package repo
 
 import (
 	"fmt"
+	"maps"
 	"net/url"
 	"os"
 	"path"
@@ -32,9 +33,9 @@ func ParseIdentifier(id string) (Type, int, bool) {
 	return t, n, true
 }
 
-// referenceKeys are the front matter lists that name other documents. A
+// referenceKeys are the front matter keys that name other documents. A
 // renumbered document has to be renamed in every one of them.
-var referenceKeys = []string{"depends", "updates", "obsoletes", "includes", "documents"}
+var referenceKeys = []string{"depends", "updates", "obsoletes", "includes", "documents", "named_by"}
 
 // Renumber changes a numbered document's identifier, rewriting the filename,
 // the front matter id, the heading, and every reference to the old identifier
@@ -150,22 +151,50 @@ func Renumber(r *Repo, from, to string, frozen func(*Document) bool) (changed, u
 		return nil, nil, err
 	}
 
+	if err := write(r, d, newPath, source, edits); err != nil {
+		return nil, nil, err
+	}
 	changed = make([]string, 0, len(edits)+1)
-	for docPath, body := range edits {
-		if err := r.WriteFile(docPath, body); err != nil {
-			return nil, nil, err
-		}
+	for docPath := range edits {
 		changed = append(changed, docPath)
-	}
-	if err := r.WriteFile(newPath, source); err != nil {
-		return nil, nil, err
-	}
-	if err := os.Remove(r.File(d.Path)); err != nil {
-		return nil, nil, err
 	}
 	changed = append(changed, d.Path+" -> "+newPath)
 	sort.Strings(changed)
 	return changed, unchanged, nil
+}
+
+// write makes the rename: the new file, every other document's edits, then
+// removing the old file. A failure part way restores what was already written,
+// since a referring document rewritten to a number no file carries is the
+// state the command exists to prevent. The new file goes first because an
+// existing path in its place, a directory say, is the likeliest failure, and
+// its write then changes nothing.
+func write(r *Repo, d *Document, newPath string, source []byte, edits map[string][]byte) (err error) {
+	if _, err := os.Lstat(r.File(newPath)); err == nil {
+		return fmt.Errorf("%s already exists", newPath)
+	}
+	var written []string
+	defer func() {
+		if err == nil {
+			return
+		}
+		for _, docPath := range written {
+			_ = r.WriteFile(docPath, r.ByPath(docPath).Source)
+		}
+		_ = os.Remove(r.File(newPath))
+	}()
+
+	if err := r.WriteFile(newPath, source); err != nil {
+		return err
+	}
+	paths := slices.Sorted(maps.Keys(edits))
+	for _, docPath := range paths {
+		if err := r.WriteFile(docPath, edits[docPath]); err != nil {
+			return err
+		}
+		written = append(written, docPath)
+	}
+	return os.Remove(r.File(d.Path))
 }
 
 // selectDocument finds the document to rename, by path or by identifier.

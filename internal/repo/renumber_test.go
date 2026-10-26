@@ -459,3 +459,62 @@ func TestRenumberRefusesALinkItCannotRewriteAsWritten(t *testing.T) {
 		}
 	}
 }
+
+// TestRenumberWritesNothingWhenAWriteFails holds the promise the refusal makes:
+// the referring documents were written first and left naming a number no file
+// carried when a later write failed.
+func TestRenumberWritesNothingWhenAWriteFails(t *testing.T) {
+	files := map[string]string{
+		"rfc/0001-base.md":  draft("RFC-0001", "Base"),
+		"rfc/0002-later.md": draftDepending("RFC-0002", "Later", "RFC-0001"),
+		"spec/zz.md":        "---\ntitle: Zz\nincludes: [RFC-0001]\n---\n\n# Zz\n\nSee [[RFC-0001]].\n",
+	}
+	for name, block := range map[string]func(t *testing.T, root string){
+		"the target is a directory": func(t *testing.T, root string) {
+			if err := os.Mkdir(filepath.Join(root, "rfc", "0009-base.md"), 0o755); err != nil {
+				t.Fatal(err)
+			}
+		},
+		"a referrer is read-only": func(t *testing.T, root string) {
+			if os.Getuid() == 0 {
+				t.Skip("root writes through a read-only mode")
+			}
+			if err := os.Chmod(filepath.Join(root, "spec", "zz.md"), 0o444); err != nil {
+				t.Fatal(err)
+			}
+		},
+	} {
+		t.Run(name, func(t *testing.T) {
+			r := repotest.New(t, files)
+			root := r.Config().RootDir()
+			block(t, root)
+			if _, _, err := repo.Renumber(r, "RFC-0001", "RFC-0009", nothingFrozen); err == nil {
+				t.Fatal("Renumber succeeded despite the blocked write")
+			}
+			for p, want := range files {
+				got, err := os.ReadFile(filepath.Join(root, filepath.FromSlash(p)))
+				if err != nil || string(got) != want {
+					t.Errorf("%s was changed or removed (%v):\n%s", p, err, got)
+				}
+			}
+			info, err := os.Stat(filepath.Join(root, "rfc", "0009-base.md"))
+			if blocked := name == "the target is a directory"; blocked != (err == nil && info.IsDir()) || err == nil && !info.IsDir() {
+				t.Errorf("rfc/0009-base.md was left behind or the directory in its place removed (%v)", err)
+			}
+		})
+	}
+}
+
+func TestRenumberFollowsATermsNamedBy(t *testing.T) {
+	r := repotest.New(t, map[string]string{
+		"rfc/0001-base.md": draft("RFC-0001", "Base"),
+		"term/widget.md":   "---\ntitle: Widget\nformerly: []\nnamed_by: RFC-0001\n---\n\n# Widget\n\nA definition.\n",
+	})
+	if _, _, err := repo.Renumber(r, "RFC-0001", "RFC-0009", nothingFrozen); err != nil {
+		t.Fatalf("Renumber: %v", err)
+	}
+	body, err := os.ReadFile(filepath.Join(r.Config().RootDir(), "term", "widget.md"))
+	if err != nil || !strings.Contains(string(body), "named_by: RFC-0009\n") {
+		t.Errorf("named_by was not followed (%v):\n%s", err, body)
+	}
+}
