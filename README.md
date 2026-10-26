@@ -26,6 +26,13 @@ With Homebrew, on macOS or Linux:
 brew install archdochq/tap/archdoc
 ```
 
+With the install script, on Linux or macOS, which checks the download against
+the release's `checksums.txt`:
+
+```
+curl -fsSL https://github.com/archdochq/archdoc/releases/latest/download/install.sh | sh
+```
+
 Or download a binary for your platform from the
 [releases page](https://github.com/archdochq/archdoc/releases), or with Go:
 

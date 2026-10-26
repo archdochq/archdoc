@@ -1,0 +1,27 @@
+{
+  "sections": [
+    {
+      "title": "Start",
+      "guides": [
+        {"path": "installing.md", "title": "Installing ArchDoc"},
+        {"path": "five-minutes.md", "title": "Five minutes with ArchDoc"}
+      ]
+    },
+    {
+      "title": "Concepts",
+      "guides": [
+        {"path": "concepts.md", "title": "Concepts"}
+      ]
+    },
+    {
+      "title": "Guides",
+      "guides": [
+        {"path": "backfilling.md", "title": "Backfilling"},
+        {"path": "beside-the-code.md", "title": "A spec repository beside the code"},
+        {"path": "ci.md", "title": "Checking in CI: GitHub, GitLab and pre-commit"},
+        {"path": "coding-agents.md", "title": "Working with coding agents"},
+        {"path": "pull-requests.md", "title": "Contributing by pull request"}
+      ]
+    }
+  ]
+}

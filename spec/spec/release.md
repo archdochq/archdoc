@@ -1,11 +1,21 @@
 ---
 title: Release
-includes: [RFC-0010, RFC-0014, ADR-0012, ADR-0013, ADR-0015, ADR-0018]
+includes: [RFC-0010, RFC-0014, RFC-0016, ADR-0012, ADR-0013, ADR-0015, ADR-0018]
 ---
 
 # Release
 
 Tagged versions build with goreleaser for linux, darwin and windows on amd64 and arm64. Archives are `tar.gz`, or `zip` for windows, named `archdoc_<version>_<os>_<arch>` with the binary `archdoc` at the archive root and `LICENSE` and `README.md` beside it. A `checksums.txt` of SHA-256 digests is published with them. A tag carrying a prerelease identifier publishes as a prerelease.
+
+Every release, a prerelease included, also attaches `archdoc_<version>_docs.tar.gz` and `install.sh`, and `checksums.txt` lists both. goreleaser writes them before it builds, through a `before` hook running `go run ./docs/build.go build/docs <tag> <full commit>`, and attaches `build/docs/*` through `extra_files` on the release and the checksums. A generator that exits non-zero stops the release before anything is published.
+
+The generator reads `docs/guides/contents.json` and the guides, and refuses a `.md` file under `docs/guides/` that the contents do not list exactly once, a listed path that is not a `.md` file directly under it, a section with no title or no guides, a guide with no title, a key the contents do not define or a second JSON value after them, a guide whose first line is `---`, and a relative link in a guide that names anything but a listed guide, with or without a fragment, or a fragment alone. A link holding `://`, or starting `mailto:`, is not relative. It runs `archdoc reference`, built from the same checkout with the tag as its version, reads `PROCESS.md` from `internal/template` and every file under `schema/`, and refuses an `install.sh` without exactly one line `release=`. It refuses an output directory holding anything but files named `archdoc_*_docs.tar.gz` and `install.sh`. All of this is read before the directory is emptied and written.
+
+The bundle holds, at its root and as files only, `manifest.json`, `reference.json`, `PROCESS.md`, `guides/<file>.md` in the contents' order and `schema/<type>/v<n>.json` in path order, each entry dated the Unix epoch. `manifest.json` carries `bundle`, which is `1`, `version`, the tag, `commit`, `schemas`, the export's and the reference's schema numbers, and `sections`, the contents with each path under `guides/`. `install.sh` is written with the line `release=` set to the tag, mode `0755`.
+
+`install.sh` is a POSIX shell script. It installs the release `ARCHDOC_VERSION` names, or else the one its `release` line sets, and exits non-zero naming the variable when neither is set, as in the repository's copy. It maps `uname -s` to `linux` or `darwin` and `uname -m` to `amd64` or `arm64`, downloads `archdoc_<version>_<os>_<arch>.tar.gz` and `checksums.txt` into a temporary directory with `curl` or `wget` from `ARCHDOC_DOWNLOAD_URL`, or else the release's download URL, and checks the archive with `sha256sum` or `shasum -a 256` against the line naming it. It installs into `ARCHDOC_INSTALL_DIR`, or else `/usr/local/bin` where writable, or else `$HOME/.local/bin`, creating the directory, refuses an `archdoc` there that is a symbolic link or a directory, and copies the binary to a name `mktemp` creates in the directory before renaming it over `archdoc`. It prints the release and the path, and warns when the directory is not on `PATH`. On exit it removes the temporary directory and any temporary file it left.
+
+A test builds the generator and runs it against guides holding each fault it refuses, checking that the output directory is unchanged, and against the repository's guides, checking the bundle's entries, manifest and copies. Another runs the rendered `install.sh` under `sh` against a local server, on Linux and macOS, and a third checks that `.goreleaser.yaml` runs the generator into the directory both `extra_files` lists name.
 
 `archdoc --version` prints the tag. The version resolves in order: the ldflag goreleaser sets at build time; the module version from `runtime/debug.ReadBuildInfo`, which `go install ...@version` and `@latest` populate; `dev`.
 
