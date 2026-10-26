@@ -1,9 +1,9 @@
 ---
 id: RFC-0016
 title: A release carries its documentation and an install script
-status: proposed
+status: accepted
 created: 2026-10-19
-decided:
+decided: 2026-10-26
 depends: [RFC-0014, ADR-0005, ADR-0006, ADR-0019]
 updates: []
 obsoletes: []
