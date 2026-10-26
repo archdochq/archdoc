@@ -112,10 +112,27 @@ func (c Context) Frozen(d *repo.Document) bool {
 	return ok && on.Err == nil && on.Status.Terminal()
 }
 
-// Rule is one check, identified by the code it reports under.
+// Rule is one check, identified by the code it reports under, with what the
+// reference publishes about it and the triage guide's table is generated from.
 type Rule struct {
 	Code  string
 	Check func(Context) []Finding
+	// Title names what the rule checks in a few words.
+	Title string
+	// Summary says what a finding means, and Remedy how one is cleared, both
+	// as inline Markdown.
+	Summary string
+	Remedy  string
+	// Since is the tag of the first release carrying the rule, and Changes the
+	// later releases that changed what it reports, in release order.
+	Since   string
+	Changes []Change
+}
+
+// Change is a release that changed what a rule reports.
+type Change struct {
+	Release string
+	Summary string
 }
 
 // Merge reports whether a rule judges a pull request against its base, which
@@ -200,31 +217,206 @@ func branchFiles(ctx Context) map[string]BranchFile {
 
 // Rules is every rule, in code order.
 var Rules = []Rule{
-	{"L01", L01},
-	{"L02", L02},
-	{"L03", L03},
-	{"L04", L04},
-	{"L05", L05},
-	{"L06", L06},
-	{"L07", L07},
-	{"L08", L08},
-	{"L09", L09},
-	{"L10", L10},
-	{"L11", L11},
-	{"L12", L12},
-	{"L13", L13},
-	{"L14", L14},
-	{"L15", L15},
-	{"L16", L16},
-	{"L17", L17},
-	{"L18", L18},
-	{"L19", L19},
-	{"L20", L20},
-	{"L21", L21},
-	{"M01", M01},
-	{"M02", M02},
-	{"M03", M03},
-	{"M04", M04},
+	{
+		Code:    "L01",
+		Check:   L01,
+		Title:   "Front matter matches the schema",
+		Summary: "Front matter is malformed, has an unknown key, a required key is missing or empty, or `as_of` is empty",
+		Remedy:  "Fix the front matter",
+		Since:   "v0.1.0-alpha.1",
+	},
+	{
+		Code:    "L02",
+		Check:   L02,
+		Title:   "The identifier matches the filename",
+		Summary: "`id` does not match the filename, or the filename is not `<NNNN>-<slug>.md`",
+		Remedy:  "Rename the file, or correct `id`",
+		Since:   "v0.1.0-alpha.1",
+	},
+	{
+		Code:    "L03",
+		Check:   L03,
+		Title:   "Identifiers are unique",
+		Summary: "Two documents claim the same identifier",
+		Remedy:  "Renumber the wrong one with `archdoc renumber <path>`, then correct each reference it lists that meant that one",
+		Since:   "v0.1.0-alpha.1",
+	},
+	{
+		Code:    "L04",
+		Check:   L04,
+		Title:   "References resolve",
+		Summary: "A referenced identifier does not resolve, or a group's member names nothing or is listed twice",
+		Remedy:  "Create the document, or correct the reference or the group's list",
+		Since:   "v0.1.0-alpha.1",
+	},
+	{
+		Code:    "L05",
+		Check:   L05,
+		Title:   "Updates and obsoletes name accepted documents",
+		Summary: "`updates`/`obsoletes` targets something not accepted, of the wrong type, or itself",
+		Remedy:  "Accept the target, or correct the list",
+		Since:   "v0.1.0-alpha.1",
+	},
+	{
+		Code:    "L06",
+		Check:   L06,
+		Title:   "Includes name accepted documents",
+		Summary: "`includes` targets something not accepted",
+		Remedy:  "Accept the target, or remove it from the page",
+		Since:   "v0.1.0-alpha.1",
+	},
+	{
+		Code:    "L07",
+		Check:   L07,
+		Title:   "Dates are consistent",
+		Summary: "`decided` set without a terminal status, or before `created`, backfill dates disagree, or a ref's `as_of` is after `verified`",
+		Remedy:  "Correct the dates",
+		Since:   "v0.1.0-alpha.1",
+	},
+	{
+		Code:    "L08",
+		Check:   L08,
+		Title:   "Required sections are present and in order",
+		Summary: "A required section is missing, misnamed, out of order, or the closing section is not last",
+		Remedy:  "Add or reorder. Titles must match exactly",
+		Since:   "v0.1.0-alpha.1",
+	},
+	{
+		Code:    "L09",
+		Check:   L09,
+		Title:   "An accepted document has no open questions",
+		Summary: "An accepted document still has content under `Open questions`",
+		Remedy:  "Move each question to `Resolved questions` with its answer, and remove anything else",
+		Since:   "v0.1.0-alpha.1",
+	},
+	{
+		Code:    "L10",
+		Check:   L10,
+		Title:   "The heading matches the front matter",
+		Summary: "The H1 does not match the front matter",
+		Remedy:  "Correct whichever is wrong",
+		Since:   "v0.1.0-alpha.1",
+	},
+	{
+		Code:    "L11",
+		Check:   L11,
+		Title:   "Frozen documents are unchanged",
+		Summary: "A frozen document changed, or was deleted",
+		Remedy:  "Revert it. To change what it says, write a new document that updates or obsoletes it",
+		Since:   "v0.1.0-alpha.1",
+	},
+	{
+		Code:    "L12",
+		Check:   L12,
+		Title:   "Spec pages include nothing obsolete",
+		Summary: "A spec page includes something obsoleted (warning)",
+		Remedy:  "Update the page and its `includes`",
+		Since:   "v0.1.0-alpha.1",
+	},
+	{
+		Code:    "L13",
+		Check:   L13,
+		Title:   "Refs are verified recently",
+		Summary: "A ref's `verified` date is older than `ref_stale_days`, and it carries no `as_of` (warning)",
+		Remedy:  "Re-check the content, then update `verified`. A record of an exchange carries `as_of` instead",
+		Since:   "v0.1.0-alpha.1",
+	},
+	{
+		Code:    "L14",
+		Check:   L14,
+		Title:   "Required sections are not empty",
+		Summary: "A required section is empty",
+		Remedy:  "Write it",
+		Since:   "v0.1.0-alpha.1",
+	},
+	{
+		Code:    "L15",
+		Check:   L15,
+		Title:   "A term is defined in one paragraph",
+		Summary: "A term's definition under `term/` is not exactly one paragraph",
+		Remedy:  "Rewrite the definition as one paragraph",
+		Since:   "v0.1.0-alpha.1",
+	},
+	{
+		Code:    "L16",
+		Check:   L16,
+		Title:   "Wiki links are resolved",
+		Summary: "An unresolved `[[...]]` link",
+		Remedy:  "Run `archdoc link`",
+		Since:   "v0.1.0-alpha.1",
+	},
+	{
+		Code:    "L17",
+		Check:   L17,
+		Title:   "Relative links resolve",
+		Summary: "A relative link points at a missing file or heading",
+		Remedy:  "Fix the path or the anchor",
+		Since:   "v0.1.0-alpha.1",
+	},
+	{
+		Code:    "L18",
+		Check:   L18,
+		Title:   "Dependencies are as settled as the document",
+		Summary: "`depends` names something less settled than the referring document (warning)",
+		Remedy:  "Usually accept the dependency first",
+		Since:   "v0.1.0-alpha.1",
+	},
+	{
+		Code:    "L19",
+		Check:   L19,
+		Title:   "No glossary page is left from before terms",
+		Summary: "`spec/glossary.md` is left from before terms became files, and is no longer read (warning)",
+		Remedy:  "Move its terms to `term/` with `archdoc term add`. Guide: `spec-pages.md`",
+		Since:   "v0.5.0",
+	},
+	{
+		Code:    "L20",
+		Check:   L20,
+		Title:   "Question sections are shaped as questions",
+		Summary: "A question section is not shaped as questions: something before the first question; a question with no anchor, or sharing one with another heading; a heading beneath a question; a blockquote holding a heading, fence or comment; an open question ending with a blockquote; a resolved question with no answer, an empty one, or another blockquote just before it; `Resolved questions` empty, misplaced or repeated",
+		Remedy:  "Rewrite it in that shape: reword a clashing question, join two blockquotes with a line holding only `>`. Guide: `authoring.md`, Questions",
+		Since:   "v0.6.0",
+	},
+	{
+		Code:    "L21",
+		Check:   L21,
+		Title:   "The Changelog has the shape the tool reads",
+		Summary: "A Changelog entry is undated, has a malformed or impossible date, has a date and no text, or is out of order or outside the document's dates; a line in the section is outside the list form the tool reads; the heading is indented, misspelt or repeated, or the heading after the section is indented",
+		Remedy:  "Date the entry, or rewrite the line as an entry or within one, and write the heading `## Changelog` at the start of its line. Guide: `authoring.md`, The Changelog",
+		Since:   "v0.6.0",
+	},
+	{
+		Code:    "M01",
+		Check:   M01,
+		Title:   "No draft lands",
+		Summary: "An RFC or ADR arrives on the configured branch as a draft",
+		Remedy:  "Propose it with `archdoc propose` before it merges",
+		Since:   "v0.6.0",
+	},
+	{
+		Code:    "M02",
+		Check:   M02,
+		Title:   "An arriving document takes a free number",
+		Summary: "A document arrives carrying an identifier a document on the configured branch already holds",
+		Remedy:  "Rebase, then renumber the arriving one by path: `archdoc renumber <path>`",
+		Since:   "v0.6.0",
+	},
+	{
+		Code:    "M03",
+		Check:   M03,
+		Title:   "Status changes follow the lifecycle from the branch",
+		Summary: "A change of status the lifecycle does not permit from the status on the configured branch, under that branch's `strict`",
+		Remedy:  "Make one step at a time from the branch: where `strict` is on, merge the proposal first and give the verdict afterwards",
+		Since:   "v0.6.0",
+	},
+	{
+		Code:    "M04",
+		Check:   M04,
+		Title:   "A proposed document is withdrawn, not deleted",
+		Summary: "A document proposed on the configured branch is deleted or renumbered",
+		Remedy:  "Restore it, and withdraw it with `archdoc withdraw` if it is no longer wanted",
+		Since:   "v0.6.0",
+	},
 }
 
 // Run applies every rule and returns the findings, ordered by path, then line,

@@ -1,6 +1,6 @@
 ---
 title: Lint
-includes: [ADR-0008, ADR-0009, ADR-0010, RFC-0008, RFC-0009, RFC-0011, RFC-0013, RFC-0015]
+includes: [ADR-0008, ADR-0009, ADR-0010, RFC-0008, RFC-0009, RFC-0011, RFC-0013, RFC-0014, RFC-0015]
 ---
 
 # Lint
@@ -45,6 +45,20 @@ A document in the working tree was on the base when the base holds a document at
 - **M02** A numbered document arrives carrying an identifier that a document on the base, still in the working tree, carries. Reported at the arriving document's `id` line, naming the other document's path and `archdoc renumber` with the arriving document's path.
 - **M03** An RFC or ADR's status differs from its status on the base by a transition [Lifecycle](lifecycle.md) does not permit, under the `strict` of the base's `archdoc.json`, or of the working tree's where the base holds none. An arriving document is judged as moving from `draft`, except an arriving draft, which M01 reports, and one carrying `backfilled`, which L07 requires to be terminal. A document terminal on the base, and a status on either side that is not one of the five, are not judged. Reported at the `status` line; where the base's `strict` is on and the move is from `draft`, the message says to merge the proposal first.
 - **M04** An RFC or ADR proposed on the base whose identifier no document in the working tree carries: deleted, or renumbered. Reported at its path on the base, naming `archdoc withdraw`. A draft may be deleted, and a terminal document's deletion is L11's.
+
+## Rule entries
+
+Each rule in the registry carries, besides its code and check:
+
+| Field | Content |
+|---|---|
+| `Title` | A few words naming what the rule checks |
+| `Summary` | What a finding means, as inline Markdown |
+| `Remedy` | How a finding is cleared, as inline Markdown |
+| `Since` | The tag of the first release carrying the rule: `v0.1.0-alpha.1` for L01 to L18, `v0.5.0` for L19, `v0.6.0` for L20, L21 and M01 to M04 |
+| `Changes` | Each later release that changed what the rule reports, with a one-line account, in release order. Changes made before the registry recorded them are not listed |
+
+A test refuses an entry without a title, summary, remedy or `since`. The table of rules in the triage guide is the registry's summaries and remedies, one row per rule in code order; a test compares the two, and `go test ./internal/template -update-triage` rewrites the table. `archdoc reference` publishes every entry.
 
 ## Output
 

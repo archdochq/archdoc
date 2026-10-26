@@ -6,6 +6,7 @@ import (
 	"io"
 
 	"archdoc.dev/internal/lint"
+	"archdoc.dev/internal/reference"
 )
 
 // Exit codes, as specified: a usage or validation problem is distinct from a
@@ -15,6 +16,14 @@ const (
 	exitUsage    = 1
 	exitFindings = 2
 )
+
+// exitCodes is each status with its meaning, as the reference publishes it.
+var exitCodes = []reference.ExitCode{
+	{Code: exitOK, Meaning: "Success."},
+	{Code: exitUsage, Meaning: "A usage or validation error, or any other failure, printed to stderr."},
+	{Code: exitFindings, Meaning: "Lint reports an error, or a warning under --strict-warnings; a --check finds a file to change; " +
+		"link reports an error; or link --suggest prints a suggestion where it cannot prompt and --apply is not given."},
+}
 
 // jsonFinding is the wire shape shared by lint, index --check and link. Line is
 // a pointer so that a finding with no line omits the field rather than

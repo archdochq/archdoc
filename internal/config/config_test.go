@@ -1,7 +1,9 @@
 package config_test
 
 import (
+	"encoding/json"
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -238,5 +240,50 @@ func TestLoadAcceptsARootThatIsASymlinkWithinTheTree(t *testing.T) {
 
 	if _, err := config.Load(path); err != nil {
 		t.Errorf("a symlink pointing inside the tree was refused: %v", err)
+	}
+}
+
+func TestLoadAppliesTheDefaultsTheTableGives(t *testing.T) {
+	c, err := config.Load(writeConfig(t, `{"name": "x"}`))
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	// Through JSON, so each value is compared as archdoc.json spells it and
+	// every key the file can hold is seen.
+	b, err := json.Marshal(c)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var loaded map[string]any
+	if err := json.Unmarshal(b, &loaded); err != nil {
+		t.Fatal(err)
+	}
+
+	jsonType := map[string]string{"string": "string", "bool": "boolean", "float64": "integer"}
+	for _, key := range config.Keys {
+		value, ok := loaded[key.Name]
+		if !ok {
+			t.Errorf("%s is in the table but not a key of archdoc.json", key.Name)
+			continue
+		}
+		delete(loaded, key.Name)
+		if got := jsonType[fmt.Sprintf("%T", value)]; got != key.Type {
+			t.Errorf("%s loads as %s, but the table gives %s", key.Name, got, key.Type)
+		}
+		if key.Required {
+			if key.Default != nil {
+				t.Errorf("%s is required and has a default, %v", key.Name, key.Default)
+			}
+			continue
+		}
+		var want any
+		b, _ := json.Marshal(key.Default)
+		_ = json.Unmarshal(b, &want)
+		if value != want {
+			t.Errorf("%s loads as %v when absent, but the table gives %v", key.Name, value, want)
+		}
+	}
+	for name := range loaded {
+		t.Errorf("%s is a key of archdoc.json missing from the table", name)
 	}
 }

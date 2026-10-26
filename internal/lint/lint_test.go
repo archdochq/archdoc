@@ -341,6 +341,19 @@ func TestEveryRuleHasAFixtureCase(t *testing.T) {
 	}
 }
 
+func TestEveryRuleEntryIsFilled(t *testing.T) {
+	for _, rule := range lint.Rules {
+		if rule.Title == "" || rule.Summary == "" || rule.Remedy == "" || rule.Since == "" {
+			t.Errorf("%s lacks a title, summary, remedy or since: %+v", rule.Code, rule)
+		}
+		for _, c := range rule.Changes {
+			if c.Release == "" || c.Summary == "" {
+				t.Errorf("%s has a change lacking a release or summary: %+v", rule.Code, c)
+			}
+		}
+	}
+}
+
 func TestL20ReportsQuestionsOfTheWrongShape(t *testing.T) {
 	got := forRule(t, "lint", "L20")
 
@@ -378,8 +391,47 @@ func TestL01ReportsARequiredKeyWrittenWithNoValue(t *testing.T) {
 		"0016-empty-scalars.md:4: front matter key \"status\" is present but empty",
 		"0016-empty-scalars.md:5: front matter key \"created\" is present but empty",
 	)
-	// decided and the relationship lists are legitimately empty.
-	omits(t, got, `"decided" is present but empty`, `"depends" is present but empty`)
+	// decided and the relationship lists are legitimately empty, and an empty
+	// status is not also reported as an unknown one.
+	omits(t, got, `"decided" is present but empty`, `"depends" is present but empty`, `status "" is not one of`)
+}
+
+func TestL01ReportsEveryKeyTheSchemaRequiresAValueFor(t *testing.T) {
+	// One document of each type with every key of its schema written empty, so
+	// a key the table says must carry a value but L01 cannot see is caught.
+	paths := map[repo.Type]string{
+		repo.TypeRFC:   "rfc/0001-empty.md",
+		repo.TypeADR:   "adr/0001-empty.md",
+		repo.TypeRef:   "ref/0001-empty.md",
+		repo.TypeSpec:  "spec/empty.md",
+		repo.TypeTerm:  "term/empty.md",
+		repo.TypeGroup: "group/empty.md",
+	}
+	files := map[string]string{}
+	for typ, path := range paths {
+		var fm strings.Builder
+		for _, key := range repo.Keys(typ) {
+			fm.WriteString(key.Name + ":\n")
+		}
+		files[path] = "---\n" + fm.String() + "---\n\n# Empty\n"
+	}
+	r := repotest.New(t, files)
+
+	var got []string
+	for _, f := range lint.Run(lint.NewContext(r, nil, now)) {
+		if f.Rule == "L01" {
+			got = append(got, f.Path+": "+f.Message)
+		}
+	}
+
+	for typ, path := range paths {
+		for _, key := range repo.Keys(typ) {
+			finding := fmt.Sprintf("%s: front matter key %q is present but empty", path, key.Name)
+			if reported := slices.Contains(got, finding); reported == key.MayBeEmpty {
+				t.Errorf("%s: %s may be empty = %v, but L01 reporting it = %v", typ, key.Name, key.MayBeEmpty, reported)
+			}
+		}
+	}
 }
 
 func TestL01ReportsAsOfWrittenWithNoValue(t *testing.T) {
