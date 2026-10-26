@@ -123,6 +123,10 @@ func TestL04ReportsReferencesThatResolveToNothing(t *testing.T) {
 	mentions(t, got, "rfc/0003-dangling-refs.md:7: depends references RFC-9999")
 }
 
+func TestL04ChecksATermsNamedBy(t *testing.T) {
+	reports(t, forRule(t, "lint", "L04"), "term/dangling.md:4:", "named_by references RFC-9998, which does not exist")
+}
+
 func TestL04ChecksAGroupsMembers(t *testing.T) {
 	got := forRule(t, "lint", "L04")
 
