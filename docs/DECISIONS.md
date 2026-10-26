@@ -410,8 +410,10 @@ the result can delete content it never read.
 - **Whether a frozen document has changed is decided by git, not by comparing bytes.** git applies
   checkout filters between the object it stores and the file on disk, so under end-of-line
   normalisation, the default on Windows, every frozen document differed from its blob while the tree was
-  clean. Pathspecs are anchored to the repository root and `diff.relative` is forced off, because both
-  sides of that assumption resolve paths relative to the working directory otherwise.
+  clean. The diff runs from the repository root with plain paths. Run from the directory holding
+  `archdoc.json`, pathspecs and `diff.relative` both resolved against that directory; a `:(top)` prefix
+  and `-c diff.relative=false` covered the two sides until `GIT_LITERAL_PATHSPECS` read the prefix as
+  part of the name, and from the root neither is needed.
 - **L11 reads which documents are frozen from the branch's tip, and what changed from the merge base.**
   Compared with the tip, a branch cut before a document was accepted there held it as it was, or not
   at all, and L11 reported it changed or deleted although merging leaves it as the branch has it; a
@@ -540,10 +542,17 @@ the result can delete content it never read.
   terminal, so a later desktop or TUI frontend calls them directly.
 - **`internal/git` is an interface with a shell-out implementation**, returning a sentinel error when the
   directory is not inside a repository so a caller can tell that from a file being absent on a branch.
-  It reads many blobs in one `cat-file --batch` and asks one `diff` which paths changed, because a
-  subprocess per document was the whole of lint's running time on a repository of any size. Requests and
-  responses are NUL-separated: git permits a newline in a path, and a line-oriented protocol pairs them
-  wrongly when one contains one.
+  The sentinel is chosen from git's message, not its exit status: git exits 128 as well for a repository
+  it refuses to read, one owned by another user as a checkout mounted into a container is, or under a
+  broken `~/.gitconfig`, and L11 skipped itself at exit 0 there. git runs with `LC_ALL=C` so the message
+  is English, and with `GIT_DIR`, `GIT_WORK_TREE`, `GIT_COMMON_DIR` and `GIT_INDEX_FILE` removed: git
+  exports `GIT_DIR` alone to hooks and `rebase -x` in a linked worktree and then takes the working
+  directory as the top level, so no document matched the branch. It reads many blobs in one
+  `cat-file --batch` and asks one `diff` which paths changed, because a subprocess per document was the
+  whole of lint's running time on a repository of any size. Requests are NUL-separated, because git
+  permits a newline in a path and a line-oriented protocol pairs them wrongly when one contains one.
+  `-z` terminates requests only, and a missing path is answered by echoing it, so that answer is matched
+  against the whole request. `-Z`, which terminates both, needs git 2.43.
 - **`cmd/archdoc` walks the command tree into the reference; `internal/reference` builds the rest.**
   `cobra/doc` brings `go-md2man` and writes Markdown, man pages, ReST and YAML rather than this shape.
   The walk does not filter `--help`: cobra adds it only to the command running, which is the hidden

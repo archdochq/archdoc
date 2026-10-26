@@ -6,6 +6,7 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"os"
 	"os/exec"
 	"path"
 	"path/filepath"
@@ -94,27 +95,54 @@ type shell struct {
 // treated those alike would skip every frozen-document check and still succeed.
 func Open(dir string) (Repository, error) {
 	s := &shell{dir: dir, resolved: map[string]string{}, present: map[string]bool{}, listed: map[string][]string{}}
-	switch out, code, err := s.run("rev-parse", "--show-toplevel"); {
+	switch out, _, err := s.run("rev-parse", "--show-toplevel"); {
 	case err == nil:
 		s.root = strings.TrimSpace(string(out))
 		return s, nil
-	case code > 0:
-		// git ran and said no.
+	case strings.Contains(err.Error(), "fatal: not a git repository"):
+		// Matched on git's message, because git exits 128 as well for a
+		// repository it refuses to read: one owned by another user, as a
+		// checkout mounted into a container is, or a broken ~/.gitconfig.
 		return nil, fmt.Errorf("%w: %s: %w", ErrNotARepository, dir, err)
 	case errors.Is(err, exec.ErrNotFound):
 		return nil, errors.New("git was not found on PATH; install git, which is needed to tell which documents are frozen")
 	default:
-		// git could not be run at all.
 		return nil, err
 	}
+}
+
+// command is git run in dir, with the environment it inherits made neutral.
+//
+// git exports GIT_DIR without GIT_WORK_TREE to hooks and to rebase -x in a
+// linked worktree, and then takes the working directory as the top level: run
+// from a subdirectory holding archdoc.json, no document matched the branch and
+// L11 passed an edited frozen document. The repository is found from dir, as
+// git finds it with nothing set. LC_ALL=C keeps git's messages in English,
+// which Open matches.
+func command(dir string, args ...string) *exec.Cmd {
+	cmd := exec.Command("git", args...)
+	cmd.Dir = dir
+	cmd.Env = slices.DeleteFunc(os.Environ(), func(kv string) bool {
+		name, _, _ := strings.Cut(kv, "=")
+		return slices.Contains(inherited, name)
+	})
+	cmd.Env = append(cmd.Env, "LC_ALL=C")
+	return cmd
+}
+
+var inherited = []string{
+	"GIT_DIR", "GIT_WORK_TREE", "GIT_COMMON_DIR", "GIT_INDEX_FILE",
 }
 
 // run executes git and returns its standard output. A command that exits
 // non-zero returns its status as code, so callers can tell "no such object",
 // which git reports as 1, from a failure to run git at all.
 func (s *shell) run(args ...string) (out []byte, code int, err error) {
-	cmd := exec.Command("git", args...)
-	cmd.Dir = s.dir
+	return s.runIn(s.dir, args...)
+}
+
+func (s *shell) runIn(dir string, args ...string) (out []byte, code int, err error) {
+	cmd := command(dir, args...)
 
 	// Output captures stderr into ExitError.Stderr, because cmd.Stderr is nil.
 	out, err = cmd.Output()
@@ -202,8 +230,7 @@ func (s *shell) FilesAt(branch string, paths []string) (map[string][]byte, error
 	// tamper, and an archdoc root whose directory name contained a newline
 	// disabled L11 entirely, in silence, at exit 0. ListFiles already used -z
 	// for the same reason.
-	cmd := exec.Command("git", "cat-file", "--batch", "-z")
-	cmd.Dir = s.dir
+	cmd := command(s.dir, "cat-file", "--batch", "-z")
 	cmd.Stdin = &in
 	var out, stderr bytes.Buffer
 	cmd.Stdout, cmd.Stderr = &out, &stderr
@@ -214,15 +241,19 @@ func (s *shell) FilesAt(branch string, paths []string) (map[string][]byte, error
 	files := make(map[string][]byte, len(paths))
 	rest := out.Bytes()
 	for _, p := range paths {
+		// -z terminates requests only, and a missing request is answered by
+		// echoing it, so a path holding a newline is matched whole rather than
+		// read up to its first newline.
+		if missing := rev + ":" + p + " missing\n"; bytes.HasPrefix(rest, []byte(missing)) {
+			rest = rest[len(missing):]
+			continue
+		}
 		nl := bytes.IndexByte(rest, '\n')
 		if nl < 0 {
 			return nil, fmt.Errorf("git cat-file --batch: response ended after %d of %d paths", len(files), len(paths))
 		}
 		header := string(rest[:nl])
 		rest = rest[nl+1:]
-		if strings.HasSuffix(header, " missing") {
-			continue
-		}
 		fields := strings.Fields(header)
 		if len(fields) != 3 {
 			return nil, fmt.Errorf("git cat-file --batch: unexpected header %q", header)
@@ -254,23 +285,18 @@ func (s *shell) Changed(branch string, paths []string) (map[string]bool, error) 
 	if len(paths) == 0 {
 		return nil, nil
 	}
-	// :(top) makes each pathspec relative to the repository root, which is what
-	// the caller has. git otherwise resolves a pathspec against the process's
-	// working directory, and this runs in the directory holding archdoc.json:
-	// in the layout `archdoc init` scaffolds inside a subdirectory, and the one
-	// its own generated workflow runs from, every pathspec matched nothing and
-	// so every frozen document passed. The freeze check was silently off.
-	// -c diff.relative=false: with it set, which a user may have in ~/.gitconfig,
-	// git prints paths relative to the working directory. This runs in the
-	// directory holding archdoc.json and matches the output against
-	// repository-root-relative paths, so every frozen document read as unchanged
-	// and the whole check went off, silently, at exit 0. The :(top) prefix below
-	// settles the input side of the same assumption.
-	args := []string{"-c", "diff.relative=false", "diff", "--name-only", "-z", s.rev(branch), "--"}
-	for _, p := range paths {
-		args = append(args, ":(top)"+p)
+	// Run from the repository root with plain paths, which is what the caller
+	// has. From the directory holding archdoc.json, in the layout `archdoc
+	// init` scaffolds inside a subdirectory, every pathspec matched nothing and
+	// every frozen document passed. A :(top) prefix fixed that from there, and
+	// GIT_LITERAL_PATHSPECS then read the prefix as part of the name. At the
+	// root, diff.relative in ~/.gitconfig changes nothing either.
+	root, err := s.RepoRoot()
+	if err != nil {
+		return nil, err
 	}
-	out, _, err := s.run(args...)
+	args := append([]string{"diff", "--name-only", "-z", s.rev(branch), "--"}, paths...)
+	out, _, err := s.runIn(root, args...)
 	if err != nil {
 		return nil, err
 	}
@@ -318,6 +344,11 @@ func (s *shell) BranchExists(branch string) (bool, error) {
 }
 
 func (s *shell) MergeBase(branch string) (string, error) {
+	// An unborn HEAD, on a branch made with checkout --orphan, has no commit in
+	// common with anything.
+	if born, err := s.exists("HEAD"); err != nil || !born {
+		return "", err
+	}
 	out, code, err := s.run("merge-base", "HEAD", s.rev(branch))
 	if code == 1 {
 		return "", nil // no common ancestor
