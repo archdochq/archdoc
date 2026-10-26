@@ -87,8 +87,14 @@ would have to round-trip everything it parsed.
 - **A comment is nothing, wherever it is.** `Section.Empty`, the glossary's paragraph split, heading
   parsing and link scanning all read the same masked text, so a comment on one line behaves like a
   comment spanning several. Comments are blanked in place rather than dropped, which keeps every byte
-  offset valid and lets prose sharing a line with a comment survive. An unterminated comment runs to
-  the end of the body, as a browser reads one.
+  offset valid and lets prose sharing a line with a comment survive. ~~An unterminated comment runs to
+  the end of the body, as a browser reads one.~~ Superseded by the next entry: only a comment opening
+  a block does.
+- **A comment is read where CommonMark reads one.** A `<!--` opening a block, at most three spaces in,
+  runs until a line holds `-->`, or to the end. Anywhere else it is raw HTML only where a `-->` follows
+  before the paragraph ends, and text otherwise, as is one after a backslash. The rule that any
+  unterminated `<!--` ran to the end hid every heading and link after a sentence mentioning the marker,
+  and a code span wrapped onto a second line did the same, while GitHub showed them.
 - **Code wins over comments; whichever of a comment and a fence opens first wins over the other.** A
   `<!--` inside a code span or a fenced block is literal text, which is what lets a document describe
   the placeholders the templates ship with. A fence marker inside a comment is likewise literal. Both
@@ -103,10 +109,20 @@ would have to round-trip everything it parsed.
   real closing fence open a second one.
 - **Blockquotes and list items are read only where a section gives them a meaning.** A blockquote is an
   answer in a question section and a list item is an entry in a `Changelog`; anywhere else each stays
-  text, so nothing about a document that carries neither section changes.
+  text, so nothing about a document that carries neither section changes. ~~Their markers and
+  indentation are not read anywhere else.~~ Superseded by the next entry, for the blocks they hold.
+- **Code blocks and HTML blocks are literal, inside blockquotes and list items as well.** A fence
+  indented under a list item, or behind `>`, was read as prose, so a `<!--` it held hid the rest of the
+  document; an indented code block was prose, so `renumber` rewrote a wiki link in one and `link --suggest`
+  linked text in one; and an HTML block's lines were headings and links GitHub does not show. The walk
+  now follows containers by their markers and indentation, with lazy continuation, and treats indented
+  code, the seven HTML block types other than a comment, and fences as literal: content, never prose.
+  A backtick fence's info string cannot hold a backtick, so ```` ```go``` ```` opening a line is a code
+  span. This is still not a parser: no inline structure is built, and setext headings are not read.
 - **A blockquote in a question section may not hold a heading, a fence or a comment.** The walk finds
-  each of those before it knows a line is quoted, and does not see a fence inside a blockquote at all, so
-  a comment marker inside one would hide the rest of the document. They are reported rather than read
+  each of those before it knows a line is quoted, ~~and does not see a fence inside a blockquote at all, so
+  a comment marker inside one would hide the rest of the document~~ and an answer is read from its lines
+  as written, which hold none of them as the rendered quote does. They are reported rather than read
   some other way.
 - **Changelog entries are read in a subset of list syntax, and anything outside it is reported.** The
   subset is the shapes where this reading of a list item and CommonMark's agree: `- ` at column 0, then

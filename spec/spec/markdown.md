@@ -5,11 +5,11 @@ includes: [ADR-0006, ADR-0007, RFC-0008, RFC-0009, RFC-0011]
 
 # Markdown
 
-The body of a document is everything after the closing `---` of the front matter. The tool reads headings, HTML comments, fenced code blocks and links throughout it, blockquotes within the question sections, and list items within a `Changelog` section. Everything else is text. A carriage return before a line feed is part of the line ending, and a construct is recognised in a CRLF file exactly as in an LF one.
+The body of a document is everything after the closing `---` of the front matter. The tool reads headings, HTML comments, code blocks, HTML blocks and links throughout it, blockquotes and list items as far as they hold those blocks, blockquotes within the question sections, and list items within a `Changelog` section. Everything else is text. A carriage return before a line feed is part of the line ending, and a construct is recognised in a CRLF file exactly as in an LF one.
 
 ## Headings
 
-Headings are `#` through `######`. A line inside a ``` or ~~~ fence is not a heading, and neither is a `#` indented four or more spaces. This holds wherever headings are read: section parsing, anchors and link scanning. Indented code blocks are not otherwise recognised.
+Headings are `#` through `######`, at most three spaces in. A heading of nothing but a closing sequence, such as `## #`, is empty. A line inside a code block or an HTML block is not a heading. This holds wherever headings are read: section parsing, anchors and link scanning. Setext headings are not read.
 
 The first heading is an H1 of the form `<id>: <title>` for a numbered type, or `<title>` for a spec page, a term or a group.
 
@@ -19,7 +19,7 @@ Every heading has an anchor, computed as GitHub computes it. Link syntax is stri
 
 ## Links
 
-A link is `[text](destination)` and an image `![text](destination)`, with the destination bare or within `<...>`, and an optional title after it. The text may run across the lines of one paragraph, and holds brackets only in balanced pairs. It is kept as written, its lines joined by a line feed, with any quote markers and indentation. A `\[` or `\]` is a literal bracket, and a bracket inside code or an HTML comment is not a bracket. A paragraph ends at a blank line, a fenced code block, a heading, a list item at any depth, a table row, a thematic break, a setext underline and the first line of a blockquote; a quote's later lines continue it. The destination follows the closing `]` on the same line, and the link is on that line.
+A link is `[text](destination)` and an image `![text](destination)`, with the destination bare or within `<...>`, and an optional title after it. The text may run across the lines of one paragraph, and holds brackets only in balanced pairs. It is kept as written, its lines joined by a line feed, with any quote markers and indentation. A `\[` or `\]` is a literal bracket, and a bracket inside code or an HTML comment is not a bracket. A paragraph ends at a blank line, a code block, an HTML block, a heading, a list item at any depth, a table row, a thematic break, a setext underline and the first line of a blockquote; a quote's later lines continue it. The destination follows the closing `]` on the same line, and the link is on that line.
 
 A line holding only `[label]: destination` and an optional title, after a blank line or another such line, is a link reference definition. A label beginning `^` is a footnote, not a definition. `[text][label]`, `[text][]` and `[text]` are reference links where the label, or the text for the last two, matches a definition, compared without regard to case and with each run of whitespace as one space, and is at most 999 characters. A reference link is not listed among a document's links; its definition is.
 
@@ -44,7 +44,7 @@ Extra H2 sections are permitted between or after the required ones. `Open questi
 
 The question sections are H2s titled `Open questions` and `Resolved questions`. A question is an H3 within one, and its text is the question. Its detail is the lines after it, to its answer or to the next heading. A document carries at most one `Resolved questions` section, and where it has an `Open questions` section, `Resolved questions` is the next H2 or H1 after one.
 
-Within a question section, a blockquote is a run of consecutive lines each beginning with `>` at the start of the line, outside a fenced code block and an HTML comment. A question ends with a blockquote when its last one is followed by nothing but blank lines and comments before the next heading or the end of the document. In `Resolved questions`, that blockquote is the question's answer: its lines with the `>` and one column of the whitespace after it removed from each, a tab after the marker leaving two spaces. A link reference definition behind `>` in a question section is read as a link.
+Within a question section, a blockquote is a run of consecutive lines each beginning with `>` at the start of the line, outside an HTML comment and any code block or HTML block the blockquote does not hold. A question ends with a blockquote when its last one is followed by nothing but blank lines and comments before the next heading or the end of the document. In `Resolved questions`, that blockquote is the question's answer: its lines with the `>` and one column of the whitespace after it removed from each, a tab after the marker leaving two spaces. A link reference definition behind `>` in a question section is read as a link.
 
 An `Open questions` section is empty or holds questions and nothing before the first. A `Resolved questions` section holds at least one question and nothing before the first. No question has a heading beneath it, and no blockquote in a question section holds a heading, a fenced code block or an HTML comment. An open question does not end with a blockquote. A resolved question ends with a non-empty one, with no other blockquote before it separated by only blank lines and comments. No question's heading produces an empty anchor, or the same anchor as another heading in the document, compared before any suffix is added.
 
@@ -62,14 +62,18 @@ Entries are read from every `Changelog` section, in document order. A level two 
 
 ## Comments
 
-Text inside an HTML comment is not content anywhere. It is passed over when finding headings and sections, when resolving `[[...]]` links, and when suggesting them. This holds whether the comment closes on the line it opened on or several lines later. A comment that is never closed runs to the end of the document. Text sharing a line with a comment, before its `<!--` or after its `-->`, is content.
+Text inside an HTML comment is not content anywhere. It is passed over when finding headings and sections, when resolving `[[...]]` links, and when suggesting them. A comment opening a block, its `<!--` at most three spaces in, runs to the first line holding `-->`, or to the end of the document where none does. A `<!--` anywhere else opens a comment only where a `-->` follows it before its paragraph ends at a blank line, and is text otherwise. A `<!--` after an odd run of backslashes is text. Text sharing a line with a comment, before its `<!--` or after its `-->`, is content.
 
-## Code
+## Code and HTML blocks
 
-A `<!--` or `-->` inside an inline code span or a fenced code block is literal text and opens or closes nothing. A fence marker inside a comment is likewise literal. A comment and a fenced block are both blocks: whichever opens first holds the lines until it closes.
+A fenced code block opens on a run of three or more backticks or tildes at most three spaces in. A backtick fence's info string holds no backtick, so ```go``` opening a line is a code span. The block closes on a run of the same character at least as long, carrying no info string, or where the blockquote or list item holding it ends. An indented code block is a run of lines indented four or more columns, a tab counting four, that does not continue a paragraph, and ends at the first line indented less.
 
-A code span closes on a backtick run of exactly the length that opened it. A fence closes on a run at least as long as the one that opened it, carrying no info string.
+An HTML block opens a line, at most three spaces in. One opening with `<script`, `<pre`, `<style` or `<textarea` closes on the line holding the matching closing tag; with `<?`, `<![CDATA[` or `<!` and a letter, on the line holding `?>`, `]]>` or `>`. One opening with a tag of a block-level HTML element, or outside a paragraph with any single complete tag alone on its line, closes before the next blank line.
+
+Blocks are read inside blockquotes and list items. A line continues a blockquote behind its `>` and a list item while indented to the item's content, or lazily, as a paragraph's continuation that starts no block. A block inside one ends with it.
+
+Nothing inside a code block or an HTML block is prose. It holds no heading, link or `[[...]]` link, opens no comment, and is content. A `<!--` or `-->` inside an inline code span is literal, and a fence marker inside a comment is literal: whichever block opens first holds the lines until it closes. A code span closes on a backtick run of exactly the length that opened it, and may run across the lines of one paragraph.
 
 ## Masking
 
-Before a body is searched, the text that must not match is masked: the inside of comments, code spans and fenced blocks. Every masked byte becomes a space. The masked text is the same length as the text as written and differs from it only where a byte became a space, so a position found in one is the same position in the other. Masked text is never shown.
+Before a body is searched, the text that must not match is masked: the inside of comments and code spans. The lines of code blocks and HTML blocks are not searched. Every masked byte becomes a space. The masked text is the same length as the text as written and differs from it only where a byte became a space, so a position found in one is the same position in the other. Masked text is never shown.
