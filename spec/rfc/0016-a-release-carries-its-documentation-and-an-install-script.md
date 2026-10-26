@@ -13,13 +13,13 @@ obsoletes: []
 
 ## Abstract
 
-Every release attaches a docs bundle, `archdoc_<version>_docs.tar.gz`, holding user guides written under `docs/guides/`, the reference [RFC-0014](0014-lint-rules-and-the-command-reference-are-published-as-data.md) defines, `PROCESS.md`, the published schemas and a manifest, and an `install.sh` that installs that release on Linux and macOS. Both are built by goreleaser before it publishes and are listed in `checksums.txt`. A stable release then sends a `repository_dispatch` event to a repository named by a variable, so that anything deploying the documentation can rebuild from the release.
+Every release attaches a docs bundle, `archdoc_<version>_docs.tar.gz`, holding user guides written under `docs/guides/`, the reference [RFC-0014](0014-lint-rules-and-the-command-reference-are-published-as-data.md) defines, `PROCESS.md`, the published schemas and a manifest, and an `install.sh` that installs that release on Linux and macOS. Both are built by goreleaser before it publishes and are listed in `checksums.txt`. Anything displaying the documentation reads both from the release by its tag.
 
 ## Motivation
 
 A person learning ArchDoc has `README.md`, one page covering installing, getting started, the pre-commit hooks, the commands and the document types, and `PROCESS.md`, the rules of the process. The guides under `internal/template/agents/` are written for coding agents to follow, and `docs/` describes the code and the export. Nothing describes for a person how to backfill, how to keep a spec repository beside the code, how to check a repository in CI other than GitHub's, or how to contribute by pull request. Documentation written apart from the code describes whatever the code did when it was written, not the release a reader installed.
 
-Anything that displays ArchDoc's documentation, such as a site documenting the tool, needs the documentation of each release as files that release published, and a signal when a release is published. Today a release publishes the archives and `checksums.txt`, and its workflow pushes to the destinations it names itself: the Homebrew tap, the skills repository and the specification's publish endpoint. A workflow in another repository cannot trigger on this repository's events, and a repository webhook reaches only a consumer running an endpoint to receive it, so a consumer that deploys from a repository has nothing to run on.
+Anything that displays ArchDoc's documentation, such as a site documenting the tool, needs the documentation of each release as files that release published. Today a release attaches the archives and `checksums.txt`, and nothing else.
 
 Installing ArchDoc without Homebrew, `go install` or GitHub Actions means downloading the archive for the platform, checking it against `checksums.txt` and extracting the binary by hand. `archdochq/setup` performs those steps, but only inside a GitHub Actions job. A Dockerfile, a GitLab job or a Linux machine without Homebrew has no equivalent.
 
@@ -35,7 +35,6 @@ Installing ArchDoc without Homebrew, `go install` or GitHub Actions means downlo
 | Manifest | `manifest.json` in the docs bundle, describing the bundle |
 | Generator | `docs/build.go`, which writes the docs bundle and the rendered install script |
 | Install script | `install.sh`, which downloads, verifies and installs one release's binary |
-| Dispatch | The `repository_dispatch` event a stable release sends |
 
 ### Components
 
@@ -46,10 +45,9 @@ Installing ArchDoc without Homebrew, `go install` or GitHub Actions means downlo
 | `install.sh` | The install script, at the repository root, with no release set |
 | `.goreleaser.yaml` | A `before` hook running the generator, and `extra_files` attaching its output to the release and listing it in `checksums.txt` |
 | `.gitignore` | `build/`, where the generator writes |
-| The release workflow | A `docs` job sending the dispatch |
 | `cmd/archdoc/release_test.go` | Runs the generator and the rendered install script, and checks that `.goreleaser.yaml` runs and attaches the generator's output |
 | `README.md` | The install script's line under Installing |
-| Spec pages | `release.md` for the bundle, the install script and the dispatch; `architecture.md` for `docs/guides/`, `docs/build.go` and `install.sh` in the tree |
+| Spec pages | `release.md` for the bundle and the install script; `architecture.md` for `docs/guides/`, `docs/build.go` and `install.sh` in the tree |
 
 ### The user guides
 
@@ -194,14 +192,6 @@ curl -fsSL https://github.com/archdochq/archdoc/releases/latest/download/install
 
 On exit, whether the script succeeds, fails or is interrupted, it removes the temporary directory and any temporary file it left in the install directory. Nothing is installed unless every step before the rename succeeds; an install directory the script created is left in place.
 
-### The `docs` job
-
-The job runs in the release workflow after the release is published, for a tag carrying no pre-release identifier, and only when the repository variable `DOCS_DISPATCH_REPOSITORY` is set. Without it, as in a fork, the job is skipped.
-
-1. Send a `repository_dispatch` event to the repository `DOCS_DISPATCH_REPOSITORY` names, with event type `archdoc-release` and payload `{"tag": "<tag>"}`, using `gh api` and the `DOCS_DISPATCH_TOKEN` secret, a fine-grained token with contents write on that repository alone, the permission GitHub requires to create the event.
-
-The receiving repository reads the bundle and `install.sh` from the release by its tag. Sending the event changes nothing on the release, so the job can be re-run against the same tag.
-
 ### Tests
 
 | Test | Checks |
@@ -221,7 +211,6 @@ The install script's test renders the archive's name from `.goreleaser.yaml` as 
 | A guide is missing from the contents, listed twice, or listed but absent; a section or guide has no title; a section is empty; a listed path is not a `.md` file; a relative link names no listed guide | The generator exits non-zero before writing anything. The generator's test fails, in CI and in the release workflow's test step; goreleaser's hook would stop the release before it is published |
 | `archdoc reference` fails | As above |
 | `install.sh` holds no line `release=`, or more than one | As above |
-| `DOCS_DISPATCH_TOKEN` is unset, or cannot create the event | The `docs` job fails. The release is already published, and the job can be re-run |
 | `install.sh` with no release set and no `ARCHDOC_VERSION` | Exits non-zero, naming the variable |
 | `install.sh` on another operating system or architecture | Exits non-zero, naming the platform |
 | `install.sh` without `curl` or `wget`, or without `sha256sum` or `shasum` | Exits non-zero, naming what is missing |
@@ -240,7 +229,7 @@ The install script's test renders the archive's name from `.goreleaser.yaml` as 
 The design rests on [RFC-0014](0014-lint-rules-and-the-command-reference-are-published-as-data.md), whose reference the bundle carries; on [ADR-0005](../adr/0005-the-dependency-list-is-closed.md), under which the generator uses the standard library rather than a tool beside goreleaser; on [ADR-0006](../adr/0006-markdown-is-handled-with-the-standard-library.md), under which the guides' links are read without a Markdown parser; and on [ADR-0019](../adr/0019-export-stability.md), whose rule for the export's number the bundle's follows.
 
 - **Building the bundle in a job after the release is published.** The bundle could carry the release notes. Lost because `checksums.txt` is published by then, and adding the bundle to it would mean replacing the file `archdochq/setup` downloads, which fails every download while it is replaced; a failed job would also leave a release without a bundle until re-run.
-- **Posting to an endpoint the consumer runs, as the specification's publish step does.** Lost because a consumer that deploys from a repository receives the event as a workflow trigger, with no endpoint of its own to run, and the token reaches that one repository.
+- **Telling a consumer that a release is published**, by a `repository_dispatch` event to a repository named by a variable, or by posting to an endpoint the consumer runs, as the release workflow does to publish this repository's specification. A consumer deploying from a repository would rebuild on each release with no schedule of its own. Lost because GitHub creates a `repository_dispatch` event only for a token with contents write on the receiving repository, so the release workflow would hold a credential able to change everything that repository holds only to send an event, where the credentials it holds for the Homebrew tap and the skills repository write what it publishes there; an endpoint would need a credential of its own as well. A consumer reads the release on a schedule or trigger of its own.
 - **Writing the guides outside this repository and moving them in later.** Writing could begin before the generator exists. Lost because until the move, a guide can describe behaviour the code no longer has.
 - **A title and an order in each guide's front matter.** Each guide would describe itself. Lost because orders collide, and moving one guide can mean renumbering others.
 - **Leaving the order and titles of the guides to whatever displays them.** Lost because a guide a release adds would appear nowhere until each consumer changed.
@@ -249,3 +238,8 @@ The design rests on [RFC-0014](0014-lint-rules-and-the-command-reference-are-pub
 ## Backwards compatibility
 
 Nothing a repository holds breaks. The archives, their names and `checksums.txt`'s name are unchanged. `checksums.txt` gains a line for the bundle and one for `install.sh`; `archdochq/setup` reads only the line naming its archive, and the Homebrew cask carries its own digests. A release now also stops before publishing when the guides, their contents or the reference fail the generator's checks.
+
+## Changelog
+
+- 2026-10-26: A release no longer sends a `repository_dispatch` event, and the `docs` job sending it is removed; a
+  consumer reads the bundle and `install.sh` from the release.
