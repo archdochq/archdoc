@@ -325,3 +325,170 @@ func TestCurrentBranchStillReportsADetachedHead(t *testing.T) {
 		t.Errorf("CurrentBranch = %q on a detached head, want %q or an error", branch, "HEAD")
 	}
 }
+
+func gitIn(t *testing.T, dir string, args ...string) {
+	t.Helper()
+	cmd := exec.Command("git", args...)
+	cmd.Dir = dir
+	if out, err := cmd.CombinedOutput(); err != nil {
+		t.Fatalf("git %v: %v\n%s", args, err, out)
+	}
+}
+
+func TestOpenRecognisesARepositoryOutsideAnyLocale(t *testing.T) {
+	// Open matches git's message, which git translates. This passes trivially
+	// where git ships no translations, as Apple's does.
+	t.Setenv("LANGUAGE", "de")
+	t.Setenv("LC_ALL", "C.UTF-8")
+	if _, err := git.Open(t.TempDir()); !errors.Is(err, git.ErrNotARepository) {
+		t.Errorf("error = %v, want it to match git.ErrNotARepository", err)
+	}
+}
+
+func TestOpenReportsAnyOtherGitFailureAsAnError(t *testing.T) {
+	// git exits 128 both for a directory outside any repository and for one it
+	// refuses to read. Mapping every 128 to ErrNotARepository skipped L11 at
+	// exit 0 in a container whose checkout belonged to another user.
+	for name, env := range map[string][2]string{
+		"dubious ownership": {"GIT_TEST_ASSUME_DIFFERENT_OWNER", "1"},
+		"broken config":     {"GIT_CONFIG_GLOBAL", ""},
+	} {
+		t.Run(name, func(t *testing.T) {
+			dir := newRepo(t)
+			commit(t, dir, "a.md", "a\n")
+			// No configuration but the repository's own, since a runner's
+			// may list every directory as safe.
+			empty := filepath.Join(t.TempDir(), "empty")
+			if err := os.WriteFile(empty, nil, 0o644); err != nil {
+				t.Fatal(err)
+			}
+			t.Setenv("GIT_CONFIG_GLOBAL", empty)
+			t.Setenv("GIT_CONFIG_NOSYSTEM", "1")
+			value := env[1]
+			if value == "" {
+				value = filepath.Join(t.TempDir(), "gitconfig")
+				if err := os.WriteFile(value, []byte("[core\n"), 0o644); err != nil {
+					t.Fatal(err)
+				}
+			}
+			t.Setenv(env[0], value)
+
+			_, err := git.Open(dir)
+			if err == nil || errors.Is(err, git.ErrNotARepository) {
+				t.Errorf("error = %v, want an error that is not git.ErrNotARepository", err)
+			}
+		})
+	}
+}
+
+func TestOpenFindsTheRepositoryDespiteInheritedLocation(t *testing.T) {
+	// git exports GIT_DIR without GIT_WORK_TREE to hooks and to rebase -x in a
+	// linked worktree, and then takes the working directory as the top level.
+	// Each variable here points git at another repository or another top level.
+	for name, value := range map[string]func(dir, other string) string{
+		"GIT_DIR": func(dir, _ string) string {
+			wt := filepath.Join(filepath.Dir(dir), "wt")
+			gitIn(t, dir, "worktree", "add", "-q", "-b", "side", wt)
+			return filepath.Join(dir, ".git", "worktrees", "wt")
+		},
+		"GIT_WORK_TREE":  func(_, other string) string { return other },
+		"GIT_COMMON_DIR": func(_, other string) string { return filepath.Join(other, ".git") },
+	} {
+		t.Run(name, func(t *testing.T) {
+			dir := filepath.Join(t.TempDir(), "repo")
+			if err := os.Mkdir(dir, 0o755); err != nil {
+				t.Fatal(err)
+			}
+			gitIn(t, dir, "init", "-q", "-b", "main")
+			gitIn(t, dir, "config", "user.email", "test@example.invalid")
+			gitIn(t, dir, "config", "user.name", "Fixture")
+			commit(t, dir, "docs/a.md", "a\n")
+			other := newRepo(t)
+			commit(t, other, "elsewhere.md", "b\n")
+			t.Setenv(name, value(dir, other))
+
+			g, err := git.Open(filepath.Join(dir, "docs"))
+			if err != nil {
+				t.Fatalf("Open: %v", err)
+			}
+			if prefix, err := g.Prefix(); err != nil || prefix != "docs" {
+				t.Errorf("Prefix() = %q, %v; want docs", prefix, err)
+			}
+			if files, err := g.ListFiles("main"); err != nil || !slices.Equal(files, []string{"docs/a.md"}) {
+				t.Errorf("ListFiles(main) = %q, %v; want docs/a.md", files, err)
+			}
+		})
+	}
+}
+
+func TestChangedIgnoresAnInheritedIndex(t *testing.T) {
+	// A pre-commit hook inherits GIT_INDEX_FILE, which may be relative to the
+	// top level; read from elsewhere it names no index, and every tracked file
+	// then read as changed.
+	dir := newRepo(t)
+	commit(t, dir, "docs/adr/0001-a.md", "a\n")
+	t.Setenv("GIT_INDEX_FILE", filepath.Join(t.TempDir(), "none"))
+
+	g, err := git.Open(filepath.Join(dir, "docs"))
+	if err != nil {
+		t.Fatalf("Open: %v", err)
+	}
+	if got, err := g.Changed("main", []string{"docs/adr/0001-a.md"}); err != nil || len(got) != 0 {
+		t.Errorf("Changed = %v, %v; want nothing changed", got, err)
+	}
+}
+
+func TestChangedIgnoresInheritedPathspecSettings(t *testing.T) {
+	for _, variable := range []string{"GIT_LITERAL_PATHSPECS", "GIT_GLOB_PATHSPECS", "GIT_NOGLOB_PATHSPECS", "GIT_ICASE_PATHSPECS"} {
+		t.Run(variable, func(t *testing.T) {
+			dir := newRepo(t)
+			commit(t, dir, "docs/adr/0001-a.md", "a\n")
+			if err := os.WriteFile(filepath.Join(dir, "docs", "adr", "0001-a.md"), []byte("edited\n"), 0o644); err != nil {
+				t.Fatal(err)
+			}
+			t.Setenv(variable, "1")
+
+			g, err := git.Open(filepath.Join(dir, "docs"))
+			if err != nil {
+				t.Fatalf("Open: %v", err)
+			}
+			got, err := g.Changed("main", []string{"docs/adr/0001-a.md"})
+			if err != nil || !got["docs/adr/0001-a.md"] {
+				t.Errorf("Changed = %v, %v; want docs/adr/0001-a.md changed", got, err)
+			}
+		})
+	}
+}
+
+func TestFilesAtSurvivesAMissingPathContainingANewline(t *testing.T) {
+	// A missing request is answered "<request> missing", echoing the path with
+	// its newline, while the request itself was NUL-terminated.
+	dir := newRepo(t)
+	commit(t, dir, "adr/0001-frozen.md", "frozen contents\n")
+
+	g, err := git.Open(dir)
+	if err != nil {
+		t.Fatalf("Open: %v", err)
+	}
+	got, err := g.FilesAt("main", []string{"my\ndir/archdoc.json", "adr/0001-frozen.md"})
+	if err != nil {
+		t.Fatalf("FilesAt: %v", err)
+	}
+	if _, ok := got["my\ndir/archdoc.json"]; ok || string(got["adr/0001-frozen.md"]) != "frozen contents\n" {
+		t.Errorf("FilesAt = %q, want only adr/0001-frozen.md", got)
+	}
+}
+
+func TestMergeBaseIsEmptyOnAnUnbornBranch(t *testing.T) {
+	dir := newRepo(t)
+	commit(t, dir, "a.md", "a\n")
+	gitIn(t, dir, "checkout", "-q", "--orphan", "fresh")
+
+	g, err := git.Open(dir)
+	if err != nil {
+		t.Fatalf("Open: %v", err)
+	}
+	if base, err := g.MergeBase("main"); err != nil || base != "" {
+		t.Errorf("MergeBase(main) = %q, %v; want empty, nil", base, err)
+	}
+}

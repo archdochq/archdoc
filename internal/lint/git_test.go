@@ -631,8 +631,8 @@ func TestL11IgnoresTheUsersDiffRelativeSetting(t *testing.T) {
 	// directory. L11 hands git repository-root-relative pathspecs and matches
 	// the output against the same, so a user with that set in ~/.gitconfig lost
 	// the whole change check whenever archdoc.json sat below the git root, at
-	// exit 0 and in silence. The :(top) prefix fixed the input side of that
-	// assumption; this is the output side.
+	// exit 0 and in silence. The diff now runs from the repository root, where
+	// the setting changes nothing.
 	dir := t.TempDir()
 	run := func(args ...string) {
 		t.Helper()
