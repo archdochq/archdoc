@@ -2,6 +2,7 @@ package repo
 
 import (
 	"fmt"
+	"html"
 	"iter"
 	"net/url"
 	"regexp"
@@ -9,6 +10,7 @@ import (
 	"sort"
 	"strings"
 	"unicode"
+	"unicode/utf8"
 )
 
 // Heading is one markdown heading in a document body.
@@ -55,10 +57,6 @@ var (
 	linkPattern     = regexp.MustCompile(`!?\[([^\]]*)\]\([^)]*\)`)
 	closingHashes   = regexp.MustCompile(`[ \t]+#+$`)
 	wikiLinkPattern = regexp.MustCompile(`\[\[([^\[\]]+)\]\]`)
-	// What follows a link's closing bracket: the destination in either of
-	// its two forms, <...>, which may hold spaces, and a bare run, then any
-	// title.
-	linkTailPattern = regexp.MustCompile(`^\(\s*(?:<([^<>\n]*)>|([^)\s]+))[^)]*\)`)
 	// A line, read from behind any quote markers, that ends the paragraph
 	// before it and so any link text left open there: a heading, a list item
 	// at any depth, a table row, a thematic break or a setext underline.
@@ -408,7 +406,7 @@ func Prose(body string, bodyLine int) iter.Seq[ProseLine] {
 		masked, literal, _, _ := scanBody(body)
 		masked = maskParagraphCode(masked, literal)
 		for i := range masked {
-			if literal[i] {
+			if literal[i] != blockProse {
 				continue
 			}
 			if !yield(ProseLine{Raw: raw[i], Masked: masked[i], Number: bodyLine + i}) {
@@ -422,11 +420,11 @@ func Prose(body string, bodyLine int) iter.Seq[ProseLine] {
 // forms one paragraph, since a span may cross a line break within one: read a
 // line at a time, a span wrapped onto the next line left its links readable.
 // A heading, a list item and the other block starts begin a run of their own.
-func maskParagraphCode(masked []string, literal []bool) []string {
+func maskParagraphCode(masked []string, literal []block) []string {
 	out := slices.Clone(masked)
 	joins := func(i int) bool {
 		inner, _ := stripQuotes(masked[i])
-		return !literal[i] && strings.TrimSpace(inner) != "" && !IsHeading(inner)
+		return literal[i] == blockProse && strings.TrimSpace(inner) != "" && !IsHeading(inner)
 	}
 	for start := 0; start < len(masked); {
 		end := start + 1
@@ -518,7 +516,7 @@ func proseLines(body string) iter.Seq2[int, string] {
 	return func(yield func(int, string) bool) {
 		masked, literal, _, _ := scanBody(body)
 		for i, line := range masked {
-			if literal[i] {
+			if literal[i] != blockProse {
 				continue
 			}
 			if !yield(i, line) {
@@ -547,10 +545,10 @@ func proseLines(body string) iter.Seq2[int, string] {
 // Blocks are read inside blockquotes and list items, as CommonMark reads
 // them: a fence indented under a list item hid the rest of the document
 // behind a `<!--` it held, because it was read as prose.
-func scanBody(text string) (masked []string, literal, quoted []bool, unclosed bool) {
+func scanBody(text string) (masked []string, literal []block, quoted []bool, unclosed bool) {
 	lines := strings.Split(text, "\n")
 	masked = make([]string, len(lines))
-	literal = make([]bool, len(lines))
+	literal = make([]block, len(lines))
 	quoted = make([]bool, len(lines))
 
 	var w blockWalk
@@ -565,10 +563,10 @@ func scanBody(text string) (masked []string, literal, quoted []bool, unclosed bo
 			w.paragraph = false
 			continue
 		}
-		at, lit := w.line(strings.TrimSuffix(line, "\r"))
+		at, kind := w.line(strings.TrimSuffix(line, "\r"))
 		quoted[i] = len(w.stack) > 0 && w.stack[0].quote
-		if lit {
-			masked[i], literal[i] = line, true
+		if kind != blockProse {
+			masked[i], literal[i] = line, kind
 			continue
 		}
 		masked[i], open = maskCommentsIn(line, false, func(marker int) bool {
@@ -634,6 +632,16 @@ type container struct {
 
 type leafKind int
 
+// block is what holds a line: prose, a code block or an HTML block. Only
+// prose is read for structure; an HTML block's anchors are still targets.
+type block uint8
+
+const (
+	blockProse block = iota
+	blockCode
+	blockHTML
+)
+
 const (
 	leafNone leafKind = iota
 	leafFence
@@ -655,13 +663,16 @@ var (
 	htmlRawPattern   = regexp.MustCompile(`(?i)^<(script|pre|style|textarea)(?:[ \t>]|$)`)
 	htmlOtherPattern = regexp.MustCompile(`^<(?:\?|!\[CDATA\[|![A-Za-z])`)
 	htmlBlockPattern = regexp.MustCompile(`(?i)^</?(?:address|article|aside|base|basefont|blockquote|body|caption|center|col|colgroup|dd|details|dialog|dir|div|dl|dt|fieldset|figcaption|figure|footer|form|frame|frameset|h[1-6]|head|header|hr|html|iframe|legend|li|link|main|menu|menuitem|nav|noframes|ol|optgroup|option|p|param|search|section|summary|table|tbody|td|tfoot|th|thead|title|tr|track|ul)(?:[ \t]|/?>|$)`)
-	htmlTagPattern   = regexp.MustCompile(`^(?:<[A-Za-z][A-Za-z0-9-]*(?:[ \t]+[A-Za-z_:][A-Za-z0-9_.:-]*(?:[ \t]*=[ \t]*(?:[^ \t"'=<>` + "`" + `]+|'[^']*'|"[^"]*"))?)*[ \t]*/?>|</[A-Za-z][A-Za-z0-9-]*[ \t]*>)[ \t]*$`)
+	htmlTagPattern   = regexp.MustCompile(`^(?:` + openTag + `|</[A-Za-z][A-Za-z0-9-]*[ \t]*>)[ \t]*$`)
 )
 
+// openTag is an HTML opening tag with its attributes.
+const openTag = `<[A-Za-z][A-Za-z0-9-]*(?:[ \t]+[A-Za-z_:][A-Za-z0-9_.:-]*(?:[ \t]*=[ \t]*(?:[^ \t"'=<>` + "`" + `]+|'[^']*'|"[^"]*"))?)*[ \t]*/?>`
+
 // line reads one line, without its carriage return, and returns the column
-// its content starts at once its containers' markers are passed, and whether
-// it is literal.
-func (w *blockWalk) line(s string) (at int, literal bool) {
+// its content starts at once its containers' markers are passed, and the
+// block holding it.
+func (w *blockWalk) line(s string) (at int, kind block) {
 	matched := 0
 	for ; matched < len(w.stack); matched++ {
 		rest := s[at:]
@@ -684,7 +695,7 @@ func (w *blockWalk) line(s string) (at int, literal bool) {
 	}
 	if matched < len(w.stack) {
 		if w.leaf == leafNone && w.paragraph && strings.TrimSpace(s[at:]) != "" && !w.interrupts(s[at:]) {
-			return at, false // a lazy continuation of the paragraph
+			return at, blockProse // a lazy continuation of the paragraph
 		}
 		w.stack = w.stack[:matched]
 		if w.depth > matched {
@@ -698,22 +709,22 @@ func (w *blockWalk) line(s string) (at int, literal bool) {
 		if closesFence(rest, w.fenceChar, w.fenceLen) {
 			w.leaf = leafNone
 		}
-		return at, true
+		return at, blockCode
 	case leafHTML:
 		if w.htmlEnd == "" && strings.TrimSpace(rest) == "" {
 			w.leaf, w.paragraph = leafNone, false
-			return at, false
+			return at, blockProse
 		}
 		if w.htmlEnd != "" && strings.Contains(strings.ToLower(rest), w.htmlEnd) {
 			w.leaf = leafNone
 		}
-		return at, true
+		return at, blockHTML
 	case leafIndented:
 		if strings.TrimSpace(rest) == "" {
-			return at, false
+			return at, blockProse
 		}
 		if indentColumns(rest) >= 4 {
-			return at, true
+			return at, blockCode
 		}
 		w.leaf, w.paragraph = leafNone, false
 	}
@@ -737,15 +748,15 @@ func (w *blockWalk) line(s string) (at int, literal bool) {
 	switch {
 	case strings.TrimSpace(rest) == "":
 		w.paragraph = false
-		return at, false
+		return at, blockProse
 	case fenceOpens(rest):
 		m := fencePattern.FindStringSubmatch(rest)
 		w.open(leafFence)
 		w.fenceChar, w.fenceLen = m[1][0], len(m[1])
-		return at, true
+		return at, blockCode
 	case !w.paragraph && indentColumns(rest) >= 4:
 		w.open(leafIndented)
-		return at, true
+		return at, blockCode
 	}
 	if end, ok := htmlStarts(rest, w.paragraph); ok {
 		w.open(leafHTML)
@@ -753,9 +764,9 @@ func (w *blockWalk) line(s string) (at int, literal bool) {
 		if end != "" && strings.Contains(strings.ToLower(rest)[2:], end) {
 			w.leaf = leafNone
 		}
-		return at, true
+		return at, blockHTML
 	}
-	return at, false
+	return at, blockProse
 }
 
 func (w *blockWalk) open(leaf leafKind) {
@@ -1026,18 +1037,22 @@ func parseHeadings(body string, bodyLine int) []Heading {
 // the heading is not there to ask.
 func Anchor(text string) string { return anchor(text, map[string]int{}) }
 
-// anchor renders a heading the way GitHub does: link syntax reduced to its
-// text, everything but letters, numbers, underscores, hyphens and spaces
-// removed, lowercased, spaces hyphenated, and a numeric suffix when the same
-// anchor has already been used in this document. taken is updated in place.
+// anchor renders a heading the way GitHub does: slugged from its rendered
+// text, lowercased, keeping letters, marks, numbers, connector punctuation and
+// hyphens, each space a hyphen, and a numeric suffix when the same anchor has
+// already been used in this document. taken is updated in place.
+//
+// Slugging the text as written kept what renders as nothing: emphasis
+// underscores, a tag's name, a reference link's label, an image's alt text.
+// Keeping only IsLetter and IsDigit dropped the marks of Devanagari and the
+// letter numbers and connector punctuation GitHub keeps. L17 then rejected
+// links that work and passed ones that 404.
 func anchor(text string, taken map[string]int) string {
-	rendered := linkPattern.ReplaceAllString(text, "$1")
-
 	var b strings.Builder
-	for _, r := range rendered {
+	for _, r := range strings.ToLower(renderedText(text)) {
 		switch {
-		case unicode.IsLetter(r), unicode.IsDigit(r), r == '_', r == '-':
-			b.WriteRune(unicode.ToLower(r))
+		case unicode.IsLetter(r), unicode.IsMark(r), unicode.IsNumber(r), unicode.Is(unicode.Pc, r), r == '-':
+			b.WriteRune(r)
 		case r == ' ':
 			b.WriteByte('-')
 		}
@@ -1060,6 +1075,149 @@ func anchor(text string, taken map[string]int) string {
 		taken[candidate] = 1
 		return candidate
 	}
+}
+
+// renderedText is a heading's inline content as GitHub renders it to text:
+// escapes and entities resolved, a code span's content kept as written, tags
+// and emphasis underscores dropped, a link or reference link as its text, an
+// image as nothing, and an autolink as its address.
+func renderedText(s string) string {
+	var b strings.Builder
+	for i := 0; i < len(s); {
+		switch c := s[i]; {
+		case c == '\\' && i+1 < len(s) && isASCIIPunct(s[i+1]):
+			b.WriteByte(s[i+1])
+			i += 2
+		case c == '`':
+			run := i
+			for i < len(s) && s[i] == '`' {
+				i++
+			}
+			end := matchingRun(s, i, i-run)
+			if end == 0 {
+				continue // a backtick renders as itself, which a slug drops
+			}
+			content := s[i : end-(i-run)]
+			if len(content) > 1 && content[0] == ' ' && content[len(content)-1] == ' ' && strings.TrimSpace(content) != "" {
+				content = content[1 : len(content)-1]
+			}
+			b.WriteString(content)
+			i = end
+		case c == '&':
+			if m := entityPattern.FindString(s[i:]); m != "" {
+				b.WriteString(html.UnescapeString(m))
+				i += len(m)
+				continue
+			}
+			b.WriteByte(c)
+			i++
+		case c == '<':
+			if m := inlineTagPattern.FindString(s[i:]); m != "" {
+				i += len(m)
+			} else if m := autolinkPattern.FindStringSubmatch(s[i:]); m != nil {
+				b.WriteString(m[1])
+				i += len(m[0])
+			} else {
+				b.WriteByte(c)
+				i++
+			}
+		case c == '!' && strings.HasPrefix(s[i+1:], "["):
+			if _, n, ok := linkSpan(s[i+1:]); ok {
+				i += 1 + n
+				continue
+			}
+			b.WriteByte(c)
+			i++
+		case c == '[':
+			if text, n, ok := linkSpan(s[i:]); ok {
+				b.WriteString(renderedText(text))
+				i += n
+				continue
+			}
+			b.WriteByte(c)
+			i++
+		case c == '_':
+			run := i
+			for i < len(s) && s[i] == '_' {
+				i++
+			}
+			if !delimits(s, run, i) {
+				b.WriteString(s[run:i])
+			}
+		default:
+			b.WriteByte(c)
+			i++
+		}
+	}
+	return b.String()
+}
+
+var (
+	entityPattern    = regexp.MustCompile(`^&(?:#[0-9]{1,7}|#[xX][0-9a-fA-F]{1,6}|[A-Za-z][A-Za-z0-9]{1,31});`)
+	inlineTagPattern = regexp.MustCompile(`^(?:` + openTag + `|</[A-Za-z][A-Za-z0-9-]*[ \t]*>|<!--.*?-->)`)
+	autolinkPattern  = regexp.MustCompile(`^<([A-Za-z][A-Za-z0-9+.-]{1,31}:[^ \t<>]*|[^ \t<>@]+@[^ \t<>]+)>`)
+)
+
+// linkSpan reads a link at the start of s, [text](destination) or
+// [text][label], with brackets and parentheses balanced, and returns its text
+// and length. ok is false where the brackets are not followed by either.
+func linkSpan(s string) (text string, n int, ok bool) {
+	close := balanced(s, '[', ']')
+	if close < 0 || close+1 >= len(s) {
+		return "", 0, false
+	}
+	var end int
+	switch s[close+1] {
+	case '(':
+		end = balanced(s[close+1:], '(', ')')
+	case '[':
+		end = balanced(s[close+1:], '[', ']')
+	default:
+		return "", 0, false
+	}
+	if end < 0 {
+		return "", 0, false
+	}
+	return s[1:close], close + 1 + end + 1, true
+}
+
+// balanced is the index of the closer matching the opener at s[0], with
+// backslash escapes passed over, or -1.
+func balanced(s string, opener, closer byte) int {
+	depth := 0
+	for i := 0; i < len(s); i++ {
+		switch s[i] {
+		case '\\':
+			i++
+		case opener:
+			depth++
+		case closer:
+			if depth--; depth == 0 {
+				return i
+			}
+		}
+	}
+	return -1
+}
+
+// delimits reports whether the run of underscores s[from:to] is emphasis,
+// which CommonMark decides by what flanks it: a run inside a word is literal.
+func delimits(s string, from, to int) bool {
+	before, after := ' ', ' '
+	if from > 0 {
+		before, _ = utf8.DecodeLastRuneInString(s[:from])
+	}
+	if to < len(s) {
+		after, _ = utf8.DecodeRuneInString(s[to:])
+	}
+	punct := func(r rune) bool { return unicode.IsPunct(r) || unicode.IsSymbol(r) }
+	left := !unicode.IsSpace(after) && (!punct(after) || unicode.IsSpace(before) || punct(before))
+	right := !unicode.IsSpace(before) && (!punct(before) || unicode.IsSpace(after) || punct(after))
+	return left && (!right || punct(before)) || right && (!left || punct(after))
+}
+
+func isASCIIPunct(c byte) bool {
+	return c < 0x80 && (unicode.IsPunct(rune(c)) || unicode.IsSymbol(rune(c)))
 }
 
 // LinkType is the form a link was written in. An image resolves like any other
@@ -1120,7 +1278,14 @@ func (d *Document) definitions() []Link {
 	var links []Link
 	opensBlock := true
 	quoted := d.questionQuotes()
+	previous := d.BodyLine - 1
 	for line := range d.Prose() {
+		// A literal block between two prose lines ends the paragraph before
+		// it, as a heading does.
+		if line.Number != previous+1 {
+			opensBlock = true
+		}
+		previous = line.Number
 		// A definition an answer uses is written inside its blockquote, so in
 		// a question section it is read from behind the marker. A blockquote
 		// interrupts a paragraph, so its first line can hold one.
@@ -1148,7 +1313,7 @@ func (d *Document) definitions() []Link {
 				continue
 			}
 		}
-		opensBlock = strings.TrimSpace(content) == ""
+		opensBlock = strings.TrimSpace(content) == "" || IsHeading(content)
 	}
 	return links
 }
@@ -1251,11 +1416,60 @@ func (in *inlineLinks) read(line ProseLine) []Link {
 }
 
 // tail matches a destination after a closing bracket, where one can follow.
+//
+// What follows a link's closing bracket is the destination in either of its
+// two forms, <...>, which may hold spaces, or a bare run, then any title, all
+// in parentheses. A bare run holds parentheses only in balanced pairs, and a
+// backslash escapes one; ending it at the first ) read foo(bar).md as foo(bar.
+// The result is laid out as a regexp submatch index: the whole tail, then the
+// <...> form, then the bare one.
 func tail(rest string, closes bool) []int {
-	if !closes {
+	if !closes || !strings.HasPrefix(rest, "(") {
 		return nil
 	}
-	return linkTailPattern.FindStringSubmatchIndex(rest)
+	i := 1
+	for i < len(rest) && (rest[i] == ' ' || rest[i] == '\t') {
+		i++
+	}
+	at := []int{0, 0, -1, -1, -1, -1}
+	if strings.HasPrefix(rest[i:], "<") {
+		end := strings.IndexAny(rest[i+1:], "<>\n")
+		if end < 0 || rest[i+1+end] != '>' {
+			return nil
+		}
+		at[2], at[3] = i+1, i+1+end
+		i += end + 2
+	} else {
+		start, depth := i, 0
+	bare:
+		for ; i < len(rest); i++ {
+			switch rest[i] {
+			case '\\':
+				if i+1 < len(rest) && isASCIIPunct(rest[i+1]) {
+					i++
+				}
+			case ' ', '\t', '\n':
+				break bare
+			case '(':
+				depth++
+			case ')':
+				if depth == 0 {
+					break bare
+				}
+				depth--
+			}
+		}
+		if i == start || depth != 0 {
+			return nil
+		}
+		at[4], at[5] = start, i
+	}
+	end := strings.IndexByte(rest[i:], ')')
+	if end < 0 {
+		return nil
+	}
+	at[1] = i + end + 1
+	return at
 }
 
 // reference reports whether the bracket closing at column end makes a link by
@@ -1364,7 +1578,7 @@ func destinationAt(at []int, n int) (start, end int) {
 // that does not decode is used as written, because that is what the author
 // typed and reporting it that way is more use than reporting a decoding error.
 func destination(bracketed, bare string) string {
-	target := bare
+	target := unescape(bare)
 	if bracketed != "" {
 		target = strings.NewReplacer(`\<`, "<", `\>`, ">").Replace(bracketed)
 	}
@@ -1372,6 +1586,19 @@ func destination(bracketed, bare string) string {
 		return decoded
 	}
 	return target
+}
+
+// unescape resolves the backslash escapes in a bare destination, so
+// foo\)baz.md names foo)baz.md.
+func unescape(s string) string {
+	var b strings.Builder
+	for i := 0; i < len(s); i++ {
+		if s[i] == '\\' && i+1 < len(s) && isASCIIPunct(s[i+1]) {
+			i++
+		}
+		b.WriteByte(s[i])
+	}
+	return b.String()
 }
 
 // WikiLinks returns every [[...]] in the body, ignoring code.
@@ -1389,21 +1616,47 @@ func (d *Document) WikiLinks() []WikiLink {
 // link into a file that is not itself a document.
 func AnchorsIn(source []byte) []string {
 	_, body, _, _ := splitFrontMatter(source)
-	headings := parseHeadings(string(body), 1)
+	// A byte order mark is stripped from a front matter delimiter, and a file
+	// with none kept it before its first heading.
+	text := strings.TrimPrefix(string(body), "\uFEFF")
+	headings := parseHeadings(text, 1)
 	anchors := make([]string, 0, len(headings))
 	for _, h := range headings {
 		anchors = append(anchors, h.Anchor)
 	}
-	// An explicit anchor is a target too. GLOSSARY.md writes one for every
-	// former name of a term, so a link written before a rename still resolves;
-	// without this L17 would report every one of them, and a frozen document
-	// holding such a link could never be repaired.
-	for _, m := range explicitAnchor.FindAllStringSubmatch(string(body), -1) {
-		anchors = append(anchors, m[2])
+	return append(anchors, explicitAnchors(text)...)
+}
+
+// Anchors is every fragment a link into the document can name: each
+// heading's anchor, then each explicit one.
+func (d *Document) Anchors() []string {
+	anchors := make([]string, 0, len(d.headings))
+	for _, h := range d.headings {
+		anchors = append(anchors, h.Anchor)
+	}
+	return append(anchors, explicitAnchors(d.Body)...)
+}
+
+// explicitAnchors are the ids and names of <a> elements outside comments and
+// code. An explicit anchor is a target too: GLOSSARY.md writes one for every
+// former name of a term, so a link written before a rename still resolves;
+// without them L17 would report every one of those, and a frozen document
+// holding such a link could never be repaired.
+func explicitAnchors(body string) []string {
+	masked, literal, _, _ := scanBody(body)
+	masked = maskParagraphCode(masked, literal)
+	var anchors []string
+	for i, line := range masked {
+		if literal[i] == blockCode {
+			continue
+		}
+		for _, m := range explicitAnchor.FindAllStringSubmatch(line, -1) {
+			anchors = append(anchors, m[1]+m[2])
+		}
 	}
 	return anchors
 }
 
 // explicitAnchor matches an HTML anchor carrying an id or a name, which is how
 // a Markdown document names a target that is not a heading.
-var explicitAnchor = regexp.MustCompile(`(?i)<a\s+[^>]*\b(id|name)\s*=\s*"([^"]+)"`)
+var explicitAnchor = regexp.MustCompile(`(?i)<a\s+[^>]*\b(?:id|name)\s*=\s*(?:"([^"]+)"|'([^']+)')`)

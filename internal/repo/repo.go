@@ -141,7 +141,8 @@ type Document struct {
 	masked []string
 	// literal marks the lines of masked inside a code block or an HTML
 	// block, and quoted those a blockquote holds, from the same walk.
-	literal, quoted []bool
+	literal []block
+	quoted  []bool
 	// unclosed records that the body ends inside a comment or a block only a
 	// marker closes.
 	unclosed bool
