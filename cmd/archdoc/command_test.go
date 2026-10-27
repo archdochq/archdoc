@@ -1434,3 +1434,13 @@ func TestNewRefWithATitlePromptsForNothing(t *testing.T) {
 		t.Errorf("a ref created without --as-of carries as_of:\n%s", written)
 	}
 }
+
+// TestRenumberWithNoArgumentAsksOrSaysWhatItNeeds: cobra's argument count
+// refused before the command could prompt, as the interaction rule requires.
+func TestRenumberWithNoArgumentAsksOrSaysWhatItNeeds(t *testing.T) {
+	dir := repository(t)
+	out, code := run(t, dir, "renumber")
+	if code != exitUsage || !strings.Contains(out, "archdoc renumber <id|path>") {
+		t.Errorf("exit = %d, output = %q; want a refusal naming the arguments", code, out)
+	}
+}

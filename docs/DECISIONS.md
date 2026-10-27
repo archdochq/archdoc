@@ -297,6 +297,12 @@ the result can delete content it never read.
   wiki link cannot say which document it means, so neither is rewritten or blocks; each is listed for
   the author to repoint, and marked where the document is frozen. A link to the file names one
   document, so it is still rewritten and a frozen one still blocks.
+- **`renumber` undoes a rename that fails part way.** It wrote the other documents first, in map order,
+  then the new file, then removed the old one, and a failure at any step left referring documents naming
+  a number no file carried. It now refuses a target path that already exists, writes the new file first,
+  writes the edits in path order, and on a failure writes each edited document's original back and
+  removes the new file. Checking every write in advance was not enough on its own: whether a file can be
+  written is known only by writing it.
 - **Interactive suggestion application re-reads before writing.** The snapshot is taken before the first
   prompt and the write happens after the last answer, so the whole session is a window in which an edit
   made elsewhere would be silently discarded. A file that has moved on is left alone and said so.
