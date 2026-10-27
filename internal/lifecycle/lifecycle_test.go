@@ -403,7 +403,7 @@ func TestRejectRefusesADocumentWhoseParseStopsShort(t *testing.T) {
 	// The rationale is appended to the end of the file. When the body ends
 	// inside an unterminated comment that position is inside the comment, so
 	// the command reported writing a section that did not then exist.
-	open := strings.Replace(rfc("proposed", "", "\n"), "- 2026-01-01: written.", "- 2026-01-01: written. <!-- TODO", 1)
+	open := strings.Replace(rfc("proposed", "", "\n"), "- 2026-01-01: written.", "- 2026-01-01: written.\n\n<!-- TODO", 1)
 	d := document(t, "rfc/0001-a-design.md", open)
 
 	_, err := lifecycle.Apply(d, repo.StatusRejected, now, nil)

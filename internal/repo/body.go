@@ -351,7 +351,7 @@ func (d *Document) bodyLines() []string {
 // what a comment is without being the single walk over the document.
 func (d *Document) maskedLines() []string {
 	if d.masked == nil {
-		d.masked, d.fenced, d.unclosed = scanBody(d.Body)
+		d.masked, d.literal, d.quoted, d.unclosed = scanBody(d.Body)
 	}
 	return d.masked
 }
@@ -396,38 +396,69 @@ func UnclosedIn(source []byte) bool {
 	if !ok {
 		body = source
 	}
-	_, _, unclosed := scanBody(string(body))
+	_, _, _, unclosed := scanBody(string(body))
 	return unclosed
 }
 
-// Prose iterates the prose lines of a body: those not inside a fenced code
-// block or an HTML comment. Leaving the loop stops the walk.
+// Prose iterates the prose lines of a body: those not literal. Leaving the
+// loop stops the walk.
 func Prose(body string, bodyLine int) iter.Seq[ProseLine] {
 	return func(yield func(ProseLine) bool) {
-		// proseLines yields the masked line, so the line as written is taken
-		// from the body at the same index.
 		raw := strings.Split(body, "\n")
-		for i, masked := range proseLines(body) {
-			if !yield(ProseLine{Raw: raw[i], Masked: maskCode(masked), Number: bodyLine + i}) {
+		masked, literal, _, _ := scanBody(body)
+		masked = maskParagraphCode(masked, literal)
+		for i := range masked {
+			if literal[i] {
+				continue
+			}
+			if !yield(ProseLine{Raw: raw[i], Masked: masked[i], Number: bodyLine + i}) {
 				return
 			}
 		}
 	}
 }
 
+// maskParagraphCode blanks the code spans in each run of prose lines that
+// forms one paragraph, since a span may cross a line break within one: read a
+// line at a time, a span wrapped onto the next line left its links readable.
+// A heading, a list item and the other block starts begin a run of their own.
+func maskParagraphCode(masked []string, literal []bool) []string {
+	out := slices.Clone(masked)
+	joins := func(i int) bool {
+		inner, _ := stripQuotes(masked[i])
+		return !literal[i] && strings.TrimSpace(inner) != "" && !IsHeading(inner)
+	}
+	for start := 0; start < len(masked); {
+		end := start + 1
+		if joins(start) {
+			for end < len(masked) && joins(end) && !startsBlock(masked[end], nil) {
+				end++
+			}
+		}
+		copy(out[start:], strings.Split(maskCode(strings.Join(masked[start:end], "\n")), "\n"))
+		start = end
+	}
+	return out
+}
+
 // Prose is the same over one document's body.
 func (d *Document) Prose() iter.Seq[ProseLine] { return Prose(d.Body, d.BodyLine) }
 
 // maskCode blanks code spans, keeping the length so that any position derived
-// from the line still refers to the right column.
-func maskCode(line string) string {
-	out := []byte(line)
-	for i := 0; i < len(line); {
-		start, end, ok := codeSpan(line[i:])
+// from the text still refers to the right column. A line break inside a span
+// is kept, so text joined from several lines splits back into them.
+func maskCode(text string) string {
+	out := []byte(text)
+	for i := 0; i < len(text); {
+		start, end, ok := codeSpan(text[i:])
 		if !ok {
 			break
 		}
-		blank(out, i+start, i+end)
+		for j := i + start; j < i+end; j++ {
+			if out[j] != '\n' && out[j] != '\r' {
+				out[j] = ' '
+			}
+		}
 		i += end
 	}
 	return string(out)
@@ -481,16 +512,13 @@ func matchingRun(s string, from, n int) int {
 	return 0
 }
 
-// proseLines iterates the body lines that are not inside a fenced code block,
-// with their zero-based index and with everything inside an HTML comment
-// blanked. A fence closes only on a run of the same character at least as long
-// as the one that opened it, so a shorter example nested inside a longer block
-// does not end it.
+// proseLines iterates the body lines that are not literal, with their
+// zero-based index and with everything inside an HTML comment blanked.
 func proseLines(body string) iter.Seq2[int, string] {
 	return func(yield func(int, string) bool) {
-		masked, fenced, _ := scanBody(body)
+		masked, literal, _, _ := scanBody(body)
 		for i, line := range masked {
-			if fenced[i] {
+			if literal[i] {
 				continue
 			}
 			if !yield(i, line) {
@@ -501,50 +529,354 @@ func proseLines(body string) iter.Seq2[int, string] {
 }
 
 // scanBody splits text into lines, blanks the HTML comments in each, and
-// reports which lines belong to a fenced code block.
+// reports which lines are literal: inside a fenced or indented code block or
+// an HTML block, where nothing is prose but everything is content. quoted
+// marks the lines a blockquote holds, literal or not.
 //
-// It is the single definition of how fences, code spans and comments interact,
-// and every consumer reads it rather than restating the rule. There used to be
-// a second definition, a regular expression requiring a closing marker, behind
-// Section.Empty and the glossary's paragraph split. It disagreed with this one
-// about an unterminated comment, and that disagreement was enough to carry an
-// unfinished document through the freeze gate in silence.
+// It is the single definition of how blocks, code spans and comments
+// interact, and every consumer reads it rather than restating the rule. There
+// used to be a second definition, a regular expression requiring a closing
+// marker, behind Section.Empty and the glossary's paragraph split. It
+// disagreed with this one about an unterminated comment, and that
+// disagreement was enough to carry an unfinished document through the freeze
+// gate in silence.
 //
-// A fenced block is literal to its end, so nothing in it is prose and nothing
-// in it opens a comment. A fence marker can only begin a line, so a line
-// already inside a comment cannot open one: a comment and a fenced block are
-// both blocks, and whichever opens first holds the lines until it closes.
-func scanBody(text string) (masked []string, fenced []bool, unclosed bool) {
+// A literal block holds its lines to its end, so nothing in it opens a
+// comment. A block can only begin a line, so a line already inside a comment
+// cannot open one: whichever opens first holds the lines until it closes.
+// Blocks are read inside blockquotes and list items, as CommonMark reads
+// them: a fence indented under a list item hid the rest of the document
+// behind a `<!--` it held, because it was read as prose.
+func scanBody(text string) (masked []string, literal, quoted []bool, unclosed bool) {
 	lines := strings.Split(text, "\n")
 	masked = make([]string, len(lines))
-	fenced = make([]bool, len(lines))
+	literal = make([]bool, len(lines))
+	quoted = make([]bool, len(lines))
 
-	var fenceChar byte
-	var fenceLen int
+	var w blockWalk
 	open := false
-
 	for i, line := range lines {
-		switch {
-		case fenceLen != 0:
-			masked[i], fenced[i] = line, true
-			if closesFence(line, fenceChar, fenceLen) {
-				fenceLen = 0
-			}
+		if open {
+			// Past the marker that closes it, a comment opens only as one
+			// inside a paragraph does.
+			masked[i], open = maskCommentsIn(line, true, func(marker int) bool {
+				return closesInParagraph(lines, i, marker+len(commentOpen))
+			})
+			w.paragraph = false
 			continue
-
-		case !open:
-			if m := fencePattern.FindStringSubmatch(line); m != nil {
-				fenceChar, fenceLen = m[1][0], len(m[1])
-				masked[i], fenced[i] = line, true
-				continue
-			}
 		}
-		masked[i], open = maskCommentsIn(line, open)
+		at, lit := w.line(strings.TrimSuffix(line, "\r"))
+		quoted[i] = len(w.stack) > 0 && w.stack[0].quote
+		if lit {
+			masked[i], literal[i] = line, true
+			continue
+		}
+		masked[i], open = maskCommentsIn(line, false, func(marker int) bool {
+			// A comment starting a block runs until it closes, however far
+			// that is. One opened inside a paragraph is raw HTML only where
+			// it closes before the paragraph ends, and text otherwise.
+			if marker-at <= 3 && strings.TrimSpace(line[at:marker]) == "" {
+				return true
+			}
+			return closesInParagraph(lines, i, marker+len(commentOpen))
+		})
+		w.prose(masked[i][min(at, len(masked[i])):])
 	}
-	// open means a comment never closed; fenceLen means a fence never did.
-	// Either way the walk masked everything from there to the end of the text,
+	// open means a comment never closed, and unclosed a block that runs to the
+	// end of the text. Either way the walk masked everything from there on,
 	// so the parse that follows is a prefix of what the author wrote.
-	return masked, fenced, open || fenceLen != 0
+	return masked, literal, quoted, open || w.unclosed()
+}
+
+// closesInParagraph reports whether a comment opened at column from of line i
+// closes before its paragraph ends at the next blank line.
+func closesInParagraph(lines []string, i, from int) bool {
+	if strings.Contains(lines[i][from:], commentClose) {
+		return true
+	}
+	for _, line := range lines[i+1:] {
+		if strings.TrimSpace(line) == "" {
+			return false
+		}
+		if strings.Contains(line, commentClose) {
+			return true
+		}
+	}
+	return false
+}
+
+// blockWalk follows the blocks of a body a line at a time: the blockquotes
+// and list items each line continues, and the leaf block it is in.
+//
+// It reads as much of CommonMark as deciding what is prose needs: containers
+// by their markers and indentation, lazy continuation of a paragraph, and
+// which leaves cannot interrupt one. Tabs count as four columns.
+type blockWalk struct {
+	stack []container
+	leaf  leafKind
+	// depth is len(stack) when the leaf opened. A leaf ends with the
+	// container holding it.
+	depth     int
+	fenceChar byte
+	fenceLen  int
+	// htmlEnd closes an HTML block that ends on a marker; empty, a blank line
+	// closes it.
+	htmlEnd   string
+	paragraph bool
+}
+
+// container is a blockquote, or a list item whose content starts indent
+// columns in from where its parent's content starts.
+type container struct {
+	quote  bool
+	indent int
+}
+
+type leafKind int
+
+const (
+	leafNone leafKind = iota
+	leafFence
+	leafIndented
+	leafHTML
+)
+
+var (
+	// The space after a quote marker is optional and may be a tab, which
+	// is taken whole: CommonMark reads part of it as the space and the rest as
+	// indentation, and counting the rest as four columns made code of a
+	// definition written after a tab.
+	quoteMarkerPattern = regexp.MustCompile(`^ {0,3}>[ \t]?`)
+	listMarkerPattern  = regexp.MustCompile(`^( {0,3})([-+*]|(\d{1,9})[.)])([ \t]+|$)`)
+	thematicPattern    = regexp.MustCompile(`^ {0,3}(?:(?:\*[ \t]*){3,}|(?:-[ \t]*){3,}|(?:_[ \t]*){3,})$`)
+	// The HTML blocks CommonMark recognises, other than a comment, which the
+	// comment masker reads: those closing on a marker, then those closing on a
+	// blank line. The last, a lone tag, cannot interrupt a paragraph.
+	htmlRawPattern   = regexp.MustCompile(`(?i)^<(script|pre|style|textarea)(?:[ \t>]|$)`)
+	htmlOtherPattern = regexp.MustCompile(`^<(?:\?|!\[CDATA\[|![A-Za-z])`)
+	htmlBlockPattern = regexp.MustCompile(`(?i)^</?(?:address|article|aside|base|basefont|blockquote|body|caption|center|col|colgroup|dd|details|dialog|dir|div|dl|dt|fieldset|figcaption|figure|footer|form|frame|frameset|h[1-6]|head|header|hr|html|iframe|legend|li|link|main|menu|menuitem|nav|noframes|ol|optgroup|option|p|param|search|section|summary|table|tbody|td|tfoot|th|thead|title|tr|track|ul)(?:[ \t]|/?>|$)`)
+	htmlTagPattern   = regexp.MustCompile(`^(?:<[A-Za-z][A-Za-z0-9-]*(?:[ \t]+[A-Za-z_:][A-Za-z0-9_.:-]*(?:[ \t]*=[ \t]*(?:[^ \t"'=<>` + "`" + `]+|'[^']*'|"[^"]*"))?)*[ \t]*/?>|</[A-Za-z][A-Za-z0-9-]*[ \t]*>)[ \t]*$`)
+)
+
+// line reads one line, without its carriage return, and returns the column
+// its content starts at once its containers' markers are passed, and whether
+// it is literal.
+func (w *blockWalk) line(s string) (at int, literal bool) {
+	matched := 0
+	for ; matched < len(w.stack); matched++ {
+		rest := s[at:]
+		if w.stack[matched].quote {
+			m := quoteMarkerPattern.FindStringIndex(rest)
+			if m == nil {
+				break
+			}
+			at += m[1]
+			continue
+		}
+		if strings.TrimSpace(rest) == "" {
+			continue
+		}
+		n, ok := consumeIndent(rest, w.stack[matched].indent)
+		if !ok {
+			break
+		}
+		at += n
+	}
+	if matched < len(w.stack) {
+		if w.leaf == leafNone && w.paragraph && strings.TrimSpace(s[at:]) != "" && !w.interrupts(s[at:]) {
+			return at, false // a lazy continuation of the paragraph
+		}
+		w.stack = w.stack[:matched]
+		if w.depth > matched {
+			w.leaf = leafNone
+		}
+	}
+
+	rest := s[at:]
+	switch w.leaf {
+	case leafFence:
+		if closesFence(rest, w.fenceChar, w.fenceLen) {
+			w.leaf = leafNone
+		}
+		return at, true
+	case leafHTML:
+		if w.htmlEnd == "" && strings.TrimSpace(rest) == "" {
+			w.leaf, w.paragraph = leafNone, false
+			return at, false
+		}
+		if w.htmlEnd != "" && strings.Contains(strings.ToLower(rest), w.htmlEnd) {
+			w.leaf = leafNone
+		}
+		return at, true
+	case leafIndented:
+		if strings.TrimSpace(rest) == "" {
+			return at, false
+		}
+		if indentColumns(rest) >= 4 {
+			return at, true
+		}
+		w.leaf, w.paragraph = leafNone, false
+	}
+
+	for {
+		rest = s[at:]
+		if m := quoteMarkerPattern.FindStringIndex(rest); m != nil {
+			w.stack = append(w.stack, container{quote: true})
+			at, w.paragraph = at+m[1], false
+			continue
+		}
+		if n, indent, ok := w.listItem(rest); ok {
+			w.stack = append(w.stack, container{indent: indent})
+			at, w.paragraph = at+n, false
+			continue
+		}
+		break
+	}
+
+	rest = s[at:]
+	switch {
+	case strings.TrimSpace(rest) == "":
+		w.paragraph = false
+		return at, false
+	case fenceOpens(rest):
+		m := fencePattern.FindStringSubmatch(rest)
+		w.open(leafFence)
+		w.fenceChar, w.fenceLen = m[1][0], len(m[1])
+		return at, true
+	case !w.paragraph && indentColumns(rest) >= 4:
+		w.open(leafIndented)
+		return at, true
+	}
+	if end, ok := htmlStarts(rest, w.paragraph); ok {
+		w.open(leafHTML)
+		w.htmlEnd = end
+		if end != "" && strings.Contains(strings.ToLower(rest)[2:], end) {
+			w.leaf = leafNone
+		}
+		return at, true
+	}
+	return at, false
+}
+
+func (w *blockWalk) open(leaf leafKind) {
+	w.leaf, w.depth, w.paragraph = leaf, len(w.stack), false
+}
+
+// prose records what a prose line, with its comments blanked, leaves open: a
+// paragraph, unless it was blank, a heading or a thematic break.
+func (w *blockWalk) prose(content string) {
+	content = strings.TrimSuffix(content, "\r")
+	w.paragraph = strings.TrimSpace(content) != "" && !IsHeading(content) && !thematicPattern.MatchString(content)
+}
+
+// unclosed reports a block still open at the end that only a marker closes.
+func (w *blockWalk) unclosed() bool {
+	return w.leaf == leafFence || w.leaf == leafHTML && w.htmlEnd != ""
+}
+
+// interrupts reports whether a line starts a block, so that it cannot be a
+// lazy continuation of the paragraph before it.
+func (w *blockWalk) interrupts(s string) bool {
+	_, _, item := w.listItem(s)
+	_, html := htmlStarts(s, true)
+	return item || html || quoteMarkerPattern.MatchString(s) || fenceOpens(s) || IsHeading(s) ||
+		thematicPattern.MatchString(s) || strings.HasPrefix(strings.TrimLeft(s, " "), commentOpen)
+}
+
+// listItem reads a list marker: how many bytes it and the spaces after it
+// take, and the column the item's content starts at. A thematic break is not
+// an item, and inside a paragraph neither is an empty item or a numbered one
+// not starting at 1.
+func (w *blockWalk) listItem(s string) (n, indent int, ok bool) {
+	m := listMarkerPattern.FindStringSubmatchIndex(s)
+	if m == nil || thematicPattern.MatchString(s) {
+		return 0, 0, false
+	}
+	empty := m[1] == len(s)
+	if w.paragraph && (empty || m[6] >= 0 && strings.TrimLeft(s[m[6]:m[7]], "0") != "1") {
+		return 0, 0, false
+	}
+	marker := m[5]
+	spaces := indentColumns(s[marker:])
+	switch {
+	case empty:
+		return len(s), marker + 1, true
+	case spaces > 4:
+		// The content is an indented code block, one column in.
+		return marker + 1, marker + 1, true
+	}
+	return m[1], marker + spaces, true
+}
+
+// fenceOpens reports a fence opening a line. A backtick fence's info string
+// cannot hold a backtick, so ```go``` is a code span in a paragraph.
+func fenceOpens(s string) bool {
+	m := fencePattern.FindStringSubmatchIndex(s)
+	return m != nil && (s[m[2]] != '`' || !strings.Contains(s[m[3]:], "`"))
+}
+
+// htmlStarts reports an HTML block opening a line, and the marker that closes
+// it, empty where a blank line does.
+func htmlStarts(s string, paragraph bool) (end string, ok bool) {
+	if indentColumns(s) > 3 {
+		return "", false
+	}
+	s = strings.TrimLeft(s, " ")
+	if m := htmlRawPattern.FindStringSubmatch(s); m != nil {
+		return "</" + strings.ToLower(m[1]) + ">", true
+	}
+	switch m := htmlOtherPattern.FindString(s); m {
+	case "":
+	case "<?":
+		return "?>", true
+	case "<![CDATA[":
+		return "]]>", true
+	default:
+		return ">", true
+	}
+	if htmlBlockPattern.MatchString(s) || !paragraph && htmlTagPattern.MatchString(s) {
+		return "", true
+	}
+	return "", false
+}
+
+// indentColumns is the width of a line's leading whitespace.
+func indentColumns(s string) int {
+	cols := 0
+	for i := 0; i < len(s); i++ {
+		switch s[i] {
+		case ' ':
+			cols++
+		case '\t':
+			cols += 4
+		default:
+			return cols
+		}
+	}
+	return cols
+}
+
+// consumeIndent passes want columns of leading whitespace and returns the bytes
+// that took, or false when the line has fewer.
+func consumeIndent(s string, want int) (int, bool) {
+	cols := 0
+	for i := 0; cols < want; i++ {
+		if i == len(s) {
+			return 0, false
+		}
+		switch s[i] {
+		case ' ':
+			cols++
+		case '\t':
+			cols += 4
+		default:
+			return 0, false
+		}
+		if cols >= want {
+			return i + 1, true
+		}
+	}
+	return 0, true
 }
 
 // closesFence reports whether a line closes an open fence: a run of the same
@@ -572,7 +904,7 @@ func closesFence(line string, char byte, length int) bool {
 // comments, reading a comment exactly as the prose walk does. A fenced block is
 // content, marker or no marker.
 func hasContent(text string) bool {
-	masked, _, _ := scanBody(text)
+	masked, _, _, _ := scanBody(text)
 	for _, line := range masked {
 		if strings.TrimSpace(line) != "" {
 			return true
@@ -599,9 +931,10 @@ const (
 //
 // A marker inside an inline code span is literal, because a span binds tighter
 // than raw HTML: `<!--` written as an example used to open a comment that
-// swallowed the rest of the document. An unterminated comment does run to the
-// end of the body, which is how a browser reads one.
-func maskCommentsIn(line string, open bool) (string, bool) {
+// swallowed the rest of the document. opens decides whether an unescaped
+// marker outside a span opens a comment, which depends on where in its block
+// it sits.
+func maskCommentsIn(line string, open bool, opens func(marker int) bool) (string, bool) {
 	out := []byte(line)
 	for i := 0; i < len(line); {
 		if open {
@@ -630,9 +963,24 @@ func maskCommentsIn(line string, open bool) (string, bool) {
 			i += spanEnd
 			continue
 		}
+		// A marker after an odd run of backslashes is escaped. Any other opens
+		// a comment where opens says so, and is text otherwise.
+		if escaped(line, i+start) || !opens(i+start) {
+			i += start + len(commentOpen)
+			continue
+		}
 		i, open = i+start, true
 	}
 	return string(out), open
+}
+
+// escaped reports an odd run of backslashes before s[at].
+func escaped(s string, at int) bool {
+	n := 0
+	for at-n > 0 && s[at-n-1] == '\\' {
+		n++
+	}
+	return n%2 == 1
 }
 
 // blank overwrites a range with spaces, keeping every byte position so that an
@@ -655,7 +1003,11 @@ func parseHeadings(body string, bodyLine int) []Heading {
 		if m == nil {
 			continue
 		}
-		text := strings.TrimSpace(closingHashes.ReplaceAllString(m[2], ""))
+		// A heading of nothing but a closing sequence is empty.
+		text := ""
+		if strings.Trim(m[2], "#") != "" {
+			text = strings.TrimSpace(closingHashes.ReplaceAllString(m[2], ""))
+		}
 		h := Heading{
 			Level: len(m[1]),
 			Text:  text,

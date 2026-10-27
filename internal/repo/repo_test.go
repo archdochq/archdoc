@@ -919,6 +919,8 @@ func FuzzProseNeverMovesAByte(f *testing.F) {
 		"`a` <!-- `b` --> `c`\n",
 		"unterminated <!-- runs on\nand on\n",
 		"é <!-- é --> é\n",
+		"A `span\nwrapped` here.\n",
+		"- item\n\n  ```\n  <!--\n  ```\n> <!-- a\n> b -->\n",
 	} {
 		f.Add(seed)
 	}
@@ -1115,16 +1117,15 @@ func TestADateWrittenAsAYAMLAliasIsRead(t *testing.T) {
 	}
 }
 
-func TestASectionIsEmptyWhenItsCommentOpensOnTheHeadingLine(t *testing.T) {
+func TestACommentClosingInsideASectionLeavesItEmpty(t *testing.T) {
 	// Section.Text was sliced from the raw body and then scanned from a clean
-	// state, so a comment opened on the heading line and closed inside the
-	// section was invisible to the section-level check: the walk that had
-	// already masked it was thrown away and the stray "-->" left behind read as
-	// content. scanBody was the single definition of a comment but not the
-	// single walk.
+	// state, so a comment opened before the section and closed inside it was
+	// invisible to the section-level check: the walk that had already masked
+	// it was thrown away and the stray "-->" left behind read as content.
+	// scanBody was the single definition of a comment but not the single walk.
 	d := repotest.New(t, map[string]string{
 		"adr/0001-a.md": "---\nid: ADR-0001\ntitle: A\n---\n\n# ADR-0001: A\n\n" +
-			"## Consequences <!-- I will fill this in later\n\n-->\n",
+			"## Consequences <!-- I will\nfill this in later -->\n\n",
 	}).ByPath("adr/0001-a.md")
 
 	sections := d.Sections("Consequences")
@@ -1133,6 +1134,18 @@ func TestASectionIsEmptyWhenItsCommentOpensOnTheHeadingLine(t *testing.T) {
 	}
 	if !sections[0].Empty() {
 		t.Errorf("the section holds only a comment but does not read as empty; its text is %q", sections[0].Text)
+	}
+}
+
+func TestACommentMarkerInAHeadingThatNeverClosesIsText(t *testing.T) {
+	// A heading's content is one line, and an inline comment that does not
+	// close within it is text, as GitHub shows it.
+	d := repotest.New(t, map[string]string{
+		"adr/0001-a.md": "---\nid: ADR-0001\ntitle: A\n---\n\n# ADR-0001: A\n\n" +
+			"## Consequences <!-- I will fill this in later\n\n-->\n",
+	}).ByPath("adr/0001-a.md")
+	if got := d.Sections("Consequences <!-- I will fill this in later"); len(got) != 1 {
+		t.Errorf("want the marker read as heading text, got %d sections", len(got))
 	}
 }
 

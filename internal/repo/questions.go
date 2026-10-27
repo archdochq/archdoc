@@ -63,7 +63,8 @@ type questionWalk struct {
 	d        *Document
 	raw      []string
 	masked   []string
-	fenced   []bool
+	literal  []bool
+	inQuote  []bool
 	problems []Problem
 }
 
@@ -78,19 +79,19 @@ func (w *questionWalk) blank(i int) bool {
 }
 
 // quoted is a blockquote line: one beginning with > at the start of the line,
-// outside a fenced code block and an HTML comment.
+// outside an HTML comment and any literal block the quote does not hold.
 func (w *questionWalk) quoted(i int) bool {
-	return !w.fenced[i] && strings.HasPrefix(w.masked[i], ">")
+	return (!w.literal[i] || w.inQuote[i]) && strings.HasPrefix(w.masked[i], ">")
 }
 
 // span is a half-open run of body line indexes.
 type span struct{ start, end int }
 
 func (d *Document) readQuestions(skipOpen bool) (Questions, []Problem) {
-	// The walk fills d.fenced, so it runs before the field is read: the order
+	// The walk fills d.literal, so it runs before the field is read: the order
 	// of a call and a field read within one composite literal is unspecified.
 	masked := d.maskedLines()
-	w := &questionWalk{d: d, raw: d.bodyLines(), masked: masked, fenced: d.fenced}
+	w := &questionWalk{d: d, raw: d.bodyLines(), masked: masked, literal: d.literal, inQuote: d.quoted}
 	var out Questions
 
 	hasOpen := false
@@ -323,14 +324,12 @@ func unquote(line string) string {
 	return expanded + rest[lead:]
 }
 
-// checkQuotes reports a heading, a fence or a comment inside a blockquote. The
-// tool finds each of those before it knows a line is quoted, and does not see a
-// fence inside a blockquote at all, so they are refused rather than read some
-// other way.
+// checkQuotes reports a heading, a fence or a comment inside a blockquote. An
+// answer is read from its lines as written, which holds none of them as the
+// rendered quote does, so they are refused rather than read some other way.
 //
 // A fence is reported at the line opening it, and the lines it holds are code,
-// so a # among them is not a heading. A comment marker among them is still
-// reported: the walk does not see the fence, and masks from that marker on.
+// so a # or a comment marker among them is neither a heading nor a comment.
 func (w *questionWalk) checkQuotes(s span) {
 	for _, run := range w.quotes(s) {
 		var fenceChar byte
@@ -399,10 +398,10 @@ func (w *questionWalk) isQuestion(j int) bool {
 // questionQuotes marks the blockquote lines of every question section, by body
 // line index.
 func (d *Document) questionQuotes() map[int]bool {
-	// The walk fills d.fenced, so it runs before the field is read: the order
+	// The walk fills d.literal, so it runs before the field is read: the order
 	// of a call and a field read within one composite literal is unspecified.
 	masked := d.maskedLines()
-	w := &questionWalk{d: d, raw: d.bodyLines(), masked: masked, fenced: d.fenced}
+	w := &questionWalk{d: d, raw: d.bodyLines(), masked: masked, literal: d.literal, inQuote: d.quoted}
 	marked := map[int]bool{}
 	for i, h := range d.headings {
 		if h.Level != 2 || (h.Text != OpenQuestions && h.Text != ResolvedQuestions) {
