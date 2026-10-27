@@ -37,7 +37,13 @@ func termAdd() *cobra.Command {
 			}
 			// The arguments are settled before anything is written, so that a
 			// usage error does not leave a term directory behind.
-			term, definition, err := askForTerm(cmd, args, true, "add")
+			var numbered []*repo.Document
+			for _, d := range r.Documents() {
+				if d.Type.Numbered() {
+					numbered = append(numbered, d)
+				}
+			}
+			term, definition, err := askForTerm(cmd, args, true, "add", &namedBy, numbered)
 			if err != nil {
 				return err
 			}
@@ -97,7 +103,7 @@ func termRemove() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			term, _, err := askForTerm(cmd, args, false, "remove")
+			term, _, err := askForTerm(cmd, args, false, "remove", nil, nil)
 			if err != nil {
 				return err
 			}
@@ -147,7 +153,7 @@ func termShow() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			wanted, _, err := askForTerm(cmd, args, false, "show")
+			wanted, _, err := askForTerm(cmd, args, false, "show", nil, nil)
 			if err != nil {
 				return err
 			}

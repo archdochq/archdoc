@@ -43,7 +43,7 @@ func (r *Repo) Glossary() (entries []GlossaryEntry, ok bool) {
 	entries = []GlossaryEntry{}
 	for _, d := range r.Documents() {
 		if d.Type == TypeTerm {
-			entries = append(entries, d.termEntry())
+			entries = append(entries, d.TermEntry())
 		}
 	}
 	slices.SortFunc(entries, func(a, b GlossaryEntry) int {
@@ -55,10 +55,10 @@ func (r *Repo) Glossary() (entries []GlossaryEntry, ok bool) {
 	return entries, true
 }
 
-// termEntry reads one term file. The term is the front matter title rather
+// TermEntry reads one term file. The term is the front matter title rather
 // than the heading, because the title is what the filename and every lookup
 // key derive from; L10 already holds the two to each other.
-func (d *Document) termEntry() GlossaryEntry {
+func (d *Document) TermEntry() GlossaryEntry {
 	e := GlossaryEntry{
 		Term:     d.FrontMatter.Title,
 		Path:     d.Path,
@@ -95,11 +95,10 @@ func (r *Repo) Term(name string) (GlossaryEntry, bool) {
 	return entry, ok
 }
 
-// BlankLinePattern separates paragraphs. It matches CRLF as well as LF, because
+// blankLinePattern separates paragraphs. It matches CRLF as well as LF, because
 // a file saved on Windows would otherwise read as one unbroken paragraph and
-// L15 would pass anything. Exported because internal/glossary refuses a
-// definition that contains one.
-var BlankLinePattern = regexp.MustCompile(`\r?\n[ \t]*\r?\n`)
+// L15 would pass anything.
+var blankLinePattern = regexp.MustCompile(`\r?\n[ \t]*\r?\n`)
 
 // entryBlocks splits a definition into paragraphs. HTML comments and
 // whitespace count as nothing, as they do everywhere else.
@@ -108,7 +107,7 @@ func entryBlocks(masked string) (paragraphs []string) {
 	// scan of this fragment: a comment opened before the definition and closed
 	// inside it is already blanked there, and re-scanning from a clean state
 	// would read the stray closing marker as a paragraph.
-	for _, block := range BlankLinePattern.Split(masked, -1) {
+	for _, block := range blankLinePattern.Split(masked, -1) {
 		if trimmed := strings.TrimSpace(block); trimmed != "" {
 			paragraphs = append(paragraphs, trimmed)
 		}
