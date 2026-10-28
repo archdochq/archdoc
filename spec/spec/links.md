@@ -22,7 +22,7 @@ A document is either rewritten in full or not at all. A frozen document containi
 
 A suggestion wraps the matched text exactly as written: `RFC-0007` becomes `[RFC-0007](<relative path>)`. Identifiers match their canonical uppercase form. Glossary terms match whole, case-insensitively, longest first, with no stemming and no plural handling. Whole is judged from the characters on either side of the match. A term reaching a link label is escaped.
 
-With a terminal on stdin and no `--apply`: for each suggestion, the file, line and highlighted match are shown with the prompt `[y]es [n]o [a]ll in file [s]kip file [q]uit`; `q` writes the accepted changes and exits. The file is re-read before it is written, and left alone if it changed meanwhile. Without a terminal and without `--apply`: suggestions are printed and the exit code is 2 if there are any. With `--apply`: every suggestion is applied.
+With a terminal on stdin and no `--apply`: for each suggestion, the file, line and highlighted match are shown on stderr with the prompt `[y]es [n]o [a]ll in file [s]kip file [q]uit`; `q` writes the accepted changes and exits. The file is re-read before it is written, and left alone if it changed meanwhile. Without a terminal and without `--apply`: suggestions are printed and the exit code is 2 if there are any. With `--apply`: every suggestion is applied.
 
 Neither `link` nor `link --suggest` rewrites a heading.
 

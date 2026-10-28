@@ -81,7 +81,7 @@ The selector is an identifier or a path. Given an identifier carried by more tha
 
 Regenerates `PROCESS.md`, the workflow, and the guides under `agents/` where that directory exists. Shows a unified diff of everything that would change and asks before writing. `--check` shows and exits 2 without writing. `--yes` applies without asking. With neither and no terminal, it refuses.
 
-`AGENTS.md`, `README.md`, `archdoc.json`, `LICENSE`, `INDEX.md`, `GLOSSARY.md` and every document are not touched. `agents/` is refreshed and never created; where it is absent the command says that `archdoc agents` installs it.
+`AGENTS.md`, `README.md`, `archdoc.json`, `LICENSE`, `INDEX.md`, `GLOSSARY.md` and every document are not touched. `agents/` is refreshed and never created; where it is absent the command says on stderr that `archdoc agents` installs it.
 
 The workflow's `version` pin is raised to the version doing the update. It is kept as it is only when the running binary's version is not a published release. A repository scaffolded before the workflow used `archdochq/lint` names its pin `ARCHDOC_VERSION`, and that spelling is read too, so the pin survives the change.
 

@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
+	"fmt"
+	"io"
 	"io/fs"
 	"os"
 	"path/filepath"
@@ -23,28 +25,40 @@ import (
 // main would have used.
 func run(t *testing.T, dir string, args ...string) (string, int) {
 	t.Helper()
-	t.Chdir(dir)
 
 	// Both streams into one buffer: a test asserting on a notice cannot see it
 	// otherwise, and sending the real stderr through made the suite's own
 	// output noisy.
 	var out bytes.Buffer
-	root := newRoot(&out, &out)
 	// Every test is non-interactive: prompting is the one thing this package
 	// does that a test cannot drive.
-	root.SetArgs(append([]string{"--no-interaction"}, args...))
+	code := execute(t, dir, &out, &out, nil, append([]string{"--no-interaction"}, args...)...)
+	return out.String(), code
+}
+
+// execute runs archdoc inside dir on the streams given and returns the exit
+// code main would have used, printing to stderr what main would have printed.
+// A nil stdin leaves the command's own.
+func execute(t *testing.T, dir string, stdout, stderr io.Writer, stdin io.Reader, args ...string) int {
+	t.Helper()
+	t.Chdir(dir)
+
+	root := newRoot(stdout, stderr)
+	if stdin != nil {
+		root.SetIn(stdin)
+	}
+	root.SetArgs(args)
 
 	err := root.Execute()
+	var quiet silentExit
 	switch {
 	case err == nil:
-		return out.String(), exitOK
+		return exitOK
+	case errors.As(err, &quiet):
+		return int(quiet)
 	default:
-		var quiet silentExit
-		if errors.As(err, &quiet) {
-			return out.String(), int(quiet)
-		}
-		out.WriteString("archdoc: " + err.Error() + "\n")
-		return out.String(), exitUsage
+		fmt.Fprintln(stderr, "archdoc:", err)
+		return exitUsage
 	}
 }
 
@@ -700,17 +714,13 @@ func TestLinkJSONEmitsExactlyOneArray(t *testing.T) {
 	// Separate streams here, unlike run: the whole claim is that --json puts
 	// the array and nothing else on stdout, and progress notices go to stderr
 	// precisely so this holds.
-	t.Chdir(dir)
-	var stdout, stderr bytes.Buffer
-	root := newRoot(&stdout, &stderr)
-	root.SetArgs([]string{"--no-interaction", "link", "--suggest", "--json"})
-	_ = root.Execute()
+	stdout, stderr, _ := runSplit(t, dir, "link", "--suggest", "--json")
 
 	var findings []jsonFinding
-	if err := json.Unmarshal(stdout.Bytes(), &findings); err != nil {
-		t.Fatalf("link --json did not emit one JSON array: %v\nstdout:\n%s", err, stdout.String())
+	if err := json.Unmarshal([]byte(stdout), &findings); err != nil {
+		t.Fatalf("link --json did not emit one JSON array: %v\nstdout:\n%s", err, stdout)
 	}
-	if stderr.Len() == 0 {
+	if stderr == "" {
 		t.Error("nothing reached stderr, so this no longer distinguishes the two streams")
 	}
 }
@@ -824,23 +834,78 @@ func TestBackfillDateErrorNamesTheSameFlagEveryTime(t *testing.T) {
 // runWith is run, with something on stdin for the interactive paths.
 func runWith(t *testing.T, dir, stdin string, args ...string) (string, int) {
 	t.Helper()
-	t.Chdir(dir)
-
 	var out bytes.Buffer
-	root := newRoot(&out, &out)
-	root.SetIn(strings.NewReader(stdin))
-	root.SetArgs(args)
+	code := execute(t, dir, &out, &out, strings.NewReader(stdin), args...)
+	return out.String(), code
+}
 
-	err := root.Execute()
-	switch {
-	case err == nil:
-		return out.String(), exitOK
-	default:
-		var quiet silentExit
-		if errors.As(err, &quiet) {
-			return out.String(), int(quiet)
-		}
-		return out.String() + "archdoc: " + err.Error() + "\n", exitUsage
+// runSplit is run with stdout and stderr kept apart, for the tests whose claim
+// is about which stream something reached.
+func runSplit(t *testing.T, dir string, args ...string) (stdout, stderr string, code int) {
+	t.Helper()
+	var out, errOut bytes.Buffer
+	code = execute(t, dir, &out, &errOut, nil, append([]string{"--no-interaction"}, args...)...)
+	return out.String(), errOut.String(), code
+}
+
+// A current file is no findings, and no findings is [] like lint --json's,
+// not an empty stdout that no JSON parser accepts.
+func TestCheckJSONPrintsAnEmptyArrayWhenCurrent(t *testing.T) {
+	for _, command := range []string{"index", "glossary"} {
+		t.Run(command, func(t *testing.T) {
+			dir := repository(t)
+			if out, code := run(t, dir, command); code != exitOK {
+				t.Fatalf("%s exited %d: %s", command, code, out)
+			}
+			stdout, stderr, code := runSplit(t, dir, command, "--check", "--json")
+			if code != exitOK {
+				t.Fatalf("%s --check --json exited %d: %s%s", command, code, stdout, stderr)
+			}
+			var findings []jsonFinding
+			if err := json.Unmarshal([]byte(stdout), &findings); err != nil || findings == nil || len(findings) != 0 {
+				t.Errorf("%s --check --json printed %q, want []", command, stdout)
+			}
+		})
+	}
+}
+
+// --json shapes the findings of --check, so without --check it is a usage
+// error rather than a flag ignored.
+func TestJSONWithoutCheckIsRefused(t *testing.T) {
+	for _, command := range []string{"index", "glossary"} {
+		t.Run(command, func(t *testing.T) {
+			dir := repository(t)
+			_, stderr, code := runSplit(t, dir, command, "--json")
+			if code != exitUsage || !strings.Contains(stderr, "--check") {
+				t.Errorf("%s --json exited %d: %s", command, code, stderr)
+			}
+		})
+	}
+}
+
+// With a terminal on stdin, link --suggest --json still owes stdout one JSON
+// array, so the question goes to stderr, which is also where the person
+// answering it is looking when stdout is redirected.
+func TestLinkSuggestJSONAsksOnStderr(t *testing.T) {
+	original := onTerminal
+	onTerminal = func(*cobra.Command) bool { return true }
+	t.Cleanup(func() { onTerminal = original })
+
+	dir := repository(t)
+	repotest.Write(t, dir, "spec/queues.md",
+		"---\ntitle: Queues\nincludes: []\n---\n\n# Queues\n\nA bare RFC-0001 mention.\n")
+
+	var stdout, stderr bytes.Buffer
+	code := execute(t, dir, &stdout, &stderr, strings.NewReader("n\n"), "link", "--suggest", "--json")
+	if code != exitOK {
+		t.Fatalf("exit = %d: %s%s", code, stdout.String(), stderr.String())
+	}
+	var findings []jsonFinding
+	if err := json.Unmarshal(stdout.Bytes(), &findings); err != nil {
+		t.Errorf("stdout is not one JSON array: %v\n%s", err, stdout.String())
+	}
+	if !strings.Contains(stderr.String(), "[y]es") || !strings.Contains(stderr.String(), "spec/queues.md:") {
+		t.Errorf("the suggestion and its question did not reach stderr: %q", stderr.String())
 	}
 }
 

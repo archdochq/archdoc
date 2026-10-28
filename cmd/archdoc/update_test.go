@@ -169,6 +169,24 @@ func TestUpdateRefreshesAgentsOnlyWhenPresent(t *testing.T) {
 	})
 }
 
+// The notes say what update left alone, which is a notice, and stdout is the
+// diff and the files written.
+func TestUpdateWritesItsNotesToStderr(t *testing.T) {
+	dir := scaffolded(t)
+	stdout, stderr, code := runSplit(t, dir, "update", "--check")
+	if code != exitOK {
+		t.Fatalf("update --check exited %d: %s%s", code, stdout, stderr)
+	}
+	for _, note := range []string{"archdoc agents installs it", "are yours and were not read"} {
+		if strings.Contains(stdout, note) {
+			t.Errorf("%q reached stdout:\n%s", note, stdout)
+		}
+		if !strings.Contains(stderr, note) {
+			t.Errorf("%q did not reach stderr:\n%s", note, stderr)
+		}
+	}
+}
+
 // TestUpdateCheckShowsWithoutWriting gives a user a way to see what would
 // change before agreeing to it, which is the question "are you sure" cannot
 // answer on its own.
