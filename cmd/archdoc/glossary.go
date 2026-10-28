@@ -25,6 +25,9 @@ func newGlossaryCommand() *cobra.Command {
 			"still resolves, including one inside a frozen document that could never be corrected.",
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
+			if asJSON && !check {
+				return errors.New("--json reports the findings of --check, so it needs --check")
+			}
 			r, err := openRepo()
 			if err != nil {
 				return err
@@ -47,6 +50,9 @@ func newGlossaryCommand() *cobra.Command {
 				return err
 			}
 			if bytes.Equal(committed, generated) {
+				if asJSON {
+					printFindings(cmd.OutOrStdout(), nil, true)
+				}
 				return nil
 			}
 

@@ -25,6 +25,9 @@ func newIndexCommand() *cobra.Command {
 		Short: "Regenerate INDEX.md",
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
+			if asJSON && !check {
+				return errors.New("--json reports the findings of --check, so it needs --check")
+			}
 			r, err := openRepo()
 			if err != nil {
 				return err
@@ -47,6 +50,9 @@ func newIndexCommand() *cobra.Command {
 				return err
 			}
 			if bytes.Equal(committed, generated) {
+				if asJSON {
+					printFindings(cmd.OutOrStdout(), nil, true)
+				}
 				return nil
 			}
 
