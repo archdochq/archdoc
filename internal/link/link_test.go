@@ -450,6 +450,8 @@ func (g *countingGit) HasCommits() (bool, error) { return true, nil }
 
 func (g *countingGit) Changed(string, []string) (map[string]bool, error) { return nil, nil }
 
+func (g *countingGit) Differs(string, map[string]string) (map[string]bool, error) { return nil, nil }
+
 func (g *countingGit) FilesAt(_ string, p []string) (map[string][]byte, error) {
 	g.read += len(p)
 	return nil, nil

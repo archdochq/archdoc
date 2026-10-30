@@ -270,6 +270,8 @@ func (s stubGit) Changed(string, []string) (map[string]bool, error) { return nil
 
 func (s stubGit) FilesAt(string, []string) (map[string][]byte, error) { return nil, s.err }
 
+func (s stubGit) Differs(string, map[string]string) (map[string]bool, error) { return nil, s.err }
+
 // ListFiles succeeds, so the failure under test is the blob read, not the listing.
 func (s stubGit) ListFiles(string) ([]string, error) { return nil, nil }
 
@@ -825,13 +827,18 @@ func TestL11ReportsAFailureToFindTheMergeBase(t *testing.T) {
 	expect(t, findings, "L11", ".", 1, "merge-base exploded")
 }
 
-// failingDeletion lists a frozen document the working tree does not have, and
-// cannot ask whether the base had it.
+// failingDeletion lists a frozen document the working tree does not have on the
+// branch, and cannot list the base to ask whether it had it.
 type failingDeletion struct{ stubGit }
 
 const goneDocument = "rfc/0099-gone.md"
 
-func (failingDeletion) ListFiles(string) ([]string, error) { return []string{goneDocument}, nil }
+func (failingDeletion) ListFiles(rev string) ([]string, error) {
+	if rev == "base" {
+		return nil, errors.New("listing the base exploded")
+	}
+	return []string{goneDocument}, nil
+}
 func (failingDeletion) FilesAt(_ string, paths []string) (map[string][]byte, error) {
 	out := map[string][]byte{}
 	for _, p := range paths {
@@ -839,17 +846,12 @@ func (failingDeletion) FilesAt(_ string, paths []string) (map[string][]byte, err
 	}
 	return out, nil
 }
-func (failingDeletion) Changed(_ string, paths []string) (map[string]bool, error) {
-	if slices.Contains(paths, goneDocument) {
-		return nil, errors.New("diff of the deletions exploded")
-	}
-	return nil, nil
-}
+func (failingDeletion) Changed(string, []string) (map[string]bool, error) { return nil, nil }
 
 func TestL11ReportsAFailureToAskWhetherADocumentWasDeleted(t *testing.T) {
 	findings := lint.Run(lint.NewContext(repotest.Fixture(t, "repo"), failingDeletion{}, now))
 
-	expect(t, findings, "L11", ".", 1, "diff of the deletions exploded")
+	expect(t, findings, "L11", ".", 1, "listing the base exploded")
 }
 
 // TestL17FollowsALinkOutOfRootIntoTheGitRepository: init writes a root below

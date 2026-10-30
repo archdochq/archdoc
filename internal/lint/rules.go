@@ -593,8 +593,7 @@ func L11(ctx Context) []Finding {
 	// filters between the blob it stores and the file on disk, so under
 	// end-of-line normalisation every frozen document differed from its blob
 	// while git reported the tree clean.
-	frozen := make([]string, 0)
-	frozenDocs := make(map[string]*repo.Document)
+	var frozen []string
 	for _, d := range ctx.Repo().Documents() {
 		inTree[d.Path] = true
 		on, onBranch := ctx.OnBranch(d.Path)
@@ -606,9 +605,7 @@ func L11(ctx Context) []Finding {
 			// the opposite of what a failure to read the branch implies.
 			rep.errorf(d, 0, "cannot read this document on %s: %v", branch, on.Err)
 		case on.Status.Terminal():
-			full := path.Join(prefix, d.Path)
-			frozen = append(frozen, full)
-			frozenDocs[full] = d
+			frozen = append(frozen, d.Path)
 		}
 	}
 
@@ -624,15 +621,38 @@ func L11(ctx Context) []Finding {
 		rep.add(Error, ".", 0, changes.NoSharedHistory(branch))
 		return rep.findings
 	}
-
-	changed, err := ctx.Git().Changed(base, frozen)
+	// Each side's documents are found under its own root, as its own
+	// archdoc.json gives it, and matched by their path within it, so a pull
+	// request moving the root is followed rather than read as adding every
+	// document and deleting none.
+	tip, err := changes.Locate(ctx.Repo(), ctx.Git(), branch)
 	if err != nil {
 		rep.add(Error, ".", 0, err.Error())
 		return rep.findings
 	}
-	for _, full := range frozen {
-		if changed[full] {
-			rep.errorf(frozenDocs[full], 0,
+	atBase, err := changes.Locate(ctx.Repo(), ctx.Git(), base)
+	if err != nil {
+		rep.add(Error, ".", 0, err.Error())
+		return rep.findings
+	}
+
+	// Reported only where the file differs from the tip as well: a branch
+	// stacked on one whose acceptance was squash-merged holds exactly what the
+	// tip does, merging changes nothing, and the merge base alone reported it.
+	changed, err := changes.Differing(ctx.Git(), base, atBase.Root, prefix, frozen)
+	if err != nil {
+		rep.add(Error, ".", 0, err.Error())
+		return rep.findings
+	}
+	frozen = slices.DeleteFunc(frozen, func(p string) bool { return !changed[p] })
+	changed, err = changes.Differing(ctx.Git(), branch, tip.Root, prefix, frozen)
+	if err != nil {
+		rep.add(Error, ".", 0, err.Error())
+		return rep.findings
+	}
+	for _, docPath := range frozen {
+		if changed[docPath] {
+			rep.errorf(ctx.Repo().ByPath(docPath), 0,
 				"changed since it was frozen on %s: a terminal document is never modified", branch)
 		}
 	}
@@ -640,6 +660,13 @@ func L11(ctx Context) []Finding {
 	// A document deleted from the working tree is invisible to discovery, so
 	// the branch has to be enumerated to notice it.
 	files, err := ctx.Git().ListFiles(branch)
+	if err != nil {
+		rep.add(Error, ".", 0, err.Error())
+		return rep.findings
+	}
+	// Deleted only where the base had it: one added on the branch since the
+	// cut was never in HEAD's history to delete.
+	held, err := ctx.Git().ListFiles(base)
 	if err != nil {
 		rep.add(Error, ".", 0, err.Error())
 		return rep.findings
@@ -653,17 +680,15 @@ func L11(ctx Context) []Finding {
 	gone := make([]string, 0)
 	docPaths := make(map[string]string, len(files))
 	for _, file := range files {
-		docPath := file
-		if prefix != "" {
-			var inRoot bool
-			if docPath, inRoot = strings.CutPrefix(file, prefix+"/"); !inRoot {
-				continue
-			}
+		docPath, inRoot := changes.Within(file, tip.Root)
+		if !inRoot {
+			continue
 		}
 		// Only an RFC or ADR can be frozen. A spec page, ref, term or group
 		// carrying a status key by mistake is not, whatever the key says, as
 		// branchFiles already decides for one still in the tree.
-		if t, isDoc := repo.TypeOf(docPath); !isDoc || !t.HasLifecycle() || inTree[docPath] {
+		if t, isDoc := repo.TypeOf(docPath); !isDoc || !t.HasLifecycle() || inTree[docPath] ||
+			!slices.Contains(held, path.Join(atBase.Root, docPath)) {
 			continue
 		}
 		gone = append(gone, file)
@@ -679,19 +704,10 @@ func L11(ctx Context) []Finding {
 		}
 		return rep.findings
 	}
-	// Deleted only where the base had it: one added on the branch since the
-	// cut was never in HEAD's history to delete.
-	deleted, err := ctx.Git().Changed(base, gone)
-	if err != nil {
-		rep.add(Error, ".", 0, err.Error())
-		return rep.findings
-	}
 	for _, file := range gone {
-		content, ok := committed[file]
-		if !ok || !deleted[file] || !repo.StatusIn(content).Terminal() {
-			continue
+		if content, ok := committed[file]; ok && repo.StatusIn(content).Terminal() {
+			rep.addf(Error, docPaths[file], 0, "frozen on %s but deleted from the working tree", branch)
 		}
-		rep.addf(Error, docPaths[file], 0, "frozen on %s but deleted from the working tree", branch)
 	}
 	return rep.findings
 }

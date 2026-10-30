@@ -162,7 +162,17 @@ func branchFiles(ctx Context) map[string]BranchFile {
 	if exists, err := ctx.Git().BranchExists(branch); err != nil || !exists {
 		return nil
 	}
-	prefix := gitPrefix(ctx)
+	// The documents on the branch are under its own root, which a pull
+	// request moving the root does not share with the working tree.
+	located, err := changes.Locate(ctx.Repo(), ctx.Git(), branch)
+	if err != nil {
+		files := map[string]BranchFile{}
+		for _, d := range ctx.Repo().Documents() {
+			files[d.Path] = BranchFile{Err: err}
+		}
+		return files
+	}
+	prefix := located.Root
 
 	// One listing, rather than asking git whether each document exists. A
 	// document absent from the branch is the common case in an active
