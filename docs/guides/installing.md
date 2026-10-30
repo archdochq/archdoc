@@ -117,7 +117,7 @@ On Windows, download the zip archive for your architecture, compare the output o
 go install archdoc.dev/cmd/archdoc@latest
 ```
 
-This builds from source and works on any platform Go supports, Windows included. The module requires Go 1.26.2 or later. Replace `@latest` with a tag, such as `@v0.6.0`, to install a particular release. Releases made before the module path became `archdoc.dev` can only be installed under their old path, `github.com/archdochq/archdoc/cmd/archdoc`.
+This builds from source and works on any platform Go supports, Windows included. The module requires Go 1.26.10 or later. Replace `@latest` with a tag, such as `@v0.6.0`, to install a particular release. Releases made before the module path became `archdoc.dev` can only be installed under their old path, `github.com/archdochq/archdoc/cmd/archdoc`.
 
 `go install` writes the binary to `$(go env GOPATH)/bin`, which is often not on `PATH`. If `archdoc` is not found afterwards, add that directory to `PATH`.
 
