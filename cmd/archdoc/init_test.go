@@ -3,6 +3,8 @@ package main
 import (
 	"archdoc.dev/internal/config"
 	"archdoc.dev/internal/template"
+	"bytes"
+	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -172,24 +174,119 @@ func TestInitPinsTheWorkflowToAVersion(t *testing.T) {
 	}
 }
 
-func TestInitRefusesAnExistingIndex(t *testing.T) {
-	// INDEX.md is written after the collision loop, so it was the one
-	// scaffolded file init would replace without asking.
+func TestInitRefusesAnExistingGeneratedFile(t *testing.T) {
+	// INDEX.md and GLOSSARY.md are generated after the collision loop, so they
+	// were the scaffolded files init would replace without asking.
+	for _, name := range []string{"INDEX.md", "GLOSSARY.md"} {
+		t.Run(name, func(t *testing.T) {
+			dir := t.TempDir()
+			if err := os.WriteFile(filepath.Join(dir, name), []byte("mine\n"), 0o644); err != nil {
+				t.Fatal(err)
+			}
+
+			out, code := run(t, dir, "init", "--name", "X")
+			if code != exitUsage || !strings.Contains(out, "already exists") {
+				t.Errorf("exited %d with %q, want a refusal", code, out)
+			}
+			if kept, _ := os.ReadFile(filepath.Join(dir, name)); string(kept) != "mine\n" {
+				t.Errorf("the existing %s was overwritten: %q", name, kept)
+			}
+			if _, err := os.Stat(filepath.Join(dir, "archdoc.json")); err == nil {
+				t.Error("archdoc.json was written despite the refusal")
+			}
+		})
+	}
+}
+
+func TestInitRefusesASymlinkAtTheGlossaryBeforeWritingAnything(t *testing.T) {
+	// The write refused the link, but only after the rest of the scaffold was
+	// on disk, and the archdoc.json among it made init refuse to run again.
 	dir := t.TempDir()
-	if err := os.WriteFile(filepath.Join(dir, "INDEX.md"), []byte("mine\n"), 0o644); err != nil {
-		t.Fatal(err)
+	if err := os.Symlink(filepath.Join(t.TempDir(), "elsewhere.md"), filepath.Join(dir, "GLOSSARY.md")); err != nil {
+		t.Skipf("symlinks unavailable: %v", err)
 	}
 
 	out, code := run(t, dir, "init", "--name", "X")
-	if code != exitUsage || !strings.Contains(out, "already exists") {
-		t.Errorf("exited %d with %q, want a refusal", code, out)
+	if code != exitUsage {
+		t.Errorf("exit = %d, want a refusal: %s", code, out)
 	}
-	if kept, _ := os.ReadFile(filepath.Join(dir, "INDEX.md")); string(kept) != "mine\n" {
-		t.Errorf("the existing index was overwritten: %q", kept)
+	for _, name := range []string{"README.md", "archdoc.json"} {
+		if _, err := os.Stat(filepath.Join(dir, name)); err == nil {
+			t.Errorf("init wrote %s before refusing", name)
+		}
 	}
-	if _, err := os.Stat(filepath.Join(dir, "archdoc.json")); err == nil {
-		t.Error("archdoc.json was written despite the refusal")
+}
+
+func TestInitAndUpdatePrintPathsFromTheWorkingDirectory(t *testing.T) {
+	// init printed the generated files from the configuration's directory and
+	// update printed each file from the directory it is resolved against, so
+	// run anywhere but there the printed paths named nothing.
+	top := t.TempDir()
+	if out, err := exec.Command("git", "-C", top, "init").CombinedOutput(); err != nil {
+		t.Fatalf("git init: %v: %s", err, out)
 	}
+	docs := filepath.Join(top, "docs")
+	if err := os.Mkdir(docs, 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	// check runs archdoc in dir and asserts that each of the last n lines it
+	// printed, or every line where n is 0, names a file from there: relative
+	// inside dir and absolute outside it. stdout alone, because the notices on
+	// stderr are not paths.
+	check := func(dir string, n int, args ...string) {
+		t.Helper()
+		t.Chdir(dir)
+		var stdout bytes.Buffer
+		root := newRoot(&stdout, io.Discard)
+		root.SetArgs(append([]string{"--no-interaction"}, args...))
+		if err := root.Execute(); err != nil {
+			t.Fatalf("%s: %v\n%s", args[0], err, stdout.String())
+		}
+		lines := strings.Split(strings.TrimSpace(stdout.String()), "\n")
+		if len(lines) < n {
+			t.Fatalf("%s printed %d lines, want at least %d:\n%s", args[0], len(lines), n, stdout.String())
+		}
+		if n > 0 {
+			lines = lines[len(lines)-n:]
+		}
+		// Resolved, because the temporary directory is reached through a
+		// symbolic link on macOS and git reports the resolved path.
+		base, err := filepath.EvalSymlinks(dir)
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, line := range lines {
+			abs, err := filepath.Abs(line)
+			if err != nil {
+				t.Fatal(err)
+			}
+			target, err := filepath.EvalSymlinks(abs)
+			if err != nil {
+				t.Errorf("%s printed %q, which names nothing from %s", args[0], line, dir)
+				continue
+			}
+			within, err := filepath.Rel(base, target)
+			inside := err == nil && !strings.HasPrefix(within, "..")
+			if filepath.IsAbs(line) == inside {
+				t.Errorf("%s printed %q, want a file inside %s relative to it and any other absolute", args[0], line, dir)
+			}
+		}
+	}
+
+	// A root below the working directory, so that neither the directory
+	// holding archdoc.json nor root is where init runs.
+	check(docs, 0, "init", "--name", "Nested", "--root", "spec")
+
+	for _, stale := range []string{filepath.Join(docs, "spec", "PROCESS.md"), filepath.Join(top, workflowPath)} {
+		if err := os.WriteFile(stale, []byte("from an older archdoc\n"), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	// From docs, PROCESS.md is inside the working directory and the workflow
+	// outside it, and neither is resolved against docs. The diff comes first,
+	// and the two files written last.
+	check(docs, 2, "update", "--yes")
 }
 
 func TestInitOmitsTheWorkingDirectoryAtTheRoot(t *testing.T) {

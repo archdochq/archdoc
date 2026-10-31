@@ -274,7 +274,9 @@ the result can delete content it never read.
   dangling link counts as something in the way, and creates with `O_EXCL` so the kernel performs the
   test. It validates the configuration it is about to write through the same code path that loads one,
   after prompting and before writing: checks reached only by reading the file back left a dead
-  `archdoc.json` behind that `init` then refused to overwrite.
+  `archdoc.json` behind that `init` then refused to overwrite. `INDEX.md` and `GLOSSARY.md` are
+  generated once the rest exists and are planned with it all the same: the glossary was not, so `init`
+  replaced an existing one, and refused a symbolic link there only after writing everything else.
 - **`link` leaves a document entirely untouched if any of its wiki links resolves to nothing.** A
   partial rewrite would leave the file in a state neither the author nor the tool intended. Every other
   document is still written, because the failure belongs to one file.
@@ -317,8 +319,19 @@ the result can delete content it never read.
   `archdoc.json`, since commands find their configuration by walking up. `init` writes
   `archdoc.json` at that same root, so the value is empty for anything it scaffolds and names a
   path only for repositories scaffolded before it did.
-- **`init` prints every path it writes**, because it can write outside the current directory and that is
-  surprising without a record of it.
+- **`init` and `update` print every path they write**, because `init` can write outside the current
+  directory and that is surprising without a record of it. Each is printed from the working directory,
+  or absolute where it lies outside it. They were printed from the directory each file is resolved
+  against, the configuration's, `root` or the git root, so run anywhere else a printed path named
+  nothing.
+- **`archdoc.json`'s keys are checked as written.** `encoding/json` matches a key to a field without
+  regard to case and reads `null` as leaving the field alone, so `{"NAME": "x"}` loaded as `name` and
+  `{"strict": null}` as the default, while the layout page said unknown keys are an error.
+- **`branch` must be a name git accepts as a branch, and not `@`.** An empty one failed rendering the
+  workflow, and one holding `": "`, `" #"` or a line break rendered an invalid or truncated one; git
+  refuses every such name. `@` is a valid branch, but the name reaches `rev-parse` bare, where `@` is
+  `HEAD`. The rules are applied lexically rather than by asking git, which keeps `internal/config` free
+  of a repository and works where `init` runs outside one.
 - **`README.md`, `PROCESS.md` and `INDEX.md` are not documents** under the discovery rule, so no rule
   examines them, L17 included.
 
