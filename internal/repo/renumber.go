@@ -1,6 +1,7 @@
 package repo
 
 import (
+	"errors"
 	"fmt"
 	"maps"
 	"net/url"
@@ -166,33 +167,38 @@ func Renumber(r *Repo, from, to string, frozen func(*Document) bool) (changed, u
 // write makes the rename: the new file, every other document's edits, then
 // removing the old file. A failure part way restores what was already written,
 // since a referring document rewritten to a number no file carries is the
-// state the command exists to prevent. The new file goes first because an
-// existing path in its place, a directory say, is the likeliest failure, and
-// its write then changes nothing.
+// state the command exists to prevent, and reports anything it could not
+// restore. The new file is created only where nothing is, so the undo never
+// removes a file it did not make.
 func write(r *Repo, d *Document, newPath string, source []byte, edits map[string][]byte) (err error) {
-	if _, err := os.Lstat(r.File(newPath)); err == nil {
-		return fmt.Errorf("%s already exists", newPath)
-	}
+	var created bool
 	var written []string
 	defer func() {
 		if err == nil {
 			return
 		}
 		for _, docPath := range written {
-			_ = r.WriteFile(docPath, r.ByPath(docPath).Source)
+			if undo := r.WriteFile(docPath, r.ByPath(docPath).Source); undo != nil {
+				err = errors.Join(err, fmt.Errorf("%s could not be restored: %w", docPath, undo))
+			}
 		}
-		_ = os.Remove(r.File(newPath))
+		if created {
+			if undo := os.Remove(r.File(newPath)); undo != nil {
+				err = errors.Join(err, fmt.Errorf("%s could not be removed: %w", newPath, undo))
+			}
+		}
 	}()
 
-	if err := r.WriteFile(newPath, source); err != nil {
+	if err := r.CreateFile(newPath, source, &created); err != nil {
 		return err
 	}
-	paths := slices.Sorted(maps.Keys(edits))
-	for _, docPath := range paths {
+	for _, docPath := range slices.Sorted(maps.Keys(edits)) {
+		// Recorded before the write, which truncates the file before it can
+		// fail part way.
+		written = append(written, docPath)
 		if err := r.WriteFile(docPath, edits[docPath]); err != nil {
 			return err
 		}
-		written = append(written, docPath)
 	}
 	return os.Remove(r.File(d.Path))
 }
