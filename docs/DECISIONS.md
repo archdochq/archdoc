@@ -274,7 +274,9 @@ the result can delete content it never read.
   dangling link counts as something in the way, and creates with `O_EXCL` so the kernel performs the
   test. It validates the configuration it is about to write through the same code path that loads one,
   after prompting and before writing: checks reached only by reading the file back left a dead
-  `archdoc.json` behind that `init` then refused to overwrite.
+  `archdoc.json` behind that `init` then refused to overwrite. `INDEX.md` and `GLOSSARY.md` are
+  generated once the rest exists and are planned with it all the same: the glossary was not, so `init`
+  replaced an existing one, and refused a symbolic link there only after writing everything else.
 - **`link` leaves a document entirely untouched if any of its wiki links resolves to nothing.** A
   partial rewrite would leave the file in a state neither the author nor the tool intended. Every other
   document is still written, because the failure belongs to one file.
@@ -317,8 +319,21 @@ the result can delete content it never read.
   `archdoc.json`, since commands find their configuration by walking up. `init` writes
   `archdoc.json` at that same root, so the value is empty for anything it scaffolds and names a
   path only for repositories scaffolded before it did.
-- **`init` prints every path it writes**, because it can write outside the current directory and that is
-  surprising without a record of it.
+- **`init` and `update` print every path they write**, because `init` can write outside the current
+  directory and that is surprising without a record of it. Each is printed from the working directory,
+  or absolute where it lies outside it. They were printed from the directory each file is resolved
+  against, the configuration's, `root` or the git root, so run anywhere else a printed path named
+  nothing.
+- **`archdoc.json`'s keys are checked as written.** `encoding/json` matches a key to a field without
+  regard to case and reads `null` as leaving the field alone, so `{"NAME": "x"}` loaded as `name` and
+  `{"strict": null}` as the default, while the layout page said unknown keys are an error.
+- **`branch` must be a name git accepts as a branch, and not `@`.** An empty one failed rendering the
+  workflow, and one holding `": "`, `" #"` or a line break rendered an invalid or truncated one; git
+  refuses every such name. `@` is a valid branch, but the name reaches `rev-parse` bare, where `@` is
+  `HEAD`. The names git gives its own refs, such as `FETCH_HEAD` and `ORIG_HEAD`, are valid branches
+  that `rev-parse` also resolves to something else, and are not refused. The rules are applied
+  lexically rather than by asking git, which keeps `internal/config` free of a repository and works
+  where `init` runs outside one.
 - **`README.md`, `PROCESS.md` and `INDEX.md` are not documents** under the discovery rule, so no rule
   examines them, L17 included.
 
@@ -346,6 +361,12 @@ the result can delete content it never read.
 - **Findings are printed relative to `root`**, so output does not depend on the working directory. JSON
   output is a bare array, progress notices go to stderr, and `--json` therefore puts the array and
   nothing else on stdout.
+- **`link --suggest` asks its questions on stderr.** Under `--json` stdout is owed one JSON array, and
+  with stdout redirected the person answering is reading the terminal, which stderr still reaches. The
+  questions were on stdout, which put them in the redirected file ahead of the array.
+- **`--json` without `--check` is a usage error on `index` and `glossary`.** `--json` shapes the
+  findings of `--check`, and there are none without it. The flag was ignored, so a script asking for
+  JSON was given the name of the file written.
 - **Commands take their writer from cobra** rather than carrying one through every signature, so a test
   reads what a command wrote instead of capturing the process's streams.
 
@@ -487,6 +508,20 @@ the result can delete content it never read.
   single obsolete case rather than special-casing a second one.
 - **A unified diff is implemented here** rather than adding a dependency, because `index --check` is
   specified to print one and an index is a few hundred lines.
+
+## The export
+
+- **`documents` is always an array**, empty where there are none, as in a freshly initialised
+  repository. A nil slice encoded as `null`, which the schema refuses.
+- **A status outside the lifecycle is omitted, as an invalid date already was, and so is a
+  relationship entry that is not an identifier.** The schema's enum is the lifecycle's statuses and its
+  pattern for `depends`, `updates`, `obsoletes` and `includes` is an identifier's, and values such as
+  `approved` or `nonsense` were published as written, outside them. Lint reports each; the export
+  publishes only what its schema allows.
+- **`glossary` is an empty array where `term/` holds no terms, and absent only where there is no
+  `term/`.** `has_glossary` says which, and `--out` writes `glossary.json` whenever it is true. The
+  field is `omitzero` rather than `omitempty`, which drops an empty slice along with a nil one: a
+  `term/` holding no terms exported `has_glossary: true` and no `glossary`.
 
 ## Release
 

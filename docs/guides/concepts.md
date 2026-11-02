@@ -166,9 +166,9 @@ The M rules, M01 to M04, run only with `archdoc lint --merge`, on a pull request
 | Key | Default | Meaning |
 |---|---|---|
 | `name` | none, required | The project name, used in the headings of `README.md` and `INDEX.md`. |
-| `branch` | `main` | The branch frozen documents are compared against, and that pull requests are judged against. |
+| `branch` | `main` | The branch frozen documents are compared against, and that pull requests are judged against. It must be a name git accepts as a branch, and not `@`. |
 | `root` | `.` | The directory, relative to `archdoc.json`, holding the document directories and generated files. It must not be absolute or lead outside the directory holding `archdoc.json`. |
 | `strict` | `true` | Whether `draft -> accepted` and `draft -> rejected` are refused. |
 | `ref_stale_days` | `180` | How old a ref's `verified` date may be before lint warns (L13). A ref carrying `as_of` is not reported. `0` turns the check off. |
 
-An unknown key is an error, and a missing key takes its default. `archdoc init` writes the file, prompting for each value at a terminal or taking them from `--name`, `--branch`, `--root`, `--strict` or `--no-strict`, and `--ref-stale-days`. A `root` other than `.` is how a specification lives inside the code repository it documents; see [A spec repository beside the code](beside-the-code.md).
+A key not spelled exactly as shown is an error, and so is `null` for any key. A missing key takes its default. `archdoc init` writes the file, prompting for each value at a terminal or taking them from `--name`, `--branch`, `--root`, `--strict` or `--no-strict`, and `--ref-stale-days`. A `root` other than `.` is how a specification lives inside the code repository it documents; see [A spec repository beside the code](beside-the-code.md).
