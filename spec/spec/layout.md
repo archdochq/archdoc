@@ -88,12 +88,12 @@ A specification repository is a directory containing `archdoc.json` and, under `
 ```
 
 - `name`: the project name, used in the README and INDEX headings.
-- `branch`: the branch frozen documents are compared against.
+- `branch`: the branch frozen documents are compared against. It must be a name `git check-ref-format --branch` accepts, and not `@`.
 - `root`: as above.
 - `strict`: `true` keeps the transition graph as PROCESS.md gives it; `false` additionally permits `draft → accepted` and `draft → rejected`.
 - `ref_stale_days`: refs whose `verified` date is older than this produce a lint warning, except a ref carrying `as_of`. `0` disables the check; a negative value is a configuration error.
 
-Unknown keys are an error. A missing key takes the default shown, except `name`, which is required. The file is decoded onto a struct already holding the defaults, and the decoder must reach the end of the file.
+A key not spelled exactly as shown is an error, and so is `null` for any key. A missing key takes the default shown, except `name`, which is required. The file is decoded onto a struct already holding the defaults, and the decoder must reach the end of the file.
 
 ## Templates
 

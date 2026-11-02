@@ -71,7 +71,7 @@ func Apply(d *repo.Document, to repo.Status, now time.Time, g git.Repository) ([
 		// comment, so the document would still be missing the section the
 		// command had just reported writing.
 		return nil, fmt.Errorf(
-			"%s ends inside an unterminated <!-- comment or an unclosed code fence, "+
+			"%s ends inside an unterminated <!-- comment, an unclosed code fence or an unclosed HTML block, "+
 				"so the rejection rationale cannot be appended where it would be read; close the marker first", d.Path)
 	}
 
