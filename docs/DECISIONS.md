@@ -164,7 +164,10 @@ would have to round-trip everything it parsed.
   word gave `## The _id field` the anchor `the-id-field`, where GitHub's is `the-_id-field`. A bare
   address GitHub links is text as written, its end read as cmark-gfm's autolink extension reads it,
   since an underscore in `https://a.com/_x_` is not emphasis there. A
-  reference link is a link only where the document defines its label, and text otherwise. A heading is
+  reference link is a link only where the document defines its label, and text otherwise. A link in a
+  heading closes where one in prose does, its destination and title read alike and a bracket in a code
+  span in its text not one of its own: closing the parentheses at their balancing `)` linked
+  `[a](x y.md)`, which GitHub renders as text, so L17 rejected GitHub's anchor. A heading is
   rendered as written, so a comment in it leaves the space beside it. Of the numbers, the slug keeps
   decimal digits and letter numbers and drops the rest, such as `²` and `½`, as github-slugger does.
 - **A link names an anchor a document holds explicitly as well as its headings'.** L17 read `<a id>`

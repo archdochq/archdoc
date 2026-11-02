@@ -1451,23 +1451,24 @@ var (
 // link reads a link whose text opens at s[i] and that ends before to:
 // [text](destination), or a reference to a label the document defines,
 // [text][label], [text][] or [text]. It returns where its text closes and
-// where it ends.
+// where it ends. The text holds brackets in balanced pairs, a code span's
+// not among them, and the parentheses are read as tail reads a link's in
+// prose. Closing them at their balancing ) linked what GitHub renders as
+// text: a destination holding a space, a title left open.
 func (in inline) link(i, to int) (close, end int, ok bool) {
 	s := in.s[:to]
-	at := balanced(s[i:], '[', ']')
+	at := balanced(s[i:], true)
 	if at < 0 {
 		return 0, 0, false
 	}
 	close = i + at
 	rest := s[close+1:]
-	if strings.HasPrefix(rest, "(") {
-		if at := balanced(rest, '(', ')'); at >= 0 {
-			return close, close + at + 2, true
-		}
+	if at := tail(rest, true); at != nil {
+		return close, close + 1 + at[1], true
 	}
 	label, end := s[i+1:close], close+1
 	if strings.HasPrefix(rest, "[") {
-		if at := balanced(rest, '[', ']'); at >= 0 {
+		if at := balanced(rest, false); at >= 0 {
 			if at > 1 {
 				label = rest[1:at]
 			}
@@ -1478,12 +1479,14 @@ func (in inline) link(i, to int) (close, end int, ok bool) {
 }
 
 // holdsLink reports whether s[from:to] holds a link. An image's brackets are
-// not a link's, though a link in its text is.
+// not a link's, though a link in its text is, and a code span holds none.
 func (in inline) holdsLink(from, to int) bool {
 	for i := from; i < to; i++ {
 		switch in.s[i] {
 		case '\\':
 			i++
+		case '`':
+			i = spanEnd(in.s, i)
 		case '!':
 			if in.s[i+1] == '[' { // s[to] is the closing bracket
 				i++
@@ -1497,23 +1500,42 @@ func (in inline) holdsLink(from, to int) bool {
 	return false
 }
 
-// balanced is the index of the closer matching the opener at s[0], with
-// backslash escapes passed over, or -1.
-func balanced(s string, opener, closer byte) int {
+// balanced is the index of the ] matching the [ at s[0], with backslash
+// escapes passed over, and code spans too where spans is set, or -1. A link's
+// text holds code spans, which bind more tightly than its brackets; a label
+// does not.
+func balanced(s string, spans bool) int {
 	depth := 0
 	for i := 0; i < len(s); i++ {
 		switch s[i] {
 		case '\\':
 			i++
-		case opener:
+		case '`':
+			if spans {
+				i = spanEnd(s, i)
+			}
+		case '[':
 			depth++
-		case closer:
+		case ']':
 			if depth--; depth == 0 {
 				return i
 			}
 		}
 	}
 	return -1
+}
+
+// spanEnd is the index of the last byte of the code span at s[i], or of the
+// run of backticks there when it opens none.
+func spanEnd(s string, i int) int {
+	run := i
+	for i < len(s) && s[i] == '`' {
+		i++
+	}
+	if end := matchingRun(s, i, i-run); end > 0 {
+		return end - 1
+	}
+	return i - 1
 }
 
 // delimiterRun is a run of *, _ or ~, which is text where it pairs with
