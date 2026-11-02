@@ -1529,3 +1529,57 @@ func TestPermittedTransitions(t *testing.T) {
 		})
 	}
 }
+
+func TestATermDefinitionIsOneParagraphAndNothingElse(t *testing.T) {
+	// The definition runs from the H1 to the end of the file, and any block
+	// that is not a paragraph counts, written with or without a blank line
+	// before it.
+	cases := []struct {
+		name, body  string
+		paragraphs  int
+		other       int
+		above       int
+		firstWanted string
+	}{
+		{"one paragraph", "# Widget\n\nThe definition\nover two lines.\n", 1, 0, 0, "The definition\nover two lines."},
+		{"a subsection", "# Widget\n\nThe definition.\n## Aside\nA second paragraph.\n", 2, 1, 0, "The definition."},
+		{"a later H1", "# Widget\n\nThe definition.\n\n# Other\n\nMore.\n", 2, 1, 0, "The definition."},
+		{"a bullet", "# Widget\n\nThe definition.\n- a list\n", 1, 1, 0, "The definition."},
+		{"an item numbered 1", "# Widget\n\nThe definition.\n1. first\n", 1, 1, 0, "The definition."},
+		{"a number continuing a sentence", "# Widget\n\nIn use from\n2025. onwards.\n", 1, 0, 0, "In use from\n2025. onwards."},
+		{"a list continued lazily", "# Widget\n\nThe definition.\n\n- an item\ncontinued\n", 1, 1, 0, "The definition."},
+		{"a fence", "# Widget\n\nThe definition.\n```\ncode\n\nmore code\n```\n", 1, 1, 0, "The definition."},
+		{"a blockquote", "# Widget\n\nThe definition.\n> quoted\n", 1, 1, 0, "The definition."},
+		{"a thematic break", "# Widget\n\nThe definition.\n***\n", 1, 1, 0, "The definition."},
+		{"prose above the H1", "\nAbove.\n\n# Widget\n\nThe definition.\n", 1, 0, 7, "The definition."},
+		{"a comment", "# Widget\n\nUse `foo` here<!-- note --> and <!--a\nb--> there.\n", 1, 0, 0, "Use `foo` here and \n there."},
+		{"CRLF", "# Widget\r\n\r\nThe definition\r\nover two lines.\r\n", 1, 0, 0, "The definition\nover two lines."},
+		{"a list numbered from 2 after a blank line", "# Widget\n\nThe definition.\n\n2. second\n", 1, 1, 0, "The definition."},
+		{"a list of two items", "# Widget\n\nThe definition.\n- one\n- two\n", 1, 1, 0, "The definition."},
+		{"a paragraph straight after a fence", "# Widget\n\nThe definition.\n```\ncode\n```\nAfter.\n", 2, 1, 0, "The definition."},
+		{"an indented paragraph", "# Widget\n\n  The definition.\n", 1, 0, 0, "The definition."},
+		{"a CRLF thematic break", "# Widget\r\n\r\nThe definition.\r\n***\r\n", 1, 1, 0, "The definition."},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			r := repotest.New(t, map[string]string{
+				"term/widget.md": "---\ntitle: Widget\nformerly: []\nnamed_by:\n---\n" + c.body,
+			})
+			entries, _ := r.Glossary()
+			if len(entries) != 1 {
+				t.Fatalf("got %d entries, want 1", len(entries))
+			}
+			e := entries[0]
+			if len(e.Paragraphs) != c.paragraphs || e.Other != c.other || e.Above != c.above {
+				t.Errorf("paragraphs %d, other %d, above %d; want %d, %d, %d: %q",
+					len(e.Paragraphs), e.Other, e.Above, c.paragraphs, c.other, c.above, e.Paragraphs)
+			}
+			if len(e.Paragraphs) > 0 && e.Paragraphs[0] != c.firstWanted {
+				t.Errorf("first paragraph = %q, want %q", e.Paragraphs[0], c.firstWanted)
+			}
+			if want := c.paragraphs == 1 && c.other == 0 && c.above == 0; e.Defined() != want {
+				t.Errorf("Defined() = %t, want %t", e.Defined(), want)
+			}
+		})
+	}
+}

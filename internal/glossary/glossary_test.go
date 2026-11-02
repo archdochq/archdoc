@@ -285,6 +285,27 @@ func TestAddRefusesADefinitionOfMoreThanOneParagraph(t *testing.T) {
 	}
 }
 
+func TestAddRefusesADefinitionHoldingAnotherBlock(t *testing.T) {
+	r := repotest.New(t, map[string]string{})
+	if _, _, err := glossary.Add(r, "Widget", "One.\n## Aside", ""); err == nil {
+		t.Error("accepted a definition followed by a heading")
+	}
+}
+
+func TestGenerateWritesTheDefinitionAsWrittenWithoutComments(t *testing.T) {
+	r := repotest.New(t, map[string]string{
+		"term/widget.md": "---\r\ntitle: Widget\r\nformerly: []\r\nnamed_by:\r\n---\r\n\r\n# Widget\r\n\r\n" +
+			"Use `foo` here<!-- note --> and\r\nthere.\r\n",
+	})
+	got := string(glossary.Generate(r))
+	if want := "## Widget\n\nUse `foo` here and\nthere.\n"; !strings.Contains(got, want) {
+		t.Errorf("the generated glossary lacks %q:\n%q", want, got)
+	}
+	if strings.Contains(got, "\r") {
+		t.Errorf("the generated glossary holds a carriage return:\n%q", got)
+	}
+}
+
 func TestAddAcceptsOnlyAnExistingDocumentAsNamedBy(t *testing.T) {
 	r := repotest.New(t, map[string]string{
 		"adr/0001-chosen.md": "---\nid: ADR-0001\ntitle: Chosen\nstatus: proposed\ncreated: 2026-01-20\n" +

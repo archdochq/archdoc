@@ -731,7 +731,13 @@ func L15(ctx Context) []Finding {
 		if d == nil {
 			continue
 		}
-		if n := len(e.Paragraphs); n != 1 {
+		if e.Above != 0 {
+			rep.errorf(d, e.Above, "term %q has prose above its H1, where nothing is read as its definition", e.Term)
+		}
+		switch n := len(e.Paragraphs); {
+		case e.Other > 0:
+			rep.errorf(d, e.Line, "term %q has %d paragraphs and %d other blocks, want exactly one paragraph", e.Term, n, e.Other)
+		case n != 1:
 			rep.errorf(d, e.Line, "term %q has %d paragraphs, want exactly one", e.Term, n)
 		}
 	}

@@ -53,8 +53,8 @@ func Add(r *repo.Repo, term, definition, namedBy string) (docPath string, source
 	if err != nil {
 		return "", nil, err
 	}
-	if len(entry.Paragraphs) != 1 {
-		return "", nil, fmt.Errorf("the definition reads as %d paragraphs, and a term has exactly one", len(entry.Paragraphs))
+	if !entry.Defined() {
+		return "", nil, fmt.Errorf("the definition reads as %d paragraphs and %d other blocks, and a term has exactly one paragraph", len(entry.Paragraphs), entry.Other)
 	}
 	return docPath, source, nil
 }

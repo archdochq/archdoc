@@ -287,6 +287,12 @@ the result can delete content it never read.
   definition reads as one paragraph. Values are quoted through the YAML encoder, and the read-back is
   what holds that to be enough: written bare, `Foo: bar` did not parse, `x # y` read as `x`, `#tag`
   as nothing, and a former name holding a comma became two, so its anchor vanished from GLOSSARY.md.
+- **A term's definition is read as blocks, to the end of the file.** Splitting on blank lines read a
+  heading, list or fence written straight after the definition as part of it, and GLOSSARY.md printed
+  the heading as a second term. The blocks come from the document's own walk, so they agree with
+  what masking and anchors read. Prose above the H1 is reported rather than dropped, since nothing
+  publishes it. The definition is published from the text as written with its comments cut out:
+  printing the masked text showed the blanks a comment left.
 - **A writer refuses a document whose parse stops short of the file.** When the body ends inside an
   unterminated comment or an unclosed fence, every line range derived from the parse runs past the
   entries the parser could not see, and removing one glossary term deleted every entry below it on a
