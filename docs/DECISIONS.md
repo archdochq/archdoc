@@ -409,6 +409,10 @@ the result can delete content it never read.
 - **`term rename` does not rewrite links elsewhere, and `link` cannot repair them.** `link` expands
   `[[...]]` and never edits an existing markdown link, and a recorded former name is not a term, so
   `[[<old name>]]` does not resolve either. L17 reports them and they are corrected by hand.
+- **With no `term/`, `glossary --check` accepts an absent `GLOSSARY.md`.** A repository with no `term/`
+  has no glossary, and the check demanded the empty page `archdoc glossary` writes, so removing `term/`
+  and the page failed the workflow `init` scaffolds. A page that is there, including a symbolic link
+  that resolves to nothing, is still held to what `archdoc glossary` writes.
 
 ## Linting
 
