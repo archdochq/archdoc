@@ -571,7 +571,11 @@ func scanBody(text string) (masked []string, literal, quoted []bool, unclosed bo
 			// Past the marker that closes it, a comment opens only as one
 			// inside a paragraph does.
 			masked[i], open = maskCommentsIn(line, true, func(marker int) bool {
-				block = false
+				// The rest of the line closing a comment block belongs to
+				// the block, so nothing in it opens another.
+				if block {
+					return false
+				}
 				return closesInParagraph(lines, i, marker+len(commentOpen))
 			})
 			w.paragraph = !block
@@ -583,12 +587,16 @@ func scanBody(text string) (masked []string, literal, quoted []bool, unclosed bo
 			masked[i], literal[i] = line, true
 			continue
 		}
+		opened := false // a comment block opened on this line holds the rest of it
 		masked[i], open = maskCommentsIn(line, false, func(marker int) bool {
+			if opened {
+				return false
+			}
 			// A comment starting a block runs until it closes, however far
 			// that is. One opened inside a paragraph is raw HTML only where
 			// it closes before the paragraph ends, and text otherwise.
 			if marker-at <= 3 && strings.TrimSpace(line[at:marker]) == "" {
-				block, depth = true, len(w.stack)
+				block, depth, opened = true, len(w.stack), true
 				return true
 			}
 			block = false
@@ -889,7 +897,7 @@ func htmlStarts(s string, from int, paragraph bool) (end []string, ok bool) {
 	if indentColumns(s, from) > 3 {
 		return nil, false
 	}
-	s = strings.TrimLeft(s, " ")
+	s = strings.TrimLeft(s, " \t")
 	if htmlRawPattern.MatchString(s) {
 		return rawEnds, true
 	}

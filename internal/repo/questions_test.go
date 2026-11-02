@@ -203,3 +203,11 @@ func TestAnAnswerHoldingAnInlineCodeSpanHoldsNoFence(t *testing.T) {
 		t.Errorf("reported %q, want nothing", problemLines(got))
 	}
 }
+
+func TestAHeadingAfterAFenceClosedInABlockquoteIsReported(t *testing.T) {
+	d := changelogDoc(t, "", "## Resolved questions\n### Q?\n> ```\n> x\n> ```\n> ## Not\n> Yes.\n")
+	got := problemLines(d.QuestionProblems(false))
+	if len(got) != 2 || !strings.HasPrefix(got[1], "17: a blockquote in a question section holds a heading") {
+		t.Errorf("reported %q, want the fence and then the heading on line 17", got)
+	}
+}

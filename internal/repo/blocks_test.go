@@ -170,18 +170,107 @@ func TestLinksAreReadWhereCommonMarkReadsThem(t *testing.T) {
 		"a comment block in a list item":            {"- <!-- TODO\n\nAfter [x](a.md)\n", []string{"a.md"}},
 		"a comment block in a list item, continued": {"- <!-- TODO\n\n  [x](a.md) -->\n\nAfter [y](b.md)\n", []string{"b.md"}},
 		// A code span crossing a line holds a comment marker.
-		"a code span across lines holding <!--": {"A `<!--\n` and [x](a.md) -->\n", []string{"a.md"}},
-		"a code span across lines in a quote":   {"> A `span\n> [x](a.md)` end\n", nil},
-		"a quote starting after a paragraph":    {"A `span\n> [x](a.md)` end\n", []string{"a.md"}},
+		"a comment after a comment block closes is part of the block":   {"<!-- a\nb --> <!-- c\n[x](a.md) -->\n", []string{"a.md"}},
+		"a comment after one closing on its opening line is part of it": {"<!-- a --> <!-- c\n[x](a.md) -->\n", []string{"a.md"}},
+		"a tab before an HTML block interrupting a nested quote":        {"> > a\n> \t<div>\n> > [x](a.md)\n", nil},
+		"a tab before an HTML block interrupting a quoted item":         {"- > a\n  \t<div>\n  [x](a.md)\n", nil},
+		"a tab before an HTML block in a list item":                     {"- a\n\n  \t<div>\n  [x](a.md)\n", nil},
+		"a code span across lines holding <!--":                         {"A `<!--\n` and [x](a.md) -->\n", []string{"a.md"}},
+		"a code span across lines in a quote":                           {"> A `span\n> [x](a.md)` end\n", nil},
+		"a quote starting after a paragraph":                            {"A `span\n> [x](a.md)` end\n", []string{"a.md"}},
 		// HTML blocks.
 		"a closing pre is not a block":       {"</pre>\nSee [x](a.md)\n", []string{"a.md"}},
 		"any of the four closes a raw block": {"<pre>\n[x](a.md)\n</script>\n\nAfter [y](b.md)\n", []string{"b.md"}},
 		"<?> opens and closes at once":       {"<?>\n\nAfter [x](a.md)\n", []string{"a.md"}},
+		// Where a comment opens and where its paragraph ends.
+		"a comment block's depth outlasting it":                       {"> <!-- a -->\n\nText <!-- x\n[a](a.md) -->\n", nil},
+		"a paragraph after a comment block's closing line":            {"<!-- a\nb --> <!-- c\nd -->\n    [x](a.md)\n", []string{"a.md"}},
+		"a marker after a closing one, never closed":                  {"Text <!-- a\nb --> <!-- c\n\n[x](a.md)\n", []string{"a.md"}},
+		"a marker after a closing one, closed later":                  {"Text <!-- a\nb --> <!-- c\n[x](a.md) -->\n", nil},
+		"code after a comment block":                                  {"<!-- a\nb -->\n    [x](a.md)\n", nil},
+		"a comment block three spaces in":                             {"   <!-- a\n\n[x](a.md) -->\n", nil},
+		"a comment four spaces into a paragraph":                      {"Text\n    <!-- a\n\n[x](a.md) -->\n", []string{"a.md"}},
+		"a commented paragraph after a comment block":                 {"<!-- a -->\nText <!-- b\nc -->\n    [x](a.md)\n", []string{"a.md"}},
+		"code after a heading in a quote":                             {"> # H\n>     [x](a.md)\n", nil},
+		"code after a one-line comment block":                         {"<!-- x -->\n    [x](a.md)\n", nil},
+		"a closing marker before the opening one":                     {"a --> b <!-- c\n\n[x](a.md)\n", []string{"a.md"}},
+		"a thematic break ends a commented paragraph, CRLF":           {"Text <!-- x\r\n***\r\n[y](a.md) -->\r\n", []string{"a.md"}},
+		"a commented paragraph continues in a quote":                  {"> Text <!-- x\n> [y](a.md) -->\n", nil},
+		"a comment four spaces in continues a paragraph":              {"Text <!-- x [a](a.md)\n    <!-- -->\n", nil},
+		"a thematic break three spaces in ends a commented paragraph": {"Text <!-- x\n   ***\n[y](a.md) -->\n", []string{"a.md"}},
+		"a numbered line continues a commented paragraph":             {"Text <!-- x\n2. y\n[z](a.md) -->\n", nil},
+		"a code span opening after the marker":                        {"Text <!-- [a](a.md) `y\nz` -->\n", nil},
+		"a code span closing before the marker":                       {"`a` <!-- [x](a.md)\n`b` -->\n", nil},
+		"a backtick closing only past the paragraph":                  {"A `x <!-- [a](a.md) -->\nmore\n\nb` c\n", nil},
+		// Containers, lazy continuation and the leaf blocks they hold.
+		"code after a quote's blank line":                      {"> a\n>\n    [x](a.md)\n", nil},
+		"code after a blank line ends a quote":                 {"> a\n\n    [x](a.md)\n", nil},
+		"a fence ends a quote":                                 {"> a\n~~~\n[x](a.md)\n~~~\n", nil},
+		"code after a paragraph that ended a list":             {"- a\n\nb\n\n    [x](a.md)\n", nil},
+		"a line three spaces in after code":                    {"    code\n   [x](a.md)\n", []string{"a.md"}},
+		"a tab ending code in a list item":                     {"- a\n\n      code\n  \t[x](a.md)\n", []string{"a.md"}},
+		"a fence in a quote":                                   {"> ```\n> [x](a.md)\n> ```\n", nil},
+		"code in a quote interrupting a paragraph":             {"a\n>     [x](a.md)\n", nil},
+		"code in a list item interrupting a paragraph":         {"a\n-      [x](a.md)\n", nil},
+		"a tab after a list marker in a quote":                 {"> -\tfoo\n>\n>       [x](a.md)\n", nil},
+		"a line three spaces in":                               {"   [x](a.md)\n", []string{"a.md"}},
+		"a list item continued in a quote":                     {"> - a\n>\n>      [x](a.md)\n", []string{"a.md"}},
+		"a tab continuing a nested list item":                  {"- a\n  1. b\n\n  \t    [x](a.md)\n", []string{"a.md"}},
+		"code after a fence that interrupted a paragraph":      {"a\n```\nb\n```\n    [x](a.md)\n", nil},
+		"code after a heading":                                 {"## H\n    [x](a.md)\n", nil},
+		"code after a thematic break":                          {"***\n    [x](a.md)\n", nil},
+		"code after a thematic break, CRLF":                    {"***\r\n    [x](a.md)\r\n", nil},
+		"a list item ends a quote":                             {"> a\n-      [x](a.md)\n", nil},
+		"an HTML block ends a quote":                           {"> a\n<div>\n[x](a.md)\n", nil},
+		"a quote ends a list item":                             {"- a\n> ~~~\n> [x](a.md)\n> ~~~\n", nil},
+		"a comment block ends a commented paragraph, unclosed": {"Text <!-- x [a](a.md)\n<!-- y -->\n", []string{"a.md"}},
+		"an indented comment block ends a commented paragraph": {"Text <!-- x [a](a.md)\n  <!-- y -->\n", []string{"a.md"}},
+		"a list starting at 01 in a paragraph":                 {"Text\n01. item\n\n    [x](a.md)\n", []string{"a.md"}},
+		"an empty item continued":                              {"-\n     [x](a.md)\n", []string{"a.md"}},
+		"code in an empty item":                                {"-\n      [x](a.md)\n", nil},
+		"five spaces after a list marker":                      {"-     [x](a.md)\n", nil},
+		"four spaces after a list marker":                      {"-    a\n\n      [x](a.md)\n", []string{"a.md"}},
+		"code continuing an item opened by code":               {"-      code\n\n      [x](a.md)\n", nil},
+		"a backtick in a tilde fence's info string":            {"~~~ a`b\n[x](a.md)\n~~~\n", nil},
+		"a tag four spaces into a paragraph":                   {"Text\n    <div>\n[x](a.md)\n", []string{"a.md"}},
+		"an HTML block three spaces in":                        {"   <div>\n[x](a.md)\n", nil},
+		"a > inside a processing instruction":                  {"<?\na > b\n[x](a.md)\n?>\n", nil},
+		"a > inside a CDATA section":                           {"<![CDATA[\na > b\n[x](a.md)\n]]>\n", nil},
+		"an HTML block interrupting a paragraph":               {"Text\n<div>\n[x](a.md)\n", nil},
+		"a raw block closed in capitals":                       {"<pre>\n[x](a.md)\n</PRE>\n\n[y](b.md)\n", []string{"b.md"}},
+		"a tab continuing a list item":                         {"- a\n\n\t[x](a.md)\n", []string{"a.md"}},
+		"a tilde line in a backtick fence":                     {"```\n~~~\n[x](a.md)\n```\n", nil},
+		// Code spans and comment markers within a paragraph.
+		"a code span into an HTML block":          {"A `x [a](a.md)\n<div>\nb`\n</div>\n", []string{"a.md"}},
+		"a code span across a blank line":         {"A `x\n\n[a](a.md) b`\n", []string{"a.md"}},
+		"a code span from a heading":              {"## A `x\n[a](a.md) b`\n", []string{"a.md"}},
+		"a code span across a quote's blank line": {"> A `x\n>\n> [a](a.md) b`\n", []string{"a.md"}},
+		"a code span after the marker":            {"Text <!-- [a](a.md) `x` -->\n", nil},
+		"a marker in a code span":                 {"A `<!--` [a](a.md) -->\n", []string{"a.md"}},
+		"an escaped backslash before the marker":  {"Write \\\\<!-- [a](a.md) -->\n", nil},
+		// A definition counts only where a paragraph could start.
+		"a definition after code under a heading":      {"## H\n    code\n\n[a]: b.md\n", []string{"b.md"}},
+		"a definition after code and a line of spaces": {"## H\n    code\n    \n[a]: b.md\n", []string{"b.md"}},
 	} {
 		t.Run(name, func(t *testing.T) {
 			if got := linkTargets(page(t, c.body)); !slices.Equal(got, c.want) {
 				t.Errorf("links = %q, want %q in:\n%s", got, c.want, c.body)
 			}
 		})
+	}
+}
+
+func TestAnUnclosedFenceIsUnclosed(t *testing.T) {
+	d := page(t, "```\n\n## Hidden\n")
+	if got := headingTexts(d); len(got) != 0 || !d.Unclosed() {
+		t.Errorf("headings = %q, unclosed = %v; want none, true", got, d.Unclosed())
+	}
+}
+
+// TestAnHTMLBlockAtTheEndIsClosed: a blank line closes a <div> block, so the
+// end of a file with no final newline closes it too.
+func TestAnHTMLBlockAtTheEndIsClosed(t *testing.T) {
+	if d := page(t, "Text.\n\n<div>"); d.Unclosed() {
+		t.Error("the body reads as unclosed")
 	}
 }
