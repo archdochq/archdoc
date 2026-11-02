@@ -1624,6 +1624,14 @@ func TestATermDefinitionIsOneParagraphAndNothingElse(t *testing.T) {
 		{"an indented underline", "# Widget\n\nThe definition.\n    ===\n", 1, 0, 0, "The definition.\n    ==="},
 		{"a table row", "# Widget\n\nThe definition.\n| a | b |\n| - | - |\n", 1, 1, 0, "The definition."},
 		{"an indented table row", "# Widget\n\nThe definition.\n    | a |\n", 1, 0, 0, "The definition.\n    | a |"},
+		{"an underline indented as a block may be", "# Widget\n\nThe definition.\n  ===\n", 1, 1, 0, "The definition."},
+		{"a table row indented as a block may be", "# Widget\n\nThe definition.\n | a |\n", 1, 1, 0, "The definition."},
+		// A lone carriage return ends a line, as CommonMark has it and as the
+		// definition is published.
+		{"a blank line ended by a lone carriage return", "# Widget\n\nThe definition.\n\rMore.\n", 2, 0, 0, "The definition."},
+		{"a list item after a lone carriage return", "# Widget\n\nThe definition.\r- an item\n", 1, 1, 0, "The definition."},
+		// A comment marker inside a fence is code, and opens nothing.
+		{"a comment marker inside a fence", "# Widget\n\nThe definition.\n```\n<!--\n```\nAfter.\n", 2, 1, 0, "The definition."},
 		// A comment beginning a line opens an HTML block, which holds the rest
 		// of the line that closes it.
 		{"text after a comment", "# Widget\n\nThe definition.\n<!-- c --> tail\n", 1, 1, 0, "The definition."},

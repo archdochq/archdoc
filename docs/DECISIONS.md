@@ -316,14 +316,22 @@ the result can delete content it never read.
   as nothing, and a former name holding a comma became two, so its anchor vanished from GLOSSARY.md.
 - **A term's definition is read as blocks, to the end of the file.** Splitting on blank lines read a
   heading, list or fence written straight after the definition as part of it, and GLOSSARY.md printed
-  the heading as a second term. The blocks come from the document's own walk, and a paragraph ends
+  the heading as a second term. The blocks come from the document's own walk, and ~~a paragraph ends
   where the link scanner's blockStartPattern ends one, at a setext underline and a table row as well,
-  so the two agree on where a paragraph stops. Prose above the H1 is reported rather than dropped,
-  since nothing publishes it. What is published is every line from the H1 to the end of the file as
-  written, with its comments cut out, rather than the paragraphs alone: L15 reports a block that is
-  not a paragraph, but export never fails on it, and publishing only the paragraphs dropped the
-  block from GLOSSARY.md, `term show` and the export unseen. Printing the masked text showed the
-  blanks a comment left.
+  so the two agree on where a paragraph stops.~~ Superseded, as the two did not agree: the link
+  scanner takes a heading or a table row at any indentation, since it does not know the indentation
+  of the list item holding a line, so `    | x` after a definition's line ended the paragraph for
+  links and continued it for L15, which is what CommonMark does. A paragraph ends at a setext
+  underline and a table row as well, indented at most three spaces as a block start at the top level
+  is. A lone carriage return ends a line there, as it does in CommonMark and in what is published:
+  read as part of its line, `Def.` and `More.` with a line feed and a carriage return between them
+  passed L15 as one paragraph and were published as two. A comment marker inside a code block is
+  code, and taking it as an open comment miscounted every block after the fence. Prose above the H1
+  is reported rather than dropped, since nothing publishes it. What is published is every line from
+  the H1 to the end of the file as written, with its comments cut out, rather than the paragraphs
+  alone: L15 reports a block that is not a paragraph, but export never fails on it, and publishing
+  only the paragraphs dropped the block from GLOSSARY.md, `term show` and the export unseen.
+  Printing the masked text showed the blanks a comment left.
 - **A writer refuses a document whose parse stops short of the file.** When the body ends inside an
   unterminated comment or an unclosed fence, every line range derived from the parse runs past the
   entries the parser could not see, and removing one glossary term deleted every entry below it on a
