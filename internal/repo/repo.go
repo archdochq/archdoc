@@ -292,26 +292,45 @@ func WriteFile(full string, source []byte, name string) error {
 		// file is refused here, opened without truncating it.
 		f, err := os.OpenFile(full, os.O_WRONLY, 0)
 		if err != nil {
-			return err
+			return failed(name, err)
 		}
 		f.Close()
 	}
+	// A read-only directory refuses the temporary file, so a writable file in
+	// one is refused too.
 	tmp := filepath.Join(filepath.Dir(full), fmt.Sprintf(".%s.%d.tmp", filepath.Base(full), rand.Uint64()))
 	f, err := os.OpenFile(tmp, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o644)
 	if err != nil {
-		return err
+		return failed(name, err)
 	}
 	err = fill(f, source)
 	if err == nil && info != nil {
 		err = f.Chmod(info.Mode().Perm())
 	}
-	if err = errors.Join(err, f.Close()); err == nil {
+	if closeErr := f.Close(); err == nil {
+		err = closeErr
+	}
+	if err == nil {
 		err = os.Rename(tmp, full)
 	}
 	if err != nil {
 		os.Remove(tmp)
+		return failed(name, err)
 	}
-	return err
+	return nil
+}
+
+// failed reports a write against the file asked for. The path inside err is
+// the temporary file's, which the user never asked for and never sees.
+func failed(name string, err error) error {
+	var pathErr *fs.PathError
+	var linkErr *os.LinkError
+	if errors.As(err, &pathErr) {
+		err = pathErr.Err
+	} else if errors.As(err, &linkErr) {
+		err = linkErr.Err
+	}
+	return fmt.Errorf("%s was not written: %w", name, err)
 }
 
 // fill writes a file just created, a variable so a test can fail a write part

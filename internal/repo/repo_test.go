@@ -1220,6 +1220,110 @@ func TestWriteFileReplacesTheFileWhole(t *testing.T) {
 	}
 }
 
+// TestWriteFileNamesTheFileItCouldNotWrite: every step after the file is
+// checked can fail, and each failure is reported against the file asked for,
+// never the temporary file beside it, and leaves the file as it was.
+func TestWriteFileNamesTheFileItCouldNotWrite(t *testing.T) {
+	if os.Getuid() == 0 {
+		t.Skip("root writes into a read-only directory")
+	}
+	for name, tc := range map[string]struct {
+		exists bool
+		stub   func(dir string) func(f *os.File, data []byte) error
+	}{
+		"the file is read-only": {exists: true, stub: func(dir string) func(*os.File, []byte) error {
+			if err := os.Chmod(filepath.Join(dir, "run.md"), 0o444); err != nil {
+				t.Fatal(err)
+			}
+			return nil
+		}},
+		// The temporary file cannot be made, so a writable file in a
+		// read-only directory is refused.
+		"the directory is read-only": {exists: true, stub: func(dir string) func(*os.File, []byte) error {
+			if err := os.Chmod(dir, 0o555); err != nil {
+				t.Fatal(err)
+			}
+			return nil
+		}},
+		"the rename fails": {exists: true, stub: func(dir string) func(*os.File, []byte) error {
+			return func(f *os.File, data []byte) error {
+				if _, err := f.Write(data); err != nil {
+					return err
+				}
+				return os.Chmod(dir, 0o555)
+			}
+		}},
+		// A new file skips the Chmod, so the Close is the step that fails.
+		"the close fails": {exists: false, stub: func(dir string) func(*os.File, []byte) error {
+			return func(f *os.File, data []byte) error {
+				if _, err := f.Write(data); err != nil {
+					return err
+				}
+				return f.Close()
+			}
+		}},
+	} {
+		t.Run(name, func(t *testing.T) {
+			dir := t.TempDir()
+			t.Cleanup(func() { os.Chmod(dir, 0o755) })
+			path := filepath.Join(dir, "run.md")
+			if tc.exists {
+				if err := os.WriteFile(path, []byte("original\n"), 0o644); err != nil {
+					t.Fatal(err)
+				}
+			}
+			if stub := tc.stub(dir); stub != nil {
+				t.Cleanup(repo.StubWriteFile(stub))
+			}
+			err := repo.WriteFile(path, []byte("rewritten\n"), "spec/run.md")
+			if err == nil || !strings.HasPrefix(err.Error(), "spec/run.md was not written: ") || strings.Contains(err.Error(), ".tmp") {
+				t.Errorf("err = %v; want it to name spec/run.md and not the temporary file", err)
+			}
+			got, err := os.ReadFile(path)
+			if tc.exists && string(got) != "original\n" || !tc.exists && err == nil {
+				t.Errorf("the file was changed by a failed write: %q, %v", got, err)
+			}
+		})
+	}
+}
+
+// TestRepoWriteFileRefusesADirectoryOutsideTheRepository: a document directory
+// swapped for a link elsewhere after the repository was read is refused, and
+// the file on the other end of the link is left alone.
+func TestRepoWriteFileRefusesADirectoryOutsideTheRepository(t *testing.T) {
+	r := repotest.New(t, map[string]string{"spec/zz.md": "---\ntitle: Zz\n---\n\n# Zz\n"})
+	spec := filepath.Join(r.Config().RootDir(), "spec")
+	outside := filepath.Join(t.TempDir(), "spec")
+	if err := os.Rename(spec, outside); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(outside, spec); err != nil {
+		t.Skipf("symlinks unavailable: %v", err)
+	}
+	if err := r.WriteFile("spec/zz.md", []byte("rewritten\n")); err == nil || !strings.Contains(err.Error(), "resolves outside the repository") {
+		t.Errorf("err = %v; want the write outside the repository refused", err)
+	}
+	if got, _ := os.ReadFile(filepath.Join(outside, "zz.md")); string(got) == "rewritten\n" {
+		t.Error("the file outside the repository was written")
+	}
+}
+
+// TestCreateFileReportsAFailedClose: the bytes are not known to be on disk
+// until the file is closed, so a close that fails is a failed write.
+func TestCreateFileReportsAFailedClose(t *testing.T) {
+	r := repotest.New(t, map[string]string{"spec/zz.md": "---\ntitle: Zz\n---\n\n# Zz\n"})
+	t.Cleanup(repo.StubWriteFile(func(f *os.File, data []byte) error {
+		if _, err := f.Write(data); err != nil {
+			return err
+		}
+		return f.Close()
+	}))
+	var created bool
+	if err := r.CreateFile("spec/new.md", []byte("new\n"), &created); err == nil {
+		t.Error("a failed close was reported as written")
+	}
+}
+
 func TestASectionIncludesItsOwnSubsections(t *testing.T) {
 	// sectionAt ends a section at the next heading of the same level or higher,
 	// which is what lets an author structure Proposal with ### subsections.
