@@ -244,9 +244,9 @@ func validBranch(name string) bool {
 }
 
 // Settings is what L11 and the merge rules read from an archdoc.json as it
-// stands on a branch: the branch it names, its root, and strict.
+// stands on a branch: its root and strict. Its branch is not read: the base is
+// found through the working tree's.
 type Settings struct {
-	Branch string
 	Root   string
 	Strict bool
 }
@@ -257,12 +257,11 @@ type Settings struct {
 // disk, and is lenient on purpose: a branch's archdoc.json written before a
 // check Load now makes must not make the comparison fail.
 func SettingsIn(data []byte) (Settings, error) {
-	s := Settings{Branch: DefaultBranch, Root: DefaultRoot, Strict: DefaultStrict}
+	s := Settings{Root: DefaultRoot, Strict: DefaultStrict}
 	if err := json.Unmarshal(data, &struct {
-		Branch *string `json:"branch"`
 		Root   *string `json:"root"`
 		Strict *bool   `json:"strict"`
-	}{&s.Branch, &s.Root, &s.Strict}); err != nil {
+	}{&s.Root, &s.Strict}); err != nil {
 		return Settings{}, err
 	}
 	return s, nil

@@ -436,3 +436,12 @@ func TestAddWritesNamedByAsAString(t *testing.T) {
 		t.Errorf("Add with named_by = %q, %v", source, err)
 	}
 }
+
+func TestAddLeavesNamedByEmptyWithoutADocument(t *testing.T) {
+	r := repotest.New(t, nil)
+	_, source, err := glossary.Add(r, "Widget", "A definition.", "")
+	want := "---\ntitle: Widget\nformerly: []\nnamed_by:\n---\n\n# Widget\n\nA definition.\n"
+	if err != nil || string(source) != want {
+		t.Errorf("Add without named_by = %q, %v, want %q", source, err, want)
+	}
+}

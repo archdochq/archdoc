@@ -737,15 +737,18 @@ func TestL20AndL21SoftenToWarningsOnAFrozenDocument(t *testing.T) {
 	}
 }
 
-func TestFrontMatterAndStructureFaultsSoftenToWarningsOnAFrozenDocument(t *testing.T) {
-	// L01, L02 and L07 to L10 report faults that only an edit to the document
-	// could clear, so on a frozen document they are warnings, as the body
-	// rules are. Each case is one fault site in its own document, so a site
-	// left reporting an error is named. A fault only a status changed after
-	// freezing can produce is written to the working tree as an edit, which
-	// L11 reports.
+func TestFaultsNoPermittedEditCanClearAreWarningsOnAFrozenDocument(t *testing.T) {
+	// L01 to L05 and L07 to L10 report faults that only an edit to the
+	// document could clear, so on a frozen document they are warnings, as the
+	// body rules are. Each case is one fault site in its own document, so a
+	// site left reporting an error is named. A fault only a status changed
+	// after freezing can produce is written to the working tree as an edit,
+	// which L11 reports. A case with no rule is only a target.
 	base := func(id string) string {
 		return rfc(id, "Frozen", "accepted", " 2026-02-01", "Words.")
+	}
+	with := func(id, field, ids string) string {
+		return strings.Replace(base(id), field+": []", field+": ["+ids+"]", 1)
 	}
 	cases := []struct {
 		path, rule, message, contents string
@@ -787,10 +790,44 @@ func TestFrontMatterAndStructureFaultsSoftenToWarningsOnAFrozenDocument(t *testi
 		{"rfc/0019-reopened.md", "L07", "decided is set but status is proposed", base("RFC-0019")},
 		{"rfc/0020-backfilled.md", "L07", "backfilled is set but status is proposed",
 			strings.Replace(base("RFC-0020"), "depends: []", "backfilled: 2026-03-01\ndepends: []", 1)},
+		{"ref/0001-notes.md", "", "", "---\nid: REF-0001\ntitle: Notes\nverified: 2026-08-01\n---\n\n# REF-0001: Notes\n\nNotes.\n\n## Sources\n\n- None.\n"},
+		{"rfc/0021-ref.md", "L04", "depends references REF-0001, but only RFCs and ADRs are permitted there",
+			with("RFC-0021", "depends", "REF-0001")},
+		{"rfc/0022-missing.md", "L04", "depends references RFC-0999, which does not exist",
+			with("RFC-0022", "depends", "RFC-0999")},
+		{"rfc/0023-itself.md", "L05", "RFC-0023 names itself in updates",
+			with("RFC-0023", "updates", "RFC-0023")},
+		{"rfc/0024-both.md", "L05", "RFC-0001 appears in both updates and obsoletes",
+			strings.Replace(with("RFC-0024", "updates", "RFC-0001"), "obsoletes: []", "obsoletes: [RFC-0001]", 1)},
+		{"rfc/0025-type.md", "L05", "updates references REF-0001, which is a ref",
+			with("RFC-0025", "updates", "REF-0001")},
+		{"rfc/0026-rejected.md", "L05", "updates references RFC-0017, which is rejected",
+			with("RFC-0026", "updates", "RFC-0017")},
+		{"rfc/0027-fresh-target.md", "L05", "updates references RFC-0028, which is rejected",
+			with("RFC-0027", "updates", "RFC-0028")},
+		{"rfc/0028-rejected.md", "", "",
+			strings.Replace(rfc("RFC-0028", "Fresh", "rejected", " 2026-02-01", "Words."),
+				"## Open questions\n\n## Changelog", "## Open questions\n\n## Rejection rationale\n\nWords.\n\n## Changelog", 1)},
+		{"rfc/0029-fresh-updates.md", "L05", "updates references RFC-0017, which is rejected",
+			with("RFC-0029", "updates", "RFC-0017")},
+		{"rfc/0030-one.md", "L03", "identifier RFC-0030 is also used by rfc/0030-two.md",
+			base("RFC-0030")},
+		{"rfc/0030-two.md", "", "", base("RFC-0030")},
+		{"rfc/0031-held.md", "L03", "identifier RFC-0031 is also used by rfc/0031-new.md",
+			base("RFC-0031")},
+		{"rfc/0031-new.md", "", "", base("RFC-0031")},
 	}
-	files := map[string]string{}
+	// Fresh documents are never committed, and a fault in a case that stays
+	// an error is one some permitted edit can clear.
+	isFresh := map[string]bool{"rfc/0028-rejected.md": true, "rfc/0029-fresh-updates.md": true, "rfc/0031-new.md": true}
+	stays := map[string]bool{"rfc/0022-missing.md": true, "rfc/0027-fresh-target.md": true, "rfc/0031-held.md": true}
+	files, fresh := map[string]string{}, map[string]string{}
 	for _, c := range cases {
-		files[c.path] = c.contents
+		if isFresh[c.path] {
+			fresh[c.path] = c.contents
+		} else {
+			files[c.path] = c.contents
+		}
 	}
 	// The status each of the last three is given after freezing.
 	edits := map[string]string{
@@ -812,11 +849,21 @@ func TestFrontMatterAndStructureFaultsSoftenToWarningsOnAFrozenDocument(t *testi
 			}
 			want = lint.Error
 		}
+		for path, contents := range fresh {
+			write(t, dir, path, contents)
+		}
 		for path, status := range edits {
 			write(t, dir, path, strings.Replace(files[path], "status: accepted", "status: "+status, 1))
 		}
 		findings := lintDir(t, dir)
 		for _, c := range cases {
+			if c.rule == "" {
+				continue
+			}
+			want := want
+			if isFresh[c.path] || stays[c.path] {
+				want = lint.Error
+			}
 			var found bool
 			for _, f := range findingsFor(findings, c.rule, c.path) {
 				if !strings.Contains(f.Message, c.message) {
@@ -865,15 +912,20 @@ func TestL11ReadsARootBeginningWithAColon(t *testing.T) {
 func TestL11ReportsAnEditFromAHookInALinkedWorktree(t *testing.T) {
 	// git runs a hook in a linked worktree with GIT_DIR set and no
 	// GIT_WORK_TREE, so it takes the working directory as the top level.
+	// archdoc.json sits below the top level: at the top, the working
+	// directory git falls back to is the right one anyway.
 	const path = "rfc/0001-frozen.md"
-	dir := gitFixture(t, map[string]string{path: rfc("RFC-0001", "Frozen", "accepted", " 2026-02-01", "The design.")})
+	dir := gitFixture(t, map[string]string{
+		"spec/archdoc.json": `{"name":"Frozen","branch":"main"}`,
+		"spec/" + path:      rfc("RFC-0001", "Frozen", "accepted", " 2026-02-01", "The design."),
+	})
 	wt := filepath.Join(t.TempDir(), "wt")
 	run(t, dir, "worktree", "add", "-q", "-b", "side", wt)
-	write(t, wt, path, rfc("RFC-0001", "Frozen", "accepted", " 2026-02-01", "An edit after freezing."))
+	write(t, wt, "spec/"+path, rfc("RFC-0001", "Frozen", "accepted", " 2026-02-01", "An edit after freezing."))
 	t.Setenv("GIT_DIR", filepath.Join(dir, ".git", "worktrees", "wt"))
-	t.Chdir(filepath.Join(wt, "rfc"))
+	t.Chdir(filepath.Join(wt, "spec", "rfc"))
 
-	if got := findingsFor(lintDir(t, wt), "L11", path); len(got) != 1 {
+	if got := findingsFor(lintDir(t, filepath.Join(wt, "spec")), "L11", path); len(got) != 1 {
 		t.Errorf("want one L11 finding from the hook, got %v", got)
 	}
 }
@@ -1003,13 +1055,18 @@ func TestL17FollowsALinkOutOfRootIntoTheGitRepository(t *testing.T) {
 		"src/main.go":       "package main\n",
 		"docs/archdoc.json": `{"name":"Nested","branch":"main"}`,
 		"docs/spec/p.md": "---\ntitle: P\nincludes: []\n---\n\n# P\n\n" +
-			"See [main](../../src/main.go), [gone](../../src/gone.go) and [out](../../../outside.md).\n",
+			"See [main](../../src/main.go), [gone](../../src/gone.go) and [out](../../../outside.md).\n\n" +
+			"The [top level](../../) is the repository's, and [above it](../../../) is not.\n",
 	})
 	var got []string
 	for _, f := range findingsFor(lintDir(t, filepath.Join(dir, "docs")), "L17", "spec/p.md") {
 		got = append(got, f.Message)
 	}
-	want := []string{`link target "../../src/gone.go" does not exist`, `link target "../../../outside.md" leaves the repository`}
+	want := []string{
+		`link target "../../src/gone.go" does not exist`,
+		`link target "../../../outside.md" leaves the repository`,
+		`link target "../../../" leaves the repository`,
+	}
 	if !slices.Equal(got, want) {
 		t.Errorf("findings = %q, want %q", got, want)
 	}

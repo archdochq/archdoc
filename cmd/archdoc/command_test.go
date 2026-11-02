@@ -887,6 +887,61 @@ func TestCheckPrintsAnEmptyArrayOnlyUnderJSONWhenCurrent(t *testing.T) {
 	}
 }
 
+// A repository with no term/ has no glossary, so the page being absent is not
+// a glossary out of date. A page that is there, or a term/ that is, is checked
+// as before.
+func TestGlossaryCheckWithNoTermDirectory(t *testing.T) {
+	bare := func(t *testing.T) string {
+		dir := repository(t)
+		for _, name := range []string{"term", "GLOSSARY.md"} {
+			if err := os.RemoveAll(filepath.Join(dir, name)); err != nil {
+				t.Fatal(err)
+			}
+		}
+		return dir
+	}
+
+	t.Run("no page passes", func(t *testing.T) {
+		dir := bare(t)
+		if stdout, stderr, code := runSplit(t, dir, "glossary", "--check"); code != exitOK || stdout != "" {
+			t.Errorf("glossary --check exited %d, printing %q%s", code, stdout, stderr)
+		}
+		stdout, stderr, code := runSplit(t, dir, "glossary", "--check", "--json")
+		var findings []jsonFinding
+		if code != exitOK || json.Unmarshal([]byte(stdout), &findings) != nil || findings == nil || len(findings) != 0 {
+			t.Errorf("glossary --check --json exited %d, printing %q%s, want []", code, stdout, stderr)
+		}
+	})
+
+	t.Run("a stale page fails", func(t *testing.T) {
+		dir := bare(t)
+		repotest.Write(t, dir, "GLOSSARY.md", "# Glossary\n\n## Wings\n\nThe node daemon.\n")
+		if _, _, code := runSplit(t, dir, "glossary", "--check"); code != exitFindings {
+			t.Errorf("glossary --check passed a stale page with no term/: exit %d", code)
+		}
+	})
+
+	t.Run("a dangling link fails", func(t *testing.T) {
+		dir := bare(t)
+		if err := os.Symlink(filepath.Join(t.TempDir(), "absent"), filepath.Join(dir, "GLOSSARY.md")); err != nil {
+			t.Fatal(err)
+		}
+		if _, _, code := runSplit(t, dir, "glossary", "--check"); code != exitFindings {
+			t.Errorf("glossary --check passed a dangling link with no term/: exit %d", code)
+		}
+	})
+
+	t.Run("an empty term directory with no page fails", func(t *testing.T) {
+		dir := bare(t)
+		if err := os.Mkdir(filepath.Join(dir, "term"), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if _, _, code := runSplit(t, dir, "glossary", "--check"); code != exitFindings {
+			t.Errorf("glossary --check passed a missing page with term/ present: exit %d", code)
+		}
+	})
+}
+
 // --json shapes the findings of --check, so without --check it is a usage
 // error rather than a flag ignored.
 func TestJSONWithoutCheckIsRefused(t *testing.T) {
