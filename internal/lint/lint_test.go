@@ -294,6 +294,7 @@ func TestL15ReportsOtherBlocksAndProseAboveTheHeading(t *testing.T) {
 	r := repotest.New(t, map[string]string{
 		"term/widget.md": fmt.Sprintf(term, "Widget") + "\n# Widget\n\nThe definition.\n## Aside\n- a list\n",
 		"term/gadget.md": fmt.Sprintf(term, "Gadget") + "\nAbove.\n\n# Gadget\n\nThe definition.\n",
+		"term/gizmo.md":  fmt.Sprintf(term, "Gizmo") + "\n# Gizmo\n\nOne.\n\nTwo.\n> quoted\n",
 	})
 	var got []string
 	for _, f := range lint.Run(lint.NewContext(r, nil, now)) {
@@ -303,7 +304,8 @@ func TestL15ReportsOtherBlocksAndProseAboveTheHeading(t *testing.T) {
 	}
 	want := []string{
 		`term/gadget.md:7: term "Gadget" has prose above its H1, where nothing is read as its definition`,
-		`term/widget.md:7: term "Widget" has 1 paragraphs and 2 other blocks, want exactly one paragraph`,
+		`term/gizmo.md:7: term "Gizmo" has 2 paragraphs and 1 other block, want exactly one paragraph`,
+		`term/widget.md:7: term "Widget" has 1 paragraph and 2 other blocks, want exactly one paragraph`,
 	}
 	if !slices.Equal(got, want) {
 		t.Errorf("L15 reported\n%s\nwant\n%s", strings.Join(got, "\n"), strings.Join(want, "\n"))
@@ -1285,5 +1287,16 @@ func TestL17ReportsALinkDifferingOnlyInCase(t *testing.T) {
 	})
 	if len(got) != 2 || !strings.Contains(got[0], `"B.md" does not exist`) || !strings.Contains(got[1], `"Img/x.png" does not exist`) {
 		t.Errorf("findings = %q, want B.md and Img/x.png reported missing", got)
+	}
+}
+
+// TestL17FindsTheRootALinkNames: a link up to root names a directory that is
+// there, though no directory listing holds ".".
+func TestL17FindsTheRootALinkNames(t *testing.T) {
+	got := l17Messages(t, map[string]string{
+		"spec/a.md": "---\ntitle: A\nincludes: []\n---\n\n# A\n\nSee [the root](..) and [again](../).\n",
+	})
+	if len(got) != 0 {
+		t.Errorf("findings = %q, want none", got)
 	}
 }

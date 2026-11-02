@@ -287,8 +287,16 @@ func TestAddRefusesADefinitionOfMoreThanOneParagraph(t *testing.T) {
 
 func TestAddRefusesADefinitionHoldingAnotherBlock(t *testing.T) {
 	r := repotest.New(t, map[string]string{})
-	if _, _, err := glossary.Add(r, "Widget", "One.\n## Aside", ""); err == nil {
-		t.Error("accepted a definition followed by a heading")
+	_, _, err := glossary.Add(r, "Widget", "One.\n## Aside", "")
+	if err == nil {
+		t.Fatal("accepted a definition followed by a heading")
+	}
+	if want := "reads as 1 paragraph and 1 other block,"; !strings.Contains(err.Error(), want) {
+		t.Errorf("err = %q, want it to say %q", err, want)
+	}
+	if _, _, err := glossary.Add(r, "Widget", "One.\n\nTwo.\n\n## Aside\n\n- a", ""); err == nil ||
+		!strings.Contains(err.Error(), "reads as 2 paragraphs and 2 other blocks,") {
+		t.Errorf("err = %v, want it to count 2 paragraphs and 2 other blocks", err)
 	}
 }
 
@@ -303,6 +311,32 @@ func TestGenerateWritesTheDefinitionAsWrittenWithoutComments(t *testing.T) {
 	}
 	if strings.Contains(got, "\r") {
 		t.Errorf("the generated glossary holds a carriage return:\n%q", got)
+	}
+}
+
+// TestGenerateWritesEveryBlockOfTheDefinition: L15 reports a block that is
+// not a paragraph, but GLOSSARY.md still prints the file as it stands rather
+// than dropping what L15 reported.
+func TestGenerateWritesEveryBlockOfTheDefinition(t *testing.T) {
+	r := repotest.New(t, map[string]string{
+		"term/widget.md": "---\ntitle: Widget\nformerly: []\nnamed_by:\n---\n\n# Widget\n\n" +
+			"The definition.\n```\ncode\n```\nAfter.\n\n- an item\n",
+	})
+	got := string(glossary.Generate(r))
+	if want := "## Widget\n\nThe definition.\n```\ncode\n```\nAfter.\n\n- an item\n"; !strings.HasSuffix(got, want) {
+		t.Errorf("the generated glossary does not end %q:\n%q", want, got)
+	}
+}
+
+// A term with no definition is its heading alone, one blank line before the
+// next.
+func TestGenerateWritesNothingForNoDefinition(t *testing.T) {
+	r := repotest.New(t, map[string]string{
+		"term/a.md": "---\ntitle: A\nformerly: []\nnamed_by:\n---\n\n# A\n",
+		"term/b.md": "---\ntitle: B\nformerly: []\nnamed_by:\n---\n\n# B\n\nDefined.\n",
+	})
+	if got, want := string(glossary.Generate(r)), "## A\n\n\n## B\n\nDefined.\n"; !strings.HasSuffix(got, want) {
+		t.Errorf("the generated glossary does not end %q:\n%q", want, got)
 	}
 }
 
@@ -400,5 +434,14 @@ func TestAddWritesNamedByAsAString(t *testing.T) {
 	_, source, err := glossary.Add(r, "Widget", "A definition.", "ADR-0001")
 	if err != nil || !strings.Contains(string(source), "named_by: ADR-0001\n") {
 		t.Errorf("Add with named_by = %q, %v", source, err)
+	}
+}
+
+func TestAddLeavesNamedByEmptyWithoutADocument(t *testing.T) {
+	r := repotest.New(t, nil)
+	_, source, err := glossary.Add(r, "Widget", "A definition.", "")
+	want := "---\ntitle: Widget\nformerly: []\nnamed_by:\n---\n\n# Widget\n\nA definition.\n"
+	if err != nil || string(source) != want {
+		t.Errorf("Add without named_by = %q, %v, want %q", source, err, want)
 	}
 }
