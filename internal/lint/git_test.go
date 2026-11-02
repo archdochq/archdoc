@@ -840,7 +840,7 @@ func TestL16NamesTheEditThatClearsIt(t *testing.T) {
 	// is the remedy only where it acts.
 	const frozen = "rfc/0001-frozen.md"
 	files := map[string]string{
-		frozen:                rfc("RFC-0001", "Frozen", "accepted", " 2026-02-01", "See [[RFC-0002]]."),
+		frozen:                rfc("RFC-0001", "Frozen", "accepted", " 2026-02-01", "See [[RFC-0002]].\n\n### About [[RFC-0002]]"),
 		"rfc/0002-open.md":    rfc("RFC-0002", "Open", "proposed", "", "See [[RFC-0001]].\n\n### On [[RFC-0001]]"),
 		"rfc/0003-decided.md": rfc("RFC-0003", "Decided", "accepted", " 2026-02-01", "See [[RFC-0001]]."),
 	}
@@ -856,6 +856,8 @@ func TestL16NamesTheEditThatClearsIt(t *testing.T) {
 	}
 	want := []string{
 		"rfc/0001-frozen.md:24: unresolved wiki link [[RFC-0002]]: the document is frozen, so it is left as written",
+		// A heading in a frozen document is frozen too: L11 forbids the edit.
+		"rfc/0001-frozen.md:26: unresolved wiki link [[RFC-0002]]: the document is frozen, so it is left as written",
 		"rfc/0002-open.md:24: unresolved wiki link [[RFC-0001]]: run archdoc link",
 		"rfc/0002-open.md:26: unresolved wiki link [[RFC-0001]]: write the heading without it",
 		"rfc/0003-decided.md:24: unresolved wiki link [[RFC-0001]]: run archdoc link",

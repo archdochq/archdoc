@@ -60,7 +60,7 @@ belongs.
 | L13 | A ref's `verified` date is older than `ref_stale_days`, and it carries no `as_of` (warning) | Re-check the content, then update `verified`. A record of an exchange carries `as_of` instead |
 | L14 | A required section is empty | Write it |
 | L15 | A term's definition under `term/` is not exactly one paragraph | Rewrite the definition as one paragraph beneath the H1 |
-| L16 | An unresolved `[[...]]` link | Run `archdoc link`. In a heading, which it leaves as written, write the heading without it; in a terminal document outside a git repository, replace it by hand |
+| L16 | An unresolved `[[...]]` link | Run `archdoc link`. In a heading, which it leaves as written, write the heading without it; in a terminal document outside a git repository, replace it by hand; in a frozen document, leave it as written |
 | L17 | A relative link points at a missing file or heading | Fix the path or the anchor |
 | L18 | `depends` names something less settled than the referring document (warning) | Usually accept the dependency first |
 | L19 | `spec/glossary.md` is left from before terms became files, and is no longer read (warning) | Move its terms to `term/` with `archdoc term add`. Guide: `spec-pages.md` |
