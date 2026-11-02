@@ -1,6 +1,7 @@
 package repo_test
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -1180,6 +1181,42 @@ func TestWriteFileStillWritesAnOrdinaryFile(t *testing.T) {
 	}
 	if got, _ := os.ReadFile(path); string(got) != "generated\n" {
 		t.Errorf("contents = %q", got)
+	}
+}
+
+// TestWriteFileReplacesTheFileWhole: the bytes are written beside the original
+// and renamed over it, keeping its mode, so a write that fails part way leaves
+// the original as it was and nothing beside it.
+func TestWriteFileReplacesTheFileWhole(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "run.md")
+	if err := os.WriteFile(path, []byte("original\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Chmod(path, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := repo.WriteFile(path, []byte("rewritten\n"), "run.md"); err != nil {
+		t.Fatal(err)
+	}
+	if info, err := os.Stat(path); err != nil || info.Mode().Perm() != 0o755 {
+		t.Errorf("the mode was not kept: %v, %v", info.Mode(), err)
+	}
+
+	t.Cleanup(repo.StubWriteFile(func(f *os.File, data []byte) error {
+		if _, err := f.Write(data[:3]); err != nil {
+			return err
+		}
+		return errors.New("file too large")
+	}))
+	if err := repo.WriteFile(path, []byte("third\n"), "run.md"); err == nil {
+		t.Error("a failed write was reported as written")
+	}
+	if got, _ := os.ReadFile(path); string(got) != "rewritten\n" {
+		t.Errorf("the original was changed by a failed write: %q", got)
+	}
+	if entries, _ := os.ReadDir(dir); len(entries) != 1 {
+		t.Errorf("the failed write left a file behind: %v", entries)
 	}
 }
 
