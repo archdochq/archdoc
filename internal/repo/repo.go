@@ -223,6 +223,26 @@ func (r *Repo) WriteFile(docPath string, source []byte) error {
 	return WriteFile(full, source, docPath)
 }
 
+// CreateFile writes a document that must not exist yet, refusing anything in
+// its place, a dangling symbolic link included. created is set once the file
+// exists, so a caller undoing the write removes only what it made.
+func (r *Repo) CreateFile(docPath string, source []byte, created *bool) error {
+	full := r.File(docPath)
+	if err := Contains(r.Config().RootDir(), full); err != nil {
+		return err
+	}
+	f, err := os.OpenFile(full, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o644)
+	if errors.Is(err, fs.ErrExist) {
+		return fmt.Errorf("%s already exists", docPath)
+	}
+	if err != nil {
+		return err
+	}
+	*created = true
+	_, err = f.Write(source)
+	return errors.Join(err, f.Close())
+}
+
 // Contains reports whether full sits inside root once every directory component
 // has been resolved.
 //
@@ -264,8 +284,11 @@ func WriteFile(full string, source []byte, name string) error {
 	if info, err := os.Lstat(full); err == nil && info.Mode()&fs.ModeSymlink != 0 {
 		return fmt.Errorf("%s is a symbolic link, so it is not written through", name)
 	}
-	return os.WriteFile(full, source, 0o644)
+	return writeFile(full, source, 0o644)
 }
+
+// writeFile is os.WriteFile, a variable so a test can fail a write part way.
+var writeFile = os.WriteFile
 
 // Documents returns every document, ordered by path.
 func (r *Repo) Documents() []*Document { return r.documents }
