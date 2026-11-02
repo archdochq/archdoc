@@ -16,11 +16,18 @@ func TestHeadingAnchorsAreGitHubs(t *testing.T) {
 		"A &amp; B":                        "a--b",
 		"Caf&eacute;":                      "café",
 		"Foo <span>bar</span>":             "foo-bar",
-		"See [RFC-0001][r] now":            "see-rfc-0001-now",
+		"[undef][nolabel] ref":             "undefnolabel-ref",
+		"x [a [b](c) d](e)":                "x-a-b-de",
+		"[![i](s)](l) y":                   "-y",
+		"x [a \\![t](u) b](e)":             "x-a-t-be",
+		"x [![a [t](u)](s) b](e)":          "x--be",
 		"Link [with [nested] text](a.md)":  "link-with-nested-text",
 		"![logo](x.png) Foo":               "-foo",
 		"हिन्दी":                           "हिन्दी",
 		"Ⅻ roman":                          "ⅻ-roman",
+		"x² units":                         "x-units",
+		"½ cup":                            "-cup",
+		"٣ arabic":                         "٣-arabic",
 		"a‿b":                              "a‿b",
 		"snake_case_name":                  "snake_case_name",
 		"The `_code_` and `&amp;` stay":    "the-_code_-and-amp-stay",
@@ -28,6 +35,9 @@ func TestHeadingAnchorsAreGitHubs(t *testing.T) {
 		"See <https://example.com> for it": "see-httpsexamplecom-for-it",
 		"The [RFC-0007](path) approach":    "the-rfc-0007-approach",
 		"A ` x ` b":                        "a-x-b",
+		"x `  ` y":                         "x----y",
+		"x ` a` y":                         "x--a-y",
+		"x `a ` y":                         "x-a--y",
 		"See [_Em_](a.md)":                 "see-em",
 		"[a\\]b](x.md) c":                  "ab-c",
 	} {
@@ -37,16 +47,154 @@ func TestHeadingAnchorsAreGitHubs(t *testing.T) {
 	}
 }
 
+// TestOnlyPairedEmphasisLeavesAHeadingsAnchor: an underscore is dropped from
+// an anchor only where it pairs as emphasis, which CommonMark decides from what
+// flanks each run and which runs can match. Dropping every run that flanked a
+// word rejected the-_id-field, GitHub's own anchor. Each is GitHub's.
+func TestOnlyPairedEmphasisLeavesAHeadingsAnchor(t *testing.T) {
+	for heading, want := range map[string]string{
+		"The _id field":    "the-_id-field",
+		"_foo":             "_foo",
+		"foo_bar_":         "foo_bar_",
+		"foo_ bar":         "foo_-bar",
+		"_foo_":            "foo",
+		"__a__ b":          "a-b",
+		"__a_":             "_a",
+		"a __b__c":         "a-__b__c",
+		"_a_b_":            "a_b",
+		"_a__":             "a_",
+		"_a_ b_":           "a-b_",
+		"_a._.b_":          "ab_",
+		"x _.a_":           "x-a",
+		"_a._ x":           "a-x",
+		"._.a_":            "a",
+		"ġ_a_":             "ġ_a_",
+		"a\t_b_":           "ab",
+		"a\f_b_":           "ab",
+		"a\v_b_":           "a_b_",
+		"a\u3000_b_":       "ab",
+		"~a _b~~ c_":       "a-b-c",
+		"~a~ _x~ y_":       "a-x-y",
+		"~a~b _c~ d_":      "ab-c-d",
+		"x«_a_»":           "xa",
+		"€_a_":             "_a_",
+		"$_a_":             "a",
+		"*a _b* c_":        "a-_b-c_",
+		"~a _b~ c_":        "a-_b-c_",
+		"~~~a _b~~~ c_":    "a-b-c",
+		"a~_b_":            "a_b_",
+		"_b_~a":            "_b_a",
+		"\"_\"__\"":        "___",
+		"__a._.":           "__a_",
+		"._.a__":           "_a__",
+		"x \"___\"___\" y": "x--y",
+	} {
+		if got := repo.Anchor(heading); got != want {
+			t.Errorf("Anchor(%q) = %q, want %q", heading, got, want)
+		}
+	}
+}
+
+// TestABareURLInAHeadingIsLinkedAsGitHubLinksIt: GitHub links a bare
+// http://, https://, ftp:// or www. address in a heading, and what it links is
+// text, so an underscore in it is not emphasis. Each anchor is GitHub's.
+func TestABareURLInAHeadingIsLinkedAsGitHubLinksIt(t *testing.T) {
+	for heading, want := range map[string]string{
+		"see https://a.com/_x_ y":        "see-httpsacom_x_-y",
+		"HTTPS://a.com/_x_ y":            "httpsacom_x_-y",
+		"ftp://a.com/_x_ y":              "ftpacom_x_-y",
+		"see www.a.com/_x_ y":            "see-wwwacom_x_-y",
+		"_www.a.com/_x_ y":               "wwwacom_x-y",
+		"see www.a/_x_ y":                "see-wwwa_x_-y",
+		"see https://é.com/_x_ y":        "see-httpsécom_x_-y",
+		"see https://a.com/_x_)_ y":      "see-httpsacom_x__-y",
+		"see https://a.com/(_x_)_ y":     "see-httpsacom_x__-y",
+		"see https://a.com/_x&amp;_ y":   "see-httpsacom_x_-y",
+		"see https://a.com/_x&a;_ y":     "see-httpsacom_xa_-y",
+		"see https://a.com/_x<b>_y_</b>": "see-httpsacom_xy",
+		"[x] https://a.com/_x_ y":        "x-httpsacom_x_-y",
+		"[i [b](c) https://a.com/_x_ y":  "i-b-httpsacom_x_-y",
+		"[a] ] https://a.com/_x_ y":      "a--httpsacom_x_-y",
+		"[x https://a.com/_x_ y":         "x-httpsacomx-y",
+		"![i [b](c) https://a.com/_x_ y": "i-b-httpsacomx-y",
+		"xhttps://a.com/_x_ y":           "xhttpsacomx-y",
+		"awww.a.com/_x_ y":               "awwwacomx-y",
+		"see www.a_b.c/_x_ y":            "see-wwwa_bcx-y",
+		"see https://a_b.c_d/_x_ y":      "see-httpsa_bc_dx-y",
+		"see https://_x_ y":              "see-httpsx-y",
+		"a_b@c.com_ x":                   "a_bccom_-x",
+		"see\twww.a.com/_x_ y":           "seewwwacom_x_-y",
+		"see https://a.com/_x_\ty":       "see-httpsacom_x_y",
+		"*www.a.com/_x_ y":               "wwwacom_x_-y",
+		"~www.a.com/_x_ y":               "wwwacom_x_-y",
+		"(www.a.com/_x_ y":               "wwwacom_x_-y",
+		"[see https://a.com/_x_ y](u)":   "see-httpsacomx-y",
+		"![i https://a.com/_x_ y":        "i-httpsacomx-y",
+		"x http:/":                       "x-http",
+		"http://a.com/_x_ y":             "httpacom_x_-y",
+		"_a https://a.com/x_?":           "a-httpsacomx",
+		"_a https://a.com/x_!":           "a-httpsacomx",
+		"_a https://a.com/x_.":           "a-httpsacomx",
+		"_a https://a.com/x_,":           "a-httpsacomx",
+		"_a https://a.com/x_:":           "a-httpsacomx",
+		"_a https://a.com/x_*":           "a-httpsacomx",
+		"_a https://a.com/x_~":           "a-httpsacomx",
+		"_a https://a.com/x_'":           "a-httpsacomx",
+		"_a https://a.com/x_\"":          "a-httpsacomx",
+		"_a https://a.com/x_":            "a-httpsacomx",
+		"_a https://a.com/x_;":           "a-httpsacomx",
+		"_a https://a.com/x_&;":          "_a-httpsacomx_",
+		"see https://a.com/x(_a; b_":     "see-httpsacomx_a-b_",
+		"_a https://a.com/(x_)":          "_a-httpsacomx_",
+		"see https://a-b_c.d/_x_ y":      "see-httpsa-b_cdx-y",
+		"see https://a.b_c/_x_ y":        "see-httpsab_cx-y",
+		"www.a.com/_x_ y":                "wwwacom_x_-y",
+		"Xhttps://a.com/_x_ y":           "xhttpsacomx-y",
+		"see https://.a.com/_x_ y":       "see-httpsacomx-y",
+		"see https://a.com/x\t_y_":       "see-httpsacomxy",
+		"_a https://a.com/x_)":           "a-httpsacomx",
+		"_a https://a.com/x_&AMP;":       "a-httpsacomx",
+		"see https://a_b.c.d/_x_ y":      "see-httpsa_bcd_x_-y",
+		"_a www.b_.c":                    "a-wwwbc",
+		"see https://é_x.c/_x_ y":        "see-httpsé_xc_x_-y",
+		"see https://\uFFFD.com/_x_ y":   "see-httpscom_x_-y",
+		"see https://\u3000_x_ y":        "see-httpsx-y",
+		"see https://a\f_x_ y":           "see-httpsa_x_-y",
+		"see https://a\v_x_ y":           "see-httpsa_x_-y",
+	} {
+		if got := repo.Anchor(heading); got != want {
+			t.Errorf("Anchor(%q) = %q, want %q", heading, got, want)
+		}
+	}
+}
+
+// TestAHeadingsAnchorIsRenderedInItsDocument: a reference link renders as a
+// link only where the document defines its label, and a comment renders as
+// nothing, the space after it staying. Each anchor is GitHub's.
+func TestAHeadingsAnchorIsRenderedInItsDocument(t *testing.T) {
+	d := page(t, "## See [RFC-0001][r] now\n\n## [undef][nolabel] ref\n\n## <!-- c --> after\n\n"+
+		"## ![logo] x\n\n## [Foo][] z\n\n## ![logo][] y\n\n## Closing ##\n\n[r]: x.md\n[logo]: l.png\n[foo]: f.md\n")
+	want := []string{"page", "see-rfc-0001-now", "undefnolabel-ref", "-after", "-x", "foo-z", "-y", "closing"}
+	if got := d.Anchors(); !slices.Equal(got, want) {
+		t.Errorf("Anchors() = %q, want %q", got, want)
+	}
+	if got := d.Headings()[3].Text; got != "after" {
+		t.Errorf("the heading's text = %q, want it read without its comment", got)
+	}
+}
+
 func TestAnchorsInReadsOnlyWhatGitHubServes(t *testing.T) {
 	source := "\xef\xbb\xbf# Overview\n\n<a id='single'></a>\n\n<!-- <a id=\"gone\"></a> -->\n\n" +
-		"```\n<a name=\"code\"></a>\n```\n\n<div id=\"x\"><a name=\"inblock\"></a></div>\n"
+		"```\n<a name=\"code\"></a>\n```\n\n<div id=\"x\"><a name=\"inblock\"></a></div>\n\n" +
+		"See `<a id=\"span\"></a>` here.\n\n" +
+		"<div>\n<!-- <a id=\"hidden\"></a>\n<a id=\"also\"></a> -->\n<a id=\"caf&eacute;\"></a>\n</div>\n\n## Later\n"
 	got := repo.AnchorsIn([]byte(source))
-	for _, want := range []string{"overview", "single", "inblock"} {
+	for _, want := range []string{"overview", "single", "inblock", "café", "later"} {
 		if !slices.Contains(got, want) {
 			t.Errorf("AnchorsIn = %q, missing %q", got, want)
 		}
 	}
-	for _, unwanted := range []string{"gone", "code"} {
+	for _, unwanted := range []string{"gone", "code", "span", "hidden", "also"} {
 		if slices.Contains(got, unwanted) {
 			t.Errorf("AnchorsIn = %q, holds %q from a comment or code", got, unwanted)
 		}
@@ -67,6 +215,35 @@ func TestALinkDestinationMayHoldParentheses(t *testing.T) {
 	}
 	if got := linkTargets(page(t, "[bad](a(b c)\n")); len(got) != 0 {
 		t.Errorf("an unbalanced destination read as links %q", got)
+	}
+}
+
+// TestALinkDestinationIsReadAsGitHubReadsIt: each line is one link or none, as
+// cmark-gfm renders it.
+func TestALinkDestinationIsReadAsGitHubReadsIt(t *testing.T) {
+	for line, want := range map[string][]string{
+		"[a]()":                 {""},
+		"[a](\tx.md)":           {"x.md"},
+		"[a](x.md\t\"t\")":      {"x.md"},
+		"[a](x\\a.md)":          {"x\\a.md"},
+		"[a](x\\ y.md)":         nil,
+		"[a](<x<y.md>)":         nil,
+		"[a](<x.md> \"t\")":     {"x.md"},
+		"[a](<x<)":              nil,
+		"[a](x y.md)":           nil,
+		"[a](x.md 't')":         {"x.md"},
+		"[a](x.md (t) )":        {"x.md"},
+		"[a](x.md (t(u)))":      nil,
+		"[a](x.md (t\\(u))":     {"x.md"},
+		"[a](x.md \"a)b\")":     {"x.md"},
+		"[a](x.md \"t\\\" u\")": {"x.md"},
+		"[a](x.md \"t)":         nil,
+		"[a](x.md \"t\" u)":     nil,
+		"[a](<x.md>\"t\")":      nil,
+	} {
+		if got := linkTargets(page(t, line+"\n")); !slices.Equal(got, want) {
+			t.Errorf("%q: links = %q, want %q", line, got, want)
+		}
 	}
 }
 

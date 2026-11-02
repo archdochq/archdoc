@@ -1176,3 +1176,14 @@ func TestL17ReportsALinkDifferingOnlyInCase(t *testing.T) {
 		t.Errorf("findings = %q, want B.md and Img/x.png reported missing", got)
 	}
 }
+
+// TestL17FindsTheRootALinkNames: a link up to root names a directory that is
+// there, though no directory listing holds ".".
+func TestL17FindsTheRootALinkNames(t *testing.T) {
+	got := l17Messages(t, map[string]string{
+		"spec/a.md": "---\ntitle: A\nincludes: []\n---\n\n# A\n\nSee [the root](..) and [again](../).\n",
+	})
+	if len(got) != 0 {
+		t.Errorf("findings = %q, want none", got)
+	}
+}

@@ -51,7 +51,8 @@ type Repository interface {
 	// to tell a repository with no such branch from one where every document is
 	// new, which would otherwise pass silently.
 	BranchExists(branch string) (bool, error)
-	// ListFiles names every path committed on branch, sorted. L11 needs it to
+	// ListFiles names every path committed on branch, from the repository's
+	// top level whichever directory it was opened in, sorted. L11 needs it to
 	// notice a frozen document deleted from the working tree, which discovery
 	// cannot see.
 	ListFiles(branch string) ([]string, error)
@@ -136,8 +137,8 @@ func command(dir string, args ...string) *exec.Cmd {
 	})
 	// Every path is passed as a name. Read as a pathspec, a root beginning
 	// with ":" was magic, and diff matched nothing under it, so no frozen
-	// document read as changed. git refuses the literal setting beside any of
-	// the other three, so an inherited one is dropped first.
+	// document read as changed. git refuses the literal setting beside the
+	// glob or icase one, so every inherited pathspec setting is dropped first.
 	cmd.Env = append(cmd.Env, "LC_ALL=C", "GIT_LITERAL_PATHSPECS=1")
 	return cmd
 }
@@ -374,12 +375,14 @@ func (s *shell) ListFiles(branch string) ([]string, error) {
 }
 
 func (s *shell) listFiles(branch string) ([]string, error) {
-	out, _, err := s.run("ls-tree", "-r", "--full-name", "--name-only", "-z", s.rev(branch))
+	out, _, err := s.run("ls-tree", "-r", "--full-tree", "--name-only", "-z", s.rev(branch))
 	if err != nil {
 		return nil, err
 	}
-	// --full-name prints paths from the repository root rather than from the
-	// working directory, which is the base every caller translates against.
+	// --full-tree lists the whole tree, by paths from the repository root,
+	// rather than the working directory's subtree by paths from it. A branch
+	// whose root or archdoc.json is above the directory archdoc runs in, as
+	// before a pull request moving them down, held nothing otherwise.
 	// -z separates with NUL, so paths containing newlines or quotes survive
 	// intact and need no unquoting.
 	var files []string
