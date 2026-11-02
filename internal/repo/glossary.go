@@ -1,6 +1,7 @@
 package repo
 
 import (
+	"iter"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -125,8 +126,8 @@ func (r *Repo) Term(name string) (GlossaryEntry, bool) {
 //
 // A paragraph runs over the lines that continue it; a heading, a thematic
 // break, a list, a blockquote, a table, or a code or HTML block is another
-// block. It ends where the link scanner's blockStartPattern ends one, at a
-// setext underline and a table row as well.
+// block. It ends at a setext underline and a table row as well, as the link
+// scanner's does, and a lone carriage return ends a line.
 func (d *Document) entryBlocks(from int) (paragraphs []string, other int) {
 	lines, masked := d.bodyLines(), d.maskedLines()
 	// What holds the lines of the current block: none after a blank line.
@@ -147,48 +148,72 @@ func (d *Document) entryBlocks(from int) (paragraphs []string, other int) {
 		current, text = none, nil
 	}
 	for i := from; i < len(lines); i++ {
-		raw, m := strings.TrimSuffix(lines[i], "\r"), strings.TrimSuffix(masked[i], "\r")
-		// A comment beginning a line opens an HTML block, as CommonMark has
-		// it, and the text after the marker closing it is the block's.
-		if t := strings.TrimLeft(raw, " "); len(raw)-len(t) <= 3 && strings.HasPrefix(t, commentOpen) {
-			comment = true
-		}
-		html := comment
-		comment = comment && !strings.Contains(raw, commentClose)
-		switch {
-		case d.literal[i] != blockProse:
-			if current != leaf || kind != d.literal[i] {
-				end()
-				current, kind = leaf, d.literal[i]
-				other++
+		for raw, m := range crLines(strings.TrimSuffix(lines[i], "\r"), strings.TrimSuffix(masked[i], "\r")) {
+			// A comment beginning a line opens an HTML block, as CommonMark
+			// has it, and the text after the marker closing it is the
+			// block's. Inside a code block the marker is code.
+			if t := strings.TrimLeft(raw, " "); d.literal[i] == blockProse && len(raw)-len(t) <= 3 && strings.HasPrefix(t, commentOpen) {
+				comment = true
 			}
-		case strings.TrimSpace(m) == "":
-			end()
-		case html || IsHeading(m) || thematicPattern.MatchString(m) || setextPattern.MatchString(m):
-			end()
-			other++
-		case d.quoted[i] || tablePattern.MatchString(m) || interruptsWithList(m, current == paragraph):
-			if current != container {
+			html := comment
+			comment = comment && !strings.Contains(raw, commentClose)
+			switch {
+			case d.literal[i] != blockProse:
+				if current != leaf || kind != d.literal[i] {
+					end()
+					current, kind = leaf, d.literal[i]
+					other++
+				}
+			case strings.TrimSpace(m) == "":
 				end()
-				current = container
+			case html || IsHeading(m) || thematicPattern.MatchString(m) || setextPattern.MatchString(m):
+				end()
 				other++
+			case d.quoted[i] || tablePattern.MatchString(m) || interruptsWithList(m, current == paragraph):
+				if current != container {
+					end()
+					current = container
+					other++
+				}
+			case current == none || current == leaf:
+				end()
+				current = paragraph
+				fallthrough
+			case current == paragraph:
+				text = append(text, withoutComments(raw, m))
+			default:
+				// A line continuing a list or a blockquote lazily stays in it.
 			}
-		case current == none || current == leaf:
-			end()
-			current = paragraph
-			fallthrough
-		case current == paragraph:
-			text = append(text, withoutComments(raw, m))
-		default:
-			// A line continuing a list or a blockquote lazily stays in it.
 		}
 	}
 	end()
 	return paragraphs, other
 }
 
-// The setext underline and the table row of blockStartPattern, which ends a
-// paragraph at both, indented as CommonMark lets a block start be.
+// crLines splits a line as written and its masked twin at each lone carriage
+// return, which CommonMark reads as a line ending, at the same offsets in
+// both.
+func crLines(raw, masked string) iter.Seq2[string, string] {
+	return func(yield func(string, string) bool) {
+		for {
+			i := strings.IndexByte(raw, '\r')
+			if i < 0 {
+				yield(raw, masked)
+				return
+			}
+			if !yield(raw[:i], masked[:i]) {
+				return
+			}
+			raw, masked = raw[i+1:], masked[i+1:]
+		}
+	}
+}
+
+// The setext underline and the table row that end a paragraph, indented as
+// CommonMark lets a block start be at the top level. blockStartPattern takes a
+// table row at any indentation, since it does not know a list item's; a
+// definition is read outside any container, where four spaces continue the
+// paragraph.
 var (
 	setextPattern = regexp.MustCompile(`^ {0,3}(?:=+|-+)[ \t]*$`)
 	tablePattern  = regexp.MustCompile(`^ {0,3}\|`)

@@ -816,6 +816,14 @@ func TestFaultsNoPermittedEditCanClearAreWarningsOnAFrozenDocument(t *testing.T)
 		{"rfc/0031-held.md", "L03", "identifier RFC-0031 is also used by rfc/0031-new.md",
 			base("RFC-0031")},
 		{"rfc/0031-new.md", "", "", base("RFC-0031")},
+		// No document can ever hold these identifiers, so writing one cannot
+		// clear the reference either.
+		{"rfc/0032-word.md", "L04", "depends references foo, which does not exist",
+			with("RFC-0032", "depends", "foo")},
+		{"rfc/0033-zero.md", "L04", "depends references ADR-0000, which does not exist",
+			with("RFC-0033", "depends", "ADR-0000")},
+		{"rfc/0034-case.md", "L04", "depends references rfc-0001, which does not exist",
+			with("RFC-0034", "depends", "rfc-0001")},
 	}
 	// Fresh documents are never committed, and a fault in a case that stays
 	// an error is one some permitted edit can clear.

@@ -17,6 +17,7 @@ import (
 	"archdoc.dev/internal/config"
 	"archdoc.dev/internal/git"
 	"archdoc.dev/internal/repo"
+	"golang.org/x/text/unicode/norm"
 )
 
 // ErrNoBase reports that there is no configured branch to compare against,
@@ -153,12 +154,51 @@ func Locate(r *repo.Repo, g git.Repository, rev string) (Located, error) {
 	// A root rev lists nothing under is asked of git as the working tree
 	// spells it: written in another case, in another Unicode normalisation or
 	// through a symbolic link, it reaches a directory git lists under another
-	// name. One rev lists files under is taken as written, so that a link left
-	// where the root was cannot send rev's documents elsewhere.
-	if settings == here && !slices.ContainsFunc(files, func(f string) bool { _, ok := Within(f, root); return ok }) {
-		root = git.PathOf(g, read.Root)
+	// name. Failing that, as for a moved file's root, which is relative to
+	// where the file was, it is matched against rev's listing, case-folded and
+	// composed. One rev lists files under is taken as written, so that a link
+	// left where the root was cannot send rev's documents elsewhere.
+	if !slices.ContainsFunc(files, func(f string) bool { _, ok := Within(f, root); return ok }) {
+		if settings == here {
+			root = git.PathOf(g, read.Root)
+		}
+		root = listedAs(files, root)
+	}
+	// A file gone from the working tree moved only if the record came with it:
+	// one whose documents are none of them under the working tree's root, such
+	// as an example deleted beside the record, was not the record's.
+	if settings != here {
+		held, kept := false, false
+		for _, f := range files {
+			if docPath, ok := Within(f, root); ok {
+				if _, isDoc := repo.TypeOf(docPath); isDoc {
+					held = true
+					kept = kept || r.ByPath(docPath) != nil
+				}
+			}
+		}
+		if held && !kept {
+			return working, nil
+		}
 	}
 	return Located{Settings: read, Root: root}, nil
+}
+
+// listedAs is root as files spell it, where a directory in files matches it
+// case-folded and composed, and root as written where none does. The first
+// match in git's order is taken, so a listing holding the same directory under
+// two such spellings, which only a case-sensitive checkout can produce, is read
+// under the first.
+func listedAs(files []string, root string) string {
+	want := norm.NFC.String(root)
+	for _, f := range files {
+		for dir := path.Dir(f); dir != "."; dir = path.Dir(dir) {
+			if strings.EqualFold(norm.NFC.String(dir), want) {
+				return dir
+			}
+		}
+	}
+	return root
 }
 
 // movedFrom is the archdoc.json among files that the working tree's moved
