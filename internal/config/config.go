@@ -7,8 +7,10 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"maps"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 )
 
@@ -169,6 +171,21 @@ func Load(path string) (*Config, error) {
 	if err := dec.Decode(new(json.RawMessage)); !errors.Is(err, io.EOF) {
 		return nil, fmt.Errorf("%s: unexpected content after the closing brace", path)
 	}
+	// encoding/json matches a key to a field without regard to case, and reads
+	// null as leaving the field alone, so {"NAME": "x"} loaded as name and
+	// {"strict": null} as the default. The keys are checked as written.
+	var written map[string]json.RawMessage
+	if err := json.Unmarshal(data, &written); err != nil {
+		return nil, fmt.Errorf("%s: %w", path, err)
+	}
+	for _, key := range slices.Sorted(maps.Keys(written)) {
+		if !slices.ContainsFunc(Keys, func(k Key) bool { return k.Name == key }) {
+			return nil, fmt.Errorf("%s: unknown key %q", path, key)
+		}
+		if bytes.Equal(written[key], []byte("null")) {
+			return nil, fmt.Errorf("%s: %s must not be null", path, key)
+		}
+	}
 
 	if err := Validate(c); err != nil {
 		return nil, fmt.Errorf("%s: %w", path, err)
@@ -189,6 +206,9 @@ func Validate(c *Config) error {
 	if c.Name == "" {
 		return errors.New("name is required and must not be empty")
 	}
+	if !validBranch(c.Branch) {
+		return fmt.Errorf("branch must be a valid git branch name, got %q", c.Branch)
+	}
 	if c.RefStaleDays < 0 {
 		return fmt.Errorf("ref_stale_days must not be negative, got %d", c.RefStaleDays)
 	}
@@ -198,9 +218,34 @@ func Validate(c *Config) error {
 	return rootStaysInside(c)
 }
 
-// StrictIn reads strict from an archdoc.json's contents, as Load would decide
-// it, without validating anything else. It is for a configuration as it stands
-// on a branch, which is never loaded from disk.
+// validBranch reports whether git would accept name as a branch, by the rules
+// of git check-ref-format --branch, and refuses "@" besides: git accepts it as
+// a branch but reads it as HEAD in a revision, which is how the name reaches
+// git, so every comparison would be against the commit being checked. The
+// branch is also rendered into the workflow, and the characters that break a
+// YAML scalar there, a colon, a space and a line break, are all among those git
+// refuses.
+func validBranch(name string) bool {
+	switch {
+	case name == "", name == "HEAD", name == "@",
+		strings.HasPrefix(name, "-"), strings.HasPrefix(name, "/"),
+		strings.HasSuffix(name, "/"), strings.HasSuffix(name, "."),
+		strings.Contains(name, ".."), strings.Contains(name, "//"), strings.Contains(name, "@{"),
+		strings.ContainsAny(name, " ~^:?*[\\"),
+		strings.ContainsFunc(name, func(r rune) bool { return r < 0x20 || r == 0x7f }):
+		return false
+	}
+	for _, part := range strings.Split(name, "/") {
+		if strings.HasPrefix(part, ".") || strings.HasSuffix(part, ".lock") {
+			return false
+		}
+	}
+	return true
+}
+
+// StrictIn reads strict from an archdoc.json's contents, as Load decides it for
+// a file Load accepts, without validating anything else. It is for a
+// configuration as it stands on a branch, which is never loaded from disk.
 func StrictIn(data []byte) (bool, error) {
 	settings := struct {
 		Strict *bool `json:"strict"`
