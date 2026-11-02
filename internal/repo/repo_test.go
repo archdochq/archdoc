@@ -1667,6 +1667,9 @@ func TestAFrontMatterFaultIsReportedOnceAtItsLine(t *testing.T) {
 	}{
 		{"a tab", "---\ntitle: T\nincludes:\n\t- RFC-0001\n---\n\n# T\n", 4, "front matter is not valid YAML: found character", false},
 		{"an unclosed flow sequence", "---\ntitle: T\nincludes: []\nstatus: [draft\ncreated: 2026-01-01\n---\n\n# T\n", 4, "front matter is not valid YAML: did not find expected ',' or ']'", false},
+		// Cut after its comma, the sequence fails with a different message,
+		// so the fault is the line that follows it.
+		{"a flow sequence left open after a comma", "---\ntitle: T\nincludes: [RFC-0001,\nstatus: draft\ncreated: 2026-01-01\n---\n\n# T\n", 4, "front matter is not valid YAML: did not find expected ',' or ']'", false},
 		{"a fault on the first line", "---\ntitle: [T\n---\n\n# T\n", 2, "front matter is not valid YAML", false},
 		// A flow sequence over two lines fails when cut between them, with a
 		// different message from the fault that follows.
