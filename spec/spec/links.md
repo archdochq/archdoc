@@ -32,7 +32,7 @@ A term is one file under `term/`, carrying `title`, `formerly` and `named_by` in
 
 `GLOSSARY.md` is generated from `term/` and written under `root`, beside `INDEX.md`. Terms appear in ascending case-insensitive order of title. Every name in a term's `formerly` is written as an explicit anchor before its heading, so a link made before a rename still resolves; L17 checks that, and anchors are read from explicit `<a id="...">` as well as from headings for this reason.
 
-A repository with no `term/` directory has no glossary, which is valid: L15 and term link resolution are skipped.
+A repository with no `term/` directory has no glossary, which is valid: L15 and term link resolution are skipped, and `archdoc glossary --check` passes where `GLOSSARY.md` is absent.
 
 `archdoc glossary` regenerates the page. `--check` and `--json` behave as they do on `archdoc index`, against `GLOSSARY.md`: `--check` fails when the page is out of date, `--check --json` reports that as a single finding and prints `[]` on a match, and `--json` without `--check` is a usage error.
 

@@ -425,6 +425,10 @@ the result can delete content it never read.
 - **`term rename` does not rewrite links elsewhere, and `link` cannot repair them.** `link` expands
   `[[...]]` and never edits an existing markdown link, and a recorded former name is not a term, so
   `[[<old name>]]` does not resolve either. L17 reports them and they are corrected by hand.
+- **With no `term/`, `glossary --check` accepts an absent `GLOSSARY.md`.** A repository with no `term/`
+  has no glossary, and the check demanded the empty page `archdoc glossary` writes, so removing `term/`
+  and the page failed the workflow `init` scaffolds. A page that is there, including a symbolic link
+  that resolves to nothing, is still held to what `archdoc glossary` writes.
 
 ## Linting
 
@@ -451,8 +455,9 @@ the result can delete content it never read.
   `archdoc.json`, pathspecs and `diff.relative` both resolved against that directory; a `:(top)` prefix
   and `-c diff.relative=false` covered the two sides until `GIT_LITERAL_PATHSPECS` read the prefix as
   part of the name, and from the root neither is needed. git is given `GIT_LITERAL_PATHSPECS=1`, and
-  every inherited pathspec setting is removed since git refuses two together: read as a pathspec, a
-  root beginning with `:` was magic, matched nothing, and no frozen document read as changed.
+  every inherited pathspec setting is removed, since git refuses the literal one beside the glob or
+  icase one: read as a pathspec, a root beginning with `:` was magic, matched nothing, and no frozen
+  document read as changed.
 - **L11 reads which documents are frozen from the branch's tip, and what changed from the merge base.**
   Compared with the tip, a branch cut before a document was accepted there held it as it was, or not
   at all, and L11 reported it changed or deleted although merging leaves it as the branch has it; a
