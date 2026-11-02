@@ -128,8 +128,8 @@ func command(dir string, args ...string) *exec.Cmd {
 	})
 	// Every path is passed as a name. Read as a pathspec, a root beginning
 	// with ":" was magic, and diff matched nothing under it, so no frozen
-	// document read as changed. git refuses the literal setting beside any of
-	// the other three, so an inherited one is dropped first.
+	// document read as changed. git refuses the literal setting beside the
+	// glob or icase one, so every inherited pathspec setting is dropped first.
 	cmd.Env = append(cmd.Env, "LC_ALL=C", "GIT_LITERAL_PATHSPECS=1")
 	return cmd
 }
