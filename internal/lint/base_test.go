@@ -368,7 +368,9 @@ func TestAMovedArchdocJSONsRootIsMatchedAsGitListsIt(t *testing.T) {
 
 // TestADeletionIsJudgedAtTheBasesRoot: main moved its root after the branch
 // was cut, and the branch deletes a document frozen before the cut, which the
-// merge base holds under the old root.
+// merge base holds under the old root. Left as it was at the cut, it is read
+// at the merge base's root and found unchanged, though the tip holds it only
+// under its own.
 func TestADeletionIsJudgedAtTheBasesRoot(t *testing.T) {
 	dir := gitFixture(t, map[string]string{
 		"spec/rfc/0001-accepted.md": rfc("RFC-0001", "Accepted", "accepted", " 2026-02-01", "The design."),
@@ -381,6 +383,8 @@ func TestADeletionIsJudgedAtTheBasesRoot(t *testing.T) {
 	write(t, dir, "archdoc.json", `{"name":"Frozen","branch":"main","root":"docs"}`)
 	commit(t, dir, "move")
 	run(t, dir, "checkout", "-q", "work")
+	expect(t, lintDir(t, dir), "L11", "rfc/0001-accepted.md", 0, "")
+
 	remove(t, dir, "spec/rfc/0001-accepted.md")
 	expect(t, lintDir(t, dir), "L11", "rfc/0001-accepted.md", 1, "deleted from the working tree")
 }
