@@ -891,6 +891,9 @@ func mustRel(top, root string) string {
 type existence map[string]map[string]bool
 
 func (e existence) exactly(base, rel string) bool {
+	if rel == "." {
+		return true // base itself, which no listing holds
+	}
 	dir := base
 	for _, name := range strings.Split(rel, "/") {
 		entries, ok := e[dir]

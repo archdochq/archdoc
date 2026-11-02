@@ -355,6 +355,9 @@ var Rules = []Rule{
 		Summary: "A relative link points at a missing file or heading",
 		Remedy:  "Fix the path or the anchor",
 		Since:   "v0.1.0-alpha.1",
+		Changes: []Change{
+			{Release: "v0.6.0", Summary: "Reads links and heading anchors as GitHub renders them, judges a path against the git repository and in its exact case, finds explicit anchors in documents, and skips a destination with a URI scheme or a leading /"},
+		},
 	},
 	{
 		Code:    "L18",

@@ -904,13 +904,18 @@ func TestL17FollowsALinkOutOfRootIntoTheGitRepository(t *testing.T) {
 		"src/main.go":       "package main\n",
 		"docs/archdoc.json": `{"name":"Nested","branch":"main"}`,
 		"docs/spec/p.md": "---\ntitle: P\nincludes: []\n---\n\n# P\n\n" +
-			"See [main](../../src/main.go), [gone](../../src/gone.go) and [out](../../../outside.md).\n",
+			"See [main](../../src/main.go), [gone](../../src/gone.go) and [out](../../../outside.md).\n\n" +
+			"The [top level](../../) is the repository's, and [above it](../../../) is not.\n",
 	})
 	var got []string
 	for _, f := range findingsFor(lintDir(t, filepath.Join(dir, "docs")), "L17", "spec/p.md") {
 		got = append(got, f.Message)
 	}
-	want := []string{`link target "../../src/gone.go" does not exist`, `link target "../../../outside.md" leaves the repository`}
+	want := []string{
+		`link target "../../src/gone.go" does not exist`,
+		`link target "../../../outside.md" leaves the repository`,
+		`link target "../../../" leaves the repository`,
+	}
 	if !slices.Equal(got, want) {
 		t.Errorf("findings = %q, want %q", got, want)
 	}
