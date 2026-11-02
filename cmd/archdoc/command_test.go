@@ -985,6 +985,22 @@ func TestNewRefusesATitleHoldingAWikiLink(t *testing.T) {
 	}
 }
 
+func TestTermAddAndRenameRefuseANameHoldingAWikiLink(t *testing.T) {
+	// The name is the term's H1, where link leaves a [[...]] as written.
+	dir := repository(t)
+	for _, args := range [][]string{
+		{"term", "add", "Gizmo [[RFC-0001]]", "A thing."},
+		{"term", "rename", "Wings", "Wings [[RFC-0001]]"},
+	} {
+		if out, code := run(t, dir, args...); code == exitOK || !strings.Contains(out, "wiki link") {
+			t.Errorf("%v: exit = %d, want a refusal naming the wiki link; output: %s", args, code, out)
+		}
+	}
+	if _, err := os.Stat(filepath.Join(dir, "term", "gizmo-rfc-0001.md")); err == nil {
+		t.Error("the term was written")
+	}
+}
+
 func TestChooseHonoursEachAnswer(t *testing.T) {
 	suggestions := []link.Suggestion{
 		{Path: "a.md", Line: 1, Text: "x", Replacement: "[x](y)", LineText: "x"},

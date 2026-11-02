@@ -118,7 +118,8 @@ func Rename(r *repo.Repo, from, to string) (oldPath, newPath string, source []by
 }
 
 // checkName refuses a name no term file can hold: none at all, one with a line
-// break, which a heading cannot carry, and one that is not UTF-8, which YAML
+// break, which a heading cannot carry, one holding a [[...]] wiki link, which
+// link leaves as written in a heading, and one that is not UTF-8, which YAML
 // cannot encode.
 func checkName(name string) error {
 	switch {
@@ -126,6 +127,8 @@ func checkName(name string) error {
 		return fmt.Errorf("a term needs a name")
 	case strings.ContainsAny(name, "\r\n"):
 		return fmt.Errorf("a term's name cannot contain a line break")
+	case repo.WikiLinkPattern.MatchString(name):
+		return fmt.Errorf("a term's name cannot hold a [[...]] wiki link: archdoc link does not rewrite one in a heading, so write the link out or leave it out")
 	case !utf8.ValidString(name):
 		return fmt.Errorf("%q is not valid UTF-8", name)
 	}

@@ -188,17 +188,21 @@ func Suggest(r *repo.Repo) []Suggestion {
 }
 
 // linked gives where a document first links to each target its links reach,
-// keyed as resolve keys them: a document by its identifier, a term by its
-// entry in the generated glossary, under its anchor or a former name's.
+// keyed as resolve keys them: a document by its identifier, a term by its own
+// file or its entry in the generated glossary, under its anchor or a former
+// name's. A reference link counts where it is used, and a definition, which
+// renders nothing, does not count at all.
 func linked(r *repo.Repo, d *repo.Document) map[string]position {
 	keys := map[string]position{}
-	// Links come in document order, so the first noted is the earliest.
 	note := func(key string, l repo.Link) {
-		if !keys[key].set() {
+		if p := keys[key]; !p.set() || (position{l.Line, l.Start}).before(p.line, p.col) {
 			keys[key] = position{l.Line, l.Start}
 		}
 	}
-	for _, l := range d.Links() {
+	for _, l := range append(d.Links(), d.References()...) {
+		if l.Type == repo.LinkDefinition {
+			continue
+		}
 		target, anchor, _ := strings.Cut(l.Target, "#")
 		if target == "" {
 			continue
@@ -213,7 +217,11 @@ func linked(r *repo.Repo, d *repo.Document) map[string]position {
 			}
 			continue
 		}
-		if known := r.ByPath(resolved); known != nil && known.ID != "" {
+		switch known := r.ByPath(resolved); {
+		case known == nil:
+		case known.Type == repo.TypeTerm:
+			note("term:"+strings.ToLower(known.TermEntry().Term), l)
+		case known.ID != "":
 			note(known.ID, l)
 		}
 	}
