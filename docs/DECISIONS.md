@@ -387,11 +387,12 @@ the result can delete content it never read.
 - **`archdoc.json`'s keys are checked as written.** `encoding/json` matches a key to a field without
   regard to case and reads `null` as leaving the field alone, so `{"NAME": "x"}` loaded as `name` and
   `{"strict": null}` as the default, while the layout page said unknown keys are an error.
-- **`branch` must be a name git accepts as a branch, and not `@`.** An empty one failed rendering the
+- **`branch` must be a name git accepts as a branch~~, and not `@`~~.** An empty one failed rendering the
   workflow, and one holding `": "`, `" #"` or a line break rendered an invalid or truncated one; git
-  refuses every such name. `@` is a valid branch, but the name reaches `rev-parse` bare, where `@` is
+  refuses every such name. ~~`@` is a valid branch, but the name reaches `rev-parse` bare, where `@` is
   `HEAD`. The names git gives its own refs, such as `FETCH_HEAD` and `ORIG_HEAD`, are valid branches
-  that `rev-parse` also resolves to something else, and are not refused. The rules are applied
+  that `rev-parse` also resolves to something else, and are not refused.~~ Resolved by naming the
+  branch to git in full: `@`, `FETCH_HEAD` and every other valid branch name are read as the branch. The rules are applied
   lexically rather than by asking git, which keeps `internal/config` free of a repository and works
   where `init` runs outside one.
 - **`README.md`, `PROCESS.md` and `INDEX.md` are not documents** under the discovery rule, so no rule
