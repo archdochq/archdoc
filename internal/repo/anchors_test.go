@@ -88,6 +88,7 @@ func TestOnlyPairedEmphasisLeavesAHeadingsAnchor(t *testing.T) {
 		"__a._.":           "__a_",
 		"._.a__":           "_a__",
 		"x \"___\"___\" y": "x--y",
+		"a*\"_b\"* c_":     "ab-c",
 	} {
 		if got := repo.Anchor(heading); got != want {
 			t.Errorf("Anchor(%q) = %q, want %q", heading, got, want)
@@ -161,6 +162,42 @@ func TestABareURLInAHeadingIsLinkedAsGitHubLinksIt(t *testing.T) {
 		"see https://\u3000_x_ y":        "see-httpsx-y",
 		"see https://a\f_x_ y":           "see-httpsa_x_-y",
 		"see https://a\v_x_ y":           "see-httpsa_x_-y",
+		"\\http://a.b/_x_":               "httpab_x_",
+	} {
+		if got := repo.Anchor(heading); got != want {
+			t.Errorf("Anchor(%q) = %q, want %q", heading, got, want)
+		}
+	}
+}
+
+// TestALinkInAHeadingIsReadAsALinkIsRead: a heading's link closes where a
+// link in prose does, its destination and title read as L17 reads them and a
+// bracket inside a code span in its text not one of its brackets. Closing the
+// parentheses at their balancing ) linked what GitHub renders as text, and
+// rejected GitHub's anchor. Each anchor is GitHub's.
+func TestALinkInAHeadingIsReadAsALinkIsRead(t *testing.T) {
+	for heading, want := range map[string]string{
+		"See [a](x y.md)":            "see-ax-ymd",
+		"See [b](x.md \"title)":      "see-bxmd-title",
+		"See [c](x.md title)":        "see-cxmd-title",
+		"See [d](x.md \"t\" junk)":   "see-dxmd-t-junk",
+		"See [g](<x)y>)":             "see-g",
+		"See [h](<x>y)":              "see-hy",
+		"See [l](x.md (t(u)))":       "see-lxmd-tu",
+		"See [o](x.md \"a\" \"b\")":  "see-oxmd-a-b",
+		"See [t](<x.md>\"t\")":       "see-txmdt",
+		"See ![v](x y.png) w":        "see-vx-ypng-w",
+		"See *[cc](x y.md)*":         "see-ccx-ymd",
+		"See [ff](http://a.b/_c_ d)": "see-ffhttpab_c_-d",
+		"See [a](x.md \"t\") b":      "see-a-b",
+		"See [e](x.md (y)) f":        "see-e-f",
+		"See [j `]` k](x.md)":        "see-j--k",
+		"x [a `b](c)` d](e)":         "x-a-bc-d",
+		"x [a ``]`` b](e)":           "x-a--b",
+		"x [a `]`` b](e) c]":         "x-a--be-c",
+		"x [a `[b](c)` d](e)":        "x-a-bc-d",
+		"x [a `b`](e)":               "x-a-b",
+		"x [a `b`](e) `c`":           "x-a-b-c",
 	} {
 		if got := repo.Anchor(heading); got != want {
 			t.Errorf("Anchor(%q) = %q, want %q", heading, got, want)
@@ -173,8 +210,9 @@ func TestABareURLInAHeadingIsLinkedAsGitHubLinksIt(t *testing.T) {
 // nothing, the space after it staying. Each anchor is GitHub's.
 func TestAHeadingsAnchorIsRenderedInItsDocument(t *testing.T) {
 	d := page(t, "## See [RFC-0001][r] now\n\n## [undef][nolabel] ref\n\n## <!-- c --> after\n\n"+
-		"## ![logo] x\n\n## [Foo][] z\n\n## ![logo][] y\n\n## Closing ##\n\n[r]: x.md\n[logo]: l.png\n[foo]: f.md\n")
-	want := []string{"page", "see-rfc-0001-now", "undefnolabel-ref", "-after", "-x", "foo-z", "-y", "closing"}
+		"## ![logo] x\n\n## [Foo][] z\n\n## ![logo][] y\n\n## Closing ##\n\n## [x][a`]`] y\n\n"+
+		"[r]: x.md\n[logo]: l.png\n[foo]: f.md\n[a`]: u.md\n")
+	want := []string{"page", "see-rfc-0001-now", "undefnolabel-ref", "-after", "-x", "foo-z", "-y", "closing", "x-y"}
 	if got := d.Anchors(); !slices.Equal(got, want) {
 		t.Errorf("Anchors() = %q, want %q", got, want)
 	}

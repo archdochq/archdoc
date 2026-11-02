@@ -270,7 +270,7 @@ var Rules = []Rule{
 		Remedy:  "Create the document, or correct the reference or the group's list",
 		Since:   "v0.1.0-alpha.1",
 		Changes: []Change{
-			{Release: "v0.6.0", Summary: "Reports a ref named in `depends` or `includes` as a warning rather than an error in a frozen document"},
+			{Release: "v0.6.0", Summary: "Reports a ref named in `depends` or `includes`, and a reference that is not an identifier any document can hold, as a warning rather than an error in a frozen document"},
 		},
 	},
 	{
