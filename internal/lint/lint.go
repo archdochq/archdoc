@@ -276,7 +276,7 @@ var Rules = []Rule{
 			{Release: "v0.6.0", Summary: "Reports a reference at its field's line rather than line 1"},
 			{Release: "v0.6.0", Summary: "Reports a group member that resolves to nothing, or is listed twice"},
 			{Release: "v0.6.0", Summary: "Reports a term's `named_by` that names no document"},
-			{Release: "v0.6.0", Summary: "Reports a ref named in `depends` or `includes` as a warning rather than an error in a frozen document"},
+			{Release: "v0.6.0", Summary: "Reports a ref named in `depends` or `includes`, and a reference that is not an identifier any document can hold, as a warning rather than an error in a frozen document"},
 		},
 	},
 	{

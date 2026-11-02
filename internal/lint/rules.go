@@ -261,7 +261,13 @@ func L04(ctx Context) []Finding {
 		for _, ref := range references(d) {
 			target := ctx.Repo().ByID(ref.id)
 			if target == nil {
-				rep.errorf(d, d.FrontMatter.LineOf(ref.field), "%s references %s, which does not exist", ref.field, ref.id)
+				// A document that does not exist can be written, unless no
+				// document can ever hold the identifier.
+				severity := Error
+				if _, _, ok := repo.ParseIdentifier(ref.id); !ok {
+					severity = severityFor(ctx, d)
+				}
+				rep.atf(severity, d, d.FrontMatter.LineOf(ref.field), "%s references %s, which does not exist", ref.field, ref.id)
 				continue
 			}
 			// depends and includes name designs and decisions. Refs are
