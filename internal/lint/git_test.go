@@ -768,15 +768,20 @@ func TestL11ReadsARootBeginningWithAColon(t *testing.T) {
 func TestL11ReportsAnEditFromAHookInALinkedWorktree(t *testing.T) {
 	// git runs a hook in a linked worktree with GIT_DIR set and no
 	// GIT_WORK_TREE, so it takes the working directory as the top level.
+	// archdoc.json sits below the top level: at the top, the working
+	// directory git falls back to is the right one anyway.
 	const path = "rfc/0001-frozen.md"
-	dir := gitFixture(t, map[string]string{path: rfc("RFC-0001", "Frozen", "accepted", " 2026-02-01", "The design.")})
+	dir := gitFixture(t, map[string]string{
+		"spec/archdoc.json": `{"name":"Frozen","branch":"main"}`,
+		"spec/" + path:      rfc("RFC-0001", "Frozen", "accepted", " 2026-02-01", "The design."),
+	})
 	wt := filepath.Join(t.TempDir(), "wt")
 	run(t, dir, "worktree", "add", "-q", "-b", "side", wt)
-	write(t, wt, path, rfc("RFC-0001", "Frozen", "accepted", " 2026-02-01", "An edit after freezing."))
+	write(t, wt, "spec/"+path, rfc("RFC-0001", "Frozen", "accepted", " 2026-02-01", "An edit after freezing."))
 	t.Setenv("GIT_DIR", filepath.Join(dir, ".git", "worktrees", "wt"))
-	t.Chdir(filepath.Join(wt, "rfc"))
+	t.Chdir(filepath.Join(wt, "spec", "rfc"))
 
-	if got := findingsFor(lintDir(t, wt), "L11", path); len(got) != 1 {
+	if got := findingsFor(lintDir(t, filepath.Join(wt, "spec")), "L11", path); len(got) != 1 {
 		t.Errorf("want one L11 finding from the hook, got %v", got)
 	}
 }
@@ -906,13 +911,18 @@ func TestL17FollowsALinkOutOfRootIntoTheGitRepository(t *testing.T) {
 		"src/main.go":       "package main\n",
 		"docs/archdoc.json": `{"name":"Nested","branch":"main"}`,
 		"docs/spec/p.md": "---\ntitle: P\nincludes: []\n---\n\n# P\n\n" +
-			"See [main](../../src/main.go), [gone](../../src/gone.go) and [out](../../../outside.md).\n",
+			"See [main](../../src/main.go), [gone](../../src/gone.go) and [out](../../../outside.md).\n\n" +
+			"The [top level](../../) is the repository's, and [above it](../../../) is not.\n",
 	})
 	var got []string
 	for _, f := range findingsFor(lintDir(t, filepath.Join(dir, "docs")), "L17", "spec/p.md") {
 		got = append(got, f.Message)
 	}
-	want := []string{`link target "../../src/gone.go" does not exist`, `link target "../../../outside.md" leaves the repository`}
+	want := []string{
+		`link target "../../src/gone.go" does not exist`,
+		`link target "../../../outside.md" leaves the repository`,
+		`link target "../../../" leaves the repository`,
+	}
 	if !slices.Equal(got, want) {
 		t.Errorf("findings = %q, want %q", got, want)
 	}
