@@ -209,15 +209,12 @@ func crLines(raw, masked string) iter.Seq2[string, string] {
 	}
 }
 
-// The setext underline and the table row that end a paragraph, indented as
-// CommonMark lets a block start be at the top level. blockStartPattern takes a
-// table row at any indentation, since it does not know a list item's; a
-// definition is read outside any container, where four spaces continue the
-// paragraph.
-var (
-	setextPattern = regexp.MustCompile(`^ {0,3}(?:=+|-+)[ \t]*$`)
-	tablePattern  = regexp.MustCompile(`^ {0,3}\|`)
-)
+// The table row that ends a paragraph, indented as CommonMark lets a block
+// start be at the top level. blockStartPattern takes a table row at any
+// indentation, since it does not know a list item's; a definition is read
+// outside any container, where four spaces continue the paragraph. A setext
+// underline is setextPattern, which the block walk uses too.
+var tablePattern = regexp.MustCompile(`^ {0,3}\|`)
 
 // definition is the body from line from to its end as written, with the
 // comments cut out. A line left blank is written empty, and a lone carriage
