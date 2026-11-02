@@ -484,6 +484,18 @@ the result can delete content it never read.
 - **A unified diff is implemented here** rather than adding a dependency, because `index --check` is
   specified to print one and an index is a few hundred lines.
 
+## The export
+
+- **`documents` is always an array**, empty where there are none, as in a freshly initialised
+  repository. A nil slice encoded as `null`, which the schema refuses.
+- **A status outside the lifecycle is omitted, as an invalid date already was.** The schema's enum is
+  the lifecycle's statuses, and a value such as `approved` was published as written, outside it. Lint
+  reports the value; the export publishes only what its schema allows.
+- **`glossary` is an empty array where `term/` holds no terms, and absent only where there is no
+  `term/`.** `has_glossary` says which, and `--out` writes `glossary.json` whenever it is true. The
+  field is `omitzero` rather than `omitempty`, which drops an empty slice along with a nil one: a
+  `term/` holding no terms exported `has_glossary: true` and no `glossary`.
+
 ## Release
 
 - **The version resolves from the goreleaser ldflag, then the module's build information, then `dev`.**

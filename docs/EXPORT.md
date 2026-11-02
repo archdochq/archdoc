@@ -310,7 +310,7 @@ structured terms, so you do not re-parse the page.
 dist/
 ├── index.json                    every document, no bodies
 ├── glossary.json                 the terms, where term/ exists
-├── groups.json                   every group, when there are groups
+├── groups.json                   every group, where there are groups
 ├── rfc/0004-database-....json    one file per document, bodies included
 └── spec/database.json
 ```

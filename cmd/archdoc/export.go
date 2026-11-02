@@ -29,7 +29,7 @@ func newExportCommand() *cobra.Command {
 			"Bodies are raw Markdown. ArchDoc has no renderer and is not going to acquire one.\n\n" +
 			"With --out, writes a tree instead of one document: index.json carrying every document " +
 			"without bodies, one file per document beside it, glossary.json where term/ " +
-			"exists and groups.json when there are groups. A page rendering one RFC should not " +
+			"exists and groups.json where there are groups. A page rendering one RFC should not " +
 			"have to fetch the whole specification.\n\n" +
 			"The output is deterministic. Nothing in it records when it was generated, so it can be " +
 			"cached, diffed and committed.",
