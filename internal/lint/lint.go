@@ -327,6 +327,8 @@ var Rules = []Rule{
 		Changes: []Change{
 			{Release: "v0.6.0", Summary: "No longer requires `Open questions` or `Changelog` in an RFC"},
 			{Release: "v0.6.0", Summary: "Reports a warning rather than an error in a frozen document"},
+			{Release: "v0.6.0", Summary: "Finds a heading after a paragraph holding a code span opened by three backticks or an unclosed `<!--`, which hid the headings after it"},
+			{Release: "v0.6.0", Summary: "Finds a heading closed by `#` characters in a CRLF file, which it reported as missing"},
 		},
 	},
 	{
@@ -362,6 +364,10 @@ var Rules = []Rule{
 		Since:   "v0.1.0-alpha.1",
 		Changes: []Change{
 			{Release: "v0.6.0", Summary: "Judges what changed or was deleted against the merge base of HEAD and the branch, not the branch's tip, and warns once where the branch's `archdoc.json` cannot be read"},
+			{Release: "v0.6.0", Summary: "Reads `branch` as the local branch, or `origin/<branch>`, never a tag of the same name"},
+			{Release: "v0.6.0", Summary: "Follows a moved root, reading each revision's documents under its own root, where an edit or deletion made with the move passed"},
+			{Release: "v0.6.0", Summary: "Stops lint with an error where git fails, rather than skipping the rule as being outside a git repository"},
+			{Release: "v0.6.0", Summary: "Reports a changed frozen document where `GIT_LITERAL_PATHSPECS` is set in the environment, where every one passed"},
 		},
 	},
 	{
@@ -396,6 +402,11 @@ var Rules = []Rule{
 		Summary: "A required section is empty",
 		Remedy:  "Write it",
 		Since:   "v0.1.0-alpha.1",
+
+		Changes: []Change{
+			{Release: "v0.6.0", Summary: "Reports an empty section after a paragraph holding an unclosed `<!--`, which hid it"},
+			{Release: "v0.6.0", Summary: "Reports an empty section whose heading is closed by `#` characters in a CRLF file"},
+		},
 	},
 	{
 		Code:    "L15",
@@ -417,6 +428,8 @@ var Rules = []Rule{
 		Since:   "v0.1.0-alpha.1",
 		Changes: []Change{
 			{Release: "v0.6.0", Summary: "Names the edit that clears a link in a heading, in a frozen document, and in a terminal document outside a git repository"},
+			{Release: "v0.6.0", Summary: "Does not report a `[[...]]` in an indented code block or an HTML block"},
+			{Release: "v0.6.0", Summary: "Reports a `[[...]]` after a code span opened by three backticks or an unclosed `<!--` in a paragraph"},
 		},
 	},
 	{
@@ -432,6 +445,12 @@ var Rules = []Rule{
 			{Release: "v0.6.0", Summary: "Matches each component of a path in its exact case"},
 			{Release: "v0.6.0", Summary: "Slugs a heading's anchor as GitHub does, from its rendered text, and reads a document's explicit anchors"},
 			{Release: "v0.6.0", Summary: "Reads a link reference definition directly under a heading or block, and balanced or escaped parentheses in a bare destination"},
+			{Release: "v0.6.0", Summary: "Reads link text that wraps across lines or holds brackets"},
+			{Release: "v0.6.0", Summary: "Does not read a footnote definition, such as `[^1]: note`, as a link reference definition"},
+			{Release: "v0.6.0", Summary: "Does not read a destination holding a space, such as `[a](x y.md)`, as a link to its first word"},
+			{Release: "v0.6.0", Summary: "Reads a link reference definition in a CRLF file"},
+			{Release: "v0.6.0", Summary: "Does not check a link in an HTML block"},
+			{Release: "v0.6.0", Summary: "Checks a link after a code span opened by three backticks or an unclosed `<!--` in a paragraph"},
 		},
 	},
 	{

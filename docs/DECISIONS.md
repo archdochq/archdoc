@@ -530,10 +530,12 @@ the result can delete content it never read.
   was prose beside the registry, and is now the registry's text, compared by a test and rewritten by
   `-update-triage` rather than generated at build time, so `archdoc agents`, `update` and the release's
   skills keep copying a static file. ~~Changes made to a rule before the registry recorded them are not
-  reconstructed~~ Changes in a release tagged before the registry, v0.5.1 and earlier, are not
-  reconstructed: each would be read off the code at each tag, and a wrong one would be published.
-  Changes made for v0.6.0 before the registry existed are recorded, since that release was not yet
-  tagged and its changes are read off one diff against v0.5.1.
+  reconstructed~~ Superseded by
+  [RFC-0018](../spec/rfc/0018-the-registry-records-every-change-since-v0-5-1.md). Changes in a
+  release tagged before the registry, v0.5.1 and earlier, are not reconstructed: each would be read
+  off the code at each tag, and a wrong one would be published. Changes made for v0.6.0 before the
+  registry existed are recorded, since that release was not yet tagged and its changes are read off
+  one diff against v0.5.1.
 - **Findings are accumulated through one helper**, which separates a message that is already built from
   one that is a format string. A parse error naming a value of `100%` would otherwise be formatted a
   second time and reach the user as `100%!(MISSING)`.
