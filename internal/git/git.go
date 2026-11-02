@@ -126,12 +126,17 @@ func command(dir string, args ...string) *exec.Cmd {
 		name, _, _ := strings.Cut(kv, "=")
 		return slices.Contains(inherited, name)
 	})
-	cmd.Env = append(cmd.Env, "LC_ALL=C")
+	// Every path is passed as a name. Read as a pathspec, a root beginning
+	// with ":" was magic, and diff matched nothing under it, so no frozen
+	// document read as changed. git refuses the literal setting beside any of
+	// the other three, so an inherited one is dropped first.
+	cmd.Env = append(cmd.Env, "LC_ALL=C", "GIT_LITERAL_PATHSPECS=1")
 	return cmd
 }
 
 var inherited = []string{
 	"GIT_DIR", "GIT_WORK_TREE", "GIT_COMMON_DIR", "GIT_INDEX_FILE",
+	"GIT_LITERAL_PATHSPECS", "GIT_GLOB_PATHSPECS", "GIT_NOGLOB_PATHSPECS", "GIT_ICASE_PATHSPECS",
 }
 
 // run executes git and returns its standard output. A command that exits
@@ -209,7 +214,7 @@ func (s *shell) rev(branch string) string {
 // "<sha> <type> <size>" followed by that many bytes and a newline, or
 // "<request> missing". Pairing responses with requests by position is what lets
 // a path containing a space be read back safely, since only the missing form
-// echoes the request and it is recognised by its suffix.
+// echoes the request, and it is recognised by matching the whole request.
 func (s *shell) FilesAt(branch string, paths []string) (map[string][]byte, error) {
 	if len(paths) == 0 {
 		return nil, nil

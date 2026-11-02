@@ -177,7 +177,8 @@ func askForTerm(cmd *cobra.Command, args []string, needDefinition bool, action s
 		}
 		return "", "", fmt.Errorf("term %s needs its arguments", action)
 	}
-	askNamedBy := namedBy != nil && !cmd.Flags().Changed("named-by") && len(documents) > 0
+	// Only adding passes documents, and it passes namedBy with them.
+	askNamedBy := !cmd.Flags().Changed("named-by") && len(documents) > 0
 	if complete && !askNamedBy {
 		return term, definition, nil
 	}
@@ -197,7 +198,7 @@ func askForTerm(cmd *cobra.Command, args []string, needDefinition bool, action s
 		fields = append(fields, huh.NewSelect[string]().Title("Which document introduced this term?").
 			Options(options...).Value(namedBy))
 	}
-	if err := huh.NewForm(huh.NewGroup(fields...)).Run(); err != nil {
+	if err := runForm(huh.NewForm(huh.NewGroup(fields...))); err != nil {
 		return "", "", err
 	}
 	return term, definition, nil
@@ -232,7 +233,7 @@ func askForRename(cmd *cobra.Command, args []string, terms []string) (from, to s
 	if to == "" {
 		fields = append(fields, huh.NewInput().Title("New name").Value(&to))
 	}
-	if err := huh.NewForm(huh.NewGroup(fields...)).Run(); err != nil {
+	if err := runForm(huh.NewForm(huh.NewGroup(fields...))); err != nil {
 		return "", "", err
 	}
 	return from, to, nil
@@ -296,7 +297,7 @@ func askForScaffold(cmd *cobra.Command, settings *config.Config, licence *string
 	if len(fields) == 0 {
 		return nil
 	}
-	if err := huh.NewForm(huh.NewGroup(fields...)).Run(); err != nil {
+	if err := runForm(huh.NewForm(huh.NewGroup(fields...))); err != nil {
 		return err
 	}
 	settings.RefStaleDays, _ = strconv.Atoi(refStaleDays)

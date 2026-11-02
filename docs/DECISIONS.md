@@ -420,7 +420,9 @@ the result can delete content it never read.
   clean. The diff runs from the repository root with plain paths. Run from the directory holding
   `archdoc.json`, pathspecs and `diff.relative` both resolved against that directory; a `:(top)` prefix
   and `-c diff.relative=false` covered the two sides until `GIT_LITERAL_PATHSPECS` read the prefix as
-  part of the name, and from the root neither is needed.
+  part of the name, and from the root neither is needed. git is given `GIT_LITERAL_PATHSPECS=1`, and
+  every inherited pathspec setting is removed since git refuses two together: read as a pathspec, a
+  root beginning with `:` was magic, matched nothing, and no frozen document read as changed.
 - **L11 reads which documents are frozen from the branch's tip, and what changed from the merge base.**
   Compared with the tip, a branch cut before a document was accepted there held it as it was, or not
   at all, and L11 reported it changed or deleted although merging leaves it as the branch has it; a
