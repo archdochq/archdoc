@@ -503,8 +503,13 @@ func TestRenumberWritesNothingWhenAWriteFails(t *testing.T) {
 			r := repotest.New(t, files)
 			root := r.Config().RootDir()
 			block(t, root)
-			if _, _, err := repo.Renumber(r, "RFC-0001", "RFC-0009", nothingFrozen); err == nil {
+			_, _, err := repo.Renumber(r, "RFC-0001", "RFC-0009", nothingFrozen)
+			if err == nil {
 				t.Fatal("Renumber succeeded despite the blocked write")
+			}
+			// A write refused before it began left nothing to restore.
+			if strings.Contains(err.Error(), "could not be") {
+				t.Errorf("an untouched file was reported as not restored: %v", err)
 			}
 			for p, want := range files {
 				got, err := os.ReadFile(filepath.Join(root, filepath.FromSlash(p)))
@@ -534,11 +539,11 @@ func TestRenumberFollowsATermsNamedBy(t *testing.T) {
 	}
 }
 
-// TestRenumberRestoresTheFileWhoseWriteFailed: a write truncates the file
-// before it can fail, as a full disk or a size limit does, so the file whose
-// write failed is restored with the rest. A restore that fails too is
-// reported, not passed over.
-func TestRenumberRestoresTheFileWhoseWriteFailed(t *testing.T) {
+// TestRenumberLeavesTheFileWhoseWriteFailed: a full disk or a size limit
+// fails a write part way, and keeps failing the restore that follows. The file
+// whose write failed is never touched, so it needs no restore; a file already
+// rewritten does, and a restore that fails is reported, not passed over.
+func TestRenumberLeavesTheFileWhoseWriteFailed(t *testing.T) {
 	files := map[string]string{
 		"rfc/0001-base.md":  draft("RFC-0001", "Base"),
 		"rfc/0002-later.md": draftDepending("RFC-0002", "Later", "RFC-0001"),
@@ -548,28 +553,32 @@ func TestRenumberRestoresTheFileWhoseWriteFailed(t *testing.T) {
 		r := repotest.New(t, files)
 		root := r.Config().RootDir()
 		failed := false
-		t.Cleanup(repo.StubWriteFile(func(name string, data []byte, perm os.FileMode) error {
-			if filepath.Base(name) != "zz.md" || failed && !restoresFail {
-				return os.WriteFile(name, data, perm)
-			}
-			failed = true
-			if err := os.WriteFile(name, nil, perm); err != nil {
+		t.Cleanup(repo.StubWriteFile(func(f *os.File, data []byte) error {
+			if filepath.Base(filepath.Dir(f.Name())) != "spec" && !(failed && restoresFail) {
+				_, err := f.Write(data)
 				return err
 			}
-			return errors.New("no space left on device")
+			failed = true
+			if _, err := f.Write(data[:len(data)/2]); err != nil {
+				return err
+			}
+			return errors.New("file too large")
 		}))
 
 		_, _, err := repo.Renumber(r, "RFC-0001", "RFC-0009", nothingFrozen)
 		if err == nil {
 			t.Fatal("Renumber succeeded despite the failed write")
 		}
-		if restoresFail {
-			if !strings.Contains(err.Error(), "spec/zz.md could not be restored") {
-				t.Errorf("a failed restore was not reported: %v", err)
-			}
-			continue
+		if got := strings.Contains(err.Error(), "rfc/0002-later.md could not be restored"); got != restoresFail {
+			t.Errorf("restoresFail %v: a failed restore reported %v: %v", restoresFail, got, err)
+		}
+		if strings.Contains(err.Error(), "spec/zz.md could not be restored") {
+			t.Errorf("the file whose write failed was restored: %v", err)
 		}
 		for p, want := range files {
+			if p == "rfc/0002-later.md" && restoresFail {
+				continue
+			}
 			if got, err := os.ReadFile(filepath.Join(root, filepath.FromSlash(p))); err != nil || string(got) != want {
 				t.Errorf("%s was not restored (%v):\n%s", p, err, got)
 			}
@@ -593,5 +602,75 @@ func TestRenumberLeavesAFileItDidNotCreate(t *testing.T) {
 	}
 	if _, err := os.Lstat(target); err != nil {
 		t.Errorf("the link in the new name's place was removed: %v", err)
+	}
+}
+
+// TestRenumberCreatesNothingOutsideTheRepository: a document directory swapped
+// for a link elsewhere after the repository was read is refused for the new
+// file too, not only for the files rewritten.
+func TestRenumberCreatesNothingOutsideTheRepository(t *testing.T) {
+	r := repotest.New(t, map[string]string{"rfc/0001-base.md": draft("RFC-0001", "Base")})
+	rfc := filepath.Join(r.Config().RootDir(), "rfc")
+	outside := filepath.Join(t.TempDir(), "rfc")
+	if err := os.Rename(rfc, outside); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(outside, rfc); err != nil {
+		t.Skipf("symlinks unavailable: %v", err)
+	}
+	if _, _, err := repo.Renumber(r, "RFC-0001", "RFC-0009", nothingFrozen); err == nil || !strings.Contains(err.Error(), "resolves outside the repository") {
+		t.Errorf("err = %v, want the write outside the repository refused", err)
+	}
+	if _, err := os.Lstat(filepath.Join(outside, "0009-base.md")); err == nil {
+		t.Error("the new file was written outside the repository")
+	}
+}
+
+// TestRenumberRemovesANewFileItCouldNotFill: the new file's write failing part
+// way is a failure like any other, and the half-written file is removed.
+func TestRenumberRemovesANewFileItCouldNotFill(t *testing.T) {
+	r := repotest.New(t, map[string]string{"rfc/0001-base.md": draft("RFC-0001", "Base")})
+	t.Cleanup(repo.StubWriteFile(func(f *os.File, data []byte) error {
+		if _, err := f.Write(data[:len(data)/2]); err != nil {
+			return err
+		}
+		return errors.New("file too large")
+	}))
+	if _, _, err := repo.Renumber(r, "RFC-0001", "RFC-0009", nothingFrozen); err == nil {
+		t.Error("Renumber succeeded despite the failed write")
+	}
+	if _, err := os.Lstat(r.File("rfc/0009-base.md")); err == nil {
+		t.Error("the half-written file was left behind")
+	}
+	if _, err := os.Stat(r.File("rfc/0001-base.md")); err != nil {
+		t.Errorf("the old file was removed: %v", err)
+	}
+}
+
+// TestRenumberReportsAFileItCouldNotRemove: a directory made read-only after
+// the last edit fails removing the old file, and then the undo's removal of
+// the new one. Both are reported.
+func TestRenumberReportsAFileItCouldNotRemove(t *testing.T) {
+	if os.Getuid() == 0 {
+		t.Skip("root removes from a read-only directory")
+	}
+	r := repotest.New(t, map[string]string{
+		"rfc/0001-base.md": draft("RFC-0001", "Base"),
+		"spec/zz.md":       "---\ntitle: Zz\nincludes: [RFC-0001]\n---\n\n# Zz\n\nSee [[RFC-0001]].\n",
+	})
+	rfc := filepath.Join(r.Config().RootDir(), "rfc")
+	t.Cleanup(func() { os.Chmod(rfc, 0o755) })
+	t.Cleanup(repo.StubWriteFile(func(f *os.File, data []byte) error {
+		if _, err := f.Write(data); err != nil {
+			return err
+		}
+		if filepath.Base(filepath.Dir(f.Name())) == "spec" {
+			return os.Chmod(rfc, 0o555)
+		}
+		return nil
+	}))
+	_, _, err := repo.Renumber(r, "RFC-0001", "RFC-0009", nothingFrozen)
+	if err == nil || !strings.Contains(err.Error(), "0001-base.md") || !strings.Contains(err.Error(), "rfc/0009-base.md could not be removed") {
+		t.Errorf("err = %v, want both removals reported", err)
 	}
 }

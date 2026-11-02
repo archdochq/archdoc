@@ -35,10 +35,14 @@ only showed up on a real document, and the reasoning is kept so the shape is not
 - **A YAML syntax error is placed by re-parsing, not by yaml's line number.** yaml.v3 counts a scanner
   error's line from 1 and a parser error's from 0, gives the line a construct opened on for some errors,
   and none for the first line, so translating its number put a fault on line 4 at line 3. The finding
-  goes on the first line whose prefix of the block fails with the same message as the whole block.
-- **A value that did not parse is reported once.** Where the block is not a mapping, no key was read,
-  so none is reported missing; where one value failed to decode, L02 and L10 do not compare against
-  the zero value left in its place. yaml's type errors are flattened onto the finding's line.
+  goes on the first line from which the block, cut after that line or any later one, fails with the
+  same message as the whole block. It is found reading from the end: a construct over several lines
+  cut part way through can fail with the same message on an earlier line that is valid, and reading
+  from the start put the fault there.
+- **A value that did not parse is reported once.** Where there is no block, or it is not a mapping,
+  no key was read, so none is reported missing; where one value failed to decode, L02, L07, L10 and
+  L13 do not compare against the zero value left in its place. L02 and L10 also skip a `title` or
+  `id` that is missing or empty, which L01 already reports. yaml's type errors are flattened onto the finding's line.
 - **Dates are decoded through the node rather than read off its value.** For an alias node the value is
   the anchor's name, so `created: &d 2026-01-05` with `decided: *d` reported that `"d"` is not a date,
   naming something the author never wrote.
@@ -166,15 +170,27 @@ would have to round-trip everything it parsed.
   keeps a code span's content, drops tags, emphasis underscores and images, and reads reference links
   and nested brackets, and the slug keeps the marks, letter numbers and connector punctuation
   github-slugger keeps. Each was a heading whose link worked on GitHub and failed L17, or the reverse,
-  and `link` wrote the wrong anchor into a glossary link.
+  and `link` wrote the wrong anchor into a glossary link. An underscore run is emphasis only where it
+  pairs, the runs of `*`, `_` and `~` paired as cmark-gfm pairs them: dropping every run that flanked a
+  word gave `## The _id field` the anchor `the-id-field`, where GitHub's is `the-_id-field`. A bare
+  address GitHub links is text as written, its end read as cmark-gfm's autolink extension reads it,
+  since an underscore in `https://a.com/_x_` is not emphasis there. A
+  reference link is a link only where the document defines its label, and text otherwise. A heading is
+  rendered as written, so a comment in it leaves the space beside it. Of the numbers, the slug keeps
+  decimal digits and letter numbers and drops the rest, such as `²` and `½`, as github-slugger does.
 - **A link names an anchor a document holds explicitly as well as its headings'.** L17 read `<a id>`
   only in files that are not documents, so a document's own explicit anchor was a target nowhere.
   Explicit anchors are read outside comments and code, and in HTML blocks, in single or double quotes.
+  A comment within an HTML block is unmasked, so it is removed before an anchor is read from the block,
+  and an anchor's entities are resolved, as a browser reads both.
 - **Link destinations are read in every form CommonMark allows and written in one.** `Document.Links`
   understands a bare destination, the `<...>` form and a link reference definition, and percent-decodes
   before comparing against a path on disk. `repo.LinkDestination` percent-encodes on the way out. The
   two are inverses, and encoding rather than escaping avoids the interaction where a path's own
-  backslash pairs with an added one and lets the destination close early.
+  backslash pairs with an added one and lets the destination close early. What follows the destination
+  is a title in `"..."`, `'...'` or `(...)` or nothing, and an empty destination is one, as cmark-gfm
+  reads them: anything up to a `)` was taken as a title, so `[a](x y.md)`, which GitHub renders as
+  text, was a link to `x`.
 - **Link text is read across a paragraph by a scanner, not a pattern.** A pattern matched one line at a
   time with `[^\]]*` for the text, so link text wrapped across lines, a linked image and brackets in the
   text were not links, and L17, `export`, `term remove` and `renumber` all passed over them. The scanner
@@ -184,7 +200,9 @@ would have to round-trip everything it parsed.
   one does, so the document's definitions are read before its links; without that, `[RFC [1]](x.md)`
   beside a definition of `[1]` was read as a link to `x.md`, which GitHub does not render. Each block
   that ends a paragraph ends the text, since text carried into the next block made a link of a `](`
-  whose `[` was in a heading, a table row or another list item.
+  whose `[` was in a heading, a table row or another list item. Whether a line opens a list item is
+  the block walk's to say, as it depends on the containers around the line: a pattern read `2) ` as
+  an item anywhere, and so left readable a link inside a code span crossing it.
 - **Reading links is linear in the length of a line.** The first scanner ran the destination pattern
   from every `]` to the end of the line when no `)` followed, and made every open bracket inactive one
   at a time when a link closed, so a 60 KB line took ten seconds. The pattern is not tried after a
@@ -255,9 +273,14 @@ would have to round-trip everything it parsed.
   and stops there, so a document with questions still open is refused for those alone.
 - **A lint error must name something the user is permitted to change.** A finding that no permitted edit
   to the named document could clear is a warning: ~~L14, L16, L17, L20 and L21, whose subject is the
-  document's own body.~~ Superseded by ADR-0023, which covers the front matter as well: L01, L02, L07,
-  L08, L09, L10, L14, L16, L17, L20 and L21. It does not extend to a fault in a relationship between documents, which is cleared by editing
-  the other document, nor to L11 itself.
+  document's own body. It does not extend to a fault in a relationship between documents, which is
+  cleared by editing the other document, nor to L11 itself.~~ Superseded by ADR-0023, under which a
+  finding no permitted edit could clear is a warning whatever it concerns: L01, L02, L07, L08, L09, L10,
+  L14, L16, L17, L20 and L21 in a frozen document; L04 and L05 where only an edit to a frozen document
+  could clear the fault, as with a ref in `depends`, a type mismatch, or a frozen target that is not
+  accepted; and L03 when every document holding the identifier is frozen. A relationship fault another
+  permitted edit can clear stays an error: a missing target can be written, a target not yet frozen can
+  still be edited, and an identifier held by an editable document can be renumbered. L11 stays an error.
 - **A transition refuses to write a `decided` date before `created`.** Nothing rejects a `created` date
   in the future, so a draft carrying one lints clean until the transition writes the value that makes
   L07 fail permanently. It needs no hand-editing to reach: `new` on one machine and `accept` on another
@@ -304,10 +327,14 @@ the result can delete content it never read.
   as nothing, and a former name holding a comma became two, so its anchor vanished from GLOSSARY.md.
 - **A term's definition is read as blocks, to the end of the file.** Splitting on blank lines read a
   heading, list or fence written straight after the definition as part of it, and GLOSSARY.md printed
-  the heading as a second term. The blocks come from the document's own walk, so they agree with
-  what masking and anchors read. Prose above the H1 is reported rather than dropped, since nothing
-  publishes it. The definition is published from the text as written with its comments cut out:
-  printing the masked text showed the blanks a comment left.
+  the heading as a second term. The blocks come from the document's own walk, and a paragraph ends
+  where the link scanner's blockStartPattern ends one, at a setext underline and a table row as well,
+  so the two agree on where a paragraph stops. Prose above the H1 is reported rather than dropped,
+  since nothing publishes it. What is published is every line from the H1 to the end of the file as
+  written, with its comments cut out, rather than the paragraphs alone: L15 reports a block that is
+  not a paragraph, but export never fails on it, and publishing only the paragraphs dropped the
+  block from GLOSSARY.md, `term show` and the export unseen. Printing the masked text showed the
+  blanks a comment left.
 - **A writer refuses a document whose parse stops short of the file.** When the body ends inside an
   unterminated comment or an unclosed fence, every line range derived from the parse runs past the
   entries the parser could not see, and removing one glossary term deleted every entry below it on a
@@ -357,7 +384,16 @@ the result can delete content it never read.
   a number no file carried. It now refuses a target path that already exists, writes the new file first,
   writes the edits in path order, and on a failure writes each edited document's original back and
   removes the new file. Checking every write in advance was not enough on its own: whether a file can be
-  written is known only by writing it.
+  written is known only by writing it. The new file is created with `O_EXCL`, and is removed only once
+  created, so the undo never removes a file it did not make. A document is recorded for the undo once its
+  write succeeds, and a restore or removal that fails is reported with the original error.
+- **A file is replaced by renaming a complete copy over it.** Every writer that replaces a file writes the
+  bytes to a temporary file in the same directory and renames it over the original, keeping the
+  original's permission bits, and removes the temporary file on any failure. `os.WriteFile` truncated the
+  original first, so a write failing part way, at a size limit or on a full disk, left a document cut
+  short, and the undo that wrote it back failed the same way. The original is opened for writing, without
+  truncating it, before anything is written, so a read-only file is still refused although the rename
+  needs only the directory to be writable.
 - **Interactive suggestion application re-reads before writing.** The snapshot is taken before the first
   prompt and the write happens after the last answer, so the whole session is a window in which an edit
   made elsewhere would be silently discarded. A file that has moved on is left alone and said so.
@@ -392,9 +428,9 @@ the result can delete content it never read.
   refuses every such name. ~~`@` is a valid branch, but the name reaches `rev-parse` bare, where `@` is
   `HEAD`. The names git gives its own refs, such as `FETCH_HEAD` and `ORIG_HEAD`, are valid branches
   that `rev-parse` also resolves to something else, and are not refused.~~ Resolved by naming the
-  branch to git in full: `@`, `FETCH_HEAD` and every other valid branch name are read as the branch. The rules are applied
-  lexically rather than by asking git, which keeps `internal/config` free of a repository and works
-  where `init` runs outside one.
+  branch to git in full: `@`, `FETCH_HEAD` and every other valid branch name are read as the
+  branch. The rules are applied lexically rather than by asking git, which keeps `internal/config`
+  free of a repository and works where `init` runs outside one.
 - **`README.md`, `PROCESS.md` and `INDEX.md` are not documents** under the discovery rule, so no rule
   examines them, L17 included.
 
@@ -448,11 +484,15 @@ the result can delete content it never read.
   every rule at once while leaving the anchor resolving.
 - **A wiki link in a heading is refused, not expanded.** Expanding it changes the heading's text, which
   is what L10, L08 and L09 compare, so `link` reports it as an error naming the edit, `new` refuses a
-  title holding one, and L16 gives the same remedy. `link` had stored every document holding a
-  `[[...]]` as changed and reported it resolved, when the heading was left as written.
+  title holding one, `term add` and `term rename` refuse a name holding one, and L16 gives the same
+  remedy, except in a frozen document, where L11 forbids the edit and L16 says it is left as written.
+  `link` had stored every document holding a `[[...]]` as changed and reported it resolved, when the
+  heading was left as written.
 - **The first occurrence counts the links already written.** The first occurrence was chosen among
   bare mentions only, so each `--apply` linked the next mention of a target already linked, and
-  `--suggest` settled only after as many runs as there were mentions.
+  `--suggest` settled only after as many runs as there were mentions. A reference link counts where
+  it is used, since its definition renders nothing, and a link to a term's own file counts as one to
+  the term.
 - **The masker is deliberately generous, and withholds a line it cannot read.** It blanks wiki links,
   inline and reference links, link reference definitions, any bracketed span, bare URLs, autolinks and
   raw HTML; and it withholds the whole line when a raw HTML tag is present or the brackets are
@@ -477,6 +517,10 @@ the result can delete content it never read.
 - **`term rename` does not rewrite links elsewhere, and `link` cannot repair them.** `link` expands
   `[[...]]` and never edits an existing markdown link, and a recorded former name is not a term, so
   `[[<old name>]]` does not resolve either. L17 reports them and they are corrected by hand.
+- **With no `term/`, `glossary --check` accepts an absent `GLOSSARY.md`.** A repository with no `term/`
+  has no glossary, and the check demanded the empty page `archdoc glossary` writes, so removing `term/`
+  and the page failed the workflow `init` scaffolds. A page that is there, including a symbolic link
+  that resolves to nothing, is still held to what `archdoc glossary` writes.
 
 ## Linting
 
@@ -506,8 +550,9 @@ the result can delete content it never read.
   `archdoc.json`, pathspecs and `diff.relative` both resolved against that directory; a `:(top)` prefix
   and `-c diff.relative=false` covered the two sides until `GIT_LITERAL_PATHSPECS` read the prefix as
   part of the name, and from the root neither is needed. git is given `GIT_LITERAL_PATHSPECS=1`, and
-  every inherited pathspec setting is removed since git refuses two together: read as a pathspec, a
-  root beginning with `:` was magic, matched nothing, and no frozen document read as changed.
+  every inherited pathspec setting is removed, since git refuses the literal one beside the glob or
+  icase one: read as a pathspec, a root beginning with `:` was magic, matched nothing, and no frozen
+  document read as changed.
 - **L11 reads which documents are frozen from the branch's tip, and what changed from the merge base.**
   Compared with the tip, a branch cut before a document was accepted there held it as it was, or not
   at all, and L11 reported it changed or deleted although merging leaves it as the branch has it; a
@@ -525,11 +570,25 @@ the result can delete content it never read.
   applied to the branch, so a pull request moving the root matched nothing there and passed every
   edit and deletion. Documents are matched by their path within root, which follows a move and still
   reports an edit or a deletion made with it; a file that moved is compared by the object id git
-  computes for it through the same filters a commit applies. A branch's `archdoc.json` is the one at
+  computes for it through the same filters a commit applies. ~~A branch's `archdoc.json` is the one at
   the working tree's location, or the branch's only one, so moving the file is still judged by the
-  branch's `strict`; with several, which one moved cannot be told. Where the root the branch names is
-  the working tree's, git is asked how it spells it, as a case, normalisation or symbolic link
-  difference matched nothing. `branch` is the working tree's: the base is found through it, so no
+  branch's `strict`; with several, which one moved cannot be told.~~ (An `examples/archdoc.json` beside
+  the record was taken for a moved file, and its documents reported deleted.) A branch's `archdoc.json`
+  is the one at the working tree's location, or the one the working tree's moved from: the branch's
+  only one the working tree no longer holds, so moving the file is still judged by the branch's
+  `strict`, and one still there belongs to something else. With several gone, which one moved cannot
+  be told. Absence is the test rather than git's rename detection, which sees only files git tracks
+  and so never a working tree's `archdoc.json` not yet added. The branch is listed whole, not the
+  working directory's subtree, so a file or root above the directory archdoc runs in is found.
+  ~~Where the root the branch names is the working tree's, git is asked how it spells it, as a case,
+  normalisation or symbolic link difference matched nothing.~~ (A pull request correcting the root's
+  spelling matched nothing on the branch, and one leaving a link where the root was sent the branch's
+  documents to the link's target.) Where the branch's file is at the working tree's location and the
+  branch lists nothing under the root it names, git is asked how the working tree spells that root, as
+  a case, normalisation or symbolic link difference matched nothing; a root the branch lists files
+  under is taken as written. A branch's `archdoc.json` that cannot be read leaves the working tree's
+  settings standing, with one L11 warning: an error holds until the branch is mended, so the pull
+  request mending it could never pass. `branch` is the working tree's: the base is found through it, so no
   other copy can be trusted to name it, and a pull request could edit the workflow instead.
 - **The branch is named to git in full.** A bare name resolves to `$GIT_DIR/<name>`, then a tag, before
   `refs/heads/<name>`, so a tag named like the branch, or a branch named `FETCH_HEAD`, had L11, the

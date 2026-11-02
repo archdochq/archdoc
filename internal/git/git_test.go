@@ -208,6 +208,58 @@ func TestBranchResolvesThroughTheRemoteTrackingRef(t *testing.T) {
 	}
 }
 
+func TestBranchPrefersTheLocalBranchToItsRemoteTrackingRef(t *testing.T) {
+	// The local branch and origin/<branch> at different commits: the local
+	// one is the branch.
+	origin := newRepo(t)
+	commit(t, origin, "rfc/0001-x.md", "on origin\n")
+
+	clone := t.TempDir()
+	cmd := exec.Command("git", "clone", origin, clone)
+	if out, err := cmd.CombinedOutput(); err != nil {
+		t.Fatalf("clone: %v\n%s", err, out)
+	}
+	for _, args := range [][]string{
+		{"config", "user.email", "test@example.invalid"},
+		{"config", "user.name", "Fixture"},
+	} {
+		c := exec.Command("git", args...)
+		c.Dir = clone
+		if out, err := c.CombinedOutput(); err != nil {
+			t.Fatalf("git %v: %v\n%s", args, err, out)
+		}
+	}
+	commit(t, clone, "rfc/0001-x.md", "local\n")
+
+	g, err := git.Open(clone)
+	if err != nil {
+		t.Fatalf("Open: %v", err)
+	}
+	blobs, err := g.FilesAt("main", []string{"rfc/0001-x.md"})
+	if err != nil {
+		t.Fatalf("FilesAt: %v", err)
+	}
+	if got := string(blobs["rfc/0001-x.md"]); got != "local\n" {
+		t.Errorf("FilesAt = %q, want the local branch's contents", got)
+	}
+}
+
+func TestBranchExistsReportsAFailureToLookItUp(t *testing.T) {
+	// A git that cannot read the repository is not a missing branch.
+	dir := newRepo(t)
+	commit(t, dir, "a.md", "a\n")
+	g, err := git.Open(dir)
+	if err != nil {
+		t.Fatalf("Open: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, ".git", "config"), []byte("[core\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if exists, err := g.BranchExists("main"); err == nil {
+		t.Errorf("BranchExists(main) = %v, nil; want the failure", exists)
+	}
+}
+
 func TestFilesAtReadsManyBlobsInOneOperation(t *testing.T) {
 	dir := newRepo(t)
 	// A path with a space, because the batch protocol echoes the request only

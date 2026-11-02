@@ -285,20 +285,24 @@ func parseFrontMatter(t Type, block []byte) (FrontMatter, []Problem) {
 }
 
 // faultLine is the line of the block on which it stops being valid YAML: the
-// first whose prefix of the block fails as the whole block does. yaml's own
-// line number cannot be used, because it counts a scanner error's line from 1
-// and a parser error's from 0, names the line a construct opened on for some
-// errors, and names none on the first line.
+// first from which the block cut after that line or any later one fails as the
+// whole block does. Read from the end, because a construct over several lines
+// cut part way through can fail with the same message as the fault, on a line
+// before it that is valid. yaml's own line number cannot be used, because it
+// counts a scanner error's line from 1 and a parser error's from 0, names the
+// line a construct opened on for some errors, and names none on the first
+// line.
 func faultLine(block []byte, err error) int {
 	lines := bytes.Split(block, []byte("\n"))
 	want := yamlProblem(err)
-	for k := 1; k < len(lines); k++ {
+	k := len(lines)
+	for ; k > 1; k-- {
 		var n yaml.Node
-		if e := yaml.Unmarshal(bytes.Join(lines[:k], []byte("\n")), &n); e != nil && yamlProblem(e) == want {
-			return k
+		if e := yaml.Unmarshal(bytes.Join(lines[:k-1], []byte("\n")), &n); e == nil || yamlProblem(e) != want {
+			break
 		}
 	}
-	return len(lines)
+	return k
 }
 
 // yamlProblem is a YAML error without its prefix and line number.

@@ -27,7 +27,7 @@ Warnings do not fail `archdoc lint` unless you pass `--strict-warnings`.
 
 ### History
 
-The checks read the configured branch, named by `branch` in `archdoc.json`, from git. A document is frozen when it is terminal on that branch, and frozen documents, `lint --merge` and `changes` are all judged against the merge base of `HEAD` and that branch. Where there is no local branch of that name, `archdoc` reads `origin/<branch>`, which is what a CI checkout usually has.
+The checks read the configured branch, named by `branch` in `archdoc.json`, from git. A document is frozen when it is terminal on that branch, and frozen documents, `lint --merge` and `changes` are all judged against the merge base of `HEAD` and that branch. Where there is no local branch of that name, `archdoc` reads `origin/<branch>`, which is what a CI checkout usually has. Where both exist the local branch is read, so a local branch behind `origin/<branch>` is judged as it stands, not as the remote has it.
 
 A shallow clone holding only the commit under test fails these checks. Without the branch, `archdoc lint` reports:
 
