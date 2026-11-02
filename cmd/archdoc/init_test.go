@@ -231,8 +231,8 @@ func TestInitAndUpdatePrintPathsFromTheWorkingDirectory(t *testing.T) {
 	}
 
 	// check runs archdoc in dir and asserts that each of the last n lines it
-	// printed, or every line where n is 0, names a file from there: relative
-	// inside dir and absolute outside it. stdout alone, because the notices on
+	// printed, or every line where n is 0, names a file from there, once:
+	// relative inside dir and absolute outside it. stdout alone, because the notices on
 	// stderr are not paths.
 	check := func(dir string, n int, args ...string) {
 		t.Helper()
@@ -256,7 +256,12 @@ func TestInitAndUpdatePrintPathsFromTheWorkingDirectory(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
+		seen := map[string]bool{}
 		for _, line := range lines {
+			if seen[line] {
+				t.Errorf("%s printed %q twice", args[0], line)
+			}
+			seen[line] = true
 			abs, err := filepath.Abs(line)
 			if err != nil {
 				t.Fatal(err)
