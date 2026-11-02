@@ -315,7 +315,7 @@ var Rules = []Rule{
 		Remedy:  "Revert it. To change what it says, write a new document that updates or obsoletes it",
 		Since:   "v0.1.0-alpha.1",
 		Changes: []Change{
-			{Release: "v0.6.0", Summary: "Judges what changed or was deleted against the merge base of HEAD and the branch, not the branch's tip"},
+			{Release: "v0.6.0", Summary: "Judges what changed or was deleted against the merge base of HEAD and the branch, not the branch's tip, and warns once where the branch's `archdoc.json` cannot be read"},
 		},
 	},
 	{

@@ -1,6 +1,7 @@
 package lint
 
 import (
+	"cmp"
 	"fmt"
 	"os"
 	"path"
@@ -634,6 +635,11 @@ func L11(ctx Context) []Finding {
 	if err != nil {
 		rep.add(Error, ".", 0, err.Error())
 		return rep.findings
+	}
+	// Once, whichever side holds it. An error would hold for as long as the
+	// branch does, so a pull request mending the file could never pass.
+	if fault := cmp.Or(tip.Unreadable, atBase.Unreadable); fault != nil {
+		rep.addf(Warning, ".", 0, "the archdoc.json on %s cannot be read, so the working tree's settings stand for it: %v", branch, fault)
 	}
 
 	// Reported only where the file differs from the tip as well: a branch

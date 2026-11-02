@@ -500,11 +500,25 @@ the result can delete content it never read.
   applied to the branch, so a pull request moving the root matched nothing there and passed every
   edit and deletion. Documents are matched by their path within root, which follows a move and still
   reports an edit or a deletion made with it; a file that moved is compared by the object id git
-  computes for it through the same filters a commit applies. A branch's `archdoc.json` is the one at
+  computes for it through the same filters a commit applies. ~~A branch's `archdoc.json` is the one at
   the working tree's location, or the branch's only one, so moving the file is still judged by the
-  branch's `strict`; with several, which one moved cannot be told. Where the root the branch names is
-  the working tree's, git is asked how it spells it, as a case, normalisation or symbolic link
-  difference matched nothing. `branch` is the working tree's: the base is found through it, so no
+  branch's `strict`; with several, which one moved cannot be told.~~ (An `examples/archdoc.json` beside
+  the record was taken for a moved file, and its documents reported deleted.) A branch's `archdoc.json`
+  is the one at the working tree's location, or the one the working tree's moved from: the branch's
+  only one the working tree no longer holds, so moving the file is still judged by the branch's
+  `strict`, and one still there belongs to something else. With several gone, which one moved cannot
+  be told. Absence is the test rather than git's rename detection, which sees only files git tracks
+  and so never a working tree's `archdoc.json` not yet added. The branch is listed whole, not the
+  working directory's subtree, so a file or root above the directory archdoc runs in is found.
+  ~~Where the root the branch names is the working tree's, git is asked how it spells it, as a case,
+  normalisation or symbolic link difference matched nothing.~~ (A pull request correcting the root's
+  spelling matched nothing on the branch, and one leaving a link where the root was sent the branch's
+  documents to the link's target.) Where the branch's file is at the working tree's location and the
+  branch lists nothing under the root it names, git is asked how the working tree spells that root, as
+  a case, normalisation or symbolic link difference matched nothing; a root the branch lists files
+  under is taken as written. A branch's `archdoc.json` that cannot be read leaves the working tree's
+  settings standing, with one L11 warning: an error holds until the branch is mended, so the pull
+  request mending it could never pass. `branch` is the working tree's: the base is found through it, so no
   other copy can be trusted to name it, and a pull request could edit the workflow instead.
 - **A missing branch is two different situations.** With no commits at all nothing can be frozen, so the
   rule is skipped with a warning: `archdoc init` followed by `archdoc lint` is the first thing anyone
