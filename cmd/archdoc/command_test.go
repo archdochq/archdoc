@@ -849,8 +849,9 @@ func runSplit(t *testing.T, dir string, args ...string) (stdout, stderr string, 
 }
 
 // A current file is no findings, and no findings is [] like lint --json's,
-// not an empty stdout that no JSON parser accepts.
-func TestCheckJSONPrintsAnEmptyArrayWhenCurrent(t *testing.T) {
+// not an empty stdout that no JSON parser accepts. Without --json a match
+// still prints nothing.
+func TestCheckPrintsAnEmptyArrayOnlyUnderJSONWhenCurrent(t *testing.T) {
 	for _, command := range []string{"index", "glossary"} {
 		t.Run(command, func(t *testing.T) {
 			dir := repository(t)
@@ -864,6 +865,9 @@ func TestCheckJSONPrintsAnEmptyArrayWhenCurrent(t *testing.T) {
 			var findings []jsonFinding
 			if err := json.Unmarshal([]byte(stdout), &findings); err != nil || findings == nil || len(findings) != 0 {
 				t.Errorf("%s --check --json printed %q, want []", command, stdout)
+			}
+			if stdout, _, _ := runSplit(t, dir, command, "--check"); stdout != "" {
+				t.Errorf("%s --check printed %q on a match, want nothing", command, stdout)
 			}
 		})
 	}
