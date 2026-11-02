@@ -1,7 +1,7 @@
 ---
 id: ADR-0024
 title: Git is given every path as a name
-status: draft
+status: proposed
 created: 2026-11-02
 decided:
 depends: [ADR-0008]
