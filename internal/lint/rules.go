@@ -797,7 +797,19 @@ func L16(ctx Context) []Finding {
 	var rep report
 	for _, d := range ctx.Repo().Documents() {
 		for _, link := range d.WikiLinks() {
-			rep.atf(severityFor(ctx, d), d, link.Line, "unresolved wiki link [[%s]]: run archdoc link", link.Name)
+			// The remedy is the one that clears it: archdoc link leaves a
+			// heading as written, rewrites no frozen document, and outside
+			// git cannot tell whether a terminal one is frozen.
+			remedy := "run archdoc link"
+			switch {
+			case link.Heading:
+				remedy = "write the heading without it"
+			case ctx.Frozen(d):
+				remedy = "the document is frozen, so it is left as written"
+			case ctx.Git() == nil && d.FrontMatter.Status.Terminal():
+				remedy = "archdoc link does not rewrite a terminal document outside a git repository, so replace it by hand"
+			}
+			rep.atf(severityFor(ctx, d), d, link.Line, "unresolved wiki link [[%s]]: %s", link.Name, remedy)
 		}
 	}
 	return rep.findings

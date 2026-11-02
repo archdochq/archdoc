@@ -18,13 +18,13 @@ A document is either rewritten in full or not at all. A frozen document containi
 
 ## Suggestions
 
-`archdoc link --suggest` scans documents that have not reached a terminal status for bare identifiers and glossary terms not already inside a link or code span, and proposes linking the first occurrence of each distinct target per document. It excludes the document's own identifier, every heading, front matter, code blocks, bare URLs, raw HTML, link reference definitions, and the glossary page, which is skipped whole. A line whose brackets are unbalanced after masking is excluded whole.
+`archdoc link --suggest` scans documents that have not reached a terminal status for bare identifiers and glossary terms not already inside a link or code span, and proposes linking the first occurrence of each distinct target per document. An occurrence after a link to the same target, a document or a glossary entry, is not the first, so a document whose first occurrence is linked is offered nothing more for that target. It excludes the document's own identifier, every heading, front matter, code blocks, bare URLs including those beginning `www.`, raw HTML and every line of an HTML block, link reference definitions, and the glossary page, which is skipped whole. A line whose brackets are unbalanced after masking is excluded whole.
 
 A suggestion wraps the matched text exactly as written: `RFC-0007` becomes `[RFC-0007](<relative path>)`. Identifiers match their canonical uppercase form. Glossary terms match whole, case-insensitively, longest first, with no stemming and no plural handling. Whole is judged from the characters on either side of the match. A term reaching a link label is escaped.
 
 With a terminal on stdin and no `--apply`: for each suggestion, the file, line and highlighted match are shown with the prompt `[y]es [n]o [a]ll in file [s]kip file [q]uit`; `q` writes the accepted changes and exits. The file is re-read before it is written, and left alone if it changed meanwhile. Without a terminal and without `--apply`: suggestions are printed and the exit code is 2 if there are any. With `--apply`: every suggestion is applied.
 
-Neither `link` nor `link --suggest` rewrites a heading.
+Neither `link` nor `link --suggest` rewrites a heading. `link` reports each `[[...]]` in a heading as an error naming the edit, writing the heading without it, and still rewrites the rest of the document. A document with nothing rewritten is not written.
 
 ## The glossary
 

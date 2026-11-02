@@ -85,10 +85,16 @@ func Resolve(ctx lint.Context) (Changes, []lint.Finding) {
 			// A heading is left exactly as written, as Suggest leaves it: L10
 			// compares the H1's raw text against the front matter, and L08, L09
 			// and the freeze gate compare an H2's against the required list, so
-			// expanding a link inside one changes what all four read. L16 still
-			// reports the unresolved link, which is the right outcome: it has to
-			// be rewritten by hand or not written there.
+			// expanding a link inside one changes what all four read. It is
+			// reported, as L16 reports it, so the author writes the heading
+			// without it; it does not hold back the rest of the document.
 			if repo.IsHeading(line.Masked) {
+				for _, m := range wikiLink.FindAllStringSubmatch(line.Masked, -1) {
+					findings = append(findings, lint.Finding{
+						Path: d.Path, Line: line.Number, Severity: lint.Error, Rule: "link",
+						Message: fmt.Sprintf("[[%s]] is in a heading and is not rewritten: write the heading without it", m[1]),
+					})
+				}
 				return line.Raw
 			}
 
@@ -118,7 +124,9 @@ func Resolve(ctx lint.Context) (Changes, []lint.Finding) {
 			findings = append(findings, unresolved...)
 			continue
 		}
-		changes[d.Path] = replaceBody(d, rewritten)
+		if rewritten != d.Body {
+			changes[d.Path] = replaceBody(d, rewritten)
+		}
 	}
 	return changes, findings
 }
@@ -138,6 +146,10 @@ func Suggest(r *repo.Repo) []Suggestion {
 			continue
 		}
 		offered := map[string]bool{}
+		// Where the document first links to each target. An occurrence after
+		// that is not the first, so offering it would link the target again on
+		// every run.
+		first := linked(r, d)
 
 		for line := range d.Prose() {
 			// Headings are excluded, as is anything already inside a link: a
@@ -161,7 +173,7 @@ func Suggest(r *repo.Repo) []Suggestion {
 				found, ok := resolve(r, d, text)
 				// Keyed on what the text resolves to, not how it was spelled,
 				// so Wings, wings and WINGS are one suggestion.
-				if !ok || found.key == d.ID || offered[found.key] {
+				if !ok || found.key == d.ID || offered[found.key] || first[found.key].before(line.Number, m.start) {
 					continue
 				}
 				offered[found.key] = true
@@ -173,6 +185,50 @@ func Suggest(r *repo.Repo) []Suggestion {
 		}
 	}
 	return suggestions
+}
+
+// linked gives where a document first links to each target its links reach,
+// keyed as resolve keys them: a document by its identifier, a term by its
+// entry in the generated glossary, under its anchor or a former name's.
+func linked(r *repo.Repo, d *repo.Document) map[string]position {
+	keys := map[string]position{}
+	// Links come in document order, so the first noted is the earliest.
+	note := func(key string, l repo.Link) {
+		if !keys[key].set() {
+			keys[key] = position{l.Line, l.Start}
+		}
+	}
+	for _, l := range d.Links() {
+		target, anchor, _ := strings.Cut(l.Target, "#")
+		if target == "" {
+			continue
+		}
+		resolved := path.Join(path.Dir(d.Path), target)
+		if resolved == glossary.File {
+			entries, _ := r.Glossary()
+			for _, e := range entries {
+				if e.Anchor == anchor || slices.ContainsFunc(e.Formerly, func(f string) bool { return repo.Anchor(f) == anchor }) {
+					note("term:"+strings.ToLower(e.Term), l)
+				}
+			}
+			continue
+		}
+		if known := r.ByPath(resolved); known != nil && known.ID != "" {
+			note(known.ID, l)
+		}
+	}
+	return keys
+}
+
+// position is a line and a column in it. A link's is its destination's, which
+// follows its text, so it is before a mention only where the link is.
+type position struct{ line, col int }
+
+func (p position) set() bool { return p.line != 0 }
+
+// before reports whether p is set and comes before the column col of line.
+func (p position) before(line, col int) bool {
+	return p.set() && (p.line < line || p.line == line && p.col < col)
 }
 
 // maskLinks blanks every span a suggestion must not be offered inside, keeping
@@ -190,7 +246,7 @@ func maskLinks(line string) string {
 		// lint blind to it.
 		referenceDefinition,
 		repo.WikiLinkPattern, repo.MarkdownLinkPattern, repo.ReferenceLinkPattern,
-		bracketed, bareURL, autolink,
+		bracketed, bareURL, wwwURL, autolink,
 	} {
 		line = pattern.ReplaceAllStringFunc(line, blank)
 	}
@@ -222,6 +278,9 @@ var htmlTag = regexp.MustCompile(`</?[A-Za-z][A-Za-z0-9-]*(?:\s[^>]*)?/?>`)
 var (
 	bareURL  = regexp.MustCompile(`(?i)\b[a-z][a-z0-9+.\-]*://\S+`)
 	autolink = regexp.MustCompile(`<[a-zA-Z][a-zA-Z0-9+.\-]*:[^>\s]*>`)
+	// GitHub links a URL beginning www. with no scheme, so it is not prose
+	// either.
+	wwwURL = regexp.MustCompile(`(?i)\bwww\.\S+`)
 	// The whole line, title included: a parenthesised title after the
 	// destination was left exposed and a term standing in it was rewritten,
 	// which destroys the definition.

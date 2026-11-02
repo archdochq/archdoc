@@ -716,3 +716,49 @@ func TestSuggestLeavesAnInlineLinkDestinationAlone(t *testing.T) {
 		t.Errorf("Suggest offered %v inside an inline link's destination", got)
 	}
 }
+
+func TestSuggestLeavesAnHTMLBlockAndAWWWURLAlone(t *testing.T) {
+	// An HTML block runs to the blank line, so a line inside one holding no
+	// tag is still not markdown. GitHub links a www. URL with no scheme.
+	for _, body := range []string{
+		"<div>\nThe widget is the unit of work.\n</div>\n",
+		"See www.example.com/widget/docs for more.\n",
+	} {
+		r := suggestable(t, map[string]string{"Widget": "A small thing."}, body)
+		if got := suggestionsFor(t, r); len(got) != 0 {
+			t.Errorf("Suggest offered %v in:\n%s", got, body)
+		}
+	}
+}
+
+func TestSuggestOffersATargetOnlyBeforeItIsFirstLinked(t *testing.T) {
+	// The first occurrence is linked and later ones are left, so once it is,
+	// nothing more is offered for that target: --apply settles in one run.
+	// A link after the first mention does not make that mention linked.
+	r := repotest.New(t, map[string]string{
+		"rfc/0001-a.md": "---\nid: RFC-0001\ntitle: Alpha\nstatus: draft\n---\n\n# RFC-0001: Alpha\n",
+		"spec/linked.md": "---\ntitle: Linked\nincludes: []\n---\n\n# Linked\n\n" +
+			"First [RFC-0001](../rfc/0001-a.md), then RFC-0001.\n\nAnd RFC-0001 and [the widget](../GLOSSARY.md#widget) and widget.\n\n" +
+			"Again [RFC-0001](../rfc/0001-a.md).\n\n[alpha]: ../rfc/0001-a.md\n",
+		"spec/later.md":             "---\ntitle: Later\nincludes: []\n---\n\n# Later\n\nFirst RFC-0001, then [RFC-0001](../rfc/0001-a.md).\n",
+		repotest.TermPath("Widget"): repotest.Term("Widget", "A small thing."),
+	})
+	got := suggestionsFor(t, r)
+	if want := []string{`spec/later.md:8 "RFC-0001"`}; !slices.Equal(got, want) {
+		t.Errorf("Suggest offered %v, want %v", got, want)
+	}
+}
+
+func TestResolveReportsALinkInAHeadingAndWritesNothingForIt(t *testing.T) {
+	r := repotest.New(t, map[string]string{
+		"rfc/0001-a.md": "---\nid: RFC-0001\ntitle: Alpha\nstatus: draft\n---\n\n# RFC-0001: Alpha\n",
+		"spec/page.md":  "---\ntitle: Page\nincludes: []\n---\n\n# Page\n\n## Builds on [[RFC-0001]]\n\nWords.\n",
+	})
+	changes, findings := link.Resolve(lint.NewContext(r, nil, now))
+	if len(changes) != 0 {
+		t.Errorf("a document with nothing rewritten was written: %v", slices.Collect(maps.Keys(changes)))
+	}
+	if len(findings) != 1 || findings[0].Line != 8 || !strings.Contains(findings[0].Message, "write the heading without it") {
+		t.Errorf("want one finding at line 8 naming the edit, got %v", findings)
+	}
+}

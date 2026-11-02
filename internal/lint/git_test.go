@@ -834,6 +834,57 @@ func TestFrontMatterAndStructureFaultsSoftenToWarningsOnAFrozenDocument(t *testi
 	}
 }
 
+func TestL16NamesTheEditThatClearsIt(t *testing.T) {
+	// archdoc link rewrites no heading and no frozen document, and outside git
+	// cannot tell whether a terminal document is frozen, so "run archdoc link"
+	// is the remedy only where it acts.
+	const frozen = "rfc/0001-frozen.md"
+	files := map[string]string{
+		frozen:                rfc("RFC-0001", "Frozen", "accepted", " 2026-02-01", "See [[RFC-0002]]."),
+		"rfc/0002-open.md":    rfc("RFC-0002", "Open", "proposed", "", "See [[RFC-0001]].\n\n### On [[RFC-0001]]"),
+		"rfc/0003-decided.md": rfc("RFC-0003", "Decided", "accepted", " 2026-02-01", "See [[RFC-0001]]."),
+	}
+	dir := gitFixture(t, map[string]string{frozen: files[frozen]})
+	for path, contents := range files {
+		write(t, dir, path, contents)
+	}
+	var got []string
+	for _, f := range lintDir(t, dir) {
+		if f.Rule == "L16" {
+			got = append(got, fmt.Sprintf("%s:%d: %s", f.Path, f.Line, f.Message))
+		}
+	}
+	want := []string{
+		"rfc/0001-frozen.md:24: unresolved wiki link [[RFC-0002]]: the document is frozen, so it is left as written",
+		"rfc/0002-open.md:24: unresolved wiki link [[RFC-0001]]: run archdoc link",
+		"rfc/0002-open.md:26: unresolved wiki link [[RFC-0001]]: write the heading without it",
+		"rfc/0003-decided.md:24: unresolved wiki link [[RFC-0001]]: run archdoc link",
+	}
+	if !slices.Equal(got, want) {
+		t.Errorf("got\n%s\nwant\n%s", strings.Join(got, "\n"), strings.Join(want, "\n"))
+	}
+
+	// Outside git, the terminal document is one link leaves alone, and the
+	// open one is still link's to resolve.
+	r := repotest.New(t, map[string]string{
+		"rfc/0003-decided.md": files["rfc/0003-decided.md"],
+		"rfc/0004-open.md":    rfc("RFC-0004", "Open", "proposed", "", "See [[RFC-0003]]."),
+	})
+	got = nil
+	for _, f := range lint.Run(lint.NewContext(r, nil, now)) {
+		if f.Rule == "L16" {
+			got = append(got, fmt.Sprintf("%s: %s", f.Path, f.Message))
+		}
+	}
+	want = []string{
+		"rfc/0003-decided.md: unresolved wiki link [[RFC-0001]]: archdoc link does not rewrite a terminal document outside a git repository, so replace it by hand",
+		"rfc/0004-open.md: unresolved wiki link [[RFC-0003]]: run archdoc link",
+	}
+	if !slices.Equal(got, want) {
+		t.Errorf("outside git, got\n%s\nwant\n%s", strings.Join(got, "\n"), strings.Join(want, "\n"))
+	}
+}
+
 // cutBranch commits files on main, cuts feature from it, commits onFeature
 // there, then commits onMain on main after the cut and checks feature out.
 // Empty contents delete the path.

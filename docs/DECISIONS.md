@@ -416,6 +416,13 @@ the result can delete content it never read.
 - **Neither `link` nor `link --suggest` rewrites a heading.** A heading's raw text is a section's
   identity to L08, L09, L14 and the freeze gate, so wrapping one in a link deletes the section from
   every rule at once while leaving the anchor resolving.
+- **A wiki link in a heading is refused, not expanded.** Expanding it changes the heading's text, which
+  is what L10, L08 and L09 compare, so `link` reports it as an error naming the edit, `new` refuses a
+  title holding one, and L16 gives the same remedy. `link` had stored every document holding a
+  `[[...]]` as changed and reported it resolved, when the heading was left as written.
+- **The first occurrence counts the links already written.** The first occurrence was chosen among
+  bare mentions only, so each `--apply` linked the next mention of a target already linked, and
+  `--suggest` settled only after as many runs as there were mentions.
 - **The masker is deliberately generous, and withholds a line it cannot read.** It blanks wiki links,
   inline and reference links, link reference definitions, any bracketed span, bare URLs, autolinks and
   raw HTML; and it withholds the whole line when a raw HTML tag is present or the brackets are

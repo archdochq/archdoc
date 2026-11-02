@@ -1247,6 +1247,9 @@ type Link struct {
 type WikiLink struct {
 	Name string
 	Line int
+	// Heading is whether the link is in a heading, where link leaves it: the
+	// heading's text is what L08, L09, L10 and anchors read.
+	Heading bool
 }
 
 // Links returns every markdown link in the body, ignoring code, in the order
@@ -1606,7 +1609,7 @@ func (d *Document) WikiLinks() []WikiLink {
 	var links []WikiLink
 	for line := range d.Prose() {
 		for _, m := range wikiLinkPattern.FindAllStringSubmatch(line.Masked, -1) {
-			links = append(links, WikiLink{Name: m[1], Line: line.Number})
+			links = append(links, WikiLink{Name: m[1], Line: line.Number, Heading: IsHeading(line.Masked)})
 		}
 	}
 	return links
