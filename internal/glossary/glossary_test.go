@@ -287,8 +287,16 @@ func TestAddRefusesADefinitionOfMoreThanOneParagraph(t *testing.T) {
 
 func TestAddRefusesADefinitionHoldingAnotherBlock(t *testing.T) {
 	r := repotest.New(t, map[string]string{})
-	if _, _, err := glossary.Add(r, "Widget", "One.\n## Aside", ""); err == nil {
-		t.Error("accepted a definition followed by a heading")
+	_, _, err := glossary.Add(r, "Widget", "One.\n## Aside", "")
+	if err == nil {
+		t.Fatal("accepted a definition followed by a heading")
+	}
+	if want := "reads as 1 paragraph and 1 other block,"; !strings.Contains(err.Error(), want) {
+		t.Errorf("err = %q, want it to say %q", err, want)
+	}
+	if _, _, err := glossary.Add(r, "Widget", "One.\n\nTwo.\n\n## Aside\n\n- a", ""); err == nil ||
+		!strings.Contains(err.Error(), "reads as 2 paragraphs and 2 other blocks,") {
+		t.Errorf("err = %v, want it to count 2 paragraphs and 2 other blocks", err)
 	}
 }
 
