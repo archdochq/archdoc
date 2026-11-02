@@ -1215,7 +1215,7 @@ func anchor(text string, taken map[string]int, labels map[string]bool) string {
 // labels are the document's link reference definitions,
 // normalised: a reference to a label it does not define is text.
 func renderedText(s string, labels map[string]bool) string {
-	return inline{s: s, labels: labels}.render(0, len(s))
+	return inline{s: s, labels: labels}.render(0, len(s), false)
 }
 
 // inline renders a heading's content. Positions are into the whole of it, as
@@ -1228,7 +1228,8 @@ type inline struct {
 
 // render renders s[from:to] as one scope for emphasis: a link's text is
 // paired on its own, as CommonMark pairs it before the link is closed.
-func (in inline) render(from, to int) string {
+// bracketed is set for a link's text, where GitHub links no bare address.
+func (in inline) render(from, to int, bracketed bool) string {
 	s := in.s[:to]
 	var pieces []string
 	var runs []delimiterRun
@@ -1237,7 +1238,19 @@ func (in inline) render(from, to int) string {
 		pieces = append(pieces, b.String(), text)
 		b.Reset()
 	}
+	// brackets are the brackets opened as text and not yet closed, as
+	// cmark-gfm stacks them: [ and ! for a link's and an image's, and a space
+	// for a link's once a link after it has closed. While a link's or an
+	// image's is open, a bare address is not linked.
+	var brackets []byte
 	for i := from; i < to; {
+		if !bracketed && !slices.ContainsFunc(brackets, func(c byte) bool { return c != ' ' }) {
+			if end := in.autolink(i); end > 0 {
+				b.WriteString(s[i:end])
+				i = end
+				continue
+			}
+		}
 		switch c := s[i]; {
 		case c == '\\' && i+1 < to && isASCIIPunct(s[i+1]):
 			b.WriteByte(s[i+1])
@@ -1280,14 +1293,27 @@ func (in inline) render(from, to int) string {
 				i = end
 				continue
 			}
-			b.WriteByte(c)
-			i++
+			b.WriteString("![")
+			brackets = append(brackets, '!')
+			i += 2
 		case c == '[':
 			// A link holding another is text around that one.
 			if close, end, ok := in.link(i, to); ok && !in.holdsLink(i+1, close) {
-				piece(in.render(i+1, close))
+				piece(in.render(i+1, close, true))
 				i = end
+				for k, open := range brackets {
+					if open == '[' {
+						brackets[k] = ' '
+					}
+				}
 				continue
+			}
+			b.WriteByte(c)
+			brackets = append(brackets, '[')
+			i++
+		case c == ']':
+			if len(brackets) > 0 {
+				brackets = brackets[:len(brackets)-1]
 			}
 			b.WriteByte(c)
 			i++
@@ -1309,6 +1335,99 @@ func (in inline) render(from, to int) string {
 	}
 	return strings.Join(pieces, "") + b.String()
 }
+
+// autolink is where the address GitHub links without brackets at s[i] ends,
+// or 0, as cmark-gfm's autolink extension reads one: http://, https:// or
+// ftp:// in any case, not straight after a letter, or www. at the start or
+// after a space, a tab, *, _, ~ or (, and in both a domain with no
+// underscore in its last two parts. The address runs to a space or a tab,
+// then stops before any <, and sheds trailing punctuation, a trailing entity
+// and each ) beyond those it opens. An email address is linked too, but only
+// once emphasis is read and as the text it was, so it changes no anchor.
+func (in inline) autolink(i int) int {
+	s := in.s
+	switch {
+	case strings.HasPrefix(s[i:], "www."):
+		if i > 0 && strings.IndexByte("*_~( \t", s[i-1]) < 0 || underscored(s[i:]) {
+			return 0
+		}
+	case i == 0 || !isASCIIAlpha(s[i-1]):
+		if !linkedScheme(s[i:]) {
+			return 0
+		}
+	default:
+		return 0
+	}
+	end := i
+	for end < len(s) && s[end] != ' ' && s[end] != '\t' {
+		end++
+	}
+	address := s[i:end]
+	if at := strings.IndexByte(address, '<'); at >= 0 {
+		address = address[:at]
+	}
+	for {
+		n := len(address)
+		switch c := address[n-1]; {
+		case strings.IndexByte("?!.,:*_~'\"", c) >= 0:
+			address = address[:n-1]
+		case c == ';':
+			k := n - 2
+			for isASCIIAlpha(address[k]) {
+				k--
+			}
+			if k < n-2 && address[k] == '&' {
+				address = address[:k]
+			} else {
+				address = address[:n-1]
+			}
+		case c == ')' && strings.Count(address, ")") > strings.Count(address, "("):
+			address = address[:n-1]
+		default:
+			return i + n
+		}
+	}
+}
+
+// linkedScheme reports whether s begins with http://, https:// or ftp://, in
+// any case, and a domain GitHub links.
+func linkedScheme(s string) bool {
+	for _, scheme := range []string{"http://", "https://", "ftp://"} {
+		if len(s) > len(scheme) && strings.EqualFold(s[:len(scheme)], scheme) {
+			return hostChar(s[len(scheme):]) && !underscored(s[len(scheme):])
+		}
+	}
+	return false
+}
+
+// underscored reports whether either of the last two parts of the domain at
+// the start of s holds an underscore. The domain runs over the characters a
+// host may hold, hyphens, underscores and dots.
+func underscored(s string) bool {
+	before, last := false, false
+	for i := 0; i < len(s); i++ {
+		switch {
+		case s[i] == '_':
+			last = true
+		case s[i] == '.':
+			before, last = last, false
+		case !hostChar(s[i:]) && s[i] != '-':
+			return before || last
+		}
+	}
+	return before || last
+}
+
+// hostChar reports whether s begins with a character a domain may hold:
+// neither a space nor punctuation. A byte inside a character is
+// not one, so a domain is read only as far as its first character beyond
+// ASCII, as cmark-gfm reads it byte by byte.
+func hostChar(s string) bool {
+	r, n := utf8.DecodeRuneInString(s)
+	return (n > 1 || r != utf8.RuneError) && !space(r) && !punctuation(r)
+}
+
+func isASCIIAlpha(c byte) bool { return 'a' <= c|0x20 && c|0x20 <= 'z' }
 
 var (
 	entityPattern    = regexp.MustCompile(`^&(?:#[0-9]{1,7}|#[xX][0-9a-fA-F]{1,6}|[A-Za-z][A-Za-z0-9]{1,31});`)
@@ -1416,8 +1535,8 @@ func (in inline) delimiters(from, to, piece int) delimiterRun {
 	if j < len(in.s) {
 		after, _ = utf8.DecodeRuneInString(in.s[j:])
 	}
-	left := !unicode.IsSpace(after) && (!punctuation(after) || unicode.IsSpace(before) || punctuation(before))
-	right := !unicode.IsSpace(before) && (!punctuation(before) || unicode.IsSpace(after) || punctuation(after))
+	left := !space(after) && (!punctuation(after) || space(before) || punctuation(before))
+	right := !space(before) && (!punctuation(before) || space(after) || punctuation(after))
 	r := delimiterRun{char: in.s[from], n: to - from, left: to - from, open: left, close: right, piece: piece}
 	switch {
 	case r.char == '_':
@@ -1428,6 +1547,11 @@ func (in inline) delimiters(from, to, piece int) delimiterRun {
 	}
 	return r
 }
+
+// space is a space as cmark-gfm reads one beside a delimiter or in a
+// domain: a space separator, a tab or a form feed. A line ending cannot be
+// within a heading.
+func space(r rune) bool { return unicode.Is(unicode.Zs, r) || r == '\t' || r == '\f' }
 
 // punctuation is CommonMark's punctuation as cmark-gfm reads it: ASCII
 // punctuation and symbols, and the Unicode punctuation classes, so not a

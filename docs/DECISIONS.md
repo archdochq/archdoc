@@ -161,7 +161,9 @@ would have to round-trip everything it parsed.
   github-slugger keeps. Each was a heading whose link worked on GitHub and failed L17, or the reverse,
   and `link` wrote the wrong anchor into a glossary link. An underscore run is emphasis only where it
   pairs, the runs of `*`, `_` and `~` paired as cmark-gfm pairs them: dropping every run that flanked a
-  word gave `## The _id field` the anchor `the-id-field`, where GitHub's is `the-_id-field`. A
+  word gave `## The _id field` the anchor `the-id-field`, where GitHub's is `the-_id-field`. A bare
+  address GitHub links is text as written, its end read as cmark-gfm's autolink extension reads it,
+  since an underscore in `https://a.com/_x_` is not emphasis there. A
   reference link is a link only where the document defines its label, and text otherwise. A heading is
   rendered as written, so a comment in it leaves the space beside it. Of the numbers, the slug keeps
   decimal digits and letter numbers and drops the rest, such as `²` and `½`, as github-slugger does.
