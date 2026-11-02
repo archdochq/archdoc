@@ -363,6 +363,37 @@ func TestL12NamesEachObsoleteDocumentOnce(t *testing.T) {
 	}
 }
 
+func TestTheRegistryRecordsEachRuleV060Changed(t *testing.T) {
+	// A rule that reports differently in a release says so in its changes,
+	// which the reference publishes.
+	changed := []string{"L01", "L02", "L04", "L07", "L08", "L09", "L10", "L12", "L13", "L15", "L16"}
+	for _, r := range lint.Rules {
+		if !slices.Contains(changed, r.Code) {
+			continue
+		}
+		if !slices.ContainsFunc(r.Changes, func(c lint.Change) bool { return c.Release == "v0.6.0" }) {
+			t.Errorf("%s records no change in v0.6.0", r.Code)
+		}
+	}
+}
+
+func TestL05NamesTheTargetsTypeWithItsArticle(t *testing.T) {
+	r := repotest.New(t, map[string]string{
+		"adr/0001-a.md": "---\nid: ADR-0001\ntitle: A\nstatus: accepted\ncreated: 2026-01-01\ndecided: 2026-01-02\ndepends: []\nupdates: []\nobsoletes: []\n---\n\n# ADR-0001: A\n",
+		"rfc/0001-b.md": "---\nid: RFC-0001\ntitle: B\nstatus: draft\ncreated: 2026-01-01\ndecided:\ndepends: []\nupdates: [ADR-0001]\nobsoletes: []\n---\n\n# RFC-0001: B\n",
+	})
+	var said []string
+	for _, f := range lint.Run(lint.NewContext(r, nil, now)) {
+		if f.Rule == "L05" {
+			said = append(said, f.Message)
+		}
+	}
+	want := []string{"updates references ADR-0001, which is an ADR: only documents of the same type may be updated or obsoleted"}
+	if !slices.Equal(said, want) {
+		t.Errorf("L05 said %q, want %q", said, want)
+	}
+}
+
 func TestL15AcceptsAWellFormedGlossary(t *testing.T) {
 	if got := forRule(t, "repo", "L15"); len(got) != 0 {
 		t.Errorf("L15 fired on a well-formed glossary: %q", got)

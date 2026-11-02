@@ -266,6 +266,10 @@ func L04(ctx Context) []Finding {
 	return rep.findings
 }
 
+// numberedTypes names each numbered type with its article, as a message reads
+// it.
+var numberedTypes = map[repo.Type]string{repo.TypeRFC: "an RFC", repo.TypeADR: "an ADR", repo.TypeRef: "a ref"}
+
 // L05 checks updates and obsoletes: same type, accepted, not the document
 // itself, and not both at once.
 func L05(ctx Context) []Finding {
@@ -295,8 +299,8 @@ func L05(ctx Context) []Finding {
 				continue // L04 reports it
 			}
 			if target.Type != d.Type {
-				rep.errorf(d, d.FrontMatter.LineOf(ref.field), "%s references %s, which is a %s: only documents of the same type may be updated or obsoleted",
-					ref.field, ref.id, target.Type)
+				rep.errorf(d, d.FrontMatter.LineOf(ref.field), "%s references %s, which is %s: only documents of the same type may be updated or obsoleted",
+					ref.field, ref.id, numberedTypes[target.Type])
 				continue
 			}
 			if s := target.FrontMatter.Status; s != repo.StatusAccepted && s != "" {

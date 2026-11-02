@@ -235,6 +235,7 @@ var Rules = []Rule{
 		Remedy:  "Fix the front matter",
 		Since:   "v0.1.0-alpha.1",
 		Changes: []Change{
+			{Release: "v0.6.0", Summary: "Reads a group's front matter, and reports an `as_of` left empty"},
 			{Release: "v0.6.0", Summary: "Reports a warning rather than an error in a frozen document"},
 			{Release: "v0.6.0", Summary: "Reports invalid YAML once, at the line it stops being valid, with no key reported missing, and an empty list item"},
 		},
@@ -266,12 +267,15 @@ var Rules = []Rule{
 		Summary: "A referenced identifier does not resolve, or a group's member names nothing or is listed twice",
 		Remedy:  "Create the document, or correct the reference or the group's list",
 		Since:   "v0.1.0-alpha.1",
+		Changes: []Change{
+			{Release: "v0.6.0", Summary: "Reports a group member that resolves to nothing, or is listed twice"},
+		},
 	},
 	{
 		Code:    "L05",
 		Check:   L05,
 		Title:   "Updates and obsoletes name accepted documents",
-		Summary: "`updates`/`obsoletes` targets something not accepted, of the wrong type, or itself",
+		Summary: "`updates`/`obsoletes` targets something not accepted, of the wrong type, or itself, or one document appears in both",
 		Remedy:  "Accept the target, or correct the list",
 		Since:   "v0.1.0-alpha.1",
 	},
@@ -291,6 +295,7 @@ var Rules = []Rule{
 		Remedy:  "Correct the dates",
 		Since:   "v0.1.0-alpha.1",
 		Changes: []Change{
+			{Release: "v0.6.0", Summary: "Reports a ref's `as_of` after its `verified`"},
 			{Release: "v0.6.0", Summary: "Reports a warning rather than an error in a frozen document"},
 			{Release: "v0.6.0", Summary: "Does not check the status against an empty one"},
 		},
@@ -299,10 +304,11 @@ var Rules = []Rule{
 		Code:    "L08",
 		Check:   L08,
 		Title:   "Required sections are present and in order",
-		Summary: "A required section is missing, misnamed, out of order, or the closing section is not last",
-		Remedy:  "Add or reorder. Titles must match exactly",
+		Summary: "A required section is missing, misnamed, out of order, or the closing section is not last, or `Rejection rationale` is present in a document that is not rejected",
+		Remedy:  "Add or reorder. Titles must match exactly. Remove a `Rejection rationale` from a document that is not rejected",
 		Since:   "v0.1.0-alpha.1",
 		Changes: []Change{
+			{Release: "v0.6.0", Summary: "No longer requires `Open questions` or `Changelog` in an RFC"},
 			{Release: "v0.6.0", Summary: "Reports a warning rather than an error in a frozen document"},
 		},
 	},
@@ -325,6 +331,7 @@ var Rules = []Rule{
 		Remedy:  "Correct whichever is wrong",
 		Since:   "v0.1.0-alpha.1",
 		Changes: []Change{
+			{Release: "v0.6.0", Summary: "Checks a group's H1 against its title"},
 			{Release: "v0.6.0", Summary: "Reports a warning rather than an error in a frozen document"},
 			{Release: "v0.6.0", Summary: "Does not compare a title or `id` that did not parse"},
 		},
@@ -358,6 +365,9 @@ var Rules = []Rule{
 		Summary: "A ref's `verified` date is older than `ref_stale_days`, and it carries no `as_of` (warning)",
 		Remedy:  "Re-check the content, then update `verified`. A record of an exchange carries `as_of` instead",
 		Since:   "v0.1.0-alpha.1",
+		Changes: []Change{
+			{Release: "v0.6.0", Summary: "Does not report a ref carrying `as_of`"},
+		},
 	},
 	{
 		Code:    "L14",
@@ -393,15 +403,15 @@ var Rules = []Rule{
 		Code:    "L17",
 		Check:   L17,
 		Title:   "Relative links resolve",
-		Summary: "A relative link points at a missing file or heading",
+		Summary: "A relative link points at a missing file or heading, or leaves the repository",
 		Remedy:  "Fix the path or the anchor",
 		Since:   "v0.1.0-alpha.1",
 	},
 	{
 		Code:    "L18",
 		Check:   L18,
-		Title:   "Dependencies are as settled as the document",
-		Summary: "`depends` names something less settled than the referring document (warning)",
+		Title:   "Dependencies are accepted",
+		Summary: "`depends` names a document that is not accepted, other than one sharing the referring document's non-terminal status (warning)",
 		Remedy:  "Usually accept the dependency first",
 		Since:   "v0.1.0-alpha.1",
 	},
