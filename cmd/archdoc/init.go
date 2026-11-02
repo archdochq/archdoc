@@ -9,6 +9,7 @@ import (
 	"path"
 	"path/filepath"
 	"regexp"
+	"slices"
 	"strings"
 	"time"
 
@@ -47,6 +48,9 @@ var (
 	// on it. Matching only the hyphen held while this repository was untagged.
 	pseudoVersion = regexp.MustCompile(`(?:^|[-.])\d{14}-[0-9a-f]{12}$`)
 )
+
+// generated is what generateFiles writes, once the rest of the scaffold exists.
+var generated = []string{indexFile, glossary.File}
 
 // scaffold is one file init writes, with the directory it is written relative
 // to. Collecting them before writing anything is what lets init refuse the
@@ -250,10 +254,12 @@ func plan(dir string, settings config.Config, licence string, agents bool) (file
 	}
 	files = append(files, scaffold{workflowDir, workflowPath, workflow})
 
-	// The index is generated after everything else, but its path is knowable
-	// now, so it takes part in the collision check like every other file. Nil
-	// contents mark it as written later.
-	files = append(files, scaffold{root, indexFile, nil})
+	// The index and glossary are generated after everything else, but their
+	// paths are knowable now, so they take part in the collision check like
+	// every other file.
+	for _, name := range generated {
+		files = append(files, scaffold{root, name, nil})
+	}
 
 	// archdoc.json goes last. A write that fails part-way leaves what came
 	// before it, and if the configuration were among those every later attempt
@@ -326,7 +332,7 @@ func write(cmd *cobra.Command, files []scaffold) error {
 
 	out := cmd.OutOrStdout()
 	for _, f := range files {
-		if f.rel == indexFile {
+		if slices.Contains(generated, f.rel) {
 			continue // generated below, once the rest exists
 		}
 		full := filepath.Join(f.dir, filepath.FromSlash(f.rel))
@@ -346,12 +352,13 @@ func write(cmd *cobra.Command, files []scaffold) error {
 
 	// Generated rather than templated: a scaffolded repository must pass the
 	// checks its own workflow runs, and both files are checked there.
-	generated, err := generateFiles(configDir(files))
-	if err != nil {
+	if err := generateFiles(configDir(files)); err != nil {
 		return err
 	}
-	for _, written := range generated {
-		fmt.Fprintln(out, written)
+	for _, f := range files {
+		if slices.Contains(generated, f.rel) {
+			fmt.Fprintln(out, printable(f.dir, f.rel))
+		}
 	}
 	return nil
 }
@@ -368,17 +375,16 @@ func configDir(files []scaffold) string {
 }
 
 // generateFiles writes INDEX.md and GLOSSARY.md for the repository just
-// scaffolded, and reports the paths written.
-func generateFiles(dir string) ([]string, error) {
+// scaffolded.
+func generateFiles(dir string) error {
 	c, err := config.Load(filepath.Join(dir, config.Filename))
 	if err != nil {
-		return nil, err
+		return err
 	}
 	r, err := repo.Open(c)
 	if err != nil {
-		return nil, err
+		return err
 	}
-	var written []string
 	for _, f := range []struct {
 		name     string
 		contents []byte
@@ -387,11 +393,10 @@ func generateFiles(dir string) ([]string, error) {
 		{glossary.File, glossary.Generate(r)},
 	} {
 		if err := repo.WriteFile(filepath.Join(c.RootDir(), f.name), f.contents, f.name); err != nil {
-			return nil, err
+			return err
 		}
-		written = append(written, path.Join(c.Root, f.name))
 	}
-	return written, nil
+	return nil
 }
 
 // printable renders a written path for a human: relative to the current
