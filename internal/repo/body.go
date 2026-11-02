@@ -375,8 +375,8 @@ type ProseLine struct {
 	Number int
 }
 
-// Unclosed reports whether the body ends inside an HTML comment or a fenced
-// code block.
+// Unclosed reports whether the body ends inside an HTML comment, a fenced
+// code block or an HTML block that only a marker closes.
 //
 // Everything from such a marker to the end of the file is masked, which is
 // correct, and it means the document's headings and sections stop there: the
