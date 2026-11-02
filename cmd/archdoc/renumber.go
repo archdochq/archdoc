@@ -31,7 +31,10 @@ func newRenumberCommand() *cobra.Command {
 			"left unchanged and listed, since they cannot say which document they mean; links to " +
 			"the file are still followed.\n\n" +
 			"Refuses when the document is frozen, or when a frozen document would have to change, " +
-			"because a reference inside a frozen document could never be corrected afterwards.",
+			"because a reference inside a frozen document could never be corrected afterwards, " +
+			"and when a file already holds the new name. A failure part way restores every file " +
+			"already written.\n\n" +
+			"With no arguments, asks which document to renumber among those that are not frozen.",
 		Args: cobra.MaximumNArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			r, err := openRepo()

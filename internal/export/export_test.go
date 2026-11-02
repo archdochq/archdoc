@@ -373,8 +373,9 @@ func TestEveryFieldIsInThePublishedSchema(t *testing.T) {
 		for name := range properties {
 			declared[name] = true
 		}
-		// A field without omitempty is always written, so the schema has to
-		// require it, and one with omitempty may be absent, so it must not.
+		// A field without omitempty or omitzero is always written, so the
+		// schema has to require it, and one with either may be absent, so it
+		// must not.
 		required := map[string]bool{}
 		list, _ := where["required"].([]any)
 		for _, name := range list {
@@ -391,7 +392,8 @@ func TestEveryFieldIsInThePublishedSchema(t *testing.T) {
 				t.Errorf("%s.%s is exported as %q but the schema does not declare it",
 					typ.Name(), typ.Field(i).Name, name)
 			}
-			if always := !strings.Contains(options, "omitempty"); always != required[name] {
+			omitted := strings.Contains(options, "omitempty") || strings.Contains(options, "omitzero")
+			if always := !omitted; always != required[name] {
 				t.Errorf("%s.%s is always written: %v, but the schema requires %q: %v",
 					typ.Name(), typ.Field(i).Name, always, name, required[name])
 			}
@@ -736,6 +738,124 @@ func TestGroupsIsAnArrayWhereThereAreNone(t *testing.T) {
 	}
 	if !strings.Contains(string(encoded), `"groups":[]`) {
 		t.Errorf("a repository with no groups exported %s", encoded)
+	}
+}
+
+// The schema requires documents as an array, including where there are none,
+// as in every freshly initialised repository.
+func TestDocumentsIsAnArrayWhereThereAreNone(t *testing.T) {
+	encoded, err := json.Marshal(export.Build(repotest.New(t, nil), export.Options{}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(encoded), `"documents":[]`) {
+		t.Errorf("a repository with no documents exported %s", encoded)
+	}
+}
+
+// The schema declares status an enum. An invalid one is left out, as an
+// invalid date is, rather than published.
+func TestAnInvalidStatusIsLeftOut(t *testing.T) {
+	r := repotest.New(t, map[string]string{
+		"rfc/0001-a.md": rfc("RFC-0001", "A", "bogus", "## Abstract\n\nWords.\n"),
+	})
+	out := export.Build(r, export.Options{})
+	if len(out.Documents) != 1 {
+		t.Fatalf("expected one document, got %d", len(out.Documents))
+	}
+	encoded, err := json.Marshal(out.Documents[0])
+	if err != nil {
+		t.Fatal(err)
+	}
+	var doc map[string]json.RawMessage
+	if err := json.Unmarshal(encoded, &doc); err != nil {
+		t.Fatal(err)
+	}
+	if raw, present := doc["status"]; present {
+		t.Errorf("status %s was exported", raw)
+	}
+}
+
+// A relationship naming something that is not an identifier is left out, as an
+// invalid status is: the schema gives every entry the identifier pattern, and
+// lint already reports the entry.
+func TestAnEntryThatIsNotAnIdentifierIsLeftOut(t *testing.T) {
+	broken := strings.NewReplacer(
+		"depends: []", "depends: [nonsense, RFC-0002]",
+		"updates: []", "updates: [rfc-0002]",
+		"obsoletes: []", "obsoletes: [RFC-2]",
+	).Replace(rfc("RFC-0001", "A", "proposed", "## Abstract\n\nWords.\n"))
+	r := repotest.New(t, map[string]string{
+		"rfc/0001-a.md":   broken,
+		"rfc/0002-b.md":   rfc("RFC-0002", "B", "accepted", "## Abstract\n\nWords.\n"),
+		"spec/storage.md": "---\ntitle: Storage\nincludes: [RFC-0002, storage]\n---\n\n# Storage\n\nWords.\n",
+	})
+	out := export.Build(r, export.Options{})
+	for _, d := range out.Documents {
+		switch d.Path {
+		case "rfc/0001-a.md":
+			if !slices.Equal(d.Depends, []string{"RFC-0002"}) || len(d.Updates) != 0 || len(d.Obsoletes) != 0 {
+				t.Errorf("depends %q, updates %q, obsoletes %q, want [RFC-0002] and two empty", d.Depends, d.Updates, d.Obsoletes)
+			}
+			if d.Updates == nil || d.Obsoletes == nil {
+				t.Error("a list emptied of entries became null")
+			}
+		case "spec/storage.md":
+			if !slices.Equal(d.Includes, []string{"RFC-0002"}) {
+				t.Errorf("includes %q, want [RFC-0002]", d.Includes)
+			}
+		}
+	}
+}
+
+// Every case in testdata/lint, broken on purpose, still exports a status the
+// schema allows.
+func TestEveryExportedStatusIsInTheSchema(t *testing.T) {
+	var schema struct {
+		Defs struct {
+			Document struct {
+				Properties struct {
+					Status struct {
+						Enum []string `json:"enum"`
+					} `json:"status"`
+				} `json:"properties"`
+			} `json:"document"`
+		} `json:"$defs"`
+	}
+	if err := json.Unmarshal(export.JSONSchema, &schema); err != nil {
+		t.Fatal(err)
+	}
+	allowed := schema.Defs.Document.Properties.Status.Enum
+	if len(allowed) == 0 {
+		t.Fatal("the schema declares no status enum")
+	}
+	for _, d := range export.Build(repotest.Fixture(t, "lint"), export.Options{}).Documents {
+		if d.Status != "" && !slices.Contains(allowed, d.Status) {
+			t.Errorf("%s exported status %q, which the schema does not allow", d.Path, d.Status)
+		}
+	}
+}
+
+// A term/ holding no terms is a glossary with no entries, so glossary is an
+// empty array rather than absent, and agrees with has_glossary.
+func TestAnEmptyGlossaryIsAnArray(t *testing.T) {
+	encoded, err := json.Marshal(export.Build(repotest.New(t, map[string]string{"term/.gitkeep": ""}), export.Options{}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(encoded), `"has_glossary":true`) {
+		t.Errorf("an empty term/ exported no glossary: %s", encoded)
+	}
+	if !strings.Contains(string(encoded), `"glossary":[]`) {
+		t.Errorf("an empty term/ exported glossary other than as []: %s", encoded)
+	}
+
+	encoded, err = json.Marshal(export.Build(repotest.New(t, nil), export.Options{}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(string(encoded), `"glossary"`) {
+		t.Errorf("a repository with no term/ exported %s", encoded)
 	}
 }
 

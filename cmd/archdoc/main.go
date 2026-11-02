@@ -154,8 +154,9 @@ func interactive(cmd *cobra.Command) bool {
 	return onTerminal(cmd)
 }
 
-// onTerminal is a variable so that a test can exercise the flag check above it.
-// Every test runs with a non-terminal stdin, which made that check unreachable:
+// onTerminal is a variable so that a test can reach what needs a terminal: the
+// flag check above it, and the interactive paths it opens. Every test runs with
+// a non-terminal stdin, which made that check unreachable:
 // it could be deleted with the whole suite green, and --no-interaction would
 // then do nothing on a terminal, blocking a wrapper script on a form instead of
 // failing as documented.
