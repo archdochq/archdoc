@@ -256,6 +256,9 @@ var Rules = []Rule{
 		Summary: "Two documents claim the same identifier",
 		Remedy:  "Renumber the wrong one with `archdoc renumber <path>`, then correct each reference it lists that meant that one",
 		Since:   "v0.1.0-alpha.1",
+		Changes: []Change{
+			{Release: "v0.6.0", Summary: "Reports a warning rather than an error when every document holding the identifier is frozen"},
+		},
 	},
 	{
 		Code:    "L04",
@@ -264,6 +267,9 @@ var Rules = []Rule{
 		Summary: "A referenced identifier does not resolve, or a group's member names nothing or is listed twice",
 		Remedy:  "Create the document, or correct the reference or the group's list",
 		Since:   "v0.1.0-alpha.1",
+		Changes: []Change{
+			{Release: "v0.6.0", Summary: "Reports a ref named in `depends` or `includes` as a warning rather than an error in a frozen document"},
+		},
 	},
 	{
 		Code:    "L05",
@@ -272,6 +278,9 @@ var Rules = []Rule{
 		Summary: "`updates`/`obsoletes` targets something not accepted, of the wrong type, or itself",
 		Remedy:  "Accept the target, or correct the list",
 		Since:   "v0.1.0-alpha.1",
+		Changes: []Change{
+			{Release: "v0.6.0", Summary: "Reports a warning rather than an error in a frozen document, except for a target that is not accepted and not frozen"},
+		},
 	},
 	{
 		Code:    "L06",

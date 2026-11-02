@@ -9,15 +9,15 @@ includes: [ADR-0008, ADR-0009, ADR-0010, RFC-0008, RFC-0009, RFC-0011, RFC-0013,
 
 ## Severity
 
-Every rule reports an error unless stated. A finding that no permitted edit to the named document could clear is a warning. This applies to L01, L02, L07, L08, L09, L10, L14, L16, L17, L20 and L21 when the document is frozen. It does not apply to a fault in a relationship between documents, which is cleared by editing the other document, nor to L11.
+Every rule reports an error unless stated. A finding that no permitted edit to the named document could clear is a warning. This applies to L01, L02, L07, L08, L09, L10, L14, L16, L17, L20 and L21 when the document is frozen, to the L04 and L05 faults that only an edit to a frozen document could clear, and to L03 when every document holding the identifier is frozen. It does not apply to a fault another permitted edit can clear, such as a reference to a document that can be written, nor to L11.
 
 ## Rules
 
 - **L01** Front matter parses and matches the schema for the type: no unknown keys, no missing required keys, no wrong types, no required key left empty, and no `as_of` left empty. Error in an editable document; warning in a frozen one.
 - **L02** `id` equals the identifier derived from type and filename. The filename matches `<NNNN>-<slug>.md`. Error in an editable document; warning in a frozen one.
-- **L03** No identifier appears on more than one document.
-- **L04** Every identifier in `depends`, `updates`, `obsoletes` and `includes`, and a term's `named_by`, resolves to an existing document of a permitted type. Every member of a group resolves, an identifier to an RFC, ADR or ref and any other member to a spec page, and no group lists a member twice. Each finding is reported at the line of the list. A document in no group is not reported.
-- **L05** `updates` and `obsoletes` reference only accepted documents of the same type. No document updates or obsoletes itself. No document appears in both lists of the same document.
+- **L03** No identifier appears on more than one document. Error, or a warning when every document holding the identifier is frozen.
+- **L04** Every identifier in `depends`, `updates`, `obsoletes` and `includes`, and a term's `named_by`, resolves to an existing document of a permitted type. Every member of a group resolves, an identifier to an RFC, ADR or ref and any other member to a spec page, and no group lists a member twice. Each finding is reported at the line of the list. A document in no group is not reported. A ref named in `depends` or `includes` is a warning in a frozen document; a reference to a document that does not exist is always an error.
+- **L05** `updates` and `obsoletes` reference only accepted documents of the same type. No document updates or obsoletes itself. No document appears in both lists of the same document. Error in an editable document; warning in a frozen one, except that a target that is not accepted is an error unless it is frozen too.
 - **L06** `includes` references only accepted documents.
 - **L07** `decided` is set if and only if the status is terminal. `decided` is not before `created`. If `backfilled` is set, the status is terminal and `backfilled` is not before `decided`. On a ref, `as_of` is not after `verified`. Error in an editable document; warning in a frozen one.
 - **L08** Required sections are present, with exact titles, in the listed relative order. Other H2 sections are permitted between or after them. `Rejection rationale` is present if and only if the document is rejected. Where the type has a closing section, it is the document's last H2. Error in an editable document; warning in a frozen one.

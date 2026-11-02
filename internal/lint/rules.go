@@ -159,6 +159,14 @@ func L03(ctx Context) []Finding {
 		if len(docs) < 2 {
 			continue
 		}
+		// While any holder is editable it can be renumbered, which clears
+		// the finding on every holder.
+		severity := Warning
+		for _, d := range docs {
+			if !ctx.Frozen(d) {
+				severity = Error
+			}
+		}
 		for _, d := range docs {
 			var others []string
 			for _, other := range docs {
@@ -166,7 +174,7 @@ func L03(ctx Context) []Finding {
 					others = append(others, other.Path)
 				}
 			}
-			rep.errorf(d, 0, "identifier %s is also used by %s", id, strings.Join(others, ", "))
+			rep.atf(severity, d, 0, "identifier %s is also used by %s", id, strings.Join(others, ", "))
 		}
 	}
 	return rep.findings
@@ -239,7 +247,7 @@ func L04(ctx Context) []Finding {
 			// informational and are cited from the body instead.
 			if ref.field == "depends" || ref.field == "includes" {
 				if !target.Type.Normative() {
-					rep.errorf(d, d.FrontMatter.LineOf(ref.field), "%s references %s, but only RFCs and ADRs are permitted there", ref.field, ref.id)
+					rep.atf(severityFor(ctx, d), d, d.FrontMatter.LineOf(ref.field), "%s references %s, but only RFCs and ADRs are permitted there", ref.field, ref.id)
 				}
 			}
 		}
@@ -260,7 +268,7 @@ func L05(ctx Context) []Finding {
 			if !slices.Contains(d.FrontMatter.Obsoletes, id) {
 				continue
 			}
-			rep.errorf(d, d.FrontMatter.LineOf("obsoletes"), "%s appears in both updates and obsoletes", id)
+			rep.atf(severityFor(ctx, d), d, d.FrontMatter.LineOf("obsoletes"), "%s appears in both updates and obsoletes", id)
 		}
 
 		for _, ref := range references(d) {
@@ -268,7 +276,7 @@ func L05(ctx Context) []Finding {
 				continue
 			}
 			if ref.id == d.ID {
-				rep.errorf(d, d.FrontMatter.LineOf(ref.field), "%s names itself in %s", ref.id, ref.field)
+				rep.atf(severityFor(ctx, d), d, d.FrontMatter.LineOf(ref.field), "%s names itself in %s", ref.id, ref.field)
 				continue
 			}
 			target := ctx.Repo().ByID(ref.id)
@@ -276,14 +284,22 @@ func L05(ctx Context) []Finding {
 				continue // L04 reports it
 			}
 			if target.Type != d.Type {
-				rep.errorf(d, d.FrontMatter.LineOf(ref.field), "%s references %s, which is a %s: only documents of the same type may be updated or obsoleted",
+				// The type comes from the identifier, so only this document
+				// can change it.
+				rep.atf(severityFor(ctx, d), d, d.FrontMatter.LineOf(ref.field), "%s references %s, which is a %s: only documents of the same type may be updated or obsoleted",
 					ref.field, ref.id, target.Type)
 				continue
 			}
 			if s := target.FrontMatter.Status; s != repo.StatusAccepted && s != "" {
 				// Not when the status is empty: L01 reports the missing value,
 				// and this rule would only render it into a broken sentence.
-				rep.errorf(d, d.FrontMatter.LineOf(ref.field), "%s references %s, which is %s: only an accepted document is in force and can be amended or replaced",
+				// A frozen target keeps its status, so while this document is
+				// frozen too nothing permitted clears the finding.
+				severity := Error
+				if ctx.Frozen(d) && ctx.Frozen(target) {
+					severity = Warning
+				}
+				rep.atf(severity, d, d.FrontMatter.LineOf(ref.field), "%s references %s, which is %s: only an accepted document is in force and can be amended or replaced",
 					ref.field, ref.id, s)
 			}
 		}
