@@ -582,7 +582,7 @@ func scanBody(text string) (masked []string, literal, quoted, item []bool, unclo
 				if block {
 					return false
 				}
-				return closesInParagraph(lines, i, marker+len(commentOpen))
+				return closesInParagraph(lines, i, marker+len(commentOpen), &w)
 			})
 			w.paragraph = !block
 			continue
@@ -606,7 +606,7 @@ func scanBody(text string) (masked []string, literal, quoted, item []bool, unclo
 				return true
 			}
 			block = false
-			return closesInParagraph(lines, i, marker+len(commentOpen)) && !inCodeAcrossLines(lines, i, marker)
+			return closesInParagraph(lines, i, marker+len(commentOpen), &w) && !inCodeAcrossLines(lines, i, marker, &w)
 		})
 		w.prose(masked[i][min(at, len(masked[i])):])
 	}
@@ -617,12 +617,12 @@ func scanBody(text string) (masked []string, literal, quoted, item []bool, unclo
 }
 
 // closesInParagraph reports whether a comment opened at column from of line i
-// closes before its paragraph ends.
-func closesInParagraph(lines []string, i, from int) bool {
+// closes before its paragraph ends, w having read the lines up to i.
+func closesInParagraph(lines []string, i, from int, w *blockWalk) bool {
 	if strings.Contains(lines[i][from:], commentClose) {
 		return true
 	}
-	for _, line := range lines[i+1 : paragraphEnd(lines, i)] {
+	for _, line := range lines[i+1 : paragraphEnd(lines, i, w)] {
 		if strings.Contains(line, commentClose) {
 			return true
 		}
@@ -631,20 +631,21 @@ func closesInParagraph(lines []string, i, from int) bool {
 }
 
 // paragraphEnd is the index of the line that ends the paragraph holding line
-// i: the next line blank once its quote markers are passed, or one starting a
-// block that interrupts a paragraph. A line without the quote markers of the
-// lines before it continues the paragraph lazily.
-func paragraphEnd(lines []string, i int) int {
+// i, each line after it read in the containers w, the walk up to i, holds
+// open: the next line blank once its containers' markers are passed, or one
+// starting a block, which a line leaving the paragraph's container does more
+// readily than one within it. A line continuing no container but starting no
+// block continues the paragraph lazily.
+func paragraphEnd(lines []string, i int, w *blockWalk) int {
+	// A stack of its own, as truncating and pushing would overwrite w's.
+	ahead := blockWalk{stack: slices.Clone(w.stack), paragraph: true}
 	for k := i + 1; k < len(lines); k++ {
-		inner, _ := stripQuotes(strings.TrimSuffix(lines[k], "\r"))
-		if strings.TrimSpace(inner) == "" {
+		line := strings.TrimSuffix(lines[k], "\r")
+		at, _ := ahead.line(line)
+		rest := line[at:]
+		if !ahead.paragraph || IsHeading(rest) || thematicPattern.MatchString(rest) ||
+			indentColumns(rest, column(line, at)) < 4 && strings.HasPrefix(strings.TrimLeft(rest, " \t"), commentOpen) {
 			return k
-		}
-		if indentColumns(inner, 0) < 4 {
-			w := blockWalk{paragraph: true}
-			if w.interrupts(inner, 0) {
-				return k
-			}
 		}
 	}
 	return len(lines)
@@ -653,7 +654,7 @@ func paragraphEnd(lines []string, i int) int {
 // inCodeAcrossLines reports whether the marker at column marker of line i sits
 // in a code span opening before it on that line and closing on a later line
 // of the paragraph. A span closing on the same line is maskCommentsIn's.
-func inCodeAcrossLines(lines []string, i, marker int) bool {
+func inCodeAcrossLines(lines []string, i, marker int, w *blockWalk) bool {
 	s := lines[i]
 	for j := 0; j < marker; {
 		if s[j] != '`' {
@@ -668,7 +669,7 @@ func inCodeAcrossLines(lines []string, i, marker int) bool {
 			j = closed
 			continue
 		}
-		for _, next := range lines[i+1 : paragraphEnd(lines, i)] {
+		for _, next := range lines[i+1 : paragraphEnd(lines, i, w)] {
 			if matchingRun(next, 0, j-opening) > 0 {
 				return true
 			}
