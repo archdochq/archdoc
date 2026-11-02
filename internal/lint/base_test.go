@@ -3,6 +3,7 @@ package lint_test
 import (
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 
@@ -199,29 +200,35 @@ func TestChangesFollowAMovedRoot(t *testing.T) {
 	}
 }
 
-// TestAnArchdocJSONBesideTheBasesIsNotAMove: main holds an example
-// specification with its own archdoc.json, and the pull request adopts
-// ArchDoc at the top level beside it. The example's file is still there, so
-// the working tree's did not move from it, and the example's documents are not
-// the record's.
-func TestAnArchdocJSONBesideTheBasesIsNotAMove(t *testing.T) {
-	dir := gitFixture(t, map[string]string{
-		"examples/archdoc.json":         `{"name":"Example","branch":"main"}`,
-		"examples/rfc/0001-accepted.md": rfc("RFC-0001", "Accepted", "accepted", " 2026-02-01", "The design."),
-		"examples/rfc/0002-proposed.md": rfc("RFC-0002", "Proposed", "proposed", "", "The design."),
-	})
-	run(t, dir, "rm", "-q", "archdoc.json")
-	commit(t, dir, "an example alone")
-	write(t, dir, "archdoc.json", `{"name":"Frozen","branch":"main","root":"spec"}`)
-	write(t, dir, "spec/rfc/0001-adopted.md", rfc("RFC-0001", "Adopted", "proposed", "", "The design."))
-
-	for _, f := range mergeLint(t, dir) {
-		if f.Severity == lint.Error {
-			t.Errorf("%s %s: %s", f.Rule, f.Path, f.Message)
+// TestAnExamplesArchdocJSONIsNotAMove: main holds an example specification
+// with its own archdoc.json, and the pull request adopts ArchDoc at the top
+// level beside it. Where the example's file is still there, the working tree's
+// did not move from it. Where the pull request deletes it, none of the
+// example's documents is under the working tree's root, so it did not move
+// from it either. The example's documents are not the record's.
+func TestAnExamplesArchdocJSONIsNotAMove(t *testing.T) {
+	for _, deleted := range []bool{false, true} {
+		dir := gitFixture(t, map[string]string{
+			"examples/archdoc.json":         `{"name":"Example","branch":"main"}`,
+			"examples/rfc/0001-accepted.md": rfc("RFC-0001", "Accepted", "accepted", " 2026-02-01", "The design."),
+			"examples/rfc/0002-proposed.md": rfc("RFC-0002", "Proposed", "proposed", "", "The design."),
+		})
+		run(t, dir, "rm", "-q", "archdoc.json")
+		commit(t, dir, "an example alone")
+		write(t, dir, "archdoc.json", `{"name":"Frozen","branch":"main","root":"spec"}`)
+		write(t, dir, "spec/rfc/0001-adopted.md", rfc("RFC-0001", "Adopted", "proposed", "", "The design."))
+		if deleted {
+			run(t, dir, "rm", "-q", "examples/archdoc.json")
 		}
-	}
-	if got := changesOf(t, dir); len(got) != 1 || got[0].Path != "rfc/0001-adopted.md" || got[0].Change != changes.Arrives {
-		t.Errorf("changes = %+v, want RFC-0001 arriving alone", got)
+
+		for _, f := range mergeLint(t, dir) {
+			if f.Severity == lint.Error {
+				t.Errorf("deleted %t: %s %s: %s", deleted, f.Rule, f.Path, f.Message)
+			}
+		}
+		if got := changesOf(t, dir); len(got) != 1 || got[0].Path != "rfc/0001-adopted.md" || got[0].Change != changes.Arrives {
+			t.Errorf("deleted %t: changes = %+v, want RFC-0001 arriving alone", deleted, got)
+		}
 	}
 }
 
@@ -318,6 +325,45 @@ func TestAMovedArchdocJSONsRootIsTakenAsWritten(t *testing.T) {
 	write(t, dir, "archdoc.json", `{"name":"Frozen","branch":"main","root":"spec"}`)
 	write(t, dir, "spec/rfc/0001-accepted.md", rfc("RFC-0001", "Accepted", "accepted", " 2026-02-01", "Rewritten."))
 	expect(t, lintDir(t, dir), "L11", "rfc/0001-accepted.md", 0, "")
+}
+
+// TestAMovedArchdocJSONsRootIsMatchedAsGitListsIt: the base's file, at the
+// top level, names its root in another case or normalisation than git lists
+// it, and the pull request moves the file into the root. The match is made
+// against git's listing, so it holds whether or not the filesystem tells the
+// spellings apart.
+func TestAMovedArchdocJSONsRootIsMatchedAsGitListsIt(t *testing.T) {
+	for _, c := range []struct{ name, listed, written string }{
+		{"case", "spec", "Spec"},
+		{"normalisation", "sp\u00e9c", "spe\u0301c"},
+		{"decomposed listing", "spe\u0301c", "sp\u00e9c"},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			// git on macOS composes the names it lists unless told not to,
+			// which a listing made elsewhere need not be.
+			dir := gitFixture(t, nil)
+			run(t, dir, "config", "core.precomposeUnicode", "false")
+			write(t, dir, c.listed+"/rfc/0001-accepted.md", rfc("RFC-0001", "Accepted", "accepted", " 2026-02-01", "The design."))
+			write(t, dir, c.listed+"/rfc/0002-proposed.md", rfc("RFC-0002", "Proposed", "proposed", "", "The design."))
+			write(t, dir, "archdoc.json", `{"name":"Frozen","branch":"main","root":"`+c.written+`"}`)
+			commit(t, dir, "root")
+			run(t, dir, "rm", "-q", "archdoc.json")
+			write(t, dir, c.listed+"/archdoc.json", `{"name":"Frozen","branch":"main"}`)
+			write(t, dir, c.listed+"/rfc/0001-accepted.md", rfc("RFC-0001", "Accepted", "accepted", " 2026-02-01", "Rewritten."))
+			remove(t, dir, c.listed+"/rfc/0002-proposed.md")
+
+			in := filepath.Join(dir, c.listed)
+			got := mergeLint(t, in)
+			expect(t, got, "L11", "rfc/0001-accepted.md", 1, "changed since it was frozen")
+			expect(t, got, "M04", "rfc/0002-proposed.md", 1, "withdraw it instead")
+			listed := changesOf(t, in)
+			if !slices.ContainsFunc(listed, func(ch changes.Change) bool {
+				return ch.Path == "rfc/0001-accepted.md" && ch.Change == changes.Edited
+			}) {
+				t.Errorf("changes = %+v, want RFC-0001 edited among them", listed)
+			}
+		})
+	}
 }
 
 // TestADeletionIsJudgedAtTheBasesRoot: main moved its root after the branch

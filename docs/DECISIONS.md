@@ -531,19 +531,34 @@ the result can delete content it never read.
   computes for it through the same filters a commit applies. ~~A branch's `archdoc.json` is the one at
   the working tree's location, or the branch's only one, so moving the file is still judged by the
   branch's `strict`; with several, which one moved cannot be told.~~ (An `examples/archdoc.json` beside
-  the record was taken for a moved file, and its documents reported deleted.) A branch's `archdoc.json`
-  is the one at the working tree's location, or the one the working tree's moved from: the branch's
-  only one the working tree no longer holds, so moving the file is still judged by the branch's
-  `strict`, and one still there belongs to something else. With several gone, which one moved cannot
-  be told. Absence is the test rather than git's rename detection, which sees only files git tracks
-  and so never a working tree's `archdoc.json` not yet added. The branch is listed whole, not the
+  the record was taken for a moved file, and its documents reported deleted.) ~~A branch's
+  `archdoc.json` is the one at the working tree's location, or the one the working tree's moved from:
+  the branch's only one the working tree no longer holds, so moving the file is still judged by the
+  branch's `strict`, and one still there belongs to something else.~~ (Deleting an
+  `examples/archdoc.json` while adopting ArchDoc at the top level was taken for a move, and the
+  example's documents reported deleted.) A branch's `archdoc.json` is the one at the working tree's
+  location, or the one the working tree's moved from: the branch's only one the working tree no longer
+  holds, where the branch holds no document under the root it names, or one of them is still under the
+  working tree's root. Moving the file is still judged by the branch's `strict`, one still there
+  belongs to something else, and one whose documents are none of them under the working tree's root
+  was not the record's. With several gone, which one moved cannot be told. Absence is the test rather
+  than git's rename detection, which sees only files git tracks and so never a working tree's
+  `archdoc.json` not yet added. The branch is listed whole, not the
   working directory's subtree, so a file or root above the directory archdoc runs in is found.
   ~~Where the root the branch names is the working tree's, git is asked how it spells it, as a case,
   normalisation or symbolic link difference matched nothing.~~ (A pull request correcting the root's
   spelling matched nothing on the branch, and one leaving a link where the root was sent the branch's
-  documents to the link's target.) Where the branch's file is at the working tree's location and the
+  documents to the link's target.) ~~Where the branch's file is at the working tree's location and the
   branch lists nothing under the root it names, git is asked how the working tree spells that root, as
   a case, normalisation or symbolic link difference matched nothing; a root the branch lists files
+  under is taken as written.~~ (A moved file's root, relative to where the file was, was taken as
+  written, so one in another case than git lists it matched nothing and the pull request's edit to a
+  frozen document passed.) Where the branch lists nothing under the root its file names, git is asked
+  how the working tree spells that root if the file is at the working tree's location, as a case,
+  normalisation or symbolic link difference matched nothing. Failing that, and for a moved file, the
+  root is the directory in the branch's listing that matches it case-folded and in Unicode
+  normalisation form C, the first in git's order where several do; the listing is the branch's, so the
+  match holds whether or not the filesystem tells the spellings apart. A root the branch lists files
   under is taken as written. A branch's `archdoc.json` that cannot be read leaves the working tree's
   settings standing, with one L11 warning: an error holds until the branch is mended, so the pull
   request mending it could never pass. `branch` is the working tree's: the base is found through it, so no
