@@ -194,3 +194,12 @@ func TestAQuestionSharingAnAnchorWithAHeadingBeneathItIsReported(t *testing.T) {
 		t.Errorf("reported %q, want the anchor at the question and the heading beneath it", got)
 	}
 }
+
+func TestAnAnswerHoldingAnInlineCodeSpanHoldsNoFence(t *testing.T) {
+	// A backtick fence's info string cannot hold a backtick, so ```go``` is a
+	// code span in the answer's paragraph, as it is everywhere else.
+	d := changelogDoc(t, "", "## Resolved questions\n### Q?\n> ```go``` is inline.\n")
+	if got := d.QuestionProblems(false); len(got) != 0 {
+		t.Errorf("reported %q, want nothing", problemLines(got))
+	}
+}

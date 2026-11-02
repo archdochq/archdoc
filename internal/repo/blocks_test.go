@@ -147,3 +147,41 @@ func TestAHeadingOfOnlyAClosingSequenceIsEmpty(t *testing.T) {
 		}
 	}
 }
+
+// TestLinksAreReadWhereCommonMarkReadsThem holds each case review found read
+// differently from CommonMark, by the links it shows.
+func TestLinksAreReadWhereCommonMarkReadsThem(t *testing.T) {
+	for name, c := range map[string]struct {
+		body string
+		want []string
+	}{
+		// A tab runs to the next multiple of four columns, not four on.
+		"a tab after a list marker":           {"- \t[x](a.md)\n", []string{"a.md"}},
+		"a tab after a quote marker":          {"> \t[x](a.md)\n", []string{"a.md"}},
+		"a tab in a list item's continuation": {"- a\n\n  \tfoo [x](a.md)\n", []string{"a.md"}},
+		"a tab four columns into a list item": {"- a\n\n  \t  code [x](a.md)\n", nil},
+		// An inline comment's paragraph ends where a block interrupts it.
+		"a heading ends a commented paragraph":              {"Text <!-- x\n## Heading [y](a.md) -->\n\n[z](b.md)\n", []string{"a.md", "b.md"}},
+		"a comment block ends a commented paragraph":        {"Text <!-- x\n<!-- y -->\n[z](b.md)\n", []string{"b.md"}},
+		"a commented paragraph continues lazily in a quote": {"> Text <!-- x\ny --> [z](b.md)\n", []string{"b.md"}},
+		"a commented paragraph continues indented":          {"Text <!-- a\nb -->\n    more [x](a.md)\n", []string{"a.md"}},
+		// A comment block ends with the container holding it.
+		"a comment block in a quote":                {"> <!-- note\n\n## Later\n\n[x](a.md)\n", []string{"a.md"}},
+		"a comment block in a list item":            {"- <!-- TODO\n\nAfter [x](a.md)\n", []string{"a.md"}},
+		"a comment block in a list item, continued": {"- <!-- TODO\n\n  [x](a.md) -->\n\nAfter [y](b.md)\n", []string{"b.md"}},
+		// A code span crossing a line holds a comment marker.
+		"a code span across lines holding <!--": {"A `<!--\n` and [x](a.md) -->\n", []string{"a.md"}},
+		"a code span across lines in a quote":   {"> A `span\n> [x](a.md)` end\n", nil},
+		"a quote starting after a paragraph":    {"A `span\n> [x](a.md)` end\n", []string{"a.md"}},
+		// HTML blocks.
+		"a closing pre is not a block":       {"</pre>\nSee [x](a.md)\n", []string{"a.md"}},
+		"any of the four closes a raw block": {"<pre>\n[x](a.md)\n</script>\n\nAfter [y](b.md)\n", []string{"b.md"}},
+		"<?> opens and closes at once":       {"<?>\n\nAfter [x](a.md)\n", []string{"a.md"}},
+	} {
+		t.Run(name, func(t *testing.T) {
+			if got := linkTargets(page(t, c.body)); !slices.Equal(got, c.want) {
+				t.Errorf("links = %q, want %q in:\n%s", got, c.want, c.body)
+			}
+		})
+	}
+}

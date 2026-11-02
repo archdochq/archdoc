@@ -91,10 +91,18 @@ would have to round-trip everything it parsed.
   the end of the body, as a browser reads one.~~ Superseded by the next entry: only a comment opening
   a block does.
 - **A comment is read where CommonMark reads one.** A `<!--` opening a block, at most three spaces in,
-  runs until a line holds `-->`, or to the end. Anywhere else it is raw HTML only where a `-->` follows
-  before the paragraph ends, and text otherwise, as is one after a backslash. The rule that any
-  unterminated `<!--` ran to the end hid every heading and link after a sentence mentioning the marker,
-  and a code span wrapped onto a second line did the same, while GitHub showed them.
+  runs until a line holds `-->`, ~~or to the end~~ or until the blockquote or list item holding it
+  ends, or to the end: run on past its container, it hid everything after a quoted `<!-- note`.
+  Anywhere else it is raw HTML only where a `-->` follows before the paragraph ends, and text
+  otherwise, as is one after a backslash. ~~The paragraph ends at a blank line.~~ It ends where
+  CommonMark ends one, at a line blank inside its blockquote or one starting a block that interrupts
+  it, such as a heading; ending only at a blank line hid a heading's links behind a `-->` on it. A
+  paragraph holding a comment continues past it, and a code span wrapped across its lines holds any
+  `<!--` in it. The rule that any unterminated `<!--` ran to the end hid every heading and link after
+  a sentence mentioning the marker, and a code span wrapped onto a second line did the same, while
+  GitHub showed them.
+- **A tab runs to the next multiple of four columns.** Counted as four wherever it fell, a tab after
+  `- ` or `> ` read the item's text as an indented code block and hid its links.
 - **Code wins over comments; whichever of a comment and a fence opens first wins over the other.** A
   `<!--` inside a code span or a fenced block is literal text, which is what lets a document describe
   the placeholders the templates ship with. A fence marker inside a comment is likewise literal. Both
