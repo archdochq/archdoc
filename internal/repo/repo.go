@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io/fs"
+	"math/rand/v2"
 	"os"
 	"path"
 	"path/filepath"
@@ -240,8 +241,7 @@ func (r *Repo) CreateFile(docPath string, source []byte, created *bool) error {
 		return err
 	}
 	*created = true
-	_, err = f.Write(source)
-	return errors.Join(err, f.Close())
+	return errors.Join(fill(f, source), f.Close())
 }
 
 // Contains reports whether full sits inside root once every directory component
@@ -271,25 +271,57 @@ func Contains(root, full string) error {
 // WriteFile writes a file, refusing to write through a symbolic link. name is
 // what the refusal calls the path, which for a document is its repository path.
 //
-// Every writer in the program must come through here. os.WriteFile follows a
-// symlink and truncates whatever is on the other end, so a symlinked INDEX.md
-// committed to a repository, which git stores and clone restores, redirected
-// `archdoc index` onto any file the user could write, reported only "INDEX.md",
-// and exited 0.
+// Every writer that replaces a file comes through here; CreateFile makes the
+// one file that must not exist yet. os.WriteFile follows a symlink and
+// truncates whatever is on the other end, so a symlinked INDEX.md committed to
+// a repository, which git stores and clone restores, redirected `archdoc index`
+// onto any file the user could write, reported only "INDEX.md", and exited 0.
+//
+// The bytes go to a new file beside the original, renamed over it once they
+// are all written. os.WriteFile truncated the original first, so a write that
+// failed part way, at a size limit or on a full disk, left it cut short, and
+// the undo that rewrote it failed the same way.
 func WriteFile(full string, source []byte, name string) error {
-	// os.WriteFile follows a symlink and truncates whatever is on the other
-	// end, so a symlinked document wrote outside the repository while the tool
-	// reported the path inside it. Refused rather than resolved: a document
-	// that is a link to somewhere else is not a shape this tool supports, and
-	// silently writing through it is the worst of the readings.
-	if info, err := os.Lstat(full); err == nil && info.Mode()&fs.ModeSymlink != 0 {
+	// Refused rather than resolved: a document that is a link to somewhere
+	// else is not a shape this tool supports, and silently writing through it
+	// is the worst of the readings.
+	info, err := os.Lstat(full)
+	if err == nil && info.Mode()&fs.ModeSymlink != 0 {
 		return fmt.Errorf("%s is a symbolic link, so it is not written through", name)
 	}
-	return writeFile(full, source, 0o644)
+	if err == nil {
+		// A rename needs only the directory to be writable, so a read-only
+		// file is refused here, opened without truncating it.
+		f, err := os.OpenFile(full, os.O_WRONLY, 0)
+		if err != nil {
+			return err
+		}
+		f.Close()
+	}
+	tmp := filepath.Join(filepath.Dir(full), fmt.Sprintf(".%s.%d.tmp", filepath.Base(full), rand.Uint64()))
+	f, err := os.OpenFile(tmp, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o644)
+	if err != nil {
+		return err
+	}
+	err = fill(f, source)
+	if err == nil && info != nil {
+		err = f.Chmod(info.Mode().Perm())
+	}
+	if err = errors.Join(err, f.Close()); err == nil {
+		err = os.Rename(tmp, full)
+	}
+	if err != nil {
+		os.Remove(tmp)
+	}
+	return err
 }
 
-// writeFile is os.WriteFile, a variable so a test can fail a write part way.
-var writeFile = os.WriteFile
+// fill writes a file just created, a variable so a test can fail a write part
+// way.
+var fill = func(f *os.File, source []byte) error {
+	_, err := f.Write(source)
+	return err
+}
 
 // Documents returns every document, ordered by path.
 func (r *Repo) Documents() []*Document { return r.documents }

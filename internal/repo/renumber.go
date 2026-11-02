@@ -193,12 +193,12 @@ func write(r *Repo, d *Document, newPath string, source []byte, edits map[string
 		return err
 	}
 	for _, docPath := range slices.Sorted(maps.Keys(edits)) {
-		// Recorded before the write, which truncates the file before it can
-		// fail part way.
-		written = append(written, docPath)
+		// Recorded once written: a write that fails leaves the file as it
+		// was, so only what was replaced needs restoring.
 		if err := r.WriteFile(docPath, edits[docPath]); err != nil {
 			return err
 		}
+		written = append(written, docPath)
 	}
 	return os.Remove(r.File(d.Path))
 }
