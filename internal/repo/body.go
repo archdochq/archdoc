@@ -44,6 +44,8 @@ const Sources = "Sources"
 // other document may carry.
 const RejectionRationale = "Rejection rationale"
 
+const setextUnderline = `^ {0,3}(?:=+|-+)[ \t]*\r?$`
+
 // The patterns anchored at the end of a line accept a carriage return before
 // it. A body is split on "\n", so a line of a CRLF file keeps its "\r", which is
 // neither a space nor a tab: a link definition went unread and a heading kept
@@ -64,7 +66,9 @@ var (
 	// a thematic break or a setext underline. A list item is the block walk's
 	// to say, as whether one interrupts depends on the containers around it.
 	blockStartPattern = regexp.MustCompile(
-		`^[ \t]*(?:#{1,6}(?:[ \t]|\r?$)|\|)|^ {0,3}(?:=+|-+|(?:[*_-][ \t]*){3,})[ \t]*\r?$`)
+		`^[ \t]*(?:#{1,6}(?:[ \t]|\r?$)|\|)|^ {0,3}(?:[*_-][ \t]*){3,}[ \t]*\r?$|` + setextUnderline)
+	// A setext underline, which under a paragraph ends it.
+	setextPattern = regexp.MustCompile(setextUnderline)
 	// A reference after a link's closing bracket: [label], or [] to use the
 	// text as the label.
 	referencePattern = regexp.MustCompile(`^\[([^\[\]]*)\]`)
@@ -608,7 +612,13 @@ func scanBody(text string) (masked []string, literal, quoted, item []bool, unclo
 			block = false
 			return closesInParagraph(lines, i, marker+len(commentOpen), &w) && !inCodeAcrossLines(lines, i, marker, &w)
 		})
-		w.prose(masked[i][min(at, len(masked[i])):])
+		if opened {
+			// A comment block holds the rest of its first line, and ends
+			// there if it closes there, so it leaves no paragraph open.
+			w.paragraph = false
+		} else {
+			w.prose(masked[i][min(at, len(masked[i])):])
+		}
 	}
 	// open means a comment never closed, and unclosed a block that runs to the
 	// end of the text. Either way the walk masked everything from there on,
@@ -632,10 +642,11 @@ func closesInParagraph(lines []string, i, from int, w *blockWalk) bool {
 
 // paragraphEnd is the index of the line that ends the paragraph holding line
 // i, each line after it read in the containers w, the walk up to i, holds
-// open: the next line blank once its containers' markers are passed, or one
-// starting a block, which a line leaving the paragraph's container does more
-// readily than one within it. A line continuing no container but starting no
-// block continues the paragraph lazily.
+// open: the next line blank once its containers' markers are passed, one
+// underlining it, or one starting a block, which a line leaving the
+// paragraph's container does more readily than one within it. A line
+// continuing no container but starting no block continues the paragraph
+// lazily, and an underline read so is text.
 func paragraphEnd(lines []string, i int, w *blockWalk) int {
 	// A stack of its own, as truncating and pushing would overwrite w's.
 	ahead := blockWalk{stack: slices.Clone(w.stack), paragraph: true}
@@ -643,7 +654,7 @@ func paragraphEnd(lines []string, i int, w *blockWalk) int {
 		line := strings.TrimSuffix(lines[k], "\r")
 		at, _ := ahead.line(line)
 		rest := line[at:]
-		if !ahead.paragraph || IsHeading(rest) || thematicPattern.MatchString(rest) ||
+		if !ahead.paragraph || ahead.underline || IsHeading(rest) || thematicPattern.MatchString(rest) ||
 			indentColumns(rest, column(line, at)) < 4 && strings.HasPrefix(strings.TrimLeft(rest, " \t"), commentOpen) {
 			return k
 		}
@@ -699,6 +710,10 @@ type blockWalk struct {
 	paragraph bool
 	// item is whether the last line read opened a list item.
 	item bool
+	// underline is whether the last line read past its containers was a
+	// setext underline, which ends the paragraph above it. Only such a line
+	// can follow one, as a line after an underline is no lazy continuation.
+	underline bool
 }
 
 // container is a blockquote, or a list item whose content starts indent
@@ -706,6 +721,9 @@ type blockWalk struct {
 type container struct {
 	quote  bool
 	indent int
+	// empty is a list item holding nothing yet. A list item can begin with
+	// at most one blank line, so a blank line ends it.
+	empty bool
 }
 
 type leafKind int
@@ -753,6 +771,11 @@ func (w *blockWalk) line(s string) (at int, literal bool) {
 			w.leaf = leafNone
 		}
 	}
+	// The line reaches the last container it continues, which holds it. A
+	// blank one cannot reach an empty item, which continued has ended.
+	if n := len(w.stack); n > 0 {
+		w.stack[n-1].empty = false
+	}
 
 	rest := s[at:]
 	switch w.leaf {
@@ -788,7 +811,7 @@ func (w *blockWalk) line(s string) (at int, literal bool) {
 			continue
 		}
 		if n, indent, ok := w.listItem(rest, column(s, at)); ok {
-			w.stack = append(w.stack, container{indent: indent})
+			w.stack = append(w.stack, container{indent: indent, empty: strings.TrimSpace(rest[n:]) == ""})
 			at, w.paragraph, w.item = at+n, false, true
 			continue
 		}
@@ -796,6 +819,9 @@ func (w *blockWalk) line(s string) (at int, literal bool) {
 	}
 
 	rest = s[at:]
+	// Read as written rather than masked, as a comment after an underline
+	// makes the line text.
+	w.underline = w.paragraph && setextPattern.MatchString(rest)
 	switch {
 	case strings.TrimSpace(rest) == "":
 		w.paragraph = false
@@ -836,6 +862,9 @@ func (w *blockWalk) continued(s string) (matched, at int) {
 			continue
 		}
 		if strings.TrimSpace(rest) == "" {
+			if w.stack[matched].empty {
+				break
+			}
 			continue
 		}
 		n, ok := consumeIndent(rest, w.stack[matched].indent, column(s, at))
@@ -852,10 +881,11 @@ func (w *blockWalk) open(leaf leafKind) {
 }
 
 // prose records what a prose line, with its comments blanked, leaves open: a
-// paragraph, unless it was blank, a heading or a thematic break.
+// paragraph, unless it was blank, a heading, a thematic break or a setext
+// underline.
 func (w *blockWalk) prose(content string) {
 	content = strings.TrimSuffix(content, "\r")
-	w.paragraph = strings.TrimSpace(content) != "" && !IsHeading(content) && !thematicPattern.MatchString(content)
+	w.paragraph = strings.TrimSpace(content) != "" && !IsHeading(content) && !thematicPattern.MatchString(content) && !w.underline
 }
 
 // unclosed reports a block still open at the end that only a marker closes.
