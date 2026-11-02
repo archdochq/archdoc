@@ -402,7 +402,6 @@ var Rules = []Rule{
 		Summary: "A required section is empty",
 		Remedy:  "Write it",
 		Since:   "v0.1.0-alpha.1",
-
 		Changes: []Change{
 			{Release: "v0.6.0", Summary: "Reports an empty section after a paragraph holding an unclosed `<!--`, which hid it"},
 			{Release: "v0.6.0", Summary: "Reports an empty section whose heading is closed by `#` characters in a CRLF file"},
