@@ -17,11 +17,20 @@ Each rule's `Changes` records every change to what the rule reports in a release
 
 ## Motivation
 
-[RFC-0014](0014-lint-rules-and-the-command-reference-are-published-as-data.md) gives `Changes` starting empty for every rule and recording the changes made once its design is built, with the changes made before it not recorded. The registry was built on 2026-10-26, after v0.5.1 was tagged on 2026-09-23. The rule changes made between those dates are in no tagged release, and v0.6.0 is the first to carry them: findings reported at the line of their field rather than line 1, groups, a ref's `as_of`, and `Open questions` and `Changelog` no longer required in an RFC, among others. Under the History rule, v0.6.0's entries list only what changed after 2026-10-26, and each rule's page publishes an account of v0.6.0 that leaves out most of what v0.6.0 changes in it.
-
-[RFC-0014](0014-lint-rules-and-the-command-reference-are-published-as-data.md) already gives L20 and L21 a `Since` of v0.6.0, the release carrying them, though both were built before the registry.
+[RFC-0014](0014-lint-rules-and-the-command-reference-are-published-as-data.md) gives `Changes` starting empty for every rule and recording the changes made once its design is built, with the changes made before it not recorded. The registry was built on 2026-10-26, after v0.5.1 was tagged on 2026-10-01. The rule changes made between those dates are in no tagged release, and v0.6.0 is the first to carry them: findings reported at the line of their field rather than line 1, groups, a ref's `as_of`, and `Open questions` and `Changelog` no longer required in an RFC, among others. Under the History rule, v0.6.0's entries list only what changed once the registry was built, and each rule's page publishes an account of v0.6.0 that leaves out most of what v0.6.0 changes in it, including the changes to L01, L07 and L13 that [RFC-0013](0013-a-ref-can-record-an-exchange.md) gives as recorded in the registry.
 
 ## Proposal
+
+### Components
+
+| Component | Responsibility |
+|---|---|
+| `internal/lint` | v0.6.0's entries in `Changes`, and the test naming them |
+| `internal/reference` | The description of `changes` in the embedded schema |
+| Published schemas | `schema/reference/v1.json`, regenerated for that description |
+| Specification pages | `lint.md`: the account of `Changes` |
+
+### Rules
 
 | Rule | Detail |
 |---|---|
@@ -34,7 +43,7 @@ This replaces the History row of [RFC-0014](0014-lint-rules-and-the-command-refe
 
 A test in `internal/lint` names each of v0.6.0's entries by a phrase of its text and checks each rule's number of v0.6.0 entries, so an entry deleted, or moved to another release, is reported. It does not report a change that was never recorded: nothing checks that a change to what a rule reports is recorded in `Changes`, as in [RFC-0014](0014-lint-rules-and-the-command-reference-are-published-as-data.md).
 
-The lint spec page's account of `Changes` says that changes in v0.5.1 and earlier releases are not listed.
+The lint spec page's account of `Changes`, and the reference schema's description of `changes`, say that changes in v0.5.1 and earlier releases are not listed.
 
 ## Alternatives considered
 
