@@ -44,4 +44,4 @@ A repository with no `term/` directory has no glossary, which is valid: L15 and 
 - `list`: prints the terms, one per line.
 - `show <term>`: prints the term and its definition.
 
-Values are written as YAML strings, quoted where YAML would otherwise read them as something else. `add` and `rename` read the file back before writing it, and refuse a name whose title or heading does not read back as given.
+Values are written as YAML strings, quoted where YAML would otherwise read them as something else. `add` and `rename` refuse a name holding a line break or that is not valid UTF-8, read the file back before writing it, and refuse one whose front matter does not parse or whose title or heading does not read back as given.

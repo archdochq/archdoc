@@ -324,7 +324,7 @@ func TestRemoveRefusesEveryLinkAFrozenDocumentHolds(t *testing.T) {
 	}
 }
 
-// TestAddRefusesANameTheHeadingReadsDifferently: a trailing " #" is an ATX
+// TestAddAndRenameRefuseANameTheHeadingReadsDifferently: a trailing " #" is an ATX
 // closing sequence, so the H1 would read as the name without it.
 func TestAddAndRenameRefuseANameTheHeadingReadsDifferently(t *testing.T) {
 	r := repotest.New(t, map[string]string{
@@ -335,5 +335,49 @@ func TestAddAndRenameRefuseANameTheHeadingReadsDifferently(t *testing.T) {
 	}
 	if _, _, _, err := glossary.Rename(r, "Plain", "Sharp #"); err == nil {
 		t.Error("Rename accepted a name whose heading reads as another")
+	}
+}
+
+// TestRemoveIgnoresAFrozenLinkElsewhere: a link holding the term's anchor
+// within its own page, or one to another term in the glossary, does not reach
+// this term, and refusing for it would block every removal.
+func TestRemoveIgnoresAFrozenLinkElsewhere(t *testing.T) {
+	for name, link := range map[string]string{
+		"an anchor in its own page": "#widget",
+		"another term":              "../GLOSSARY.md#gadget",
+	} {
+		t.Run(name, func(t *testing.T) {
+			r := repotest.New(t, map[string]string{
+				"term/widget.md": repotest.Term("Widget", "A definition."),
+				"term/gadget.md": repotest.Term("Gadget", "Another."),
+				"spec/uses.md":   "---\ntitle: Uses\nincludes: []\n---\n\n# Uses\n\n## Widget\n\nIt holds a [link](" + link + ").\n",
+			})
+			if _, err := glossary.Remove(r, "Widget", everythingFrozen); err != nil {
+				t.Errorf("Remove refused for a link elsewhere: %v", err)
+			}
+		})
+	}
+}
+
+func TestAddAndRenameRefuseANameNoTermFileCanHold(t *testing.T) {
+	r := repotest.New(t, map[string]string{"term/widget.md": repotest.Term("Widget", "A definition.")})
+	for _, name := range []string{"a\xffb", "Two\nlines", "Carriage\rreturn"} {
+		if _, _, err := glossary.Add(r, name, "A definition.", ""); err == nil {
+			t.Errorf("Add accepted %q", name)
+		}
+		if _, _, _, err := glossary.Rename(r, "Widget", name); err == nil {
+			t.Errorf("Rename accepted %q", name)
+		}
+	}
+}
+
+func TestAddWritesNamedByAsAString(t *testing.T) {
+	r := repotest.New(t, map[string]string{
+		"adr/0001-chosen.md": "---\nid: ADR-0001\ntitle: Chosen\nstatus: proposed\ncreated: 2026-01-20\n" +
+			"depends: []\nupdates: []\nobsoletes: []\n---\n\n# ADR-0001: Chosen\n",
+	})
+	_, source, err := glossary.Add(r, "Widget", "A definition.", "ADR-0001")
+	if err != nil || !strings.Contains(string(source), "named_by: ADR-0001\n") {
+		t.Errorf("Add with named_by = %q, %v", source, err)
 	}
 }
