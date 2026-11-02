@@ -194,8 +194,12 @@ func TestRenumberRefusesToChangeType(t *testing.T) {
 	r := repotest.New(t, map[string]string{
 		"rfc/0001-first.md": draft("RFC-0001", "First"),
 	})
-	if _, _, err := repo.Renumber(r, "RFC-0001", "ADR-0001", nothingFrozen); err == nil {
+	_, _, err := repo.Renumber(r, "RFC-0001", "ADR-0001", nothingFrozen)
+	if err == nil {
 		t.Fatal("renumbered an RFC into an ADR")
+	}
+	if !strings.Contains(err.Error(), "RFC-0001 is an RFC and cannot become an ADR") {
+		t.Errorf("error = %v, want it to name both types with their articles", err)
 	}
 }
 
