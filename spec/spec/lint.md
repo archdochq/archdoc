@@ -9,11 +9,11 @@ includes: [ADR-0008, ADR-0009, ADR-0010, RFC-0008, RFC-0009, RFC-0011, RFC-0013,
 
 ## Severity
 
-Every rule reports an error unless stated. A rule comparing a front matter value against something else does not report where that value did not parse, which L01 reports. A finding that no permitted edit to the named document could clear is a warning. This applies to L01, L02, L07, L08, L09, L10, L14, L16, L17, L20 and L21 when the document is frozen. It does not apply to a fault in a relationship between documents, which is cleared by editing the other document, nor to L11.
+Every rule reports an error unless stated. A rule comparing a front matter value against something else does not report where that value did not parse, which L01 reports, and L02 and L10 do not report a `title` or `id` that is missing or empty. A finding that no permitted edit to the named document could clear is a warning. This applies to L01, L02, L07, L08, L09, L10, L14, L16, L17, L20 and L21 when the document is frozen. It does not apply to a fault in a relationship between documents, which is cleared by editing the other document, nor to L11.
 
 ## Rules
 
-- **L01** Front matter parses and matches the schema for the type: no unknown keys, no missing required keys, no wrong types, no required key left empty, no `as_of` left empty, and no empty item in a list. Front matter that is not valid YAML, or not a mapping, is reported once, at the first line at which it stops being valid, and no key in it is reported missing. Error in an editable document; warning in a frozen one.
+- **L01** Front matter parses and matches the schema for the type: no unknown keys, no missing required keys, no wrong types, no required key left empty, no `as_of` left empty, and no empty item in a list. Front matter that is not valid YAML, or not a mapping, is reported once, at the first line at which it stops being valid, and no key in it is reported missing. So is a file with no front matter block, or one never closed. Error in an editable document; warning in a frozen one.
 - **L02** `id` equals the identifier derived from type and filename. The filename matches `<NNNN>-<slug>.md`. Error in an editable document; warning in a frozen one.
 - **L03** No identifier appears on more than one document.
 - **L04** Every identifier in `depends`, `updates`, `obsoletes` and `includes`, and a term's `named_by`, resolves to an existing document of a permitted type. Every member of a group resolves, an identifier to an RFC, ADR or ref and any other member to a spec page, and no group lists a member twice. Each finding is reported at the line of the list. A document in no group is not reported.

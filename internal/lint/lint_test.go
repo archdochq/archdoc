@@ -343,6 +343,43 @@ func TestAnUnreadFrontMatterValueIsReportedOnce(t *testing.T) {
 	}
 }
 
+func TestAFaultInOneKeyIsReportedOnce(t *testing.T) {
+	// L01 reports a date that did not parse, a block that never closed, and
+	// a title or id missing or empty. A rule comparing against what is left
+	// in its place reports the same fault again.
+	adr := func(n, frontMatter string) string {
+		return "---\n" + frontMatter + "status: accepted\ncreated: 2026-01-01\ndepends: []\nupdates: []\nobsoletes: []\n---\n\n# ADR-" + n + ": X\n"
+	}
+	r := repotest.New(t, map[string]string{
+		"adr/0001-a.md": adr("0001", "id: ADR-0001\ntitle: X\ndecided: notadate\n"),
+		"adr/0002-b.md": strings.TrimSuffix(adr("0002", "id: ADR-0002\ntitle: X\ndecided: 2026-01-02\n"), "---\n\n# ADR-0002: X\n") + "\n# ADR-0002: X\n",
+		"adr/0003-c.md": adr("0003", "title: X\ndecided: 2026-01-02\n"),
+		"adr/0004-d.md": adr("0004", "id:\ntitle: X\ndecided: 2026-01-02\n"),
+		"adr/0005-e.md": adr("0005", "id: ADR-0005\ntitle:\ndecided: 2026-01-02\n"),
+		"spec/page.md":  "---\ntitle:\nincludes: []\n---\n\n# Page\n",
+		"ref/0001-r.md": "---\nid: REF-0001\ntitle: R\nverified: 2026-01-01\nas_of: 2026-02-0x\n---\n\n# REF-0001: R\n",
+	})
+	var got []string
+	for _, f := range lint.Run(lint.NewContext(r, nil, now)) {
+		if slices.Contains([]string{"L01", "L02", "L07", "L10", "L13"}, f.Rule) {
+			got = append(got, fmt.Sprintf("%s:%d: %s", f.Path, f.Line, f.Message))
+		}
+	}
+	slices.Sort(got)
+	want := []string{
+		`adr/0001-a.md:4: decided: "notadate" is not an ISO 8601 date`,
+		`adr/0002-b.md:1: no front matter block`,
+		`adr/0003-c.md:1: missing required front matter key "id"`,
+		`adr/0004-d.md:2: front matter key "id" is present but empty`,
+		`adr/0005-e.md:3: front matter key "title" is present but empty`,
+		`ref/0001-r.md:5: as_of: "2026-02-0x" is not an ISO 8601 date`,
+		`spec/page.md:2: front matter key "title" is present but empty`,
+	}
+	if !slices.Equal(got, want) {
+		t.Errorf("got\n%s\nwant\n%s", strings.Join(got, "\n"), strings.Join(want, "\n"))
+	}
+}
+
 func TestL12NamesEachObsoleteDocumentOnce(t *testing.T) {
 	adr := func(id, obsoletes string) string {
 		return "---\nid: " + id + "\ntitle: X\nstatus: accepted\ncreated: 2026-01-01\ndecided: 2026-01-02\ndepends: []\nupdates: []\nobsoletes: [" + obsoletes + "]\n---\n\n# " + id + ": X\n"

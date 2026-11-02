@@ -236,7 +236,7 @@ var Rules = []Rule{
 		Since:   "v0.1.0-alpha.1",
 		Changes: []Change{
 			{Release: "v0.6.0", Summary: "Reports a warning rather than an error in a frozen document"},
-			{Release: "v0.6.0", Summary: "Reports invalid YAML once, at the line it stops being valid, with no key reported missing, and an empty list item"},
+			{Release: "v0.6.0", Summary: "Reports invalid YAML once, at the line it stops being valid, with no key reported missing, a missing or unclosed block once, and an empty list item"},
 		},
 	},
 	{
@@ -248,7 +248,7 @@ var Rules = []Rule{
 		Since:   "v0.1.0-alpha.1",
 		Changes: []Change{
 			{Release: "v0.6.0", Summary: "Reports a warning rather than an error in a frozen document"},
-			{Release: "v0.6.0", Summary: "Does not compare an `id` that did not parse"},
+			{Release: "v0.6.0", Summary: "Does not compare an `id` that did not parse, or is missing or empty"},
 		},
 	},
 	{
@@ -292,7 +292,7 @@ var Rules = []Rule{
 		Since:   "v0.1.0-alpha.1",
 		Changes: []Change{
 			{Release: "v0.6.0", Summary: "Reports a warning rather than an error in a frozen document"},
-			{Release: "v0.6.0", Summary: "Does not check the status against an empty one"},
+			{Release: "v0.6.0", Summary: "Does not check the status against an empty one, or report `decided` unset where it did not parse"},
 		},
 	},
 	{
@@ -326,7 +326,7 @@ var Rules = []Rule{
 		Since:   "v0.1.0-alpha.1",
 		Changes: []Change{
 			{Release: "v0.6.0", Summary: "Reports a warning rather than an error in a frozen document"},
-			{Release: "v0.6.0", Summary: "Does not compare a title or `id` that did not parse"},
+			{Release: "v0.6.0", Summary: "Does not compare a title or `id` that did not parse, or is missing or empty"},
 		},
 	},
 	{
@@ -358,6 +358,9 @@ var Rules = []Rule{
 		Summary: "A ref's `verified` date is older than `ref_stale_days`, and it carries no `as_of` (warning)",
 		Remedy:  "Re-check the content, then update `verified`. A record of an exchange carries `as_of` instead",
 		Since:   "v0.1.0-alpha.1",
+		Changes: []Change{
+			{Release: "v0.6.0", Summary: "Does not report a ref whose `as_of` did not parse"},
+		},
 	},
 	{
 		Code:    "L14",

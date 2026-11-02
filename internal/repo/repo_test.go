@@ -1602,6 +1602,15 @@ func TestAFrontMatterFaultIsReportedOnceAtItsLine(t *testing.T) {
 		{"a string where a list goes", "---\ntitle: T\nincludes: RFC-0001\n---\n\n# T\n", 3, "includes: cannot unmarshal !!str `RFC-0001` into []string", true},
 		{"a mapping where a list goes", "---\ntitle: T\nincludes: {a: b}\n---\n\n# T\n", 3, "includes: cannot unmarshal !!map into []string", true},
 		{"an empty item", "---\ntitle: T\nincludes:\n  - RFC-0001\n  -\n---\n\n# T\n", 5, "includes holds an empty item", true},
+		// A string over two lines fails when cut between them with the
+		// message of the unterminated one that follows, so the fault is the
+		// last line from which every longer cut fails as the whole does.
+		{"a fault after a string over two lines", "---\ntitle: \"P\n  Q\"\nincludes: []\nformerly: \"x\n---\n\n# T\n", 5, "front matter is not valid YAML: found unexpected end of stream", false},
+		{"a fault closing a sequence over two lines", "---\ntitle: [a,\n  b]: c\nincludes: []\n---\n\n# T\n", 3, "front matter is not valid YAML: mapping values are not allowed", false},
+		{"a fault on the first of several lines", "---\ntitle: a: b\nincludes: []\n---\n\n# T\n", 2, "front matter is not valid YAML: mapping values are not allowed", false},
+		{"a sequence after a comment", "---\n# c\n- a\n---\n\n# T\n", 3, "front matter is not a mapping", false},
+		{"an empty item in a list that did not decode", "---\ntitle: T\nincludes: [~, [a]]\n---\n\n# T\n", 3, "includes: cannot unmarshal !!seq into string", true},
+		{"two type errors in one list", "---\ntitle: T\nincludes: [[a], {b: c}]\n---\n\n# T\n", 3, "includes: cannot unmarshal !!seq into string; cannot unmarshal !!map into string", true},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {

@@ -335,6 +335,8 @@ func (d *Document) parse(source []byte) {
 	d.Body, d.BodyLine = string(body), bodyLine
 	d.headings = parseHeadings(d.Body, d.BodyLine)
 	if !ok {
+		// No key was read, so none reads as missing.
+		d.FrontMatter.unread = true
 		d.Problems = append(d.Problems, Problem{Line: 1, Message: "no front matter block"})
 		return
 	}

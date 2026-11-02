@@ -35,10 +35,14 @@ only showed up on a real document, and the reasoning is kept so the shape is not
 - **A YAML syntax error is placed by re-parsing, not by yaml's line number.** yaml.v3 counts a scanner
   error's line from 1 and a parser error's from 0, gives the line a construct opened on for some errors,
   and none for the first line, so translating its number put a fault on line 4 at line 3. The finding
-  goes on the first line whose prefix of the block fails with the same message as the whole block.
-- **A value that did not parse is reported once.** Where the block is not a mapping, no key was read,
-  so none is reported missing; where one value failed to decode, L02 and L10 do not compare against
-  the zero value left in its place. yaml's type errors are flattened onto the finding's line.
+  goes on the first line from which the block, cut after that line or any later one, fails with the
+  same message as the whole block. It is found reading from the end: a construct over several lines
+  cut part way through can fail with the same message on an earlier line that is valid, and reading
+  from the start put the fault there.
+- **A value that did not parse is reported once.** Where there is no block, or it is not a mapping,
+  no key was read, so none is reported missing; where one value failed to decode, L02, L07, L10 and
+  L13 do not compare against the zero value left in its place. L02 and L10 also skip a `title` or
+  `id` that is missing or empty, which L01 already reports. yaml's type errors are flattened onto the finding's line.
 - **Dates are decoded through the node rather than read off its value.** For an alias node the value is
   the anchor's name, so `created: &d 2026-01-05` with `decided: *d` reported that `"d"` is not a date,
   naming something the author never wrote.

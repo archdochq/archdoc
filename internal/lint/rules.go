@@ -158,7 +158,8 @@ func L02(ctx Context) []Finding {
 		if d.Number == 0 {
 			rep.atf(severityFor(ctx, d), d, 0, "filename number is 0000, but sequences start at 1")
 		}
-		if got := d.FrontMatter.ID; got != d.ID && readable(d, "id") {
+		// A missing or empty id is L01's to report.
+		if got := d.FrontMatter.ID; got != d.ID && got != "" && readable(d, "id") {
 			rep.atf(severityFor(ctx, d), d, d.FrontMatter.LineOf("id"), "id is %q but the filename gives %q", got, d.ID)
 		}
 	}
@@ -352,7 +353,7 @@ func L07(ctx Context) []Finding {
 		}
 		terminal := fm.Status.Terminal()
 		switch {
-		case terminal && fm.Decided.IsZero():
+		case terminal && fm.Decided.IsZero() && readable(d, "decided"):
 			rep.atf(severityFor(ctx, d), d, d.FrontMatter.LineOf("decided"), "status is %s but decided is not set", fm.Status)
 		case !terminal && fm.Status != "" && !fm.Decided.IsZero():
 			rep.atf(severityFor(ctx, d), d, d.FrontMatter.LineOf("decided"), "decided is set but status is %s, which is not terminal", fm.Status)
@@ -456,7 +457,10 @@ func L09(ctx Context) []Finding {
 func L10(ctx Context) []Finding {
 	var rep report
 	for _, d := range ctx.Repo().Documents() {
-		if !readable(d, "title") || (d.Type.Numbered() && !readable(d, "id")) {
+		// A title or id that is missing, empty or did not parse is L01's to
+		// report, and the heading wanted from it would be wrong.
+		fm := d.FrontMatter
+		if !readable(d, "title") || fm.Title == "" || (d.Type.Numbered() && (!readable(d, "id") || fm.ID == "")) {
 			continue
 		}
 		want := d.FrontMatter.Title
@@ -511,7 +515,8 @@ func L13(ctx Context) []Finding {
 	// old was silent at midnight UTC and stale by breakfast in London.
 	cutoff := repo.StartOfDay(ctx.Now()).AddDate(0, 0, -days)
 	for _, d := range ctx.Repo().Documents() {
-		if d.Type != repo.TypeRef || d.FrontMatter.Verified.IsZero() || !d.FrontMatter.AsOf.IsZero() {
+		// An as_of that did not parse is L01's, and may well have been set.
+		if d.Type != repo.TypeRef || d.FrontMatter.Verified.IsZero() || !d.FrontMatter.AsOf.IsZero() || !readable(d, "as_of") {
 			continue
 		}
 		if !d.FrontMatter.Verified.Before(cutoff) {

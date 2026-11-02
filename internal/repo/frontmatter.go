@@ -84,13 +84,13 @@ type FrontMatter struct {
 	present map[string]int
 	// unknown lists keys written in the block that belong to no schema.
 	unknown []UnknownKey
-	// unread records that the block is not a YAML mapping, so no key in it
-	// was read, whether written or not.
+	// unread records that there is no block, or that it is not a YAML
+	// mapping, so no key in it was read, whether written or not.
 	unread bool
 }
 
-// Read reports whether the block parsed as a mapping, so that what it holds
-// is known. Where it did not, every key reads as absent.
+// Read reports whether there is a block and it parsed as a mapping, so that
+// what it holds is known. Where not, every key reads as absent.
 func (f FrontMatter) Read() bool { return !f.unread }
 
 // Has reports whether a key was written in the block, whatever its value.
