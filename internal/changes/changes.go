@@ -185,10 +185,10 @@ func Locate(r *repo.Repo, g git.Repository, rev string) (Located, error) {
 }
 
 // listedAs is root as files spell it, where a directory in files matches it
-// case-folded and composed, and root as written where none does.
-// ponytail: the first match in git's order is taken; a listing holding the
-// same directory under two such spellings, which only a case-sensitive
-// checkout can produce, reads the first.
+// case-folded and composed, and root as written where none does. The first
+// match in git's order is taken, so a listing holding the same directory under
+// two such spellings, which only a case-sensitive checkout can produce, is read
+// under the first.
 func listedAs(files []string, root string) string {
 	want := norm.NFC.String(root)
 	for _, f := range files {
