@@ -161,7 +161,7 @@ func termShow() *cobra.Command {
 				if !strings.EqualFold(e.Term, wanted) {
 					continue
 				}
-				fmt.Fprintf(cmd.OutOrStdout(), "## %s\n\n%s\n", e.Term, strings.Join(e.Paragraphs, "\n\n"))
+				fmt.Fprintf(cmd.OutOrStdout(), "## %s\n\n%s\n", e.Term, e.Definition)
 				for _, name := range e.Formerly {
 					fmt.Fprintf(cmd.OutOrStdout(), "\nFormerly *%s*.\n", name)
 				}

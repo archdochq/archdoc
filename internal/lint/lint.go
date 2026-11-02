@@ -236,7 +236,7 @@ var Rules = []Rule{
 		Since:   "v0.1.0-alpha.1",
 		Changes: []Change{
 			{Release: "v0.6.0", Summary: "Reports a warning rather than an error in a frozen document"},
-			{Release: "v0.6.0", Summary: "Reports invalid YAML once, at the line it stops being valid, with no key reported missing, and an empty list item"},
+			{Release: "v0.6.0", Summary: "Reports invalid YAML once, at the line it stops being valid, with no key reported missing, a missing or unclosed block once, and an empty list item"},
 		},
 	},
 	{
@@ -248,7 +248,7 @@ var Rules = []Rule{
 		Since:   "v0.1.0-alpha.1",
 		Changes: []Change{
 			{Release: "v0.6.0", Summary: "Reports a warning rather than an error in a frozen document"},
-			{Release: "v0.6.0", Summary: "Does not compare an `id` that did not parse"},
+			{Release: "v0.6.0", Summary: "Does not compare an `id` that did not parse, or is missing or empty"},
 		},
 	},
 	{
@@ -258,6 +258,9 @@ var Rules = []Rule{
 		Summary: "Two documents claim the same identifier",
 		Remedy:  "Renumber the wrong one with `archdoc renumber <path>`, then correct each reference it lists that meant that one",
 		Since:   "v0.1.0-alpha.1",
+		Changes: []Change{
+			{Release: "v0.6.0", Summary: "Reports a warning rather than an error when every document holding the identifier is frozen"},
+		},
 	},
 	{
 		Code:    "L04",
@@ -266,6 +269,9 @@ var Rules = []Rule{
 		Summary: "A referenced identifier does not resolve, or a group's member names nothing or is listed twice",
 		Remedy:  "Create the document, or correct the reference or the group's list",
 		Since:   "v0.1.0-alpha.1",
+		Changes: []Change{
+			{Release: "v0.6.0", Summary: "Reports a ref named in `depends` or `includes` as a warning rather than an error in a frozen document"},
+		},
 	},
 	{
 		Code:    "L05",
@@ -274,6 +280,9 @@ var Rules = []Rule{
 		Summary: "`updates`/`obsoletes` targets something not accepted, of the wrong type, or itself",
 		Remedy:  "Accept the target, or correct the list",
 		Since:   "v0.1.0-alpha.1",
+		Changes: []Change{
+			{Release: "v0.6.0", Summary: "Reports a warning rather than an error in a frozen document, except for a target that is not accepted and not frozen"},
+		},
 	},
 	{
 		Code:    "L06",
@@ -292,7 +301,7 @@ var Rules = []Rule{
 		Since:   "v0.1.0-alpha.1",
 		Changes: []Change{
 			{Release: "v0.6.0", Summary: "Reports a warning rather than an error in a frozen document"},
-			{Release: "v0.6.0", Summary: "Does not check the status against an empty one"},
+			{Release: "v0.6.0", Summary: "Does not check the status against an empty one, or report `decided` unset where it did not parse"},
 		},
 	},
 	{
@@ -326,7 +335,7 @@ var Rules = []Rule{
 		Since:   "v0.1.0-alpha.1",
 		Changes: []Change{
 			{Release: "v0.6.0", Summary: "Reports a warning rather than an error in a frozen document"},
-			{Release: "v0.6.0", Summary: "Does not compare a title or `id` that did not parse"},
+			{Release: "v0.6.0", Summary: "Does not compare a title or `id` that did not parse, or is missing or empty"},
 		},
 	},
 	{
@@ -337,7 +346,7 @@ var Rules = []Rule{
 		Remedy:  "Revert it. To change what it says, write a new document that updates or obsoletes it",
 		Since:   "v0.1.0-alpha.1",
 		Changes: []Change{
-			{Release: "v0.6.0", Summary: "Judges what changed or was deleted against the merge base of HEAD and the branch, not the branch's tip"},
+			{Release: "v0.6.0", Summary: "Judges what changed or was deleted against the merge base of HEAD and the branch, not the branch's tip, and warns once where the branch's `archdoc.json` cannot be read"},
 		},
 	},
 	{
@@ -358,6 +367,9 @@ var Rules = []Rule{
 		Summary: "A ref's `verified` date is older than `ref_stale_days`, and it carries no `as_of` (warning)",
 		Remedy:  "Re-check the content, then update `verified`. A record of an exchange carries `as_of` instead",
 		Since:   "v0.1.0-alpha.1",
+		Changes: []Change{
+			{Release: "v0.6.0", Summary: "Does not report a ref whose `as_of` did not parse"},
+		},
 	},
 	{
 		Code:    "L14",
@@ -383,7 +395,7 @@ var Rules = []Rule{
 		Check:   L16,
 		Title:   "Wiki links are resolved",
 		Summary: "An unresolved `[[...]]` link",
-		Remedy:  "Run `archdoc link`. In a heading, which it leaves as written, write the heading without it; in a terminal document outside a git repository, replace it by hand",
+		Remedy:  "Run `archdoc link`. In a heading, which it leaves as written, write the heading without it; in a terminal document outside a git repository, replace it by hand; in a frozen document, leave it as written",
 		Since:   "v0.1.0-alpha.1",
 		Changes: []Change{
 			{Release: "v0.6.0", Summary: "Names the edit that clears a link in a heading, in a frozen document, and in a terminal document outside a git repository"},
@@ -396,6 +408,9 @@ var Rules = []Rule{
 		Summary: "A relative link points at a missing file or heading",
 		Remedy:  "Fix the path or the anchor",
 		Since:   "v0.1.0-alpha.1",
+		Changes: []Change{
+			{Release: "v0.6.0", Summary: "Reads links and heading anchors as GitHub renders them, judges a path against the git repository and in its exact case, finds explicit anchors in documents, and skips a destination with a URI scheme or a leading /"},
+		},
 	},
 	{
 		Code:    "L18",
