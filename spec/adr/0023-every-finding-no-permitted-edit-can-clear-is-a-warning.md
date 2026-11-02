@@ -1,7 +1,7 @@
 ---
 id: ADR-0023
 title: Every finding no permitted edit can clear is a warning
-status: draft
+status: proposed
 created: 2026-10-31
 decided:
 depends: [ADR-0001, ADR-0009]

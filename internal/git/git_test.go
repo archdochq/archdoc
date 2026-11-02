@@ -356,6 +356,14 @@ func TestOpenReportsAnyOtherGitFailureAsAnError(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			dir := newRepo(t)
 			commit(t, dir, "a.md", "a\n")
+			// No configuration but the repository's own, since a runner's
+			// may list every directory as safe.
+			empty := filepath.Join(t.TempDir(), "empty")
+			if err := os.WriteFile(empty, nil, 0o644); err != nil {
+				t.Fatal(err)
+			}
+			t.Setenv("GIT_CONFIG_GLOBAL", empty)
+			t.Setenv("GIT_CONFIG_NOSYSTEM", "1")
 			value := env[1]
 			if value == "" {
 				value = filepath.Join(t.TempDir(), "gitconfig")
