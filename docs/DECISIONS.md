@@ -164,7 +164,10 @@ would have to round-trip everything it parsed.
   word gave `## The _id field` the anchor `the-id-field`, where GitHub's is `the-_id-field`. A bare
   address GitHub links is text as written, its end read as cmark-gfm's autolink extension reads it,
   since an underscore in `https://a.com/_x_` is not emphasis there. A
-  reference link is a link only where the document defines its label, and text otherwise. A heading is
+  reference link is a link only where the document defines its label, and text otherwise. A link in a
+  heading closes where one in prose does, its destination and title read alike and a bracket in a code
+  span in its text not one of its own: closing the parentheses at their balancing `)` linked
+  `[a](x y.md)`, which GitHub renders as text, so L17 rejected GitHub's anchor. A heading is
   rendered as written, so a comment in it leaves the space beside it. Of the numbers, the slug keeps
   decimal digits and letter numbers and drops the rest, such as `²` and `½`, as github-slugger does.
 - **A link names an anchor a document holds explicitly as well as its headings'.** L17 read `<a id>`
@@ -366,7 +369,12 @@ the result can delete content it never read.
   original first, so a write failing part way, at a size limit or on a full disk, left a document cut
   short, and the undo that wrote it back failed the same way. The original is opened for writing, without
   truncating it, before anything is written, so a read-only file is still refused although the rename
-  needs only the directory to be writable.
+  needs only the directory to be writable. A writable file in a read-only directory is refused too, where
+  `os.WriteFile` wrote it, because the temporary file cannot be made there; writing in place for that case
+  alone would bring back the truncation for exactly the files the rename was meant to protect. Every
+  failure names the file asked for rather than the temporary file, which the user never asked for. The
+  rename makes a new file, so a hard link to the original keeps the old contents, and the owner and group
+  become the writer's rather than the original's; only the permission bits are carried over.
 - **Interactive suggestion application re-reads before writing.** The snapshot is taken before the first
   prompt and the write happens after the last answer, so the whole session is a window in which an edit
   made elsewhere would be silently discarded. A file that has moved on is left alone and said so.
