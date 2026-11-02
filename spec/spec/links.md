@@ -22,7 +22,7 @@ A document is either rewritten in full or not at all. A frozen document containi
 
 A suggestion wraps the matched text exactly as written: `RFC-0007` becomes `[RFC-0007](<relative path>)`. Identifiers match their canonical uppercase form. Glossary terms match whole, case-insensitively, longest first, with no stemming and no plural handling. Whole is judged from the characters on either side of the match. A term reaching a link label is escaped.
 
-With a terminal on stdin and no `--apply`: for each suggestion, the file, line and highlighted match are shown with the prompt `[y]es [n]o [a]ll in file [s]kip file [q]uit`; `q` writes the accepted changes and exits. The file is re-read before it is written, and left alone if it changed meanwhile. Without a terminal and without `--apply`: suggestions are printed and the exit code is 2 if there are any. With `--apply`: every suggestion is applied.
+With a terminal on stdin and no `--apply`: for each suggestion, the file, line and highlighted match are shown on stderr with the prompt `[y]es [n]o [a]ll in file [s]kip file [q]uit`; `q` writes the accepted changes and exits. The file is re-read before it is written, and left alone if it changed meanwhile. Without a terminal and without `--apply`: suggestions are printed and the exit code is 2 if there are any. With `--apply`: every suggestion is applied.
 
 Neither `link` nor `link --suggest` rewrites a heading.
 
@@ -34,7 +34,7 @@ A term is one file under `term/`, carrying `title`, `formerly` and `named_by` in
 
 A repository with no `term/` directory has no glossary, which is valid: L15 and term link resolution are skipped.
 
-`archdoc glossary` regenerates the page and `--check` fails when it is out of date, as `archdoc index` does for `INDEX.md`.
+`archdoc glossary` regenerates the page. `--check` and `--json` behave as they do on `archdoc index`, against `GLOSSARY.md`: `--check` fails when the page is out of date, `--check --json` reports that as a single finding and prints `[]` on a match, and `--json` without `--check` is a usage error.
 
 `archdoc term` manages the files:
 

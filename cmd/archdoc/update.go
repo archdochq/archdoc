@@ -62,7 +62,7 @@ func newUpdateCommand() *cobra.Command {
 				fmt.Fprint(out, unifiedDiff(f.rel, string(have), string(f.want)))
 			}
 			for _, note := range notes {
-				fmt.Fprintln(out, note)
+				fmt.Fprintln(cmd.ErrOrStderr(), note)
 			}
 			if len(changed) == 0 {
 				fmt.Fprintln(out, "everything ArchDoc generates is already current")

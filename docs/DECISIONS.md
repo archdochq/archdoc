@@ -346,6 +346,12 @@ the result can delete content it never read.
 - **Findings are printed relative to `root`**, so output does not depend on the working directory. JSON
   output is a bare array, progress notices go to stderr, and `--json` therefore puts the array and
   nothing else on stdout.
+- **`link --suggest` asks its questions on stderr.** Under `--json` stdout is owed one JSON array, and
+  with stdout redirected the person answering is reading the terminal, which stderr still reaches. The
+  questions were on stdout, which put them in the redirected file ahead of the array.
+- **`--json` without `--check` is a usage error on `index` and `glossary`.** `--json` shapes the
+  findings of `--check`, and there are none without it. The flag was ignored, so a script asking for
+  JSON was given the name of the file written.
 - **Commands take their writer from cobra** rather than carrying one through every signature, so a test
   reads what a command wrote instead of capturing the process's streams.
 

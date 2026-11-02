@@ -5,7 +5,7 @@ includes: [RFC-0011]
 
 # Index
 
-`archdoc index` generates `INDEX.md` under `root` and prints the path written. With `--check`, it generates to memory, prints a unified diff where the result differs from the file on disk, and exits 2; where they match it prints nothing and exits 0. With `--json`, a difference is reported as a single finding against `INDEX.md` and no diff is printed.
+`archdoc index` generates `INDEX.md` under `root` and prints the path written. With `--check`, it generates to memory and compares the result with the file on disk: where they differ it prints a unified diff and exits 2, and where they match it exits 0, printing nothing, or `[]` under `--json`. With `--json`, a difference is reported as a single finding against `INDEX.md` and no diff is printed. `--json` without `--check` is a usage error.
 
 ## Format
 
