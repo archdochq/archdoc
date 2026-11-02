@@ -159,15 +159,25 @@ would have to round-trip everything it parsed.
   keeps a code span's content, drops tags, emphasis underscores and images, and reads reference links
   and nested brackets, and the slug keeps the marks, letter numbers and connector punctuation
   github-slugger keeps. Each was a heading whose link worked on GitHub and failed L17, or the reverse,
-  and `link` wrote the wrong anchor into a glossary link.
+  and `link` wrote the wrong anchor into a glossary link. An underscore run is emphasis only where it
+  pairs, the runs of `*`, `_` and `~` paired as cmark-gfm pairs them: dropping every run that flanked a
+  word gave `## The _id field` the anchor `the-id-field`, where GitHub's is `the-_id-field`. A
+  reference link is a link only where the document defines its label, and text otherwise. A heading is
+  rendered as written, so a comment in it leaves the space beside it. Of the numbers, the slug keeps
+  decimal digits and letter numbers and drops the rest, such as `²` and `½`, as github-slugger does.
 - **A link names an anchor a document holds explicitly as well as its headings'.** L17 read `<a id>`
   only in files that are not documents, so a document's own explicit anchor was a target nowhere.
   Explicit anchors are read outside comments and code, and in HTML blocks, in single or double quotes.
+  A comment within an HTML block is unmasked, so it is removed before an anchor is read from the block,
+  and an anchor's entities are resolved, as a browser reads both.
 - **Link destinations are read in every form CommonMark allows and written in one.** `Document.Links`
   understands a bare destination, the `<...>` form and a link reference definition, and percent-decodes
   before comparing against a path on disk. `repo.LinkDestination` percent-encodes on the way out. The
   two are inverses, and encoding rather than escaping avoids the interaction where a path's own
-  backslash pairs with an added one and lets the destination close early.
+  backslash pairs with an added one and lets the destination close early. What follows the destination
+  is a title in `"..."`, `'...'` or `(...)` or nothing, and an empty destination is one, as cmark-gfm
+  reads them: anything up to a `)` was taken as a title, so `[a](x y.md)`, which GitHub renders as
+  text, was a link to `x`.
 - **Link text is read across a paragraph by a scanner, not a pattern.** A pattern matched one line at a
   time with `[^\]]*` for the text, so link text wrapped across lines, a linked image and brackets in the
   text were not links, and L17, `export`, `term remove` and `renumber` all passed over them. The scanner

@@ -334,6 +334,7 @@ func (d *Document) parse(source []byte) {
 	block, body, bodyLine, ok := splitFrontMatter(source)
 	d.Body, d.BodyLine = string(body), bodyLine
 	d.headings = parseHeadings(d.Body, d.BodyLine)
+	d.anchorHeadings()
 	if !ok {
 		d.Problems = append(d.Problems, Problem{Line: 1, Message: "no front matter block"})
 		return
