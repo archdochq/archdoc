@@ -165,6 +165,7 @@ func TestLinksAreReadWhereCommonMarkReadsThem(t *testing.T) {
 		"a comment block ends a commented paragraph":        {"Text <!-- x\n<!-- y -->\n[z](b.md)\n", []string{"b.md"}},
 		"a commented paragraph continues lazily in a quote": {"> Text <!-- x\ny --> [z](b.md)\n", []string{"b.md"}},
 		"a commented paragraph continues indented":          {"Text <!-- a\nb -->\n    more [x](a.md)\n", []string{"a.md"}},
+		"a comment four spaces in, then an indented line":   {"Text\n    <!-- a\nb -->\n    more [x](a.md)\n", []string{"a.md"}},
 		// A comment block ends with the container holding it.
 		"a comment block in a quote":                {"> <!-- note\n\n## Later\n\n[x](a.md)\n", []string{"a.md"}},
 		"a comment block in a list item":            {"- <!-- TODO\n\nAfter [x](a.md)\n", []string{"a.md"}},
@@ -215,6 +216,7 @@ func TestLinksAreReadWhereCommonMarkReadsThem(t *testing.T) {
 		"a tab after a list marker in a quote":                 {"> -\tfoo\n>\n>       [x](a.md)\n", nil},
 		"a line three spaces in":                               {"   [x](a.md)\n", []string{"a.md"}},
 		"a list item continued in a quote":                     {"> - a\n>\n>      [x](a.md)\n", []string{"a.md"}},
+		"a blank line ends a quote holding a list item":        {"> - a\n\n>     x [x](a.md)\n", nil},
 		"a tab continuing a nested list item":                  {"- a\n  1. b\n\n  \t    [x](a.md)\n", []string{"a.md"}},
 		"code after a fence that interrupted a paragraph":      {"a\n```\nb\n```\n    [x](a.md)\n", nil},
 		"code after a heading":                                 {"## H\n    [x](a.md)\n", nil},
@@ -241,13 +243,14 @@ func TestLinksAreReadWhereCommonMarkReadsThem(t *testing.T) {
 		"a tab continuing a list item":                         {"- a\n\n\t[x](a.md)\n", []string{"a.md"}},
 		"a tilde line in a backtick fence":                     {"```\n~~~\n[x](a.md)\n```\n", nil},
 		// Code spans and comment markers within a paragraph.
-		"a code span into an HTML block":          {"A `x [a](a.md)\n<div>\nb`\n</div>\n", []string{"a.md"}},
-		"a code span across a blank line":         {"A `x\n\n[a](a.md) b`\n", []string{"a.md"}},
-		"a code span from a heading":              {"## A `x\n[a](a.md) b`\n", []string{"a.md"}},
-		"a code span across a quote's blank line": {"> A `x\n>\n> [a](a.md) b`\n", []string{"a.md"}},
-		"a code span after the marker":            {"Text <!-- [a](a.md) `x` -->\n", nil},
-		"a marker in a code span":                 {"A `<!--` [a](a.md) -->\n", []string{"a.md"}},
-		"an escaped backslash before the marker":  {"Write \\\\<!-- [a](a.md) -->\n", nil},
+		"a code span into an HTML block":              {"A `x [a](a.md)\n<div>\nb`\n</div>\n", []string{"a.md"}},
+		"a code span across a blank line":             {"A `x\n\n[a](a.md) b`\n", []string{"a.md"}},
+		"a code span from a heading":                  {"## A `x\n[a](a.md) b`\n", []string{"a.md"}},
+		"a code span across a quote's blank line":     {"> A `x\n>\n> [a](a.md) b`\n", []string{"a.md"}},
+		"a code span after the marker":                {"Text <!-- [a](a.md) `x` -->\n", nil},
+		"a marker in a code span":                     {"A `<!--` [a](a.md) -->\n", []string{"a.md"}},
+		"a code span closing before one across lines": {"A `x` b `<!-- c\nd` [a](a.md) -->\n", []string{"a.md"}},
+		"an escaped backslash before the marker":      {"Write \\\\<!-- [a](a.md) -->\n", nil},
 		// A definition counts only where a paragraph could start.
 		"a definition after code under a heading":      {"## H\n    code\n\n[a]: b.md\n", []string{"b.md"}},
 		"a definition after code and a line of spaces": {"## H\n    code\n    \n[a]: b.md\n", []string{"b.md"}},
@@ -257,6 +260,17 @@ func TestLinksAreReadWhereCommonMarkReadsThem(t *testing.T) {
 				t.Errorf("links = %q, want %q in:\n%s", got, c.want, c.body)
 			}
 		})
+	}
+}
+
+// TestLinkTextAcrossACRLFCodeSpanReadsAsLF: masking a code span keeps the
+// carriage return ending each line it crosses, so the text of a link holding
+// one is the same in a CRLF file as in an LF one.
+func TestLinkTextAcrossACRLFCodeSpanReadsAsLF(t *testing.T) {
+	lf := page(t, "[a `x\ny` b](a.md)\n").Links()
+	crlf := page(t, "[a `x\r\ny` b](a.md)\r\n").Links()
+	if len(lf) != 1 || len(crlf) != 1 || crlf[0].Text != lf[0].Text {
+		t.Errorf("links = %+v with CRLF, want the text of %+v", crlf, lf)
 	}
 }
 
