@@ -235,6 +235,7 @@ var Rules = []Rule{
 		Remedy:  "Fix the front matter",
 		Since:   "v0.1.0-alpha.1",
 		Changes: []Change{
+			{Release: "v0.6.0", Summary: "Reports an unknown status at the `status` line rather than line 1"},
 			{Release: "v0.6.0", Summary: "Reads a group's front matter, and reports an `as_of` left empty"},
 			{Release: "v0.6.0", Summary: "Reports a warning rather than an error in a frozen document"},
 			{Release: "v0.6.0", Summary: "Reports invalid YAML once, at the line it stops being valid, with no key reported missing, and an empty list item"},
@@ -248,6 +249,7 @@ var Rules = []Rule{
 		Remedy:  "Rename the file, or correct `id`",
 		Since:   "v0.1.0-alpha.1",
 		Changes: []Change{
+			{Release: "v0.6.0", Summary: "Reports an `id` that differs from the filename at the `id` line rather than line 1"},
 			{Release: "v0.6.0", Summary: "Reports a warning rather than an error in a frozen document"},
 			{Release: "v0.6.0", Summary: "Does not compare an `id` that did not parse"},
 		},
@@ -268,7 +270,9 @@ var Rules = []Rule{
 		Remedy:  "Create the document, or correct the reference or the group's list",
 		Since:   "v0.1.0-alpha.1",
 		Changes: []Change{
+			{Release: "v0.6.0", Summary: "Reports a reference at its field's line rather than line 1"},
 			{Release: "v0.6.0", Summary: "Reports a group member that resolves to nothing, or is listed twice"},
+			{Release: "v0.6.0", Summary: "Reports a term's `named_by` that names no document"},
 		},
 	},
 	{
@@ -278,6 +282,10 @@ var Rules = []Rule{
 		Summary: "`updates`/`obsoletes` targets something not accepted, of the wrong type, or itself, or one document appears in both",
 		Remedy:  "Accept the target, or correct the list",
 		Since:   "v0.1.0-alpha.1",
+		Changes: []Change{
+			{Release: "v0.6.0", Summary: "Reports each finding at its field's line rather than line 1"},
+			{Release: "v0.6.0", Summary: "Names a target's type with its article, as `an ADR` rather than `a adr`"},
+		},
 	},
 	{
 		Code:    "L06",
@@ -286,6 +294,9 @@ var Rules = []Rule{
 		Summary: "`includes` targets something not accepted",
 		Remedy:  "Accept the target, or remove it from the page",
 		Since:   "v0.1.0-alpha.1",
+		Changes: []Change{
+			{Release: "v0.6.0", Summary: "Reports a target that is not accepted at the `includes` line rather than line 1"},
+		},
 	},
 	{
 		Code:    "L07",
@@ -295,6 +306,7 @@ var Rules = []Rule{
 		Remedy:  "Correct the dates",
 		Since:   "v0.1.0-alpha.1",
 		Changes: []Change{
+			{Release: "v0.6.0", Summary: "Reports a fault in `decided` at the `decided` line rather than line 1"},
 			{Release: "v0.6.0", Summary: "Reports a ref's `as_of` after its `verified`"},
 			{Release: "v0.6.0", Summary: "Reports a warning rather than an error in a frozen document"},
 			{Release: "v0.6.0", Summary: "Does not check the status against an empty one"},
@@ -355,6 +367,7 @@ var Rules = []Rule{
 		Remedy:  "Update the page and its `includes`",
 		Since:   "v0.1.0-alpha.1",
 		Changes: []Change{
+			{Release: "v0.6.0", Summary: "Reports a stale page at the `includes` line rather than line 1"},
 			{Release: "v0.6.0", Summary: "Names each obsolete document once"},
 		},
 	},
@@ -366,6 +379,7 @@ var Rules = []Rule{
 		Remedy:  "Re-check the content, then update `verified`. A record of an exchange carries `as_of` instead",
 		Since:   "v0.1.0-alpha.1",
 		Changes: []Change{
+			{Release: "v0.6.0", Summary: "Reports a stale ref at the `verified` line rather than line 1"},
 			{Release: "v0.6.0", Summary: "Does not report a ref carrying `as_of`"},
 		},
 	},
@@ -406,6 +420,13 @@ var Rules = []Rule{
 		Summary: "A relative link points at a missing file or heading, or leaves the repository",
 		Remedy:  "Fix the path or the anchor",
 		Since:   "v0.1.0-alpha.1",
+		Changes: []Change{
+			{Release: "v0.6.0", Summary: "Reports a link as leaving the repository only past the git repository holding `root`, where there is one, not past `root` itself"},
+			{Release: "v0.6.0", Summary: "Skips a destination with a URI scheme, such as `tel:`, or a leading `/`, which it reported as not existing"},
+			{Release: "v0.6.0", Summary: "Matches each component of a path in its exact case"},
+			{Release: "v0.6.0", Summary: "Slugs a heading's anchor as GitHub does, from its rendered text, and reads a document's explicit anchors"},
+			{Release: "v0.6.0", Summary: "Reads a link reference definition directly under a heading or block, and balanced or escaped parentheses in a bare destination"},
+		},
 	},
 	{
 		Code:    "L18",
@@ -414,6 +435,9 @@ var Rules = []Rule{
 		Summary: "`depends` names a document that is not accepted, other than one sharing the referring document's non-terminal status (warning)",
 		Remedy:  "Usually accept the dependency first",
 		Since:   "v0.1.0-alpha.1",
+		Changes: []Change{
+			{Release: "v0.6.0", Summary: "Reports a dependency at the `depends` line rather than line 1"},
+		},
 	},
 	{
 		Code:    "L19",

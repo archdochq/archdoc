@@ -365,14 +365,43 @@ func TestL12NamesEachObsoleteDocumentOnce(t *testing.T) {
 
 func TestTheRegistryRecordsEachRuleV060Changed(t *testing.T) {
 	// A rule that reports differently in a release says so in its changes,
-	// which the reference publishes.
-	changed := []string{"L01", "L02", "L04", "L07", "L08", "L09", "L10", "L12", "L13", "L15", "L16"}
+	// which the reference publishes. Each of v0.6.0's entries is named by a
+	// phrase of its text, so deleting one, or a rule's last, turns this red,
+	// and a rule absent here records no change in v0.6.0.
+	changed := map[string][]string{
+		"L01": {"unknown status at the `status` line", "group's front matter", "frozen document", "invalid YAML once"},
+		"L02": {"`id` that differs from the filename at the `id` line", "frozen document", "`id` that did not parse"},
+		"L04": {"reference at its field's line", "group member", "term's `named_by`"},
+		"L05": {"each finding at its field's line", "with its article"},
+		"L06": {"at the `includes` line"},
+		"L07": {"fault in `decided` at the `decided` line", "`as_of` after its `verified`", "frozen document", "against an empty one"},
+		"L08": {"`Open questions` or `Changelog`", "frozen document"},
+		"L09": {"frozen document"},
+		"L10": {"group's H1", "frozen document", "title or `id` that did not parse"},
+		"L11": {"merge base"},
+		"L12": {"stale page at the `includes` line", "each obsolete document once"},
+		"L13": {"stale ref at the `verified` line", "ref carrying `as_of`"},
+		"L15": {"blocks to the end of the file"},
+		"L16": {"heading, in a frozen document"},
+		"L17": {"holding `root`", "URI scheme", "exact case", "as GitHub does", "link reference definition"},
+		"L18": {"at the `depends` line"},
+	}
 	for _, r := range lint.Rules {
-		if !slices.Contains(changed, r.Code) {
+		var recorded []string
+		for _, c := range r.Changes {
+			if c.Release == "v0.6.0" {
+				recorded = append(recorded, c.Summary)
+			}
+		}
+		want := changed[r.Code]
+		if len(recorded) != len(want) {
+			t.Errorf("%s records %d changes in v0.6.0, want %d: %q", r.Code, len(recorded), len(want), recorded)
 			continue
 		}
-		if !slices.ContainsFunc(r.Changes, func(c lint.Change) bool { return c.Release == "v0.6.0" }) {
-			t.Errorf("%s records no change in v0.6.0", r.Code)
+		for i, phrase := range want {
+			if !strings.Contains(recorded[i], phrase) {
+				t.Errorf("%s's v0.6.0 change %d is %q, want one naming %q", r.Code, i+1, recorded[i], phrase)
+			}
 		}
 	}
 }
@@ -381,6 +410,8 @@ func TestL05NamesTheTargetsTypeWithItsArticle(t *testing.T) {
 	r := repotest.New(t, map[string]string{
 		"adr/0001-a.md": "---\nid: ADR-0001\ntitle: A\nstatus: accepted\ncreated: 2026-01-01\ndecided: 2026-01-02\ndepends: []\nupdates: []\nobsoletes: []\n---\n\n# ADR-0001: A\n",
 		"rfc/0001-b.md": "---\nid: RFC-0001\ntitle: B\nstatus: draft\ncreated: 2026-01-01\ndecided:\ndepends: []\nupdates: [ADR-0001]\nobsoletes: []\n---\n\n# RFC-0001: B\n",
+		"adr/0002-c.md": "---\nid: ADR-0002\ntitle: C\nstatus: draft\ncreated: 2026-01-01\ndecided:\ndepends: []\nupdates: [RFC-0001]\nobsoletes: [REF-0001]\n---\n\n# ADR-0002: C\n",
+		"ref/0001-d.md": "---\nid: REF-0001\ntitle: D\nverified: 2026-01-01\n---\n\n# REF-0001: D\n",
 	})
 	var said []string
 	for _, f := range lint.Run(lint.NewContext(r, nil, now)) {
@@ -388,7 +419,11 @@ func TestL05NamesTheTargetsTypeWithItsArticle(t *testing.T) {
 			said = append(said, f.Message)
 		}
 	}
-	want := []string{"updates references ADR-0001, which is an ADR: only documents of the same type may be updated or obsoleted"}
+	want := []string{
+		"updates references RFC-0001, which is an RFC: only documents of the same type may be updated or obsoleted",
+		"obsoletes references REF-0001, which is a ref: only documents of the same type may be updated or obsoleted",
+		"updates references ADR-0001, which is an ADR: only documents of the same type may be updated or obsoleted",
+	}
 	if !slices.Equal(said, want) {
 		t.Errorf("L05 said %q, want %q", said, want)
 	}
