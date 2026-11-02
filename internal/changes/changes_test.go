@@ -46,13 +46,19 @@ func gitIn(t *testing.T, dir string, args ...string) {
 // repository under spec/ so that every path is translated through a prefix.
 func committed(t *testing.T, files map[string]string) string {
 	t.Helper()
+	return committedUnder(t, "spec", files)
+}
+
+// committedUnder is committed with the spec repository under under/.
+func committedUnder(t *testing.T, under string, files map[string]string) string {
+	t.Helper()
 	dir := t.TempDir()
 	gitIn(t, dir, "init", "-q", "-b", "main")
 	gitIn(t, dir, "config", "user.email", "test@example.invalid")
 	gitIn(t, dir, "config", "user.name", "Fixture")
-	write(t, dir, "spec/archdoc.json", `{"name":"Changes","branch":"main"}`)
+	write(t, dir, under+"/archdoc.json", `{"name":"Changes","branch":"main"}`)
 	for path, contents := range files {
-		write(t, dir, filepath.Join("spec", path), contents)
+		write(t, dir, filepath.Join(under, path), contents)
 	}
 	gitIn(t, dir, "add", "-A")
 	gitIn(t, dir, "commit", "-q", "-m", "base")
@@ -61,7 +67,12 @@ func committed(t *testing.T, files map[string]string) string {
 
 func changesIn(t *testing.T, dir string) []changes.Change {
 	t.Helper()
-	c, err := config.Find(filepath.Join(dir, "spec"))
+	return changesUnder(t, dir, "spec")
+}
+
+func changesUnder(t *testing.T, dir, under string) []changes.Change {
+	t.Helper()
+	c, err := config.Find(filepath.Join(dir, under))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -199,5 +210,19 @@ func TestChangesIgnoresWhatTheBranchMergedSinceTheBranchWasCut(t *testing.T) {
 	got := changesIn(t, dir)
 	if len(got) != 1 || got[0].Path != "rfc/0003-arrives.md" || got[0].Change != changes.Arrives {
 		t.Errorf("an unrebased branch lists %+v, want only its own arrival", got)
+	}
+}
+
+func TestChangesReadsAPathAsANameNotAPathspec(t *testing.T) {
+	// A directory beginning with ":" is pathspec magic to git, and a newline
+	// ends a line of a request; both are ordinary in a file name.
+	dir := committedUnder(t, ":spec", map[string]string{
+		"spec/odd\nname.md": page("Odd", "Before."),
+	})
+	write(t, dir, ":spec/spec/odd\nname.md", page("Odd", "After."))
+
+	got := changesUnder(t, dir, ":spec")
+	if len(got) != 1 || got[0].Path != "spec/odd\nname.md" || got[0].Change != "edited" {
+		t.Errorf("changes = %+v, want the page edited", got)
 	}
 }

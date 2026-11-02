@@ -344,7 +344,7 @@ func (w *questionWalk) checkQuotes(s span) {
 			case IsHeading(content):
 				w.report(i, "a blockquote in a question section holds a heading")
 				continue
-			case fencePattern.MatchString(content):
+			case fenceOpens(content):
 				m := fencePattern.FindStringSubmatch(content)
 				fenceChar, fenceLen = m[1][0], len(m[1])
 				w.report(i, "a blockquote in a question section holds a fenced code block")
