@@ -71,6 +71,24 @@ func TestBranchExistsDistinguishesAMissingBranch(t *testing.T) {
 	}
 }
 
+func TestBranchExistsIsNotAnsweredByATag(t *testing.T) {
+	dir := newRepo(t)
+	commit(t, dir, "a.md", "a\n")
+	cmd := exec.Command("git", "tag", "release")
+	cmd.Dir = dir
+	if out, err := cmd.CombinedOutput(); err != nil {
+		t.Fatalf("git tag: %v\n%s", err, out)
+	}
+
+	g, err := git.Open(dir)
+	if err != nil {
+		t.Fatalf("Open: %v", err)
+	}
+	if exists, err := g.BranchExists("release"); err != nil || exists {
+		t.Errorf("BranchExists(release) = %v, %v; want false, nil for a tag alone", exists, err)
+	}
+}
+
 func TestCurrentBranchNamesTheCheckedOutBranch(t *testing.T) {
 	dir := newRepo(t)
 	commit(t, dir, "a.md", "a\n")

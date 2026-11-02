@@ -496,6 +496,11 @@ the result can delete content it never read.
   the working tree's, git is asked how it spells it, as a case, normalisation or symbolic link
   difference matched nothing. `branch` is the working tree's: the base is found through it, so no
   other copy can be trusted to name it, and a pull request could edit the workflow instead.
+- **The branch is named to git in full.** A bare name resolves to `$GIT_DIR/<name>`, then a tag, before
+  `refs/heads/<name>`, so a tag named like the branch, or a branch named `FETCH_HEAD`, had L11, the
+  merge rules and `changes` judge against the wrong commit. The branch is read as
+  `refs/heads/<branch>`, or `refs/remotes/origin/<branch>` where there is no local one, and a commit
+  such as the merge base is passed as given.
 - **A missing branch is two different situations.** With no commits at all nothing can be frozen, so the
   rule is skipped with a warning: `archdoc init` followed by `archdoc lint` is the first thing anyone
   does. With commits present a missing branch means the configured name is wrong, and passing quietly

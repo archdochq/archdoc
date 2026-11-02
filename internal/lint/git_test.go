@@ -885,6 +885,37 @@ func TestL16NamesTheEditThatClearsIt(t *testing.T) {
 	}
 }
 
+func TestTheBranchIsReadAheadOfARefOfTheSameName(t *testing.T) {
+	// git resolves a bare name to a tag, or to a ref it keeps in .git such as
+	// FETCH_HEAD, before a branch. Read that way, L11 judged against the
+	// proposed document below, which is not frozen, and reported nothing.
+	const path = "rfc/0001-frozen.md"
+	for _, name := range []string{"main", "FETCH_HEAD"} {
+		t.Run(name, func(t *testing.T) {
+			dir := gitFixture(t, map[string]string{path: rfc("RFC-0001", "Frozen", "proposed", "", "The design.")})
+			out, err := exec.Command("git", "-C", dir, "rev-parse", "HEAD").Output()
+			if err != nil {
+				t.Fatal(err)
+			}
+			proposed := strings.TrimSpace(string(out))
+			write(t, dir, "archdoc.json", `{"name":"Frozen","branch":"`+name+`"}`)
+			write(t, dir, path, rfc("RFC-0001", "Frozen", "accepted", " 2026-02-01", "The design."))
+			commit(t, dir, "accept")
+			if name == "main" {
+				run(t, dir, "tag", "main", proposed)
+			} else {
+				run(t, dir, "branch", name)
+				write(t, dir, ".git/FETCH_HEAD", proposed+"\n")
+			}
+			write(t, dir, path, rfc("RFC-0001", "Frozen", "accepted", " 2026-02-01", "An edit after freezing."))
+
+			if got := findingsFor(lintDir(t, dir), "L11", path); len(got) != 1 {
+				t.Errorf("want one L11 finding against the branch %s, got %v", name, got)
+			}
+		})
+	}
+}
+
 // cutBranch commits files on main, cuts feature from it, commits onFeature
 // there, then commits onMain on main after the cut and checks feature out.
 // Empty contents delete the path.
