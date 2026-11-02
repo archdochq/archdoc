@@ -20,12 +20,13 @@ Findings are printed relative to `root`. Errors fail the build; warnings do not,
 **A warning on a frozen document is not a task.** It is a record of something that can no
 longer be repaired.
 
-Documents whose status is `accepted`, `rejected` or `withdrawn` are frozen, and lint fails on
-any change to one. (PROCESS.md, Lifecycle) A fault inside such a document is reported as a *warning* precisely because
+A document is frozen once it is on the configured branch with a status of `accepted`, `rejected`
+or `withdrawn`, and lint fails on any change to one. (PROCESS.md, Lifecycle) A fault inside such a document is reported as a *warning* precisely because
 no permitted edit could clear it. Editing the document to silence the warning trades a warning
 for an L11 error, which is strictly worse.
 
-This applies to L14, L16, L17, L20 and L21 when the named document is frozen. Leave them. If the content
+This applies to L01, L02, L07, L08, L09, L10, L14, L16, L17, L20 and L21 when the named document
+is frozen. Leave them. If the content
 is genuinely wrong, write a new document that `updates` the frozen one.
 
 ## Which document to edit

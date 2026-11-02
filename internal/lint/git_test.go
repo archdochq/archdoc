@@ -737,6 +737,103 @@ func TestL20AndL21SoftenToWarningsOnAFrozenDocument(t *testing.T) {
 	}
 }
 
+func TestFrontMatterAndStructureFaultsSoftenToWarningsOnAFrozenDocument(t *testing.T) {
+	// L01, L02 and L07 to L10 report faults that only an edit to the document
+	// could clear, so on a frozen document they are warnings, as the body
+	// rules are. Each case is one fault site in its own document, so a site
+	// left reporting an error is named. A fault only a status changed after
+	// freezing can produce is written to the working tree as an edit, which
+	// L11 reports.
+	base := func(id string) string {
+		return rfc(id, "Frozen", "accepted", " 2026-02-01", "Words.")
+	}
+	cases := []struct {
+		path, rule, message, contents string
+	}{
+		{"rfc/0001-unknown.md", "L01", `unknown front matter field "extra"`,
+			strings.Replace(base("RFC-0001"), "depends: []", "depends: []\nextra: x", 1)},
+		{"rfc/0002-duplicate.md", "L01", "obsoletes",
+			strings.Replace(base("RFC-0002"), "obsoletes: []", "obsoletes: []\nobsoletes: []", 1)},
+		{"rfc/0003-missing.md", "L01", `missing required front matter key "obsoletes"`,
+			strings.Replace(base("RFC-0003"), "obsoletes: []\n", "", 1)},
+		{"rfc/0004-empty.md", "L01", `front matter key "created" is present but empty`,
+			strings.Replace(base("RFC-0004"), "created: 2026-01-01", "created:", 1)},
+		{"rfc/0005-id.md", "L02", `id is "RFC-0099" but the filename gives "RFC-0005"`,
+			strings.Replace(base("RFC-0005"), "id: RFC-0005", "id: RFC-0099", 1)},
+		{"rfc/unnumbered.md", "L02", "filename does not match", base("RFC-0006")},
+		{"rfc/0000-zero.md", "L02", "filename number is 0000", base("RFC-0000")},
+		{"rfc/0008-undecided.md", "L07", "status is accepted but decided is not set",
+			rfc("RFC-0008", "Frozen", "accepted", "", "Words.")},
+		{"rfc/0009-backfilled.md", "L07", "backfilled 2026-01-15 is before decided 2026-02-01",
+			strings.Replace(base("RFC-0009"), "depends: []", "backfilled: 2026-01-15\ndepends: []", 1)},
+		{"rfc/0010-early.md", "L07", "decided 2025-12-01 is before created 2026-01-01",
+			rfc("RFC-0010", "Frozen", "accepted", " 2025-12-01", "Words.")},
+		{"rfc/0011-section.md", "L08", `missing required section "Motivation"`,
+			strings.Replace(base("RFC-0011"), "## Motivation\n\nTo exercise L11 and L14 together.\n\n", "", 1)},
+		{"rfc/0012-order.md", "L08", `section "Motivation" appears before "Abstract"`,
+			strings.Replace(base("RFC-0012"), "## Abstract", "## Motivation\n\nFirst.\n\n## Abstract", 1)},
+		{"rfc/0013-rationale.md", "L08", `"Rejection rationale" is present but the status is accepted`,
+			strings.Replace(base("RFC-0013"), "## Open questions", "## Rejection rationale\n\nWords.\n\n## Open questions", 1)},
+		{"rfc/0014-open.md", "L09", `must have an empty "Open questions" section`,
+			strings.Replace(base("RFC-0014"), "## Open questions\n", "## Open questions\n\n### Is it?\n", 1)},
+		{"rfc/0015-heading.md", "L10", `H1 is "RFC-0015: Other"`,
+			strings.Replace(base("RFC-0015"), "# RFC-0015: Frozen", "# RFC-0015: Other", 1)},
+		{"rfc/0016-no-heading.md", "L10", "the first heading must be an H1",
+			strings.Replace(base("RFC-0016"), "# RFC-0016: Frozen\n", "", 1)},
+		{"rfc/0017-closing.md", "L08", `"Rejection rationale" must be the last H2`,
+			strings.Replace(rfc("RFC-0017", "Frozen", "rejected", " 2026-02-01", "Words."),
+				"## Open questions", "## Rejection rationale\n\nWords.\n\n## Open questions", 1)},
+		{"rfc/0018-status.md", "L01", `status "final" is not one of`, base("RFC-0018")},
+		{"rfc/0019-reopened.md", "L07", "decided is set but status is proposed", base("RFC-0019")},
+		{"rfc/0020-backfilled.md", "L07", "backfilled is set but status is proposed",
+			strings.Replace(base("RFC-0020"), "depends: []", "backfilled: 2026-03-01\ndepends: []", 1)},
+	}
+	files := map[string]string{}
+	for _, c := range cases {
+		files[c.path] = c.contents
+	}
+	// The status each of the last three is given after freezing.
+	edits := map[string]string{
+		"rfc/0018-status.md":     "final",
+		"rfc/0019-reopened.md":   "proposed",
+		"rfc/0020-backfilled.md": "proposed",
+	}
+
+	for _, frozen := range []bool{true, false} {
+		var dir string
+		want := lint.Warning
+		if frozen {
+			dir = gitFixture(t, files)
+		} else {
+			// Committed with nothing, so every document is new and editable.
+			dir = gitFixture(t, nil)
+			for path, contents := range files {
+				write(t, dir, path, contents)
+			}
+			want = lint.Error
+		}
+		for path, status := range edits {
+			write(t, dir, path, strings.Replace(files[path], "status: accepted", "status: "+status, 1))
+		}
+		findings := lintDir(t, dir)
+		for _, c := range cases {
+			var found bool
+			for _, f := range findingsFor(findings, c.rule, c.path) {
+				if !strings.Contains(f.Message, c.message) {
+					continue
+				}
+				found = true
+				if f.Severity != want {
+					t.Errorf("%s on %s (frozen %t) is a %s, want a %s: %s", c.rule, c.path, frozen, f.Severity, want, f.Message)
+				}
+			}
+			if !found {
+				t.Errorf("%s reported nothing on %s (frozen %t) matching %q", c.rule, c.path, frozen, c.message)
+			}
+		}
+	}
+}
+
 // cutBranch commits files on main, cuts feature from it, commits onFeature
 // there, then commits onMain on main after the cut and checks feature out.
 // Empty contents delete the path.

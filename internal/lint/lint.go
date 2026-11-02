@@ -15,8 +15,8 @@ import (
 	"archdoc.dev/internal/repo"
 )
 
-// Severity is how much a finding matters. A rule never reports an error against
-// a frozen document, because L11 forbids the edit that would clear it.
+// Severity is how much a finding matters. A finding that only an edit to a
+// frozen document could clear is a warning, because L11 forbids that edit.
 type Severity string
 
 const (
@@ -105,8 +105,8 @@ type BranchFile struct {
 }
 
 // Frozen reports whether a document has already reached the branch in a
-// terminal status, and so can no longer be edited. A rule never reports an
-// error against a frozen document, because L11 forbids the fix.
+// terminal status, and so can no longer be edited. A finding only an edit to it
+// could clear is a warning there, because L11 forbids the fix.
 func (c Context) Frozen(d *repo.Document) bool {
 	on, ok := c.branch.get()[d.Path]
 	return ok && on.Err == nil && on.Status.Terminal()
@@ -234,6 +234,9 @@ var Rules = []Rule{
 		Summary: "Front matter is malformed, has an unknown key, a required key is missing or empty, or `as_of` is empty",
 		Remedy:  "Fix the front matter",
 		Since:   "v0.1.0-alpha.1",
+		Changes: []Change{
+			{Release: "v0.6.0", Summary: "Reports a warning rather than an error in a frozen document"},
+		},
 	},
 	{
 		Code:    "L02",
@@ -242,6 +245,9 @@ var Rules = []Rule{
 		Summary: "`id` does not match the filename, or the filename is not `<NNNN>-<slug>.md`",
 		Remedy:  "Rename the file, or correct `id`",
 		Since:   "v0.1.0-alpha.1",
+		Changes: []Change{
+			{Release: "v0.6.0", Summary: "Reports a warning rather than an error in a frozen document"},
+		},
 	},
 	{
 		Code:    "L03",
@@ -282,6 +288,9 @@ var Rules = []Rule{
 		Summary: "`decided` set without a terminal status, or before `created`, backfill dates disagree, or a ref's `as_of` is after `verified`",
 		Remedy:  "Correct the dates",
 		Since:   "v0.1.0-alpha.1",
+		Changes: []Change{
+			{Release: "v0.6.0", Summary: "Reports a warning rather than an error in a frozen document"},
+		},
 	},
 	{
 		Code:    "L08",
@@ -290,6 +299,9 @@ var Rules = []Rule{
 		Summary: "A required section is missing, misnamed, out of order, or the closing section is not last",
 		Remedy:  "Add or reorder. Titles must match exactly",
 		Since:   "v0.1.0-alpha.1",
+		Changes: []Change{
+			{Release: "v0.6.0", Summary: "Reports a warning rather than an error in a frozen document"},
+		},
 	},
 	{
 		Code:    "L09",
@@ -298,6 +310,9 @@ var Rules = []Rule{
 		Summary: "An accepted document still has content under `Open questions`",
 		Remedy:  "Move each question to `Resolved questions` with its answer, and remove anything else",
 		Since:   "v0.1.0-alpha.1",
+		Changes: []Change{
+			{Release: "v0.6.0", Summary: "Reports a warning rather than an error in a frozen document"},
+		},
 	},
 	{
 		Code:    "L10",
@@ -306,6 +321,9 @@ var Rules = []Rule{
 		Summary: "The H1 does not match the front matter",
 		Remedy:  "Correct whichever is wrong",
 		Since:   "v0.1.0-alpha.1",
+		Changes: []Change{
+			{Release: "v0.6.0", Summary: "Reports a warning rather than an error in a frozen document"},
+		},
 	},
 	{
 		Code:    "L11",

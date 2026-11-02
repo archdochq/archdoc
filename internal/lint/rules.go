@@ -66,10 +66,10 @@ func L01(ctx Context) []Finding {
 		// that is not one. The message is already written, so it is added rather
 		// than formatted.
 		for _, p := range d.Problems {
-			rep.add(Error, d.Path, p.Line, p.Message)
+			rep.add(severityFor(ctx, d), d.Path, p.Line, p.Message)
 		}
 		for _, key := range d.FrontMatter.Unknown() {
-			rep.errorf(d, key.Line, "unknown front matter field %q", key.Name)
+			rep.atf(severityFor(ctx, d), d, key.Line, "unknown front matter field %q", key.Name)
 		}
 		// Whether each key was left empty. The schema says which keys must
 		// carry a value: a document with an empty `status` would otherwise be
@@ -109,14 +109,14 @@ func L01(ctx Context) []Finding {
 			has := d.FrontMatter.Has(key.Name)
 			line := d.FrontMatter.LineOf(key.Name)
 			if key.Required && !has {
-				rep.errorf(d, 1, "missing required front matter key %q", key.Name)
+				rep.atf(severityFor(ctx, d), d, 1, "missing required front matter key %q", key.Name)
 			}
 			if !key.MayBeEmpty && empty[key.Name] && has && !unparsed[line] {
-				rep.errorf(d, line, "front matter key %q is present but empty", key.Name)
+				rep.atf(severityFor(ctx, d), d, line, "front matter key %q is present but empty", key.Name)
 			}
 			if key.Name == "status" {
 				if s := string(d.FrontMatter.Status); s != "" && !slices.Contains(key.Values, s) {
-					rep.errorf(d, line, "status %q is not one of %s", s, strings.Join(key.Values, ", "))
+					rep.atf(severityFor(ctx, d), d, line, "status %q is not one of %s", s, strings.Join(key.Values, ", "))
 				}
 			}
 		}
@@ -133,14 +133,14 @@ func L02(ctx Context) []Finding {
 			continue
 		}
 		if d.ID == "" {
-			rep.errorf(d, 0, "filename does not match <NNNN>-<slug>.md, so no identifier can be derived")
+			rep.atf(severityFor(ctx, d), d, 0, "filename does not match <NNNN>-<slug>.md, so no identifier can be derived")
 			continue
 		}
 		if d.Number == 0 {
-			rep.errorf(d, 0, "filename number is 0000, but sequences start at 1")
+			rep.atf(severityFor(ctx, d), d, 0, "filename number is 0000, but sequences start at 1")
 		}
 		if got := d.FrontMatter.ID; got != d.ID {
-			rep.errorf(d, d.FrontMatter.LineOf("id"), "id is %q but the filename gives %q", got, d.ID)
+			rep.atf(severityFor(ctx, d), d, d.FrontMatter.LineOf("id"), "id is %q but the filename gives %q", got, d.ID)
 		}
 	}
 	return rep.findings
@@ -334,23 +334,23 @@ func L07(ctx Context) []Finding {
 		terminal := fm.Status.Terminal()
 		switch {
 		case terminal && fm.Decided.IsZero():
-			rep.errorf(d, d.FrontMatter.LineOf("decided"), "status is %s but decided is not set", fm.Status)
+			rep.atf(severityFor(ctx, d), d, d.FrontMatter.LineOf("decided"), "status is %s but decided is not set", fm.Status)
 		case !terminal && !fm.Decided.IsZero():
-			rep.errorf(d, d.FrontMatter.LineOf("decided"), "decided is set but status is %s, which is not terminal", fm.Status)
+			rep.atf(severityFor(ctx, d), d, d.FrontMatter.LineOf("decided"), "decided is set but status is %s, which is not terminal", fm.Status)
 		}
 		if !fm.Backfilled.IsZero() {
 			if !terminal {
-				rep.errorf(d, fm.LineOf("backfilled"),
+				rep.atf(severityFor(ctx, d), d, fm.LineOf("backfilled"),
 					"backfilled is set but status is %s: backfilling records a decision already taken", fm.Status)
 			}
 			if !fm.Decided.IsZero() && fm.Backfilled.Before(fm.Decided) {
-				rep.errorf(d, fm.LineOf("backfilled"),
+				rep.atf(severityFor(ctx, d), d, fm.LineOf("backfilled"),
 					"backfilled %s is before decided %s: a record cannot predate what it records",
 					fm.Backfilled.Format(repo.DateLayout), fm.Decided.Format(repo.DateLayout))
 			}
 		}
 		if !fm.Decided.IsZero() && !fm.Created.IsZero() && fm.Decided.Before(fm.Created) {
-			rep.errorf(d, d.FrontMatter.LineOf("decided"), "decided %s is before created %s",
+			rep.atf(severityFor(ctx, d), d, d.FrontMatter.LineOf("decided"), "decided %s is before created %s",
 				fm.Decided.Format(repo.DateLayout), fm.Created.Format(repo.DateLayout))
 		}
 	}
@@ -380,11 +380,11 @@ func L08(ctx Context) []Finding {
 		for _, want := range required {
 			at, present := position[want]
 			if !present {
-				rep.errorf(d, 0, "missing required section %q", want)
+				rep.atf(severityFor(ctx, d), d, 0, "missing required section %q", want)
 				continue
 			}
 			if at < previous {
-				rep.errorf(d, 0, "section %q appears before %q, but must come after it", want, previousName)
+				rep.atf(severityFor(ctx, d), d, 0, "section %q appears before %q, but must come after it", want, previousName)
 			}
 			if at > previous {
 				previous, previousName = at, want
@@ -398,7 +398,7 @@ func L08(ctx Context) []Finding {
 		if closing, wanted := d.ClosingSection(); wanted {
 			_, present := position[closing]
 			if present && len(titles) > 0 && titles[len(titles)-1] != closing {
-				rep.errorf(d, 0, "%q must be the last H2, but %q follows it", closing, titles[len(titles)-1])
+				rep.atf(severityFor(ctx, d), d, 0, "%q must be the last H2, but %q follows it", closing, titles[len(titles)-1])
 			}
 		}
 
@@ -407,7 +407,7 @@ func L08(ctx Context) []Finding {
 		if d.Type.HasLifecycle() {
 			_, present := position[repo.RejectionRationale]
 			if rejected := d.FrontMatter.Status == repo.StatusRejected; !rejected && present {
-				rep.errorf(d, 0, "%q is present but the status is %s", repo.RejectionRationale, d.FrontMatter.Status)
+				rep.atf(severityFor(ctx, d), d, 0, "%q is present but the status is %s", repo.RejectionRationale, d.FrontMatter.Status)
 			}
 		}
 	}
@@ -427,7 +427,7 @@ func L09(ctx Context) []Finding {
 			if section.Empty() {
 				continue
 			}
-			rep.errorf(d, section.Heading.Line, `an accepted document must have an empty "Open questions" section`)
+			rep.atf(severityFor(ctx, d), d, section.Heading.Line, `an accepted document must have an empty "Open questions" section`)
 		}
 	}
 	return rep.findings
@@ -443,11 +443,11 @@ func L10(ctx Context) []Finding {
 		}
 		h1, ok := d.H1()
 		if !ok {
-			rep.errorf(d, 0, "the first heading must be an H1 reading %q", want)
+			rep.atf(severityFor(ctx, d), d, 0, "the first heading must be an H1 reading %q", want)
 			continue
 		}
 		if h1.Text != want {
-			rep.errorf(d, h1.Line, "H1 is %q but the front matter gives %q", h1.Text, want)
+			rep.atf(severityFor(ctx, d), d, h1.Line, "H1 is %q but the front matter gives %q", h1.Text, want)
 		}
 	}
 	return rep.findings

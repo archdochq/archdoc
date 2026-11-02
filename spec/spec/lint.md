@@ -9,20 +9,20 @@ includes: [ADR-0008, ADR-0009, ADR-0010, RFC-0008, RFC-0009, RFC-0011, RFC-0013,
 
 ## Severity
 
-Every rule reports an error unless stated. A finding that no permitted edit to the named document could clear is a warning. This applies to L14, L16, L17, L20 and L21, whose subject is the document's own body, when the document is frozen. It does not apply to a fault in a relationship between documents, which is cleared by editing the other document, nor to L11.
+Every rule reports an error unless stated. A finding that no permitted edit to the named document could clear is a warning. This applies to L01, L02, L07, L08, L09, L10, L14, L16, L17, L20 and L21 when the document is frozen. It does not apply to a fault in a relationship between documents, which is cleared by editing the other document, nor to L11.
 
 ## Rules
 
-- **L01** Front matter parses and matches the schema for the type: no unknown keys, no missing required keys, no wrong types, no required key left empty, and no `as_of` left empty.
-- **L02** `id` equals the identifier derived from type and filename. The filename matches `<NNNN>-<slug>.md`.
+- **L01** Front matter parses and matches the schema for the type: no unknown keys, no missing required keys, no wrong types, no required key left empty, and no `as_of` left empty. Error in an editable document; warning in a frozen one.
+- **L02** `id` equals the identifier derived from type and filename. The filename matches `<NNNN>-<slug>.md`. Error in an editable document; warning in a frozen one.
 - **L03** No identifier appears on more than one document.
 - **L04** Every identifier in `depends`, `updates`, `obsoletes` and `includes`, and a term's `named_by`, resolves to an existing document of a permitted type. Every member of a group resolves, an identifier to an RFC, ADR or ref and any other member to a spec page, and no group lists a member twice. Each finding is reported at the line of the list. A document in no group is not reported.
 - **L05** `updates` and `obsoletes` reference only accepted documents of the same type. No document updates or obsoletes itself. No document appears in both lists of the same document.
 - **L06** `includes` references only accepted documents.
-- **L07** `decided` is set if and only if the status is terminal. `decided` is not before `created`. If `backfilled` is set, the status is terminal and `backfilled` is not before `decided`. On a ref, `as_of` is not after `verified`.
-- **L08** Required sections are present, with exact titles, in the listed relative order. Other H2 sections are permitted between or after them. `Rejection rationale` is present if and only if the document is rejected. Where the type has a closing section, it is the document's last H2.
-- **L09** An accepted document has no non-empty `Open questions` section.
-- **L10** The H1 matches the front matter.
+- **L07** `decided` is set if and only if the status is terminal. `decided` is not before `created`. If `backfilled` is set, the status is terminal and `backfilled` is not before `decided`. On a ref, `as_of` is not after `verified`. Error in an editable document; warning in a frozen one.
+- **L08** Required sections are present, with exact titles, in the listed relative order. Other H2 sections are permitted between or after them. `Rejection rationale` is present if and only if the document is rejected. Where the type has a closing section, it is the document's last H2. Error in an editable document; warning in a frozen one.
+- **L09** An accepted document has no non-empty `Open questions` section. Error in an editable document; warning in a frozen one.
+- **L10** The H1 matches the front matter. Error in an editable document; warning in a frozen one.
 - **L11** Frozen documents are unchanged. For every document whose status on `branch` is terminal, the working tree file is unchanged from the file at the merge base of HEAD and `branch`, or from the file at `branch`'s tip, as git judges it; on `branch` itself, the merge base is its tip. Each revision's documents are found under its own root, from its own `archdoc.json`, and matched to the working tree's by their path within root, so moving the root is followed. A revision's `archdoc.json` is the one at the working tree's location, or failing that its only one; where it holds neither or several, the working tree's settings stand. `branch` is always the working tree's, so a pull request changing it is judged against the branch it names. A file absent from `branch` is new and the rule does not apply. A document terminal on `branch`, present at the merge base and absent from the working tree is an error; a rename is a deletion and a new file. Where HEAD and `branch` share no commit, the rule reports an error saying a shallow clone needs its full history (`fetch-depth: 0`). With no commits, the rule is skipped with a warning. When `branch` does not exist in a repository that has commits, the rule reports an error naming the branch. Outside a git repository, the rule is skipped with a warning.
 - **L12** A spec page includes no document that is effectively obsolete. Warning.
 - **L13** A ref's `verified` date is not older than `ref_stale_days`. A ref carrying `as_of` is not reported. Warning.
