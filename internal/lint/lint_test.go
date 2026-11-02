@@ -294,6 +294,7 @@ func TestL15ReportsOtherBlocksAndProseAboveTheHeading(t *testing.T) {
 	r := repotest.New(t, map[string]string{
 		"term/widget.md": fmt.Sprintf(term, "Widget") + "\n# Widget\n\nThe definition.\n## Aside\n- a list\n",
 		"term/gadget.md": fmt.Sprintf(term, "Gadget") + "\nAbove.\n\n# Gadget\n\nThe definition.\n",
+		"term/gizmo.md":  fmt.Sprintf(term, "Gizmo") + "\n# Gizmo\n\nOne.\n\nTwo.\n> quoted\n",
 	})
 	var got []string
 	for _, f := range lint.Run(lint.NewContext(r, nil, now)) {
@@ -303,7 +304,8 @@ func TestL15ReportsOtherBlocksAndProseAboveTheHeading(t *testing.T) {
 	}
 	want := []string{
 		`term/gadget.md:7: term "Gadget" has prose above its H1, where nothing is read as its definition`,
-		`term/widget.md:7: term "Widget" has 1 paragraphs and 2 other blocks, want exactly one paragraph`,
+		`term/gizmo.md:7: term "Gizmo" has 2 paragraphs and 1 other block, want exactly one paragraph`,
+		`term/widget.md:7: term "Widget" has 1 paragraph and 2 other blocks, want exactly one paragraph`,
 	}
 	if !slices.Equal(got, want) {
 		t.Errorf("L15 reported\n%s\nwant\n%s", strings.Join(got, "\n"), strings.Join(want, "\n"))
@@ -337,6 +339,43 @@ func TestAnUnreadFrontMatterValueIsReportedOnce(t *testing.T) {
 		`adr/0003-z.md:2: id: cannot unmarshal !!seq into string`,
 		`adr/0004-w.md:4: front matter key "status" is present but empty`,
 		`spec/tab.md:4: front matter is not valid YAML: found character that cannot start any token`,
+	}
+	if !slices.Equal(got, want) {
+		t.Errorf("got\n%s\nwant\n%s", strings.Join(got, "\n"), strings.Join(want, "\n"))
+	}
+}
+
+func TestAFaultInOneKeyIsReportedOnce(t *testing.T) {
+	// L01 reports a date that did not parse, a block that never closed, and
+	// a title or id missing or empty. A rule comparing against what is left
+	// in its place reports the same fault again.
+	adr := func(n, frontMatter string) string {
+		return "---\n" + frontMatter + "status: accepted\ncreated: 2026-01-01\ndepends: []\nupdates: []\nobsoletes: []\n---\n\n# ADR-" + n + ": X\n"
+	}
+	r := repotest.New(t, map[string]string{
+		"adr/0001-a.md": adr("0001", "id: ADR-0001\ntitle: X\ndecided: notadate\n"),
+		"adr/0002-b.md": strings.TrimSuffix(adr("0002", "id: ADR-0002\ntitle: X\ndecided: 2026-01-02\n"), "---\n\n# ADR-0002: X\n") + "\n# ADR-0002: X\n",
+		"adr/0003-c.md": adr("0003", "title: X\ndecided: 2026-01-02\n"),
+		"adr/0004-d.md": adr("0004", "id:\ntitle: X\ndecided: 2026-01-02\n"),
+		"adr/0005-e.md": adr("0005", "id: ADR-0005\ntitle:\ndecided: 2026-01-02\n"),
+		"spec/page.md":  "---\ntitle:\nincludes: []\n---\n\n# Page\n",
+		"ref/0001-r.md": "---\nid: REF-0001\ntitle: R\nverified: 2026-01-01\nas_of: 2026-02-0x\n---\n\n# REF-0001: R\n",
+	})
+	var got []string
+	for _, f := range lint.Run(lint.NewContext(r, nil, now)) {
+		if slices.Contains([]string{"L01", "L02", "L07", "L10", "L13"}, f.Rule) {
+			got = append(got, fmt.Sprintf("%s:%d: %s", f.Path, f.Line, f.Message))
+		}
+	}
+	slices.Sort(got)
+	want := []string{
+		`adr/0001-a.md:4: decided: "notadate" is not an ISO 8601 date`,
+		`adr/0002-b.md:1: no front matter block`,
+		`adr/0003-c.md:1: missing required front matter key "id"`,
+		`adr/0004-d.md:2: front matter key "id" is present but empty`,
+		`adr/0005-e.md:3: front matter key "title" is present but empty`,
+		`ref/0001-r.md:5: as_of: "2026-02-0x" is not an ISO 8601 date`,
+		`spec/page.md:2: front matter key "title" is present but empty`,
 	}
 	if !slices.Equal(got, want) {
 		t.Errorf("got\n%s\nwant\n%s", strings.Join(got, "\n"), strings.Join(want, "\n"))
@@ -1248,5 +1287,16 @@ func TestL17ReportsALinkDifferingOnlyInCase(t *testing.T) {
 	})
 	if len(got) != 2 || !strings.Contains(got[0], `"B.md" does not exist`) || !strings.Contains(got[1], `"Img/x.png" does not exist`) {
 		t.Errorf("findings = %q, want B.md and Img/x.png reported missing", got)
+	}
+}
+
+// TestL17FindsTheRootALinkNames: a link up to root names a directory that is
+// there, though no directory listing holds ".".
+func TestL17FindsTheRootALinkNames(t *testing.T) {
+	got := l17Messages(t, map[string]string{
+		"spec/a.md": "---\ntitle: A\nincludes: []\n---\n\n# A\n\nSee [the root](..) and [again](../).\n",
+	})
+	if len(got) != 0 {
+		t.Errorf("findings = %q, want none", got)
 	}
 }

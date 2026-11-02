@@ -55,7 +55,8 @@ func Add(r *repo.Repo, term, definition, namedBy string) (docPath string, source
 		return "", nil, err
 	}
 	if !entry.Defined() {
-		return "", nil, fmt.Errorf("the definition reads as %d paragraphs and %d other blocks, and a term has exactly one paragraph", len(entry.Paragraphs), entry.Other)
+		return "", nil, fmt.Errorf("the definition reads as %s and %s, and a term has exactly one paragraph",
+			count(len(entry.Paragraphs), "paragraph"), count(entry.Other, "other block"))
 	}
 	return docPath, source, nil
 }
@@ -207,12 +208,8 @@ func Generate(r *repo.Repo) []byte {
 			fmt.Fprintf(&b, "<a id=%q></a>\n", repo.Anchor(former))
 		}
 		fmt.Fprintf(&b, "## %s\n\n", e.Term)
-		for i, p := range e.Paragraphs {
-			if i > 0 {
-				b.WriteString("\n")
-			}
-			b.WriteString(strings.TrimRight(p, "\n"))
-			b.WriteString("\n")
+		if e.Definition != "" {
+			b.WriteString(e.Definition + "\n")
 		}
 	}
 	return b.Bytes()
@@ -280,4 +277,12 @@ func retitleHeading(source []byte, from, to string) []byte {
 		}
 	}
 	return bytes.Join(lines, []byte("\n"))
+}
+
+// count is n and noun, with an s where n is not 1.
+func count(n int, noun string) string {
+	if n == 1 {
+		return "1 " + noun
+	}
+	return fmt.Sprintf("%d %ss", n, noun)
 }
