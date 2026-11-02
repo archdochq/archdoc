@@ -1,6 +1,7 @@
 package repo_test
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
 	"strings"
@@ -475,6 +476,16 @@ func TestRenumberWritesNothingWhenAWriteFails(t *testing.T) {
 				t.Fatal(err)
 			}
 		},
+		"a referrer is a symbolic link": func(t *testing.T, root string) {
+			zz := filepath.Join(root, "spec", "zz.md")
+			real := filepath.Join(filepath.Dir(root), "zz-real.md")
+			if err := os.Rename(zz, real); err != nil {
+				t.Fatal(err)
+			}
+			if err := os.Symlink(real, zz); err != nil {
+				t.Fatal(err)
+			}
+		},
 		"a referrer is read-only": func(t *testing.T, root string) {
 			if os.Getuid() == 0 {
 				t.Skip("root writes through a read-only mode")
@@ -516,5 +527,67 @@ func TestRenumberFollowsATermsNamedBy(t *testing.T) {
 	body, err := os.ReadFile(filepath.Join(r.Config().RootDir(), "term", "widget.md"))
 	if err != nil || !strings.Contains(string(body), "named_by: RFC-0009\n") {
 		t.Errorf("named_by was not followed (%v):\n%s", err, body)
+	}
+}
+
+// TestRenumberRestoresTheFileWhoseWriteFailed: a write truncates the file
+// before it can fail, as a full disk or a size limit does, so the file whose
+// write failed is restored with the rest. A restore that fails too is
+// reported, not passed over.
+func TestRenumberRestoresTheFileWhoseWriteFailed(t *testing.T) {
+	files := map[string]string{
+		"rfc/0001-base.md":  draft("RFC-0001", "Base"),
+		"rfc/0002-later.md": draftDepending("RFC-0002", "Later", "RFC-0001"),
+		"spec/zz.md":        "---\ntitle: Zz\nincludes: [RFC-0001]\n---\n\n# Zz\n\nSee [[RFC-0001]].\n",
+	}
+	for _, restoresFail := range []bool{false, true} {
+		r := repotest.New(t, files)
+		root := r.Config().RootDir()
+		failed := false
+		t.Cleanup(repo.StubWriteFile(func(name string, data []byte, perm os.FileMode) error {
+			if filepath.Base(name) != "zz.md" || failed && !restoresFail {
+				return os.WriteFile(name, data, perm)
+			}
+			failed = true
+			if err := os.WriteFile(name, nil, perm); err != nil {
+				return err
+			}
+			return errors.New("no space left on device")
+		}))
+
+		_, _, err := repo.Renumber(r, "RFC-0001", "RFC-0009", nothingFrozen)
+		if err == nil {
+			t.Fatal("Renumber succeeded despite the failed write")
+		}
+		if restoresFail {
+			if !strings.Contains(err.Error(), "spec/zz.md could not be restored") {
+				t.Errorf("a failed restore was not reported: %v", err)
+			}
+			continue
+		}
+		for p, want := range files {
+			if got, err := os.ReadFile(filepath.Join(root, filepath.FromSlash(p))); err != nil || string(got) != want {
+				t.Errorf("%s was not restored (%v):\n%s", p, err, got)
+			}
+		}
+		if _, err := os.Lstat(filepath.Join(root, "rfc", "0009-base.md")); err == nil {
+			t.Error("the new file was left behind")
+		}
+	}
+}
+
+// TestRenumberLeavesAFileItDidNotCreate: a dangling symbolic link in the new
+// name's place is refused, and the undo does not remove it.
+func TestRenumberLeavesAFileItDidNotCreate(t *testing.T) {
+	r := repotest.New(t, map[string]string{"rfc/0001-base.md": draft("RFC-0001", "Base")})
+	target := filepath.Join(r.Config().RootDir(), "rfc", "0009-base.md")
+	if err := os.Symlink("nowhere.md", target); err != nil {
+		t.Fatal(err)
+	}
+	if _, _, err := repo.Renumber(r, "RFC-0001", "RFC-0009", nothingFrozen); err == nil || !strings.Contains(err.Error(), "already exists") {
+		t.Errorf("err = %v, want the existing name refused", err)
+	}
+	if _, err := os.Lstat(target); err != nil {
+		t.Errorf("the link in the new name's place was removed: %v", err)
 	}
 }
