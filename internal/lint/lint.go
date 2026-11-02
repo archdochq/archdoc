@@ -236,6 +236,7 @@ var Rules = []Rule{
 		Since:   "v0.1.0-alpha.1",
 		Changes: []Change{
 			{Release: "v0.6.0", Summary: "Reports a warning rather than an error in a frozen document"},
+			{Release: "v0.6.0", Summary: "Reports invalid YAML once, at the line it stops being valid, with no key reported missing, and an empty list item"},
 		},
 	},
 	{
@@ -247,6 +248,7 @@ var Rules = []Rule{
 		Since:   "v0.1.0-alpha.1",
 		Changes: []Change{
 			{Release: "v0.6.0", Summary: "Reports a warning rather than an error in a frozen document"},
+			{Release: "v0.6.0", Summary: "Does not compare an `id` that did not parse"},
 		},
 	},
 	{
@@ -290,6 +292,7 @@ var Rules = []Rule{
 		Since:   "v0.1.0-alpha.1",
 		Changes: []Change{
 			{Release: "v0.6.0", Summary: "Reports a warning rather than an error in a frozen document"},
+			{Release: "v0.6.0", Summary: "Does not check the status against an empty one"},
 		},
 	},
 	{
@@ -323,6 +326,7 @@ var Rules = []Rule{
 		Since:   "v0.1.0-alpha.1",
 		Changes: []Change{
 			{Release: "v0.6.0", Summary: "Reports a warning rather than an error in a frozen document"},
+			{Release: "v0.6.0", Summary: "Does not compare a title or `id` that did not parse"},
 		},
 	},
 	{
@@ -343,6 +347,9 @@ var Rules = []Rule{
 		Summary: "A spec page includes something obsoleted (warning)",
 		Remedy:  "Update the page and its `includes`",
 		Since:   "v0.1.0-alpha.1",
+		Changes: []Change{
+			{Release: "v0.6.0", Summary: "Names each obsolete document once"},
+		},
 	},
 	{
 		Code:    "L13",

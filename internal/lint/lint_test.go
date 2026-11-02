@@ -310,6 +310,59 @@ func TestL15ReportsOtherBlocksAndProseAboveTheHeading(t *testing.T) {
 	}
 }
 
+func TestAnUnreadFrontMatterValueIsReportedOnce(t *testing.T) {
+	// A value that did not parse is L01's to report. Missing keys, L02's id
+	// and L10's heading compared against the zero value left in its place
+	// contradict the file.
+	adr := func(id, frontMatter string) string {
+		return "---\nid: " + id + "\n" + frontMatter + "created: 2026-01-01\ndecided:\ndepends: []\nupdates: []\nobsoletes: []\n---\n\n# " + id + ": X\n"
+	}
+	r := repotest.New(t, map[string]string{
+		"spec/tab.md":   "---\ntitle: T\nincludes:\n\t- RFC-0001\n---\n\n# T\n\nWords.\n",
+		"adr/0001-x.md": adr("ADR-0001", "title: X\nstatus: [draft\n"),
+		"adr/0002-y.md": adr("ADR-0002", "title: [X, Y]\nstatus: draft\n"),
+		"adr/0003-z.md": strings.Replace(adr("ADR-0003", "title: X\nstatus: draft\n"), "id: ADR-0003", "id: [ADR-0003]", 1),
+		"adr/0004-w.md": strings.Replace(adr("ADR-0004", "title: X\nstatus:\n"), "decided:", "decided: 2026-01-02\nbackfilled: 2026-01-03", 1),
+	})
+	var got []string
+	for _, f := range lint.Run(lint.NewContext(r, nil, now)) {
+		if slices.Contains([]string{"L01", "L02", "L07", "L10"}, f.Rule) {
+			got = append(got, fmt.Sprintf("%s:%d: %s", f.Path, f.Line, f.Message))
+		}
+	}
+	slices.Sort(got)
+	want := []string{
+		`adr/0001-x.md:4: front matter is not valid YAML: did not find expected ',' or ']'`,
+		`adr/0002-y.md:3: title: cannot unmarshal !!seq into string`,
+		`adr/0003-z.md:2: id: cannot unmarshal !!seq into string`,
+		`adr/0004-w.md:4: front matter key "status" is present but empty`,
+		`spec/tab.md:4: front matter is not valid YAML: found character that cannot start any token`,
+	}
+	if !slices.Equal(got, want) {
+		t.Errorf("got\n%s\nwant\n%s", strings.Join(got, "\n"), strings.Join(want, "\n"))
+	}
+}
+
+func TestL12NamesEachObsoleteDocumentOnce(t *testing.T) {
+	adr := func(id, obsoletes string) string {
+		return "---\nid: " + id + "\ntitle: X\nstatus: accepted\ncreated: 2026-01-01\ndecided: 2026-01-02\ndepends: []\nupdates: []\nobsoletes: [" + obsoletes + "]\n---\n\n# " + id + ": X\n"
+	}
+	r := repotest.New(t, map[string]string{
+		"adr/0001-old.md": adr("ADR-0001", ""),
+		"adr/0002-new.md": adr("ADR-0002", "ADR-0001"),
+		"spec/page.md":    "---\ntitle: Page\nincludes: [ADR-0001, ADR-0001]\n---\n\n# Page\n",
+	})
+	var said []string
+	for _, f := range lint.Run(lint.NewContext(r, nil, now)) {
+		if f.Rule == "L12" {
+			said = append(said, f.Message)
+		}
+	}
+	if want := []string{"stale: includes ADR-0001, which has been obsoleted"}; !slices.Equal(said, want) {
+		t.Errorf("L12 said %q, want %q", said, want)
+	}
+}
+
 func TestL15AcceptsAWellFormedGlossary(t *testing.T) {
 	if got := forRule(t, "repo", "L15"); len(got) != 0 {
 		t.Errorf("L15 fired on a well-formed glossary: %q", got)
