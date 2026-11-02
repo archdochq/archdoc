@@ -297,10 +297,14 @@ the result can delete content it never read.
   as nothing, and a former name holding a comma became two, so its anchor vanished from GLOSSARY.md.
 - **A term's definition is read as blocks, to the end of the file.** Splitting on blank lines read a
   heading, list or fence written straight after the definition as part of it, and GLOSSARY.md printed
-  the heading as a second term. The blocks come from the document's own walk, so they agree with
-  what masking and anchors read. Prose above the H1 is reported rather than dropped, since nothing
-  publishes it. The definition is published from the text as written with its comments cut out:
-  printing the masked text showed the blanks a comment left.
+  the heading as a second term. The blocks come from the document's own walk, and a paragraph ends
+  where the link scanner's blockStartPattern ends one, at a setext underline and a table row as well,
+  so the two agree on where a paragraph stops. Prose above the H1 is reported rather than dropped,
+  since nothing publishes it. What is published is every line from the H1 to the end of the file as
+  written, with its comments cut out, rather than the paragraphs alone: L15 reports a block that is
+  not a paragraph, but export never fails on it, and publishing only the paragraphs dropped the
+  block from GLOSSARY.md, `term show` and the export unseen. Printing the masked text showed the
+  blanks a comment left.
 - **A writer refuses a document whose parse stops short of the file.** When the body ends inside an
   unterminated comment or an unclosed fence, every line range derived from the parse runs past the
   entries the parser could not see, and removing one glossary term deleted every entry below it on a

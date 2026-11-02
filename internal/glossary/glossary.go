@@ -204,12 +204,8 @@ func Generate(r *repo.Repo) []byte {
 			fmt.Fprintf(&b, "<a id=%q></a>\n", repo.Anchor(former))
 		}
 		fmt.Fprintf(&b, "## %s\n\n", e.Term)
-		for i, p := range e.Paragraphs {
-			if i > 0 {
-				b.WriteString("\n")
-			}
-			b.WriteString(strings.TrimRight(p, "\n"))
-			b.WriteString("\n")
+		if e.Definition != "" {
+			b.WriteString(e.Definition + "\n")
 		}
 	}
 	return b.Bytes()

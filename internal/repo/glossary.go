@@ -3,6 +3,7 @@ package repo
 import (
 	"os"
 	"path/filepath"
+	"regexp"
 	"slices"
 	"strings"
 )
@@ -28,6 +29,10 @@ type GlossaryEntry struct {
 	Paragraphs []string
 	Other      int
 	Above      int
+	// Definition is what is published: every line from the H1 to the end of
+	// the file as written, comments cut out, with LF line endings. It holds
+	// the blocks L15 reports too, rather than dropping them unseen.
+	Definition string
 	// Formerly holds the previous names recorded by `Formerly *Old Term*.`
 	// lines, which are not paragraphs.
 	Formerly []string
@@ -74,6 +79,7 @@ func (d *Document) TermEntry() GlossaryEntry {
 		if h.Level == 1 {
 			e.Line = h.Line
 			e.Paragraphs, e.Other = d.entryBlocks(h.index + 1)
+			e.Definition = d.definition(h.index + 1)
 			masked := d.maskedLines()
 			for j := range h.index {
 				if strings.TrimSpace(masked[j]) != "" {
@@ -118,7 +124,9 @@ func (r *Repo) Term(name string) (GlossaryEntry, bool) {
 // only a comment, like a blank one, separates blocks.
 //
 // A paragraph runs over the lines that continue it; a heading, a thematic
-// break, a list, a blockquote, or a code or HTML block is another block.
+// break, a list, a blockquote, a table, or a code or HTML block is another
+// block. It ends where the link scanner's blockStartPattern ends one, at a
+// setext underline and a table row as well.
 func (d *Document) entryBlocks(from int) (paragraphs []string, other int) {
 	lines, masked := d.bodyLines(), d.maskedLines()
 	// What holds the lines of the current block: none after a blank line.
@@ -129,6 +137,8 @@ func (d *Document) entryBlocks(from int) (paragraphs []string, other int) {
 		leaf
 	)
 	current, kind := none, blockProse
+	// comment is whether a comment that began a line is still open.
+	comment := false
 	var text []string
 	end := func() {
 		if current == paragraph {
@@ -137,7 +147,14 @@ func (d *Document) entryBlocks(from int) (paragraphs []string, other int) {
 		current, text = none, nil
 	}
 	for i := from; i < len(lines); i++ {
-		m := strings.TrimSuffix(masked[i], "\r")
+		raw, m := strings.TrimSuffix(lines[i], "\r"), strings.TrimSuffix(masked[i], "\r")
+		// A comment beginning a line opens an HTML block, as CommonMark has
+		// it, and the text after the marker closing it is the block's.
+		if t := strings.TrimLeft(raw, " "); len(raw)-len(t) <= 3 && strings.HasPrefix(t, commentOpen) {
+			comment = true
+		}
+		html := comment
+		comment = comment && !strings.Contains(raw, commentClose)
 		switch {
 		case d.literal[i] != blockProse:
 			if current != leaf || kind != d.literal[i] {
@@ -147,10 +164,10 @@ func (d *Document) entryBlocks(from int) (paragraphs []string, other int) {
 			}
 		case strings.TrimSpace(m) == "":
 			end()
-		case IsHeading(m) || thematicPattern.MatchString(m):
+		case html || IsHeading(m) || thematicPattern.MatchString(m) || setextPattern.MatchString(m):
 			end()
 			other++
-		case d.quoted[i] || interruptsWithList(m, current == paragraph):
+		case d.quoted[i] || tablePattern.MatchString(m) || interruptsWithList(m, current == paragraph):
 			if current != container {
 				end()
 				current = container
@@ -161,13 +178,36 @@ func (d *Document) entryBlocks(from int) (paragraphs []string, other int) {
 			current = paragraph
 			fallthrough
 		case current == paragraph:
-			text = append(text, withoutComments(strings.TrimSuffix(lines[i], "\r"), m))
+			text = append(text, withoutComments(raw, m))
 		default:
 			// A line continuing a list or a blockquote lazily stays in it.
 		}
 	}
 	end()
 	return paragraphs, other
+}
+
+// The setext underline and the table row of blockStartPattern, which ends a
+// paragraph at both, indented as CommonMark lets a block start be.
+var (
+	setextPattern = regexp.MustCompile(`^ {0,3}(?:=+|-+)[ \t]*$`)
+	tablePattern  = regexp.MustCompile(`^ {0,3}\|`)
+)
+
+// definition is the body from line from to its end as written, with the
+// comments cut out. A line left blank is written empty, and a lone carriage
+// return, which CommonMark reads as a line ending, as a line feed.
+func (d *Document) definition(from int) string {
+	lines, masked := d.bodyLines(), d.maskedLines()
+	out := make([]string, 0, len(lines)-from)
+	for i := from; i < len(lines); i++ {
+		line := withoutComments(strings.TrimSuffix(lines[i], "\r"), masked[i])
+		if strings.TrimSpace(line) == "" {
+			line = ""
+		}
+		out = append(out, strings.ReplaceAll(line, "\r", "\n"))
+	}
+	return strings.Trim(strings.Join(out, "\n"), "\n")
 }
 
 // interruptsWithList reports whether a line opens a list item. Within a

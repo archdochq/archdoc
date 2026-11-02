@@ -736,7 +736,8 @@ func L15(ctx Context) []Finding {
 		}
 		switch n := len(e.Paragraphs); {
 		case e.Other > 0:
-			rep.errorf(d, e.Line, "term %q has %d paragraphs and %d other blocks, want exactly one paragraph", e.Term, n, e.Other)
+			rep.errorf(d, e.Line, "term %q has %d %s and %d other %s, want exactly one paragraph",
+				e.Term, n, plural(n, "paragraph", "paragraphs"), e.Other, plural(e.Other, "block", "blocks"))
 		case n != 1:
 			rep.errorf(d, e.Line, "term %q has %d paragraphs, want exactly one", e.Term, n)
 		}
