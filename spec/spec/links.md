@@ -34,7 +34,7 @@ A term is one file under `term/`, carrying `title`, `formerly` and `named_by` in
 
 A repository with no `term/` directory has no glossary, which is valid: L15 and term link resolution are skipped.
 
-`archdoc glossary` regenerates the page and `--check` fails when it is out of date, as `archdoc index` does for `INDEX.md`.
+`archdoc glossary` regenerates the page. `--check` and `--json` behave as they do on `archdoc index`, against `GLOSSARY.md`: `--check` fails when the page is out of date, `--check --json` reports that as a single finding and prints `[]` on a match, and `--json` without `--check` is a usage error.
 
 `archdoc term` manages the files:
 
