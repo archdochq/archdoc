@@ -776,6 +776,38 @@ func TestAnInvalidStatusIsLeftOut(t *testing.T) {
 	}
 }
 
+// A relationship naming something that is not an identifier is left out, as an
+// invalid status is: the schema gives every entry the identifier pattern, and
+// lint already reports the entry.
+func TestAnEntryThatIsNotAnIdentifierIsLeftOut(t *testing.T) {
+	broken := strings.NewReplacer(
+		"depends: []", "depends: [nonsense, RFC-0002]",
+		"updates: []", "updates: [rfc-0002]",
+		"obsoletes: []", "obsoletes: [RFC-2]",
+	).Replace(rfc("RFC-0001", "A", "proposed", "## Abstract\n\nWords.\n"))
+	r := repotest.New(t, map[string]string{
+		"rfc/0001-a.md":   broken,
+		"rfc/0002-b.md":   rfc("RFC-0002", "B", "accepted", "## Abstract\n\nWords.\n"),
+		"spec/storage.md": "---\ntitle: Storage\nincludes: [RFC-0002, storage]\n---\n\n# Storage\n\nWords.\n",
+	})
+	out := export.Build(r, export.Options{})
+	for _, d := range out.Documents {
+		switch d.Path {
+		case "rfc/0001-a.md":
+			if !slices.Equal(d.Depends, []string{"RFC-0002"}) || len(d.Updates) != 0 || len(d.Obsoletes) != 0 {
+				t.Errorf("depends %q, updates %q, obsoletes %q, want [RFC-0002] and two empty", d.Depends, d.Updates, d.Obsoletes)
+			}
+			if d.Updates == nil || d.Obsoletes == nil {
+				t.Error("a list emptied of entries became null")
+			}
+		case "spec/storage.md":
+			if !slices.Equal(d.Includes, []string{"RFC-0002"}) {
+				t.Errorf("includes %q, want [RFC-0002]", d.Includes)
+			}
+		}
+	}
+}
+
 // Every case in testdata/lint, broken on purpose, still exports a status the
 // schema allows.
 func TestEveryExportedStatusIsInTheSchema(t *testing.T) {

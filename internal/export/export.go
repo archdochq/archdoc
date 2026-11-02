@@ -349,10 +349,10 @@ func document(r *repo.Repo, d *repo.Document, opts Options) Document {
 		Verified:   date(fm.Verified),
 		AsOf:       date(fm.AsOf),
 
-		Depends:   list(fm.Depends),
-		Updates:   list(fm.Updates),
-		Obsoletes: list(fm.Obsoletes),
-		Includes:  list(fm.Includes),
+		Depends:   identifiers(fm.Depends),
+		Updates:   identifiers(fm.Updates),
+		Obsoletes: identifiers(fm.Obsoletes),
+		Includes:  identifiers(fm.Includes),
 
 		UpdatedBy:    list(d.UpdatedBy),
 		ObsoletedBy:  list(d.ObsoletedBy),
@@ -500,6 +500,18 @@ func date(t time.Time) string {
 		return ""
 	}
 	return t.Format(repo.DateLayout)
+}
+
+// identifiers is the list as written, less any entry that is not an
+// identifier, which the schema's pattern would refuse. Lint reports the entry.
+func identifiers(in []string) []string {
+	out := []string{}
+	for _, id := range in {
+		if _, _, ok := repo.ParseIdentifier(id); ok {
+			out = append(out, id)
+		}
+	}
+	return out
 }
 
 // list never returns nil, so every relationship field is an array in the JSON

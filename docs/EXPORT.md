@@ -356,5 +356,6 @@ consumer of that shape holds.
 
 Every array is an array and never `null`, so `included_in` on a document nothing
 references is `[]`. A date or status that is not valid is omitted rather than
-published. The output is deterministic and records no generation time,
+published, and so is an entry of `depends`, `updates`, `obsoletes` or
+`includes` that is not an identifier. The output is deterministic and records no generation time,
 so it can be cached, diffed and committed.

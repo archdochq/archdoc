@@ -203,6 +203,25 @@ func TestOutWritesAnEmptyGlossary(t *testing.T) {
 	}
 }
 
+// With no term/ there is no glossary, so --out writes no glossary.json for
+// index.json's has_glossary: false to contradict.
+func TestOutWritesNoGlossaryWithoutATermDirectory(t *testing.T) {
+	dir := t.TempDir()
+	if out, code := run(t, dir, "init", "--name", "T"); code != exitOK {
+		t.Fatalf("init exited %d: %s", code, out)
+	}
+	if err := os.RemoveAll(filepath.Join(dir, "term")); err != nil {
+		t.Fatal(err)
+	}
+	target := filepath.Join(dir, "dist")
+	if out, code := run(t, dir, "export", "--out", target); code != exitOK {
+		t.Fatalf("export --out exited %d: %s", code, out)
+	}
+	if _, err := os.Lstat(filepath.Join(target, "glossary.json")); err == nil {
+		t.Error("glossary.json was written for a repository with no term/")
+	}
+}
+
 // TestOutPrunesWhatTheRepositoryNoLongerHolds covers the reason --out reads the
 // index it is about to overwrite. Without it a document deleted from the
 // repository is served from the exported tree for as long as that tree lives.
