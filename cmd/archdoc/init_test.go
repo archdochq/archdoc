@@ -185,7 +185,7 @@ func TestInitRefusesAnExistingGeneratedFile(t *testing.T) {
 			}
 
 			out, code := run(t, dir, "init", "--name", "X")
-			if code != exitUsage || !strings.Contains(out, "already exists") {
+			if code != exitUsage || !strings.Contains(out, name+" already exists") {
 				t.Errorf("exited %d with %q, want a refusal", code, out)
 			}
 			if kept, _ := os.ReadFile(filepath.Join(dir, name)); string(kept) != "mine\n" {
@@ -207,8 +207,8 @@ func TestInitRefusesASymlinkAtTheGlossaryBeforeWritingAnything(t *testing.T) {
 	}
 
 	out, code := run(t, dir, "init", "--name", "X")
-	if code != exitUsage {
-		t.Errorf("exit = %d, want a refusal: %s", code, out)
+	if code != exitUsage || !strings.Contains(out, "GLOSSARY.md already exists") {
+		t.Errorf("exited %d with %q, want GLOSSARY.md refused", code, out)
 	}
 	for _, name := range []string{"README.md", "archdoc.json"} {
 		if _, err := os.Stat(filepath.Join(dir, name)); err == nil {

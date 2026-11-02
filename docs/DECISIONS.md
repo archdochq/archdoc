@@ -330,7 +330,8 @@ the result can delete content it never read.
 - **`branch` must be a name git accepts as a branch, and not `@`.** An empty one failed rendering the
   workflow, and one holding `": "`, `" #"` or a line break rendered an invalid or truncated one; git
   refuses every such name. `@` is a valid branch, but the name reaches `rev-parse` bare, where `@` is
-  `HEAD`. The rules are applied lexically rather than by asking git, which keeps `internal/config` free
+  `HEAD`. The names git gives its own refs, such as `FETCH_HEAD` and `ORIG_HEAD`, are valid branches
+  that `rev-parse` also resolves to something else, and are not refused. The rules are applied lexically rather than by asking git, which keeps `internal/config` free
   of a repository and works where `init` runs outside one.
 - **`README.md`, `PROCESS.md` and `INDEX.md` are not documents** under the discovery rule, so no rule
   examines them, L17 included.

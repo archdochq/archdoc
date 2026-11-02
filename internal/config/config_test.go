@@ -104,7 +104,7 @@ func TestLoadRejectsInvalidConfiguration(t *testing.T) {
 	}
 }
 
-func TestLoadAcceptsEveryValidBranchName(t *testing.T) {
+func TestLoadAcceptsValidBranchNames(t *testing.T) {
 	for _, branch := range []string{"main", "release/1.0", "it's", "a#b", "feature-x_y"} {
 		encoded, _ := json.Marshal(branch)
 		if _, err := config.Load(writeConfig(t, `{"name": "X", "branch": `+string(encoded)+`}`)); err != nil {

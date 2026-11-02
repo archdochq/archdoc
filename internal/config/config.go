@@ -244,8 +244,8 @@ func validBranch(name string) bool {
 }
 
 // StrictIn reads strict from an archdoc.json's contents, as Load decides it for
-// a file Load accepts, without validating anything else. It is for a configuration as it stands
-// on a branch, which is never loaded from disk.
+// a file Load accepts, without validating anything else. It is for a
+// configuration as it stands on a branch, which is never loaded from disk.
 func StrictIn(data []byte) (bool, error) {
 	settings := struct {
 		Strict *bool `json:"strict"`
