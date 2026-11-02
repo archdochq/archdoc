@@ -369,7 +369,12 @@ the result can delete content it never read.
   original first, so a write failing part way, at a size limit or on a full disk, left a document cut
   short, and the undo that wrote it back failed the same way. The original is opened for writing, without
   truncating it, before anything is written, so a read-only file is still refused although the rename
-  needs only the directory to be writable.
+  needs only the directory to be writable. A writable file in a read-only directory is refused too, where
+  `os.WriteFile` wrote it, because the temporary file cannot be made there; writing in place for that case
+  alone would bring back the truncation for exactly the files the rename was meant to protect. Every
+  failure names the file asked for rather than the temporary file, which the user never asked for. The
+  rename makes a new file, so a hard link to the original keeps the old contents, and the owner and group
+  become the writer's rather than the original's; only the permission bits are carried over.
 - **Interactive suggestion application re-reads before writing.** The snapshot is taken before the first
   prompt and the write happens after the last answer, so the whole session is a window in which an edit
   made elsewhere would be silently discarded. A file that has moved on is left alone and said so.
