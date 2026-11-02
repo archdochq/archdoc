@@ -45,6 +45,7 @@ func TestProseAfterABlockStaysVisible(t *testing.T) {
 		"a fence inside a blockquote":                 "> ```\n> <!--\n> ```\n",
 		"an indented code block":                      "Text.\n\n    <!-- indented\n",
 		"an HTML block":                               "<div>\n<!-- inside\n</div>\n",
+		"a fence after an empty item's blank line":    "-\n\n  ```\n# Heading\n ```\n",
 	} {
 		t.Run(name, func(t *testing.T) {
 			d := page(t, body+"\n## Later\n\n[broken](nope.md)\n")
@@ -193,6 +194,8 @@ func TestLinksAreReadWhereCommonMarkReadsThem(t *testing.T) {
 		"a comment four spaces into a paragraph":                      {"Text\n    <!-- a\n\n[x](a.md) -->\n", []string{"a.md"}},
 		"a commented paragraph after a comment block":                 {"<!-- a -->\nText <!-- b\nc -->\n    [x](a.md)\n", []string{"a.md"}},
 		"code after a heading in a quote":                             {"> # H\n>     [x](a.md)\n", nil},
+		"code after a one-line comment block with text after it":      {"<!-- a --> b\n    [x](a.md)\n", nil},
+		"an underline after a one-line comment block is text":         {"<!-- a --> b\n===\n    [x](a.md)\n", []string{"a.md"}},
 		"code after a one-line comment block":                         {"<!-- x -->\n    [x](a.md)\n", nil},
 		"a closing marker before the opening one":                     {"a --> b <!-- c\n\n[x](a.md)\n", []string{"a.md"}},
 		"a thematic break ends a commented paragraph, CRLF":           {"Text <!-- x\r\n***\r\n[y](a.md) -->\r\n", []string{"a.md"}},
@@ -268,6 +271,21 @@ func TestLinksAreReadWhereCommonMarkReadsThem(t *testing.T) {
 		"a code span ending at a second item":             {"1) a `x\n2) [a](a.md) b`\n", []string{"a.md"}},
 		"a code span ending at a list numbered 2":         {"> a `x\n2) [a](a.md) b`\n", []string{"a.md"}},
 		"a code span ending at an empty list numbered 2":  {"> a `x\n2)\n[a](a.md) y`\n", []string{"a.md"}},
+		// A list item can begin with at most one blank line: one before any
+		// content ends it.
+		"a blank line ends an empty item":                      {"- \n\n   ~~~\n\n[x](a.md)\n", nil},
+		"a blank line continues an item given content later":   {"-\n  a\n\n  ~~~\n[x](a.md)\n", []string{"a.md"}},
+		"a blank line continues an item given content at once": {"- a\n\n  ~~~\n[x](a.md)\n", []string{"a.md"}},
+		"a blank line continues an item holding an empty one":  {"- -\n\n  ~~~\n[x](a.md)\n", []string{"a.md"}},
+		// A setext underline ends the paragraph it underlines, unless it is a
+		// lazy continuation line.
+		"a setext underline ends a commented paragraph":            {"a <!-- b\n===\n[x](a.md) -->\n", []string{"a.md"}},
+		"a dash underline ends a commented paragraph":              {"a <!-- b\n-\n[x](a.md) -->\n", []string{"a.md"}},
+		"a lazy underline continues a commented paragraph":         {"> a <!-- b\n==\n[x](a.md) -->\n", nil},
+		"code after a setext heading":                              {"a\n===\n    [x](a.md)\n", nil},
+		"an underline under no paragraph is text":                  {"## H\n===\n    [x](a.md)\n", []string{"a.md"}},
+		"a lazy underline continued by an indented line":           {"> a\n==\n    [x](a.md)\n", []string{"a.md"}},
+		"an underline followed by a comment continues a paragraph": {"a\n== <!-- c -->\n    [x](a.md)\n", []string{"a.md"}},
 		// A definition counts only where a paragraph could start.
 		"a definition after code under a heading":      {"## H\n    code\n\n[a]: b.md\n", []string{"b.md"}},
 		"a definition after code and a line of spaces": {"## H\n    code\n    \n[a]: b.md\n", []string{"b.md"}},

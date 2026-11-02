@@ -164,7 +164,10 @@ would have to round-trip everything it parsed.
   word gave `## The _id field` the anchor `the-id-field`, where GitHub's is `the-_id-field`. A bare
   address GitHub links is text as written, its end read as cmark-gfm's autolink extension reads it,
   since an underscore in `https://a.com/_x_` is not emphasis there. A
-  reference link is a link only where the document defines its label, and text otherwise. A heading is
+  reference link is a link only where the document defines its label, and text otherwise. A link in a
+  heading closes where one in prose does, its destination and title read alike and a bracket in a code
+  span in its text not one of its own: closing the parentheses at their balancing `)` linked
+  `[a](x y.md)`, which GitHub renders as text, so L17 rejected GitHub's anchor. A heading is
   rendered as written, so a comment in it leaves the space beside it. Of the numbers, the slug keeps
   decimal digits and letter numbers and drops the rest, such as `²` and `½`, as github-slugger does.
 - **A link names an anchor a document holds explicitly as well as its headings'.** L17 read `<a id>`
@@ -266,9 +269,10 @@ would have to round-trip everything it parsed.
   cleared by editing the other document, nor to L11 itself.~~ Superseded by ADR-0023, under which a
   finding no permitted edit could clear is a warning whatever it concerns: L01, L02, L07, L08, L09, L10,
   L14, L16, L17, L20 and L21 in a frozen document; L04 and L05 where only an edit to a frozen document
-  could clear the fault, as with a ref in `depends`, a type mismatch, or a frozen target that is not
-  accepted; and L03 when every document holding the identifier is frozen. A relationship fault another
-  permitted edit can clear stays an error: a missing target can be written, a target not yet frozen can
+  could clear the fault, as with a ref in `depends`, a reference that is not an identifier any
+  document can hold, a type mismatch, or a frozen target that is not accepted; and L03 when every
+  document holding the identifier is frozen. A relationship fault another permitted edit can clear stays
+  an error: a missing target named by a valid identifier can be written, a target not yet frozen can
   still be edited, and an identifier held by an editable document can be renumbered. L11 stays an error.
 - **A transition refuses to write a `decided` date before `created`.** Nothing rejects a `created` date
   in the future, so a draft carrying one lints clean until the transition writes the value that makes
@@ -390,7 +394,12 @@ the result can delete content it never read.
   original first, so a write failing part way, at a size limit or on a full disk, left a document cut
   short, and the undo that wrote it back failed the same way. The original is opened for writing, without
   truncating it, before anything is written, so a read-only file is still refused although the rename
-  needs only the directory to be writable.
+  needs only the directory to be writable. A writable file in a read-only directory is refused too, where
+  `os.WriteFile` wrote it, because the temporary file cannot be made there; writing in place for that case
+  alone would bring back the truncation for exactly the files the rename was meant to protect. Every
+  failure names the file asked for rather than the temporary file, which the user never asked for. The
+  rename makes a new file, so a hard link to the original keeps the old contents, and the owner and group
+  become the writer's rather than the original's; only the permission bits are carried over.
 - **Interactive suggestion application re-reads before writing.** The snapshot is taken before the first
   prompt and the write happens after the last answer, so the whole session is a window in which an edit
   made elsewhere would be silently discarded. A file that has moved on is left alone and said so.
@@ -555,19 +564,34 @@ the result can delete content it never read.
   computes for it through the same filters a commit applies. ~~A branch's `archdoc.json` is the one at
   the working tree's location, or the branch's only one, so moving the file is still judged by the
   branch's `strict`; with several, which one moved cannot be told.~~ (An `examples/archdoc.json` beside
-  the record was taken for a moved file, and its documents reported deleted.) A branch's `archdoc.json`
-  is the one at the working tree's location, or the one the working tree's moved from: the branch's
-  only one the working tree no longer holds, so moving the file is still judged by the branch's
-  `strict`, and one still there belongs to something else. With several gone, which one moved cannot
-  be told. Absence is the test rather than git's rename detection, which sees only files git tracks
-  and so never a working tree's `archdoc.json` not yet added. The branch is listed whole, not the
+  the record was taken for a moved file, and its documents reported deleted.) ~~A branch's
+  `archdoc.json` is the one at the working tree's location, or the one the working tree's moved from:
+  the branch's only one the working tree no longer holds, so moving the file is still judged by the
+  branch's `strict`, and one still there belongs to something else.~~ (Deleting an
+  `examples/archdoc.json` while adopting ArchDoc at the top level was taken for a move, and the
+  example's documents reported deleted.) A branch's `archdoc.json` is the one at the working tree's
+  location, or the one the working tree's moved from: the branch's only one the working tree no longer
+  holds, where the branch holds no document under the root it names, or one of them is still under the
+  working tree's root. Moving the file is still judged by the branch's `strict`, one still there
+  belongs to something else, and one whose documents are none of them under the working tree's root
+  was not the record's. With several gone, which one moved cannot be told. Absence is the test rather
+  than git's rename detection, which sees only files git tracks and so never a working tree's
+  `archdoc.json` not yet added. The branch is listed whole, not the
   working directory's subtree, so a file or root above the directory archdoc runs in is found.
   ~~Where the root the branch names is the working tree's, git is asked how it spells it, as a case,
   normalisation or symbolic link difference matched nothing.~~ (A pull request correcting the root's
   spelling matched nothing on the branch, and one leaving a link where the root was sent the branch's
-  documents to the link's target.) Where the branch's file is at the working tree's location and the
+  documents to the link's target.) ~~Where the branch's file is at the working tree's location and the
   branch lists nothing under the root it names, git is asked how the working tree spells that root, as
   a case, normalisation or symbolic link difference matched nothing; a root the branch lists files
+  under is taken as written.~~ (A moved file's root, relative to where the file was, was taken as
+  written, so one in another case than git lists it matched nothing and the pull request's edit to a
+  frozen document passed.) Where the branch lists nothing under the root its file names, git is asked
+  how the working tree spells that root if the file is at the working tree's location, as a case,
+  normalisation or symbolic link difference matched nothing. Failing that, and for a moved file, the
+  root is the directory in the branch's listing that matches it case-folded and in Unicode
+  normalisation form C, the first in git's order where several do; the listing is the branch's, so the
+  match holds whether or not the filesystem tells the spellings apart. A root the branch lists files
   under is taken as written. A branch's `archdoc.json` that cannot be read leaves the working tree's
   settings standing, with one L11 warning: an error holds until the branch is mended, so the pull
   request mending it could never pass. `branch` is the working tree's: the base is found through it, so no
