@@ -124,9 +124,10 @@ func runSuggestions(cmd *cobra.Command, r *repo.Repo, apply bool) (findings []li
 }
 
 // choose walks the suggestions with the reader, a line at a time. Input comes
-// from the command so that a test can drive the whole exchange.
+// from the command so that a test can drive the whole exchange. The exchange
+// is on stderr, because stdout under --json is owed one JSON array.
 func choose(cmd *cobra.Command, suggestions []link.Suggestion) ([]link.Suggestion, error) {
-	out := cmd.OutOrStdout()
+	out := cmd.ErrOrStderr()
 	input := bufio.NewReader(cmd.InOrStdin())
 
 	var accepted []link.Suggestion
