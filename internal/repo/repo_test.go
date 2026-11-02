@@ -1474,7 +1474,6 @@ func TestLinkTextEndsWithEveryBlock(t *testing.T) {
 		"> - [a\n> - b](n.md)\n",
 		"| [c | d |\n| e](n.md) |\n",
 		"[a\n> b](n.md)\n",
-		"[a\n+\nb](n.md)\n",
 		"[a\n   - b](n.md)\n",
 	} {
 		if got := linksOf(t, body); len(got) != 0 {

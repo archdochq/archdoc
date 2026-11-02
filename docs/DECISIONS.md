@@ -169,7 +169,9 @@ would have to round-trip everything it parsed.
   one does, so the document's definitions are read before its links; without that, `[RFC [1]](x.md)`
   beside a definition of `[1]` was read as a link to `x.md`, which GitHub does not render. Each block
   that ends a paragraph ends the text, since text carried into the next block made a link of a `](`
-  whose `[` was in a heading, a table row or another list item.
+  whose `[` was in a heading, a table row or another list item. Whether a line opens a list item is
+  the block walk's to say, as it depends on the containers around the line: a pattern read `2) ` as
+  an item anywhere, and so left readable a link inside a code span crossing it.
 - **Reading links is linear in the length of a line.** The first scanner ran the destination pattern
   from every `]` to the end of the line when no `)` followed, and made every open bracket inactive one
   at a time when a link closed, so a 60 KB line took ten seconds. The pattern is not tried after a

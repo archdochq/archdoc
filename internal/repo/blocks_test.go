@@ -251,6 +251,18 @@ func TestLinksAreReadWhereCommonMarkReadsThem(t *testing.T) {
 		"a marker in a code span":                     {"A `<!--` [a](a.md) -->\n", []string{"a.md"}},
 		"a code span closing before one across lines": {"A `x` b `<!-- c\nd` [a](a.md) -->\n", []string{"a.md"}},
 		"an escaped backslash before the marker":      {"Write \\\\<!-- [a](a.md) -->\n", nil},
+		// A list item interrupts a paragraph only where CommonMark lets it: one
+		// numbered other than 1, an empty one or one four spaces in continues
+		// the paragraph, unless the line leaves the paragraph's container.
+		"a code span across a line numbered 2":            {"A `x\n2) [a](a.md) y`\n", nil},
+		"a code span across a line numbered 2 in an item": {"- a `x\n  2) [a](a.md) b`\n", nil},
+		"a code span across an empty item":                {"A `x\n*\n[a](a.md) y`\n", nil},
+		"a code span across an item four spaces in":       {"A `x\n    - [a](a.md) y`\n", nil},
+		"link text across an empty item":                  {"[a\n+\nb](a.md)\n", []string{"a.md"}},
+		"link text across a line numbered 2":              {"[a\n2) b](a.md)\n", []string{"a.md"}},
+		"a code span ending at a second item":             {"1) a `x\n2) [a](a.md) b`\n", []string{"a.md"}},
+		"a code span ending at a list numbered 2":         {"> a `x\n2) [a](a.md) b`\n", []string{"a.md"}},
+		"a code span ending at an empty list numbered 2":  {"> a `x\n2)\n[a](a.md) y`\n", []string{"a.md"}},
 		// A definition counts only where a paragraph could start.
 		"a definition after code under a heading":      {"## H\n    code\n\n[a]: b.md\n", []string{"b.md"}},
 		"a definition after code and a line of spaces": {"## H\n    code\n    \n[a]: b.md\n", []string{"b.md"}},
