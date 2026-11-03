@@ -43,7 +43,7 @@ The generated workflow runs on push and pull request. It checks out the full his
 
 ## `archdoc new <rfc|adr|ref> <title>`
 
-Creates the next-numbered document of the type from its template, with `ID`, `Title` and `Date` substituted, and `AsOf` on a ref given one, and prints the path. Refuses a title that is empty, slugs to nothing, or contains a line break, and refuses if the derived filename exists. Refuses `spec`, `term` and `group`, saying the type is named by its path, not numbered. Refuses to write a heading that does not read back as the title given.
+Creates the next-numbered document of the type from its template, with `ID`, `Title` and `Date` substituted, and `AsOf` on a ref given one, and prints the path. Refuses a title that is empty, slugs to nothing, contains a line break, or holds a `[[...]]` wiki link, and refuses if the derived filename exists. Refuses `spec`, `term` and `group`, saying the type is named by its path, not numbered. Refuses to write a heading that does not read back as the title given.
 
 | Option | Effect |
 |---|---|

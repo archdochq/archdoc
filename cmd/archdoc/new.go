@@ -134,6 +134,9 @@ func checkTitle(title string) error {
 	if strings.ContainsAny(title, "\r\n") {
 		return fmt.Errorf("a title cannot contain a line break")
 	}
+	if repo.WikiLinkPattern.MatchString(title) {
+		return fmt.Errorf("a title cannot hold a [[...]] wiki link: archdoc link does not rewrite one in a heading, so write the link out or leave it out")
+	}
 	if !repo.HeadingSurvives(title) {
 		return fmt.Errorf("%q is not usable as a title: markdown would read the heading back as something else", title)
 	}

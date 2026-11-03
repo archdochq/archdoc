@@ -395,8 +395,11 @@ var Rules = []Rule{
 		Check:   L16,
 		Title:   "Wiki links are resolved",
 		Summary: "An unresolved `[[...]]` link",
-		Remedy:  "Run `archdoc link`",
+		Remedy:  "Run `archdoc link`. In a heading, which it leaves as written, write the heading without it; in a terminal document outside a git repository, replace it by hand; in a frozen document, leave it as written",
 		Since:   "v0.1.0-alpha.1",
+		Changes: []Change{
+			{Release: "v0.6.0", Summary: "Names the edit that clears a link in a heading, in a frozen document, and in a terminal document outside a git repository"},
+		},
 	},
 	{
 		Code:    "L17",

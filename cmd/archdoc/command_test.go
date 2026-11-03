@@ -1016,6 +1016,59 @@ func TestLinkSuggestApplyRewritesTheDocument(t *testing.T) {
 	}
 }
 
+func TestLinkSuggestApplySettlesInOneRun(t *testing.T) {
+	dir := repository(t)
+	repotest.Write(t, dir, "spec/queues.md",
+		"---\ntitle: Queues\nincludes: []\n---\n\n# Queues\n\nRFC-0001 here.\n\nRFC-0001 there.\n\nRFC-0001 everywhere.\n")
+
+	if out, code := run(t, dir, "link", "--suggest", "--apply"); code != exitOK {
+		t.Fatalf("exit = %d: %s", code, out)
+	}
+	if out, code := run(t, dir, "link", "--suggest"); code != exitOK {
+		t.Errorf("a second --suggest still offered something, exit = %d: %s", code, out)
+	}
+}
+
+func TestLinkAndLintAgreeOnAWikiLinkInAHeading(t *testing.T) {
+	dir := repository(t)
+	const page = "---\ntitle: Queues\nincludes: []\n---\n\n# Queues\n\n## Builds on [[RFC-0001]]\n\nWords.\n"
+	repotest.Write(t, dir, "spec/queues.md", page)
+
+	out, code := run(t, dir, "link")
+	if code == exitOK || strings.Contains(out, "wiki links resolved") || !strings.Contains(out, "write the heading without it") {
+		t.Errorf("link should refuse the heading, name the edit and claim nothing; exit = %d:\n%s", code, out)
+	}
+	if written, _ := os.ReadFile(filepath.Join(dir, "spec", "queues.md")); string(written) != page {
+		t.Errorf("the page changed:\n%s", written)
+	}
+	if out, _ := run(t, dir, "lint"); !strings.Contains(out, "unresolved wiki link [[RFC-0001]]: write the heading without it") {
+		t.Errorf("lint's remedy differs from link's:\n%s", out)
+	}
+}
+
+func TestNewRefusesATitleHoldingAWikiLink(t *testing.T) {
+	out, code := run(t, repository(t), "new", "rfc", "Foo [[RFC-0001]]")
+	if code != exitUsage || !strings.Contains(out, "wiki link") {
+		t.Errorf("exit = %d, want %d naming the wiki link; output: %s", code, exitUsage, out)
+	}
+}
+
+func TestTermAddAndRenameRefuseANameHoldingAWikiLink(t *testing.T) {
+	// The name is the term's H1, where link leaves a [[...]] as written.
+	dir := repository(t)
+	for _, args := range [][]string{
+		{"term", "add", "Gizmo [[RFC-0001]]", "A thing."},
+		{"term", "rename", "Wings", "Wings [[RFC-0001]]"},
+	} {
+		if out, code := run(t, dir, args...); code == exitOK || !strings.Contains(out, "wiki link") {
+			t.Errorf("%v: exit = %d, want a refusal naming the wiki link; output: %s", args, code, out)
+		}
+	}
+	if _, err := os.Stat(filepath.Join(dir, "term", "gizmo-rfc-0001.md")); err == nil {
+		t.Error("the term was written")
+	}
+}
+
 func TestChooseHonoursEachAnswer(t *testing.T) {
 	suggestions := []link.Suggestion{
 		{Path: "a.md", Line: 1, Text: "x", Replacement: "[x](y)", LineText: "x"},

@@ -1691,6 +1691,8 @@ const (
 	LinkInline     LinkType = "inline"
 	LinkImage      LinkType = "image"
 	LinkDefinition LinkType = "definition"
+	// LinkReference is a use of a definition, which only References returns.
+	LinkReference LinkType = "reference"
 )
 
 // Link is a relative markdown link found in a body.
@@ -1709,6 +1711,9 @@ type Link struct {
 type WikiLink struct {
 	Name string
 	Line int
+	// Heading is whether the link is in a heading, where link leaves it: the
+	// heading's text is what L08, L09, L10 and anchors read.
+	Heading bool
 }
 
 // Links returns every markdown link in the body, ignoring code, in the order
@@ -1716,14 +1721,43 @@ type WikiLink struct {
 // destination is a target like any other, and nothing was checking it. A
 // footnote, [^label]:, is GitHub's and holds prose, so it is not one.
 func (d *Document) Links() []Link {
-	links := d.definitions()
+	links, _ := d.links()
+	return links
+}
+
+// References returns each use of a link reference definition, [text][label],
+// [label][] or [label], with the destination of the first definition of its
+// label. Its position is its closing bracket's, which follows its text.
+func (d *Document) References() []Link {
+	_, uses := d.links()
+	return uses
+}
+
+// links reads the links and the reference uses together, since a use is only
+// one where a definition of its label exists.
+func (d *Document) links() (links, uses []Link) {
+	links = d.definitions()
 	labels := map[string]bool{}
+	targets := map[string]string{}
+	defined := map[int]bool{}
 	for _, l := range links {
-		labels[normalLabel(l.Text)] = true
+		defined[l.Line] = true
+		label := normalLabel(l.Text)
+		if !labels[label] {
+			labels[label] = true
+			targets[label] = l.Target
+		}
 	}
 	inline := inlineLinks{labels: labels}
 	for line := range d.Prose() {
 		links = append(links, inline.read(line)...)
+	}
+	// A definition's own label reads as a use of it, which it is not.
+	for _, use := range inline.uses {
+		if !defined[use.Line] {
+			use.Target = targets[use.Text]
+			uses = append(uses, use)
+		}
 	}
 	sort.SliceStable(links, func(i, j int) bool {
 		if links[i].Line != links[j].Line {
@@ -1731,7 +1765,7 @@ func (d *Document) Links() []Link {
 		}
 		return links[i].Start < links[j].Start
 	})
-	return links
+	return links, uses
 }
 
 // definitions returns the link reference definitions, which are read first
@@ -1794,10 +1828,14 @@ const maxLabel = 999
 // and hold brackets in balanced pairs, an escaped bracket is literal, an image
 // may be the text of a link, and a link, inline or by reference, may not.
 // Lines are read from the masked view, so a bracket inside code or a comment
-// is not one. A reference use is not returned; its definition is.
+// is not one. A reference use is not returned; its definition is, and the use
+// is kept in uses.
 type inlineLinks struct {
 	// labels are the document's definitions, normalised.
 	labels map[string]bool
+	// uses are the reference uses read so far, each under its normalised
+	// label, at its closing bracket.
+	uses []Link
 	// paragraph is the lines read since the text could last have opened, and
 	// open the brackets in them not yet closed, innermost last.
 	paragraph []ProseLine
@@ -1862,10 +1900,11 @@ func (in *inlineLinks) read(line ProseLine) []Link {
 				}
 				links = append(links, link)
 				i += at[1]
-			} else if skip, ok := in.reference(o, here, i, rest); ok && !inactive {
+			} else if skip, label, ok := in.reference(o, here, i, rest); ok && !inactive {
 				if !o.image {
 					in.inactiveBelow = len(in.open)
 				}
+				in.uses = append(in.uses, Link{Text: label, Type: LinkReference, Line: line.Number, Start: i, End: i})
 				i += skip
 			}
 		}
@@ -1966,19 +2005,22 @@ func blanks(s string, i int) int {
 // reference reports whether the bracket closing at column end makes a link by
 // reference, [text][label], [text][] or [text], with a label that is defined,
 // and how far its [label] runs past the bracket.
-func (in *inlineLinks) reference(o opener, last, end int, rest string) (int, bool) {
+func (in *inlineLinks) reference(o opener, last, end int, rest string) (int, string, bool) {
 	if len(in.labels) == 0 {
-		return 0, false
+		return 0, "", false
 	}
 	if at := referencePattern.FindStringSubmatchIndex(rest); at != nil {
 		if label := rest[at[2]:at[3]]; label != "" {
-			return at[1], in.labels[normalLabel(label)]
+			label = normalLabel(label)
+			return at[1], label, in.labels[label]
 		}
 		text, ok := in.label(o, last, end)
-		return at[1], ok && in.labels[normalLabel(text)]
+		text = normalLabel(text)
+		return at[1], text, ok && in.labels[text]
 	}
 	text, ok := in.label(o, last, end)
-	return 0, ok && in.labels[normalLabel(text)]
+	text = normalLabel(text)
+	return 0, text, ok && in.labels[text]
 }
 
 // label is a link's text where it is short enough to be a label, measured
@@ -2100,7 +2142,7 @@ func (d *Document) WikiLinks() []WikiLink {
 	var links []WikiLink
 	for line := range d.Prose() {
 		for _, m := range wikiLinkPattern.FindAllStringSubmatch(line.Masked, -1) {
-			links = append(links, WikiLink{Name: m[1], Line: line.Number})
+			links = append(links, WikiLink{Name: m[1], Line: line.Number, Heading: IsHeading(line.Masked)})
 		}
 	}
 	return links
