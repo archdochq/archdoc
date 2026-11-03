@@ -374,8 +374,11 @@ var Rules = []Rule{
 		Check:   L15,
 		Title:   "A term is defined in one paragraph",
 		Summary: "A term's definition under `term/` is not exactly one paragraph",
-		Remedy:  "Rewrite the definition as one paragraph",
+		Remedy:  "Rewrite the definition as one paragraph beneath the H1",
 		Since:   "v0.1.0-alpha.1",
+		Changes: []Change{
+			{Release: "v0.6.0", Summary: "Reads the definition as blocks to the end of the file, and reports any block that is not a paragraph and prose above the H1"},
+		},
 	},
 	{
 		Code:    "L16",

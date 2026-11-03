@@ -556,6 +556,19 @@ func TestTermListAndShow(t *testing.T) {
 	if code != exitOK || !strings.Contains(out, "The node daemon.") {
 		t.Errorf("show exited %d with %q", code, out)
 	}
+
+	// A block L15 reports is still shown, as GLOSSARY.md writes it.
+	wings := filepath.Join(dir, "term", "wings.md")
+	source, err := os.ReadFile(wings)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(wings, append(source, "```\nwings run\n```\n"...), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if out, _ := run(t, dir, "term", "show", "wings"); !strings.Contains(out, "The node daemon.\n```\nwings run\n```\n") {
+		t.Errorf("show = %q, want the fence below the definition", out)
+	}
 }
 
 func TestTermAddInsertsAlphabetically(t *testing.T) {

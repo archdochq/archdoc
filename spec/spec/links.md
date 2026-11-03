@@ -30,7 +30,7 @@ Neither `link` nor `link --suggest` rewrites a heading.
 
 A term is one file under `term/`, carrying `title`, `formerly` and `named_by` in its front matter and exactly one paragraph of definition under its H1. The term is the `title`; the filename is its slug, so two terms cannot share one. `named_by` records the document that introduced the term and is not an inclusion.
 
-`GLOSSARY.md` is generated from `term/` and written under `root`, beside `INDEX.md`. Terms appear in ascending case-insensitive order of title. Every name in a term's `formerly` is written as an explicit anchor before its heading, so a link made before a rename still resolves; L17 checks that, and anchors are read from explicit `<a id="...">` as well as from headings for this reason.
+`GLOSSARY.md` is generated from `term/` and written under `root`, beside `INDEX.md`. Terms appear in ascending case-insensitive order of title. Each definition is written as its file holds it, with comments removed and LF line endings. Every name in a term's `formerly` is written as an explicit anchor before its heading, so a link made before a rename still resolves; L17 checks that, and anchors are read from explicit `<a id="...">` as well as from headings for this reason.
 
 A repository with no `term/` directory has no glossary, which is valid: L15 and term link resolution are skipped, and `archdoc glossary --check` passes where `GLOSSARY.md` is absent.
 
@@ -42,6 +42,6 @@ A repository with no `term/` directory has no glossary, which is valid: L15 and 
 - `rename <old> <new>`: renames the file, sets `title`, and appends the old name to `formerly`, leaving out any name whose anchor is the new name's. Refuses the term's current name. Links elsewhere are not rewritten and do not need to be: the old name keeps an anchor on the generated page.
 - `remove <term>`: deletes the file. Refuses when a frozen document links to the term, by its anchor or a former name's on the generated page, or to its file, since the link could never be corrected.
 - `list`: prints the terms, one per line.
-- `show <term>`: prints the term and its definition.
+- `show <term>`: prints the term and its definition, as `GLOSSARY.md` writes it.
 
 Values are written as YAML strings, quoted where YAML would otherwise read them as something else. `add` and `rename` refuse a name holding a line break or that is not valid UTF-8, read the file back before writing it, and refuse one whose front matter does not parse or whose title or heading does not read back as given.

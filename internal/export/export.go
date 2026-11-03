@@ -323,7 +323,7 @@ func Build(r *repo.Repo, opts Options) Repository {
 				Name:       e.Term,
 				Anchor:     e.Anchor,
 				Path:       e.Path,
-				Definition: strings.Join(e.Paragraphs, "\n\n"),
+				Definition: e.Definition,
 				Formerly:   e.Formerly,
 				NamedBy:    e.NamedBy,
 			})

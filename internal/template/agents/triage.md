@@ -60,7 +60,7 @@ belongs.
 | L12 | A spec page includes something obsoleted (warning) | Update the page and its `includes` |
 | L13 | A ref's `verified` date is older than `ref_stale_days`, and it carries no `as_of` (warning) | Re-check the content, then update `verified`. A record of an exchange carries `as_of` instead |
 | L14 | A required section is empty | Write it |
-| L15 | A term's definition under `term/` is not exactly one paragraph | Rewrite the definition as one paragraph |
+| L15 | A term's definition under `term/` is not exactly one paragraph | Rewrite the definition as one paragraph beneath the H1 |
 | L16 | An unresolved `[[...]]` link | Run `archdoc link` |
 | L17 | A relative link points at a missing file or heading | Fix the path or the anchor |
 | L18 | `depends` names something less settled than the referring document (warning) | Usually accept the dependency first |

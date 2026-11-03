@@ -289,6 +289,29 @@ func TestL15ChecksGlossaryStructure(t *testing.T) {
 	reports(t, got, "Two paragraphs", "paragraphs, want exactly one")
 }
 
+func TestL15ReportsOtherBlocksAndProseAboveTheHeading(t *testing.T) {
+	const term = "---\ntitle: %s\nformerly: []\nnamed_by:\n---\n"
+	r := repotest.New(t, map[string]string{
+		"term/widget.md": fmt.Sprintf(term, "Widget") + "\n# Widget\n\nThe definition.\n## Aside\n- a list\n",
+		"term/gadget.md": fmt.Sprintf(term, "Gadget") + "\nAbove.\n\n# Gadget\n\nThe definition.\n",
+		"term/gizmo.md":  fmt.Sprintf(term, "Gizmo") + "\n# Gizmo\n\nOne.\n\nTwo.\n> quoted\n",
+	})
+	var got []string
+	for _, f := range lint.Run(lint.NewContext(r, nil, now)) {
+		if f.Rule == "L15" {
+			got = append(got, fmt.Sprintf("%s:%d: %s", f.Path, f.Line, f.Message))
+		}
+	}
+	want := []string{
+		`term/gadget.md:7: term "Gadget" has prose above its H1, where nothing is read as its definition`,
+		`term/gizmo.md:7: term "Gizmo" has 2 paragraphs and 1 other block, want exactly one paragraph`,
+		`term/widget.md:7: term "Widget" has 1 paragraph and 2 other blocks, want exactly one paragraph`,
+	}
+	if !slices.Equal(got, want) {
+		t.Errorf("L15 reported\n%s\nwant\n%s", strings.Join(got, "\n"), strings.Join(want, "\n"))
+	}
+}
+
 func TestL15AcceptsAWellFormedGlossary(t *testing.T) {
 	if got := forRule(t, "repo", "L15"); len(got) != 0 {
 		t.Errorf("L15 fired on a well-formed glossary: %q", got)

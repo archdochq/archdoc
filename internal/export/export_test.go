@@ -859,6 +859,18 @@ func TestAnEmptyGlossaryIsAnArray(t *testing.T) {
 	}
 }
 
+// A definition is exported as its file holds it, the blocks L15 reports
+// included.
+func TestATermIsExportedWithEveryBlock(t *testing.T) {
+	r := repotest.New(t, map[string]string{
+		"term/widget.md": "---\ntitle: Widget\nformerly: []\nnamed_by:\n---\n\n# Widget\n\nThe definition.\n> quoted\n",
+	})
+	got := export.Build(r, export.Options{}).Glossary
+	if len(got) != 1 || got[0].Definition != "The definition.\n> quoted" {
+		t.Errorf("glossary = %+v, want the quote below the definition", got)
+	}
+}
+
 func deref(s *string) string {
 	if s == nil {
 		return "<nil>"

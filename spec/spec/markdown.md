@@ -35,7 +35,7 @@ Section presence is checked by exact H2 text. The required sections by type:
 - ADR: `Context`, `Decision`, `Alternatives`, `Consequences`, in that order. `Rejection rationale` and `Sources` as for an RFC.
 - Ref: `Sources` is the last H2.
 - Spec: no requirements.
-- Term: no required sections. The definition is the prose under the H1, and L15 wants exactly one paragraph of it.
+- Term: no required sections. The definition is everything from the H1 to the end of the file, and L15 wants it to be exactly one paragraph.
 - Group: no required sections. Its description is the body after the H1.
 
 Extra H2 sections are permitted between or after the required ones. `Open questions`, `Resolved questions` and `Changelog` are optional for every type, and are read as described below wherever they appear.

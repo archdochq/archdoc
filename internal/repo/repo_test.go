@@ -1669,3 +1669,103 @@ func TestPermittedTransitions(t *testing.T) {
 		})
 	}
 }
+
+// TestATermIsPublishedAsWritten: what GLOSSARY.md, term show and the export
+// print is the file from the H1 down, every block included, so a block L15
+// reports is not dropped from them as well.
+func TestATermIsPublishedAsWritten(t *testing.T) {
+	for name, c := range map[string]struct{ body, want string }{
+		"a fence and a paragraph after it": {"# Widget\n\nThe definition.\n```\ncode\n\nmore\n```\nAfter.\n", "The definition.\n```\ncode\n\nmore\n```\nAfter."},
+		"comments cut out":                 {"# Widget\n\nOne <!-- c --> two.\n  <!-- c -->  \n\n- an item\n\n<!-- c -->\n", "One  two.\n\n\n- an item"},
+		"CRLF":                             {"# Widget\r\n\r\nThe definition\r\nover two lines.\r\n", "The definition\nover two lines."},
+		"a lone carriage return":           {"# Widget\n\nThe definition\rover two lines.\n", "The definition\nover two lines."},
+		"no definition":                    {"# Widget\n", ""},
+	} {
+		t.Run(name, func(t *testing.T) {
+			r := repotest.New(t, map[string]string{
+				"term/widget.md": "---\ntitle: Widget\nformerly: []\nnamed_by:\n---\n" + c.body,
+			})
+			entries, _ := r.Glossary()
+			if len(entries) != 1 || entries[0].Definition != c.want {
+				t.Errorf("entries = %+v, want the definition %q", entries, c.want)
+			}
+		})
+	}
+}
+
+func TestATermDefinitionIsOneParagraphAndNothingElse(t *testing.T) {
+	// The definition runs from the H1 to the end of the file, and any block
+	// that is not a paragraph counts, written with or without a blank line
+	// before it.
+	cases := []struct {
+		name, body  string
+		paragraphs  int
+		other       int
+		above       int
+		firstWanted string
+	}{
+		{"one paragraph", "# Widget\n\nThe definition\nover two lines.\n", 1, 0, 0, "The definition\nover two lines."},
+		{"a subsection", "# Widget\n\nThe definition.\n## Aside\nA second paragraph.\n", 2, 1, 0, "The definition."},
+		{"a later H1", "# Widget\n\nThe definition.\n\n# Other\n\nMore.\n", 2, 1, 0, "The definition."},
+		{"a bullet", "# Widget\n\nThe definition.\n- a list\n", 1, 1, 0, "The definition."},
+		{"an item numbered 1", "# Widget\n\nThe definition.\n1. first\n", 1, 1, 0, "The definition."},
+		{"a number continuing a sentence", "# Widget\n\nIn use from\n2025. onwards.\n", 1, 0, 0, "In use from\n2025. onwards."},
+		{"a list continued lazily", "# Widget\n\nThe definition.\n\n- an item\ncontinued\n", 1, 1, 0, "The definition."},
+		{"a fence", "# Widget\n\nThe definition.\n```\ncode\n\nmore code\n```\n", 1, 1, 0, "The definition."},
+		{"a blockquote", "# Widget\n\nThe definition.\n> quoted\n", 1, 1, 0, "The definition."},
+		{"a thematic break", "# Widget\n\nThe definition.\n***\n", 1, 1, 0, "The definition."},
+		{"prose above the H1", "\nAbove.\n\n# Widget\n\nThe definition.\n", 1, 0, 7, "The definition."},
+		{"a comment", "# Widget\n\nUse `foo` here<!-- note --> and <!--a\nb--> there.\n", 1, 0, 0, "Use `foo` here and \n there."},
+		{"CRLF", "# Widget\r\n\r\nThe definition\r\nover two lines.\r\n", 1, 0, 0, "The definition\nover two lines."},
+		{"a list numbered from 2 after a blank line", "# Widget\n\nThe definition.\n\n2. second\n", 1, 1, 0, "The definition."},
+		{"a list of two items", "# Widget\n\nThe definition.\n- one\n- two\n", 1, 1, 0, "The definition."},
+		{"a paragraph straight after a fence", "# Widget\n\nThe definition.\n```\ncode\n```\nAfter.\n", 2, 1, 0, "The definition."},
+		{"an indented paragraph", "# Widget\n\n  The definition.\n", 1, 0, 0, "The definition."},
+		{"a CRLF thematic break", "# Widget\r\n\r\nThe definition.\r\n***\r\n", 1, 1, 0, "The definition."},
+		// The paragraph ends where the link scanner ends one.
+		{"a setext underline", "# Widget\n\nThe definition.\n===\n", 1, 1, 0, "The definition."},
+		{"a two-dash setext underline", "# Widget\n\nThe definition.\n--\n", 1, 1, 0, "The definition."},
+		{"an indented underline", "# Widget\n\nThe definition.\n    ===\n", 1, 0, 0, "The definition.\n    ==="},
+		{"a table row", "# Widget\n\nThe definition.\n| a | b |\n| - | - |\n", 1, 1, 0, "The definition."},
+		{"an indented table row", "# Widget\n\nThe definition.\n    | a |\n", 1, 0, 0, "The definition.\n    | a |"},
+		{"an underline indented as a block may be", "# Widget\n\nThe definition.\n  ===\n", 1, 1, 0, "The definition."},
+		{"a table row indented as a block may be", "# Widget\n\nThe definition.\n | a |\n", 1, 1, 0, "The definition."},
+		// A lone carriage return ends a line, as CommonMark has it and as the
+		// definition is published.
+		{"a blank line ended by a lone carriage return", "# Widget\n\nThe definition.\n\rMore.\n", 2, 0, 0, "The definition."},
+		{"a list item after a lone carriage return", "# Widget\n\nThe definition.\r- an item\n", 1, 1, 0, "The definition."},
+		// A comment marker inside a fence is code, and opens nothing.
+		{"a comment marker inside a fence", "# Widget\n\nThe definition.\n```\n<!--\n```\nAfter.\n", 2, 1, 0, "The definition."},
+		// A comment beginning a line opens an HTML block, which holds the rest
+		// of the line that closes it.
+		{"text after a comment", "# Widget\n\nThe definition.\n<!-- c --> tail\n", 1, 1, 0, "The definition."},
+		{"text after a comment over two lines", "# Widget\n\nThe definition.\n<!-- a\nb --> tail\n", 1, 1, 0, "The definition."},
+		{"text after an indented comment", "# Widget\n\nThe definition.\n    <!-- c --> tail\n", 1, 0, 0, "The definition.\n     tail"},
+		{"a paragraph after a comment", "# Widget\n\nThe definition.\n<!-- c -->\nMore.\n", 2, 0, 0, "The definition."},
+		{"a comment above the H1", "<!-- c -->\n\n# Widget\n\nThe definition.\n", 1, 0, 0, "The definition."},
+		{"two lines above the H1", "\nOne.\nTwo.\n\n# Widget\n\nThe definition.\n", 1, 0, 7, "The definition."},
+		{"no newline at the end", "# Widget\n\nThe definition.", 1, 0, 0, "The definition."},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			r := repotest.New(t, map[string]string{
+				"term/widget.md": "---\ntitle: Widget\nformerly: []\nnamed_by:\n---\n" + c.body,
+			})
+			entries, _ := r.Glossary()
+			if len(entries) != 1 {
+				t.Fatalf("got %d entries, want 1", len(entries))
+			}
+			e := entries[0]
+			if len(e.Paragraphs) != c.paragraphs || e.Other != c.other || e.Above != c.above {
+				t.Errorf("paragraphs %d, other %d, above %d; want %d, %d, %d: %q",
+					len(e.Paragraphs), e.Other, e.Above, c.paragraphs, c.other, c.above, e.Paragraphs)
+			}
+			if len(e.Paragraphs) > 0 && e.Paragraphs[0] != c.firstWanted {
+				t.Errorf("first paragraph = %q, want %q", e.Paragraphs[0], c.firstWanted)
+			}
+			if want := c.paragraphs == 1 && c.other == 0 && c.above == 0; e.Defined() != want {
+				t.Errorf("Defined() = %t, want %t", e.Defined(), want)
+			}
+		})
+	}
+}

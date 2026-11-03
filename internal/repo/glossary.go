@@ -1,6 +1,7 @@
 package repo
 
 import (
+	"iter"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -21,9 +22,18 @@ type GlossaryEntry struct {
 	NamedBy string
 	// Line is 1-based within the file, at the term's heading.
 	Line int
-	// Paragraphs holds the entry's prose. A well-formed entry has exactly one;
-	// L15 reports the rest.
+	// Paragraphs holds the definition's paragraphs as written, with comments
+	// removed. Other counts the blocks beneath the heading that are not
+	// paragraphs, and Above is the line of the first prose above it, or 0. A
+	// well-formed entry has exactly one paragraph and nothing else; L15
+	// reports the rest.
 	Paragraphs []string
+	Other      int
+	Above      int
+	// Definition is what is published: every line from the H1 to the end of
+	// the file as written, comments cut out, with LF line endings. It holds
+	// the blocks L15 reports too, rather than dropping them unseen.
+	Definition string
 	// Formerly holds the previous names recorded by `Formerly *Old Term*.`
 	// lines, which are not paragraphs.
 	Formerly []string
@@ -66,14 +76,28 @@ func (d *Document) TermEntry() GlossaryEntry {
 		Formerly: d.FrontMatter.Formerly,
 	}
 	e.Anchor = Anchor(e.Term)
-	for i, h := range d.headings {
+	for _, h := range d.headings {
 		if h.Level == 1 {
 			e.Line = h.Line
-			e.Paragraphs = entryBlocks(d.sectionAt(i).masked)
+			e.Paragraphs, e.Other = d.entryBlocks(h.index + 1)
+			e.Definition = d.definition(h.index + 1)
+			masked := d.maskedLines()
+			for j := range h.index {
+				if strings.TrimSpace(masked[j]) != "" {
+					e.Above = d.BodyLine + j
+					break
+				}
+			}
 			break
 		}
 	}
 	return e
+}
+
+// Defined reports whether the entry is a single paragraph of definition and
+// nothing else.
+func (e GlossaryEntry) Defined() bool {
+	return len(e.Paragraphs) == 1 && e.Other == 0 && e.Above == 0
 }
 
 // Term finds a glossary entry by name, case-insensitively as uniqueness is
@@ -95,22 +119,149 @@ func (r *Repo) Term(name string) (GlossaryEntry, bool) {
 	return entry, ok
 }
 
-// blankLinePattern separates paragraphs. It matches CRLF as well as LF, because
-// a file saved on Windows would otherwise read as one unbroken paragraph and
-// L15 would pass anything.
-var blankLinePattern = regexp.MustCompile(`\r?\n[ \t]*\r?\n`)
-
-// entryBlocks splits a definition into paragraphs. HTML comments and
-// whitespace count as nothing, as they do everywhere else.
-func entryBlocks(masked string) (paragraphs []string) {
-	// The masked text comes from the document's own walk, not from a fresh
-	// scan of this fragment: a comment opened before the definition and closed
-	// inside it is already blanked there, and re-scanning from a clean state
-	// would read the stray closing marker as a paragraph.
-	for _, block := range blankLinePattern.Split(masked, -1) {
-		if trimmed := strings.TrimSpace(block); trimmed != "" {
-			paragraphs = append(paragraphs, trimmed)
+// entryBlocks reads the blocks from body line from to the end of the body,
+// subsections included, from the document's own walk: a comment opened before
+// the definition and closed inside it is already blanked there. A line holding
+// only a comment, like a blank one, separates blocks.
+//
+// A paragraph runs over the lines that continue it; a heading, a thematic
+// break, a list, a blockquote, a table, or a code or HTML block is another
+// block. It ends at a setext underline and a table row as well, as the link
+// scanner's does, and a lone carriage return ends a line.
+func (d *Document) entryBlocks(from int) (paragraphs []string, other int) {
+	lines, masked := d.bodyLines(), d.maskedLines()
+	// What holds the lines of the current block: none after a blank line.
+	const (
+		none = iota
+		paragraph
+		container
+		leaf
+	)
+	current, kind := none, blockProse
+	// comment is whether a comment that began a line is still open.
+	comment := false
+	var text []string
+	end := func() {
+		if current == paragraph {
+			paragraphs = append(paragraphs, strings.TrimSpace(strings.Join(text, "\n")))
+		}
+		current, text = none, nil
+	}
+	for i := from; i < len(lines); i++ {
+		for raw, m := range crLines(strings.TrimSuffix(lines[i], "\r"), strings.TrimSuffix(masked[i], "\r")) {
+			// A comment beginning a line opens an HTML block, as CommonMark
+			// has it, and the text after the marker closing it is the
+			// block's. Inside a code block the marker is code.
+			if t := strings.TrimLeft(raw, " "); d.literal[i] == blockProse && len(raw)-len(t) <= 3 && strings.HasPrefix(t, commentOpen) {
+				comment = true
+			}
+			html := comment
+			comment = comment && !strings.Contains(raw, commentClose)
+			switch {
+			case d.literal[i] != blockProse:
+				if current != leaf || kind != d.literal[i] {
+					end()
+					current, kind = leaf, d.literal[i]
+					other++
+				}
+			case strings.TrimSpace(m) == "":
+				end()
+			case html || IsHeading(m) || thematicPattern.MatchString(m) || setextPattern.MatchString(m):
+				end()
+				other++
+			case d.quoted[i] || tablePattern.MatchString(m) || interruptsWithList(m, current == paragraph):
+				if current != container {
+					end()
+					current = container
+					other++
+				}
+			case current == none || current == leaf:
+				end()
+				current = paragraph
+				fallthrough
+			case current == paragraph:
+				text = append(text, withoutComments(raw, m))
+			default:
+				// A line continuing a list or a blockquote lazily stays in it.
+			}
 		}
 	}
-	return paragraphs
+	end()
+	return paragraphs, other
+}
+
+// crLines splits a line as written and its masked twin at each lone carriage
+// return, which CommonMark reads as a line ending, at the same offsets in
+// both.
+func crLines(raw, masked string) iter.Seq2[string, string] {
+	return func(yield func(string, string) bool) {
+		for {
+			i := strings.IndexByte(raw, '\r')
+			if i < 0 {
+				yield(raw, masked)
+				return
+			}
+			if !yield(raw[:i], masked[:i]) {
+				return
+			}
+			raw, masked = raw[i+1:], masked[i+1:]
+		}
+	}
+}
+
+// The table row that ends a paragraph, indented as CommonMark lets a block
+// start be at the top level. blockStartPattern takes a table row at any
+// indentation, since it does not know a list item's; a definition is read
+// outside any container, where four spaces continue the paragraph. A setext
+// underline is setextPattern, which the block walk uses too.
+var tablePattern = regexp.MustCompile(`^ {0,3}\|`)
+
+// definition is the body from line from to its end as written, with the
+// comments cut out. A line left blank is written empty, and a lone carriage
+// return, which CommonMark reads as a line ending, as a line feed.
+func (d *Document) definition(from int) string {
+	lines, masked := d.bodyLines(), d.maskedLines()
+	out := make([]string, 0, len(lines)-from)
+	for i := from; i < len(lines); i++ {
+		line := withoutComments(strings.TrimSuffix(lines[i], "\r"), masked[i])
+		if strings.TrimSpace(line) == "" {
+			line = ""
+		}
+		out = append(out, strings.ReplaceAll(line, "\r", "\n"))
+	}
+	return strings.Trim(strings.Join(out, "\n"), "\n")
+}
+
+// interruptsWithList reports whether a line opens a list item. Within a
+// paragraph only a bullet or an ordered item numbered 1 does, as CommonMark
+// has it, so a line beginning "2025. " continues the sentence before it.
+func interruptsWithList(line string, inParagraph bool) bool {
+	m := listMarkerPattern.FindStringSubmatch(line)
+	if m == nil {
+		return false
+	}
+	return !inParagraph || m[3] == "" || m[3] == "1"
+}
+
+// withoutComments is a line as written with the comments its masked twin
+// blanks cut out. A comment starts and ends with a byte masking changed, so
+// each blanked run is cut from its first changed byte to its last, and the
+// spaces written around it are kept.
+func withoutComments(line, masked string) string {
+	var b strings.Builder
+	for i := 0; i < len(line); {
+		if line[i] == masked[i] {
+			b.WriteByte(line[i])
+			i++
+			continue
+		}
+		last := i
+		for j := i; j < len(line) && masked[j] == ' '; j++ {
+			if line[j] != ' ' {
+				last = j
+			}
+		}
+		i = last + 1
+	}
+	return b.String()
 }
