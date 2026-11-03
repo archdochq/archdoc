@@ -264,9 +264,16 @@ would have to round-trip everything it parsed.
   section naming `Resolved questions` as where an answered question goes, which L09's finding does not,
   and stops there, so a document with questions still open is refused for those alone.
 - **A lint error must name something the user is permitted to change.** A finding that no permitted edit
-  to the named document could clear is a warning: L14, L16, L17, L20 and L21, whose subject is the
-  document's own body. It does not extend to a fault in a relationship between documents, which is cleared by editing
-  the other document, nor to L11 itself.
+  to the named document could clear is a warning: ~~L14, L16, L17, L20 and L21, whose subject is the
+  document's own body. It does not extend to a fault in a relationship between documents, which is
+  cleared by editing the other document, nor to L11 itself.~~ Superseded by ADR-0023, under which a
+  finding no permitted edit could clear is a warning whatever it concerns: L01, L02, L07, L08, L09, L10,
+  L14, L16, L17, L20 and L21 in a frozen document; L04 and L05 where only an edit to a frozen document
+  could clear the fault, as with a ref in `depends`, a reference that is not an identifier any
+  document can hold, a type mismatch, or a frozen target that is not accepted; and L03 when every
+  document holding the identifier is frozen. A relationship fault another permitted edit can clear stays
+  an error: a missing target named by a valid identifier can be written, a target not yet frozen can
+  still be edited, and an identifier held by an editable document can be renumbered. L11 stays an error.
 - **A transition refuses to write a `decided` date before `created`.** Nothing rejects a `created` date
   in the future, so a draft carrying one lints clean until the transition writes the value that makes
   L07 fail permanently. It needs no hand-editing to reach: `new` on one machine and `accept` on another

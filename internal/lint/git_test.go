@@ -737,6 +737,158 @@ func TestL20AndL21SoftenToWarningsOnAFrozenDocument(t *testing.T) {
 	}
 }
 
+func TestFaultsNoPermittedEditCanClearAreWarningsOnAFrozenDocument(t *testing.T) {
+	// L01 to L05 and L07 to L10 report faults that only an edit to the
+	// document could clear, so on a frozen document they are warnings, as the
+	// body rules are. Each case is one fault site in its own document, so a
+	// site left reporting an error is named. A fault only a status changed
+	// after freezing can produce is written to the working tree as an edit,
+	// which L11 reports. A case with no rule is only a target.
+	base := func(id string) string {
+		return rfc(id, "Frozen", "accepted", " 2026-02-01", "Words.")
+	}
+	with := func(id, field, ids string) string {
+		return strings.Replace(base(id), field+": []", field+": ["+ids+"]", 1)
+	}
+	cases := []struct {
+		path, rule, message, contents string
+	}{
+		{"rfc/0001-unknown.md", "L01", `unknown front matter field "extra"`,
+			strings.Replace(base("RFC-0001"), "depends: []", "depends: []\nextra: x", 1)},
+		{"rfc/0002-duplicate.md", "L01", "obsoletes",
+			strings.Replace(base("RFC-0002"), "obsoletes: []", "obsoletes: []\nobsoletes: []", 1)},
+		{"rfc/0003-missing.md", "L01", `missing required front matter key "obsoletes"`,
+			strings.Replace(base("RFC-0003"), "obsoletes: []\n", "", 1)},
+		{"rfc/0004-empty.md", "L01", `front matter key "created" is present but empty`,
+			strings.Replace(base("RFC-0004"), "created: 2026-01-01", "created:", 1)},
+		{"rfc/0005-id.md", "L02", `id is "RFC-0099" but the filename gives "RFC-0005"`,
+			strings.Replace(base("RFC-0005"), "id: RFC-0005", "id: RFC-0099", 1)},
+		{"rfc/unnumbered.md", "L02", "filename does not match", base("RFC-0006")},
+		{"rfc/0000-zero.md", "L02", "filename number is 0000", base("RFC-0000")},
+		{"rfc/0008-undecided.md", "L07", "status is accepted but decided is not set",
+			rfc("RFC-0008", "Frozen", "accepted", "", "Words.")},
+		{"rfc/0009-backfilled.md", "L07", "backfilled 2026-01-15 is before decided 2026-02-01",
+			strings.Replace(base("RFC-0009"), "depends: []", "backfilled: 2026-01-15\ndepends: []", 1)},
+		{"rfc/0010-early.md", "L07", "decided 2025-12-01 is before created 2026-01-01",
+			rfc("RFC-0010", "Frozen", "accepted", " 2025-12-01", "Words.")},
+		{"rfc/0011-section.md", "L08", `missing required section "Motivation"`,
+			strings.Replace(base("RFC-0011"), "## Motivation\n\nTo exercise L11 and L14 together.\n\n", "", 1)},
+		{"rfc/0012-order.md", "L08", `section "Motivation" appears before "Abstract"`,
+			strings.Replace(base("RFC-0012"), "## Abstract", "## Motivation\n\nFirst.\n\n## Abstract", 1)},
+		{"rfc/0013-rationale.md", "L08", `"Rejection rationale" is present but the status is accepted`,
+			strings.Replace(base("RFC-0013"), "## Open questions", "## Rejection rationale\n\nWords.\n\n## Open questions", 1)},
+		{"rfc/0014-open.md", "L09", `must have an empty "Open questions" section`,
+			strings.Replace(base("RFC-0014"), "## Open questions\n", "## Open questions\n\n### Is it?\n", 1)},
+		{"rfc/0015-heading.md", "L10", `H1 is "RFC-0015: Other"`,
+			strings.Replace(base("RFC-0015"), "# RFC-0015: Frozen", "# RFC-0015: Other", 1)},
+		{"rfc/0016-no-heading.md", "L10", "the first heading must be an H1",
+			strings.Replace(base("RFC-0016"), "# RFC-0016: Frozen\n", "", 1)},
+		{"rfc/0017-closing.md", "L08", `"Rejection rationale" must be the last H2`,
+			strings.Replace(rfc("RFC-0017", "Frozen", "rejected", " 2026-02-01", "Words."),
+				"## Open questions", "## Rejection rationale\n\nWords.\n\n## Open questions", 1)},
+		{"rfc/0018-status.md", "L01", `status "final" is not one of`, base("RFC-0018")},
+		{"rfc/0019-reopened.md", "L07", "decided is set but status is proposed", base("RFC-0019")},
+		{"rfc/0020-backfilled.md", "L07", "backfilled is set but status is proposed",
+			strings.Replace(base("RFC-0020"), "depends: []", "backfilled: 2026-03-01\ndepends: []", 1)},
+		{"ref/0001-notes.md", "", "", "---\nid: REF-0001\ntitle: Notes\nverified: 2026-08-01\n---\n\n# REF-0001: Notes\n\nNotes.\n\n## Sources\n\n- None.\n"},
+		{"rfc/0021-ref.md", "L04", "depends references REF-0001, but only RFCs and ADRs are permitted there",
+			with("RFC-0021", "depends", "REF-0001")},
+		{"rfc/0022-missing.md", "L04", "depends references RFC-0999, which does not exist",
+			with("RFC-0022", "depends", "RFC-0999")},
+		{"rfc/0023-itself.md", "L05", "RFC-0023 names itself in updates",
+			with("RFC-0023", "updates", "RFC-0023")},
+		{"rfc/0024-both.md", "L05", "RFC-0001 appears in both updates and obsoletes",
+			strings.Replace(with("RFC-0024", "updates", "RFC-0001"), "obsoletes: []", "obsoletes: [RFC-0001]", 1)},
+		{"rfc/0025-type.md", "L05", "updates references REF-0001, which is a ref",
+			with("RFC-0025", "updates", "REF-0001")},
+		{"rfc/0026-rejected.md", "L05", "updates references RFC-0017, which is rejected",
+			with("RFC-0026", "updates", "RFC-0017")},
+		{"rfc/0027-fresh-target.md", "L05", "updates references RFC-0028, which is rejected",
+			with("RFC-0027", "updates", "RFC-0028")},
+		{"rfc/0028-rejected.md", "", "",
+			strings.Replace(rfc("RFC-0028", "Fresh", "rejected", " 2026-02-01", "Words."),
+				"## Open questions\n\n## Changelog", "## Open questions\n\n## Rejection rationale\n\nWords.\n\n## Changelog", 1)},
+		{"rfc/0029-fresh-updates.md", "L05", "updates references RFC-0017, which is rejected",
+			with("RFC-0029", "updates", "RFC-0017")},
+		{"rfc/0030-one.md", "L03", "identifier RFC-0030 is also used by rfc/0030-two.md",
+			base("RFC-0030")},
+		{"rfc/0030-two.md", "", "", base("RFC-0030")},
+		{"rfc/0031-held.md", "L03", "identifier RFC-0031 is also used by rfc/0031-new.md",
+			base("RFC-0031")},
+		{"rfc/0031-new.md", "", "", base("RFC-0031")},
+		// No document can ever hold these identifiers, so writing one cannot
+		// clear the reference either.
+		{"rfc/0032-word.md", "L04", "depends references foo, which does not exist",
+			with("RFC-0032", "depends", "foo")},
+		{"rfc/0033-zero.md", "L04", "depends references ADR-0000, which does not exist",
+			with("RFC-0033", "depends", "ADR-0000")},
+		{"rfc/0034-case.md", "L04", "depends references rfc-0001, which does not exist",
+			with("RFC-0034", "depends", "rfc-0001")},
+	}
+	// Fresh documents are never committed, and a fault in a case that stays
+	// an error is one some permitted edit can clear.
+	isFresh := map[string]bool{"rfc/0028-rejected.md": true, "rfc/0029-fresh-updates.md": true, "rfc/0031-new.md": true}
+	stays := map[string]bool{"rfc/0022-missing.md": true, "rfc/0027-fresh-target.md": true, "rfc/0031-held.md": true}
+	files, fresh := map[string]string{}, map[string]string{}
+	for _, c := range cases {
+		if isFresh[c.path] {
+			fresh[c.path] = c.contents
+		} else {
+			files[c.path] = c.contents
+		}
+	}
+	// The status each of the last three is given after freezing.
+	edits := map[string]string{
+		"rfc/0018-status.md":     "final",
+		"rfc/0019-reopened.md":   "proposed",
+		"rfc/0020-backfilled.md": "proposed",
+	}
+
+	for _, frozen := range []bool{true, false} {
+		var dir string
+		want := lint.Warning
+		if frozen {
+			dir = gitFixture(t, files)
+		} else {
+			// Committed with nothing, so every document is new and editable.
+			dir = gitFixture(t, nil)
+			for path, contents := range files {
+				write(t, dir, path, contents)
+			}
+			want = lint.Error
+		}
+		for path, contents := range fresh {
+			write(t, dir, path, contents)
+		}
+		for path, status := range edits {
+			write(t, dir, path, strings.Replace(files[path], "status: accepted", "status: "+status, 1))
+		}
+		findings := lintDir(t, dir)
+		for _, c := range cases {
+			if c.rule == "" {
+				continue
+			}
+			want := want
+			if isFresh[c.path] || stays[c.path] {
+				want = lint.Error
+			}
+			var found bool
+			for _, f := range findingsFor(findings, c.rule, c.path) {
+				if !strings.Contains(f.Message, c.message) {
+					continue
+				}
+				found = true
+				if f.Severity != want {
+					t.Errorf("%s on %s (frozen %t) is a %s, want a %s: %s", c.rule, c.path, frozen, f.Severity, want, f.Message)
+				}
+			}
+			if !found {
+				t.Errorf("%s reported nothing on %s (frozen %t) matching %q", c.rule, c.path, frozen, c.message)
+			}
+		}
+	}
+}
+
 func TestL11ReadsARootBeginningWithAColon(t *testing.T) {
 	// Read as a pathspec, ":spec/..." is magic and matches nothing, so no
 	// frozen document read as changed or deleted. An inherited pathspec
