@@ -109,7 +109,9 @@ func L01(ctx Context) []Finding {
 		for _, key := range repo.Keys(d.Type) {
 			has := d.FrontMatter.Has(key.Name)
 			line := d.FrontMatter.LineOf(key.Name)
-			if key.Required && !has {
+			// Where the block did not parse, no key was read, and calling one
+			// missing contradicts the file.
+			if key.Required && !has && fm.Read() {
 				rep.atf(severityFor(ctx, d), d, 1, "missing required front matter key %q", key.Name)
 			}
 			if !key.MayBeEmpty && empty[key.Name] && has && !unparsed[line] {
@@ -123,6 +125,23 @@ func L01(ctx Context) []Finding {
 		}
 	}
 	return rep.findings
+}
+
+// readable reports whether a key's value is known: the block parsed, and the
+// value decoded. L01 reports a value that did not, and a rule comparing
+// against the zero value left in its place reports something the file
+// contradicts.
+func readable(d *repo.Document, key string) bool {
+	if !d.FrontMatter.Read() {
+		return false
+	}
+	line := d.FrontMatter.LineOf(key)
+	for _, p := range d.Problems {
+		if p.Line == line {
+			return false
+		}
+	}
+	return true
 }
 
 // L02 checks that the identifier matches the type and filename, and that the
@@ -140,7 +159,8 @@ func L02(ctx Context) []Finding {
 		if d.Number == 0 {
 			rep.atf(severityFor(ctx, d), d, 0, "filename number is 0000, but sequences start at 1")
 		}
-		if got := d.FrontMatter.ID; got != d.ID {
+		// A missing or empty id is L01's to report.
+		if got := d.FrontMatter.ID; got != d.ID && got != "" && readable(d, "id") {
 			rep.atf(severityFor(ctx, d), d, d.FrontMatter.LineOf("id"), "id is %q but the filename gives %q", got, d.ID)
 		}
 	}
@@ -356,13 +376,13 @@ func L07(ctx Context) []Finding {
 		}
 		terminal := fm.Status.Terminal()
 		switch {
-		case terminal && fm.Decided.IsZero():
+		case terminal && fm.Decided.IsZero() && readable(d, "decided"):
 			rep.atf(severityFor(ctx, d), d, d.FrontMatter.LineOf("decided"), "status is %s but decided is not set", fm.Status)
-		case !terminal && !fm.Decided.IsZero():
+		case !terminal && fm.Status != "" && !fm.Decided.IsZero():
 			rep.atf(severityFor(ctx, d), d, d.FrontMatter.LineOf("decided"), "decided is set but status is %s, which is not terminal", fm.Status)
 		}
 		if !fm.Backfilled.IsZero() {
-			if !terminal {
+			if !terminal && fm.Status != "" {
 				rep.atf(severityFor(ctx, d), d, fm.LineOf("backfilled"),
 					"backfilled is set but status is %s: backfilling records a decision already taken", fm.Status)
 			}
@@ -460,6 +480,12 @@ func L09(ctx Context) []Finding {
 func L10(ctx Context) []Finding {
 	var rep report
 	for _, d := range ctx.Repo().Documents() {
+		// A title or id that is missing, empty or did not parse is L01's to
+		// report, and the heading wanted from it would be wrong.
+		fm := d.FrontMatter
+		if !readable(d, "title") || fm.Title == "" || (d.Type.Numbered() && (!readable(d, "id") || fm.ID == "")) {
+			continue
+		}
 		want := d.FrontMatter.Title
 		if d.Type.Numbered() {
 			want = d.FrontMatter.ID + ": " + d.FrontMatter.Title
@@ -487,7 +513,7 @@ func L12(ctx Context) []Finding {
 		}
 		var obsolete []string
 		for _, id := range d.FrontMatter.Includes {
-			if target := ctx.Repo().ByID(id); target != nil && target.EffectivelyObsolete {
+			if target := ctx.Repo().ByID(id); target != nil && target.EffectivelyObsolete && !slices.Contains(obsolete, id) {
 				obsolete = append(obsolete, id)
 			}
 		}
@@ -512,7 +538,8 @@ func L13(ctx Context) []Finding {
 	// old was silent at midnight UTC and stale by breakfast in London.
 	cutoff := repo.StartOfDay(ctx.Now()).AddDate(0, 0, -days)
 	for _, d := range ctx.Repo().Documents() {
-		if d.Type != repo.TypeRef || d.FrontMatter.Verified.IsZero() || !d.FrontMatter.AsOf.IsZero() {
+		// An as_of that did not parse is L01's, and may well have been set.
+		if d.Type != repo.TypeRef || d.FrontMatter.Verified.IsZero() || !d.FrontMatter.AsOf.IsZero() || !readable(d, "as_of") {
 			continue
 		}
 		if !d.FrontMatter.Verified.Before(cutoff) {

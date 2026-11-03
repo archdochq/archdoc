@@ -1769,3 +1769,54 @@ func TestATermDefinitionIsOneParagraphAndNothingElse(t *testing.T) {
 		})
 	}
 }
+
+func TestAFrontMatterFaultIsReportedOnceAtItsLine(t *testing.T) {
+	cases := []struct {
+		name, source string
+		line         int
+		message      string
+		read         bool
+	}{
+		{"a tab", "---\ntitle: T\nincludes:\n\t- RFC-0001\n---\n\n# T\n", 4, "front matter is not valid YAML: found character", false},
+		{"an unclosed flow sequence", "---\ntitle: T\nincludes: []\nstatus: [draft\ncreated: 2026-01-01\n---\n\n# T\n", 4, "front matter is not valid YAML: did not find expected ',' or ']'", false},
+		// Cut after its comma, the sequence fails with a different message,
+		// so the fault is the line that follows it.
+		{"a flow sequence left open after a comma", "---\ntitle: T\nincludes: [RFC-0001,\nstatus: draft\ncreated: 2026-01-01\n---\n\n# T\n", 4, "front matter is not valid YAML: did not find expected ',' or ']'", false},
+		{"a fault on the first line", "---\ntitle: [T\n---\n\n# T\n", 2, "front matter is not valid YAML", false},
+		// A flow sequence over two lines fails when cut between them, with a
+		// different message from the fault that follows.
+		{"a fault after a sequence over two lines", "---\ntitle: T\nincludes: [RFC-0001,\n  RFC-0002]\nformerly:\n\t- x\n---\n\n# T\n", 6, "front matter is not valid YAML: found character", false},
+		{"a scalar", "---\njust text\n---\n\n# T\n", 2, "front matter is not a mapping", false},
+		{"a sequence where a string goes", "---\ntitle: [X, Y]\nincludes: []\n---\n\n# T\n", 2, "title: cannot unmarshal !!seq into string", true},
+		{"a string where a list goes", "---\ntitle: T\nincludes: RFC-0001\n---\n\n# T\n", 3, "includes: cannot unmarshal !!str `RFC-0001` into []string", true},
+		{"a mapping where a list goes", "---\ntitle: T\nincludes: {a: b}\n---\n\n# T\n", 3, "includes: cannot unmarshal !!map into []string", true},
+		{"an empty item", "---\ntitle: T\nincludes:\n  - RFC-0001\n  -\n---\n\n# T\n", 5, "includes holds an empty item", true},
+		// A string over two lines fails when cut between them with the
+		// message of the unterminated one that follows, so the fault is the
+		// last line from which every longer cut fails as the whole does.
+		{"a fault after a string over two lines", "---\ntitle: \"P\n  Q\"\nincludes: []\nformerly: \"x\n---\n\n# T\n", 5, "front matter is not valid YAML: found unexpected end of stream", false},
+		{"a fault closing a sequence over two lines", "---\ntitle: [a,\n  b]: c\nincludes: []\n---\n\n# T\n", 3, "front matter is not valid YAML: mapping values are not allowed", false},
+		{"a fault on the first of several lines", "---\ntitle: a: b\nincludes: []\n---\n\n# T\n", 2, "front matter is not valid YAML: mapping values are not allowed", false},
+		{"a sequence after a comment", "---\n# c\n- a\n---\n\n# T\n", 3, "front matter is not a mapping", false},
+		{"an empty item in a list that did not decode", "---\ntitle: T\nincludes: [~, [a]]\n---\n\n# T\n", 3, "includes: cannot unmarshal !!seq into string", true},
+		{"two type errors in one list", "---\ntitle: T\nincludes: [[a], {b: c}]\n---\n\n# T\n", 3, "includes: cannot unmarshal !!seq into string; cannot unmarshal !!map into string", true},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			d, ok := repo.Parse("spec/page.md", []byte(c.source))
+			if !ok {
+				t.Fatal("not a document path")
+			}
+			if len(d.Problems) != 1 {
+				t.Fatalf("want one problem, got %d: %v", len(d.Problems), d.Problems)
+			}
+			p := d.Problems[0]
+			if p.Line != c.line || !strings.HasPrefix(p.Message, c.message) || strings.Contains(p.Message, "\n") {
+				t.Errorf("problem at line %d: %q; want one line at %d beginning %q", p.Line, p.Message, c.line, c.message)
+			}
+			if d.FrontMatter.Read() != c.read {
+				t.Errorf("Read() = %t, want %t", d.FrontMatter.Read(), c.read)
+			}
+		})
+	}
+}

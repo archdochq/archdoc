@@ -2,7 +2,10 @@ package repo
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
+	"regexp"
+	"strings"
 	"time"
 
 	"gopkg.in/yaml.v3"
@@ -152,20 +155,21 @@ func parseFrontMatter(t Type, block []byte) (FrontMatter, []Problem) {
 	fm := FrontMatter{present: map[string]int{}}
 	var problems []Problem
 
+	// Front matter lines are offset by the opening delimiter.
+	const offset = 1
 	var root yaml.Node
 	if err := yaml.Unmarshal(block, &root); err != nil {
-		return fm, []Problem{{Line: 2, Message: fmt.Sprintf("front matter is not valid YAML: %v", err)}}
+		fm.unread = true
+		return fm, []Problem{{Line: faultLine(block, err) + offset, Message: "front matter is not valid YAML: " + yamlProblem(err)}}
 	}
 	if len(root.Content) == 0 {
 		return fm, problems
 	}
 	mapping := root.Content[0]
 	if mapping.Kind != yaml.MappingNode {
-		return fm, []Problem{{Line: 2, Message: "front matter is not a mapping"}}
+		fm.unread = true
+		return fm, []Problem{{Line: mapping.Line + offset, Message: "front matter is not a mapping"}}
 	}
-
-	// Front matter lines are offset by the opening delimiter.
-	const offset = 1
 	nodes := map[string]*yaml.Node{}
 	allowed := map[string]bool{}
 	for _, k := range Schema(t) {
@@ -196,7 +200,7 @@ func parseFrontMatter(t Type, block []byte) (FrontMatter, []Problem) {
 		if err := n.Decode(into); err != nil {
 			problems = append(problems, Problem{
 				Line:    n.Line + offset,
-				Message: fmt.Sprintf("%s: %v", key, err),
+				Message: decodeError(key, err),
 			})
 		}
 	}
@@ -212,8 +216,19 @@ func parseFrontMatter(t Type, block []byte) (FrontMatter, []Problem) {
 		if err := n.Decode(into); err != nil {
 			problems = append(problems, Problem{
 				Line:    n.Line + offset,
-				Message: fmt.Sprintf("%s: %v", key, err),
+				Message: decodeError(key, err),
 			})
+			return
+		}
+		// A null item decodes to "", which names nothing and would otherwise
+		// vanish from every rule that reads the list.
+		for _, item := range n.Content {
+			if item.Tag == "!!null" {
+				problems = append(problems, Problem{
+					Line:    item.Line + offset,
+					Message: fmt.Sprintf("%s holds an empty item", key),
+				})
+			}
 		}
 	}
 	date := func(key string, into *time.Time) {
@@ -230,7 +245,7 @@ func parseFrontMatter(t Type, block []byte) (FrontMatter, []Problem) {
 		if err := n.Decode(&written); err != nil {
 			problems = append(problems, Problem{
 				Line:    n.Line + offset,
-				Message: fmt.Sprintf("%s: %v", key, err),
+				Message: decodeError(key, err),
 			})
 			return
 		}
@@ -268,3 +283,49 @@ func parseFrontMatter(t Type, block []byte) (FrontMatter, []Problem) {
 
 	return fm, problems
 }
+
+// faultLine is the line of the block on which it stops being valid YAML: the
+// first from which the block cut after that line or any later one fails as the
+// whole block does. Read from the end, because a construct over several lines
+// cut part way through can fail with the same message as the fault, on a line
+// before it that is valid. yaml's own line number cannot be used, because it
+// counts a scanner error's line from 1 and a parser error's from 0, names the
+// line a construct opened on for some errors, and names none on the first
+// line.
+func faultLine(block []byte, err error) int {
+	lines := bytes.Split(block, []byte("\n"))
+	want := yamlProblem(err)
+	k := len(lines)
+	for ; k > 1; k-- {
+		var n yaml.Node
+		if e := yaml.Unmarshal(bytes.Join(lines[:k-1], []byte("\n")), &n); e == nil || yamlProblem(e) != want {
+			break
+		}
+	}
+	return k
+}
+
+// yamlProblem is a YAML error without its prefix and line number.
+func yamlProblem(err error) string {
+	return yamlPrefixPattern.ReplaceAllString(err.Error(), "")
+}
+
+var yamlPrefixPattern = regexp.MustCompile(`^yaml: (line \d+: )?`)
+
+// decodeError is a key's decoding error on one line. yaml reports a type error
+// as a list, one per line with its own line number, counted from the value
+// rather than the file; the finding already carries the file's line.
+func decodeError(key string, err error) string {
+	var typeErr *yaml.TypeError
+	if !errors.As(err, &typeErr) {
+		return fmt.Sprintf("%s: %s", key, strings.ReplaceAll(err.Error(), "\n", " "))
+	}
+	reasons := make([]string, len(typeErr.Errors))
+	for i, e := range typeErr.Errors {
+		reasons[i] = errorLinePattern.ReplaceAllString(e, "")
+	}
+	return fmt.Sprintf("%s: %s", key, strings.Join(reasons, "; "))
+}
+
+// errorLinePattern is the line number yaml puts before each type error.
+var errorLinePattern = regexp.MustCompile(`^line \d+: `)
