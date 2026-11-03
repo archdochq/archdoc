@@ -528,6 +528,49 @@ the result can delete content it never read.
   and the branch share no commit, as in a clone of depth one that fetched the branch, the rule fails
   naming `fetch-depth: 0` rather than falling back to the tip, which would report every document
   frozen there since.
+- **L11 reports a frozen document only where it differs from the tip as well.** ~~What changed is the
+  merge base's answer alone.~~ A branch stacked on one whose acceptance was squash-merged, or one that
+  cherry-picked it, holds exactly what the tip does, so merging changes nothing, but its merge base
+  still held the document before it froze: the push run failed while the pull request's passed.
+- **Each side is read under its own root, from its own `archdoc.json`.** The working tree's `root` was
+  applied to the branch, so a pull request moving the root matched nothing there and passed every
+  edit and deletion. Documents are matched by their path within root, which follows a move and still
+  reports an edit or a deletion made with it; a file that moved is compared by the object id git
+  computes for it through the same filters a commit applies. ~~A branch's `archdoc.json` is the one at
+  the working tree's location, or the branch's only one, so moving the file is still judged by the
+  branch's `strict`; with several, which one moved cannot be told.~~ (An `examples/archdoc.json` beside
+  the record was taken for a moved file, and its documents reported deleted.) ~~A branch's
+  `archdoc.json` is the one at the working tree's location, or the one the working tree's moved from:
+  the branch's only one the working tree no longer holds, so moving the file is still judged by the
+  branch's `strict`, and one still there belongs to something else.~~ (Deleting an
+  `examples/archdoc.json` while adopting ArchDoc at the top level was taken for a move, and the
+  example's documents reported deleted.) A branch's `archdoc.json` is the one at the working tree's
+  location, or the one the working tree's moved from: the branch's only one the working tree no longer
+  holds, where the branch holds no document under the root it names, or one of them is still under the
+  working tree's root. Moving the file is still judged by the branch's `strict`, one still there
+  belongs to something else, and one whose documents are none of them under the working tree's root
+  was not the record's. With several gone, which one moved cannot be told. Absence is the test rather
+  than git's rename detection, which sees only files git tracks and so never a working tree's
+  `archdoc.json` not yet added. The branch is listed whole, not the
+  working directory's subtree, so a file or root above the directory archdoc runs in is found.
+  ~~Where the root the branch names is the working tree's, git is asked how it spells it, as a case,
+  normalisation or symbolic link difference matched nothing.~~ (A pull request correcting the root's
+  spelling matched nothing on the branch, and one leaving a link where the root was sent the branch's
+  documents to the link's target.) ~~Where the branch's file is at the working tree's location and the
+  branch lists nothing under the root it names, git is asked how the working tree spells that root, as
+  a case, normalisation or symbolic link difference matched nothing; a root the branch lists files
+  under is taken as written.~~ (A moved file's root, relative to where the file was, was taken as
+  written, so one in another case than git lists it matched nothing and the pull request's edit to a
+  frozen document passed.) Where the branch lists nothing under the root its file names, git is asked
+  how the working tree spells that root if the file is at the working tree's location, as a case,
+  normalisation or symbolic link difference matched nothing. Failing that, and for a moved file, the
+  root is the directory in the branch's listing that matches it case-folded and in Unicode
+  normalisation form C, the first in git's order where several do; the listing is the branch's, so the
+  match holds whether or not the filesystem tells the spellings apart. A root the branch lists files
+  under is taken as written. A branch's `archdoc.json` that cannot be read leaves the working tree's
+  settings standing, with one L11 warning: an error holds until the branch is mended, so the pull
+  request mending it could never pass. `branch` is the working tree's: the base is found through it, so no
+  other copy can be trusted to name it, and a pull request could edit the workflow instead.
 - **A missing branch is two different situations.** With no commits at all nothing can be frozen, so the
   rule is skipped with a warning: `archdoc init` followed by `archdoc lint` is the first thing anyone
   does. With commits present a missing branch means the configured name is wrong, and passing quietly
@@ -570,7 +613,8 @@ the result can delete content it never read.
   commands, and `lifecycle`, where it was, imports `lint`.
 - **M03 reads `strict` from the base**, so a pull request turning it off is still judged with it on.
   Where the base has no `archdoc.json`, as before the pull request that adds ArchDoc, the working
-  tree's is the only setting there is.
+  tree's is the only setting there is. ~~The base's is read at the working tree's location.~~ It is
+  found as L11 finds it, so moving the file does not escape it.
 
 ## The index
 

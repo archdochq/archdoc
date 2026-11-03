@@ -243,18 +243,26 @@ func validBranch(name string) bool {
 	return true
 }
 
-// StrictIn reads strict from an archdoc.json's contents, as Load decides it for
-// a file Load accepts, without validating anything else. It is for a
-// configuration as it stands on a branch, which is never loaded from disk.
-func StrictIn(data []byte) (bool, error) {
-	settings := struct {
-		Strict *bool `json:"strict"`
-	}{}
-	if err := json.Unmarshal(data, &settings); err != nil {
-		return false, err
+// Settings is what L11 and the merge rules read from an archdoc.json as it
+// stands on a branch: its root and strict. Its branch is not read: the base is
+// found through the working tree's.
+type Settings struct {
+	Root   string
+	Strict bool
+}
+
+// SettingsIn reads those settings from an archdoc.json's contents, as Load
+// decides them for a file Load accepts, without validating anything else. It
+// is for a configuration as it stands on a branch, which is never loaded from
+// disk, and is lenient on purpose: a branch's archdoc.json written before a
+// check Load now makes must not make the comparison fail.
+func SettingsIn(data []byte) (Settings, error) {
+	s := Settings{Root: DefaultRoot, Strict: DefaultStrict}
+	if err := json.Unmarshal(data, &struct {
+		Root   *string `json:"root"`
+		Strict *bool   `json:"strict"`
+	}{&s.Root, &s.Strict}); err != nil {
+		return Settings{}, err
 	}
-	if settings.Strict == nil {
-		return DefaultStrict, nil
-	}
-	return *settings.Strict, nil
+	return s, nil
 }

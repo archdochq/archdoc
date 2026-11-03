@@ -37,6 +37,12 @@ type Repository interface {
 	// document differed byte for byte while git reported the tree clean, so the
 	// rule this tool exists to enforce failed on every document there.
 	Changed(branch string, paths []string) (map[string]bool, error)
+	// Differs is Changed for files that moved: each key is a path in the
+	// working tree and its value the path the same file has on rev. A file
+	// absent from rev differs. It compares the object id of the file
+	// on rev with the one git computes for the working file, through the
+	// filters a commit applies, so it judges as Changed does.
+	Differs(rev string, moved map[string]string) (map[string]bool, error)
 	// HasCommits reports whether the repository holds any commit at all. A
 	// freshly initialised one holds none, so no document can be frozen yet and
 	// the configured branch being absent is expected rather than a fault.
@@ -45,7 +51,8 @@ type Repository interface {
 	// to tell a repository with no such branch from one where every document is
 	// new, which would otherwise pass silently.
 	BranchExists(branch string) (bool, error)
-	// ListFiles names every path committed on branch, sorted. L11 needs it to
+	// ListFiles names every path committed on branch, from the repository's
+	// top level whichever directory it was opened in, sorted. L11 needs it to
 	// notice a frozen document deleted from the working tree, which discovery
 	// cannot see.
 	ListFiles(branch string) ([]string, error)
@@ -87,6 +94,8 @@ type shell struct {
 	// single run.
 	present map[string]bool
 	listed  map[string][]string
+	// spelled caches PathOf's answers, which each cost a subprocess.
+	spelled map[string]string
 }
 
 // Open returns a Repository rooted at dir. It returns ErrNotARepository only
@@ -94,7 +103,7 @@ type shell struct {
 // failure, git missing from PATH above all, is returned as it is: a caller that
 // treated those alike would skip every frozen-document check and still succeed.
 func Open(dir string) (Repository, error) {
-	s := &shell{dir: dir, resolved: map[string]string{}, present: map[string]bool{}, listed: map[string][]string{}}
+	s := &shell{dir: dir, resolved: map[string]string{}, present: map[string]bool{}, listed: map[string][]string{}, spelled: map[string]string{}}
 	switch out, _, err := s.run("rev-parse", "--show-toplevel"); {
 	case err == nil:
 		s.root = strings.TrimSpace(string(out))
@@ -314,6 +323,46 @@ func (s *shell) Changed(branch string, paths []string) (map[string]bool, error) 
 	return changed, nil
 }
 
+func (s *shell) Differs(rev string, moved map[string]string) (map[string]bool, error) {
+	root, err := s.RepoRoot()
+	if err != nil {
+		return nil, err
+	}
+	differs := make(map[string]bool, len(moved))
+	var working, onRev []string
+	for work, was := range moved {
+		working = append(working, work)
+		onRev = append(onRev, was)
+	}
+	if len(working) == 0 {
+		return differs, nil
+	}
+	// hash-object reads each file through the filters its path selects and
+	// prints one id per file, in order. ls-tree prints the ids rev holds,
+	// NUL-separated, for the paths it has.
+	hashed, _, err := s.runIn(root, append([]string{"hash-object", "--"}, working...)...)
+	if err != nil {
+		return nil, err
+	}
+	ids := strings.Fields(string(hashed))
+	listed, _, err := s.runIn(root, append([]string{"ls-tree", "-z", "--full-tree", s.rev(rev), "--"}, onRev...)...)
+	if err != nil {
+		return nil, err
+	}
+	held := map[string]string{}
+	for _, entry := range strings.Split(string(listed), "\x00") {
+		if meta, name, ok := strings.Cut(entry, "\t"); ok {
+			if fields := strings.Fields(meta); len(fields) == 3 {
+				held[name] = fields[2]
+			}
+		}
+	}
+	for i, work := range working {
+		differs[work] = i >= len(ids) || held[onRev[i]] != ids[i]
+	}
+	return differs, nil
+}
+
 func (s *shell) ListFiles(branch string) ([]string, error) {
 	if cached, ok := s.listed[branch]; ok {
 		return cached, nil
@@ -326,12 +375,14 @@ func (s *shell) ListFiles(branch string) ([]string, error) {
 }
 
 func (s *shell) listFiles(branch string) ([]string, error) {
-	out, _, err := s.run("ls-tree", "-r", "--full-name", "--name-only", "-z", s.rev(branch))
+	out, _, err := s.run("ls-tree", "-r", "--full-tree", "--name-only", "-z", s.rev(branch))
 	if err != nil {
 		return nil, err
 	}
-	// --full-name prints paths from the repository root rather than from the
-	// working directory, which is the base every caller translates against.
+	// --full-tree lists the whole tree, by paths from the repository root,
+	// rather than the working directory's subtree by paths from it. A branch
+	// whose root or archdoc.json is above the directory archdoc runs in, as
+	// before a pull request moving them down, held nothing otherwise.
 	// -z separates with NUL, so paths containing newlines or quotes survive
 	// intact and need no unquoting.
 	var files []string
@@ -407,11 +458,19 @@ func (s *shell) Prefix() (string, error) {
 // from the repository's top level, which is what ListFiles and FilesAt take.
 // It is empty for the top level itself.
 //
-// Built from Prefix rather than by comparing the top level with an absolute
-// path, for the reason Prefix gives: on a case-insensitive filesystem the two
-// spellings of one directory diverge, and the result climbs out of the
-// repository.
+// git is asked for the spelling, from the directory rel names, rather than rel
+// being joined onto Prefix: a root written in another case on a
+// case-insensitive filesystem, in another Unicode normalisation, or through a
+// symbolic link reaches the same directory under a name git does not list, and
+// every frozen document read as new. Joined lexically it climbed out of the
+// repository too, for the reason Prefix gives. The join remains for a path git
+// cannot be run from, such as one that does not exist yet.
 func PathOf(g Repository, rel string) string {
+	if s, ok := g.(*shell); ok {
+		if spelled, ok := s.spelling(rel); ok {
+			return spelled
+		}
+	}
 	prefix, err := g.Prefix()
 	if err != nil {
 		prefix = ""
@@ -420,4 +479,23 @@ func PathOf(g Repository, rel string) string {
 		return joined
 	}
 	return ""
+}
+
+// spelling runs git from the directory rel names, or from the one holding it
+// when rel is a file, whose name is kept as written.
+func (s *shell) spelling(rel string) (string, bool) {
+	if cached, ok := s.spelled[rel]; ok {
+		return cached, true
+	}
+	dir, name := filepath.Join(s.dir, rel), ""
+	if info, err := os.Stat(dir); err != nil || !info.IsDir() {
+		dir, name = filepath.Dir(dir), filepath.Base(dir)
+	}
+	out, _, err := s.runIn(dir, "rev-parse", "--show-prefix")
+	if err != nil {
+		return "", false
+	}
+	spelled := path.Join(strings.TrimSuffix(strings.TrimSpace(string(out)), "/"), name)
+	s.spelled[rel] = spelled
+	return spelled, true
 }

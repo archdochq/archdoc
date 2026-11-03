@@ -162,7 +162,17 @@ func branchFiles(ctx Context) map[string]BranchFile {
 	if exists, err := ctx.Git().BranchExists(branch); err != nil || !exists {
 		return nil
 	}
-	prefix := gitPrefix(ctx)
+	// The documents on the branch are under its own root, which a pull
+	// request moving the root does not share with the working tree.
+	located, err := changes.Locate(ctx.Repo(), ctx.Git(), branch)
+	if err != nil {
+		files := map[string]BranchFile{}
+		for _, d := range ctx.Repo().Documents() {
+			files[d.Path] = BranchFile{Err: err}
+		}
+		return files
+	}
+	prefix := located.Root
 
 	// One listing, rather than asking git whether each document exists. A
 	// document absent from the branch is the common case in an active
@@ -305,7 +315,7 @@ var Rules = []Rule{
 		Remedy:  "Revert it. To change what it says, write a new document that updates or obsoletes it",
 		Since:   "v0.1.0-alpha.1",
 		Changes: []Change{
-			{Release: "v0.6.0", Summary: "Judges what changed or was deleted against the merge base of HEAD and the branch, not the branch's tip"},
+			{Release: "v0.6.0", Summary: "Judges what changed or was deleted against the merge base of HEAD and the branch, not the branch's tip, and warns once where the branch's `archdoc.json` cannot be read"},
 		},
 	},
 	{
