@@ -900,3 +900,28 @@ func TestL11ReportsAFailureToAskWhetherADocumentWasDeleted(t *testing.T) {
 
 	expect(t, findings, "L11", ".", 1, "diff of the deletions exploded")
 }
+
+// TestL17FollowsALinkOutOfRootIntoTheGitRepository: init writes a root below
+// the git top level inside a code repository, and a link to the code was
+// reported as leaving the repository.
+func TestL17FollowsALinkOutOfRootIntoTheGitRepository(t *testing.T) {
+	dir := gitFixture(t, map[string]string{
+		"src/main.go":       "package main\n",
+		"docs/archdoc.json": `{"name":"Nested","branch":"main"}`,
+		"docs/spec/p.md": "---\ntitle: P\nincludes: []\n---\n\n# P\n\n" +
+			"See [main](../../src/main.go), [gone](../../src/gone.go) and [out](../../../outside.md).\n\n" +
+			"The [top level](../../) is the repository's, and [above it](../../../) is not.\n",
+	})
+	var got []string
+	for _, f := range findingsFor(lintDir(t, filepath.Join(dir, "docs")), "L17", "spec/p.md") {
+		got = append(got, f.Message)
+	}
+	want := []string{
+		`link target "../../src/gone.go" does not exist`,
+		`link target "../../../outside.md" leaves the repository`,
+		`link target "../../../" leaves the repository`,
+	}
+	if !slices.Equal(got, want) {
+		t.Errorf("findings = %q, want %q", got, want)
+	}
+}

@@ -155,11 +155,34 @@ would have to round-trip everything it parsed.
   real `#configuration-1` and that is what a reader copying from their browser will write. Anchors are
   assigned by walking a document's headings in order against a seen-set, never computed from a heading
   in isolation, and are slugged from the heading's *rendered* text so link syntax is stripped first.
+  ~~Stripping inline links was all the rendering done.~~ Rendering now resolves escapes and entities,
+  keeps a code span's content, drops tags, emphasis underscores and images, and reads reference links
+  and nested brackets, and the slug keeps the marks, letter numbers and connector punctuation
+  github-slugger keeps. Each was a heading whose link worked on GitHub and failed L17, or the reverse,
+  and `link` wrote the wrong anchor into a glossary link. An underscore run is emphasis only where it
+  pairs, the runs of `*`, `_` and `~` paired as cmark-gfm pairs them: dropping every run that flanked a
+  word gave `## The _id field` the anchor `the-id-field`, where GitHub's is `the-_id-field`. A bare
+  address GitHub links is text as written, its end read as cmark-gfm's autolink extension reads it,
+  since an underscore in `https://a.com/_x_` is not emphasis there. A
+  reference link is a link only where the document defines its label, and text otherwise. A link in a
+  heading closes where one in prose does, its destination and title read alike and a bracket in a code
+  span in its text not one of its own: closing the parentheses at their balancing `)` linked
+  `[a](x y.md)`, which GitHub renders as text, so L17 rejected GitHub's anchor. A heading is
+  rendered as written, so a comment in it leaves the space beside it. Of the numbers, the slug keeps
+  decimal digits and letter numbers and drops the rest, such as `²` and `½`, as github-slugger does.
+- **A link names an anchor a document holds explicitly as well as its headings'.** L17 read `<a id>`
+  only in files that are not documents, so a document's own explicit anchor was a target nowhere.
+  Explicit anchors are read outside comments and code, and in HTML blocks, in single or double quotes.
+  A comment within an HTML block is unmasked, so it is removed before an anchor is read from the block,
+  and an anchor's entities are resolved, as a browser reads both.
 - **Link destinations are read in every form CommonMark allows and written in one.** `Document.Links`
   understands a bare destination, the `<...>` form and a link reference definition, and percent-decodes
   before comparing against a path on disk. `repo.LinkDestination` percent-encodes on the way out. The
   two are inverses, and encoding rather than escaping avoids the interaction where a path's own
-  backslash pairs with an added one and lets the destination close early.
+  backslash pairs with an added one and lets the destination close early. What follows the destination
+  is a title in `"..."`, `'...'` or `(...)` or nothing, and an empty destination is one, as cmark-gfm
+  reads them: anything up to a `)` was taken as a title, so `[a](x y.md)`, which GitHub renders as
+  text, was a link to `x`.
 - **Link text is read across a paragraph by a scanner, not a pattern.** A pattern matched one line at a
   time with `[^\]]*` for the text, so link text wrapped across lines, a linked image and brackets in the
   text were not links, and L17, `export`, `term remove` and `renumber` all passed over them. The scanner
@@ -181,7 +204,14 @@ would have to round-trip everything it parsed.
   ends, requires a non-empty label, allows a title and does not count a line that interrupts a
   paragraph. Without the end anchor a footnote, a numbered citation or any sentence beginning with a
   bracketed word was read as a link and reported as a broken one, and a citation list is exactly what a
-  `Sources` section looks like.
+  `Sources` section looks like. A heading and a code or HTML block end a paragraph as a blank line
+  does, so a definition directly under `## Sources` is read; it was not, so L17 never checked it and
+  `renumber` never rewrote it.
+- **L17 judges a path against the git repository, its case exactly.** A link from a specification
+  beside the code it describes to that code leaves `root` and stays in the repository, and was
+  reported as leaving it. A path differing only in case was found on a case-insensitive filesystem and
+  is missing on GitHub and in a Linux checkout, so each component is matched against its directory's
+  listing. A destination with a URI scheme or a leading `/` is not relative and is not checked.
 
 ## Sections
 

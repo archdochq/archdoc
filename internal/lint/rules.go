@@ -5,6 +5,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"regexp"
 	"slices"
 	"strings"
 
@@ -770,11 +771,7 @@ func L17(ctx Context) []Finding {
 	cached := map[string][]string{}
 	anchorsOf := func(resolved string, source []byte) []string {
 		if known := ctx.Repo().ByPath(resolved); known != nil {
-			anchors := make([]string, 0, len(known.Headings()))
-			for _, h := range known.Headings() {
-				anchors = append(anchors, h.Anchor)
-			}
-			return anchors
+			return known.Anchors()
 		}
 		if anchors, ok := cached[resolved]; ok {
 			return anchors
@@ -784,28 +781,44 @@ func L17(ctx Context) []Finding {
 		return anchors
 	}
 
+	// A target outside root is still the repository's when git holds both,
+	// as it does for a specification beside the code it describes.
+	boundary, _ := filepath.EvalSymlinks(root)
+	if ctx.Git() != nil {
+		if top, err := ctx.Git().RepoRoot(); err == nil {
+			boundary = top
+		}
+	}
+	exists := existence{}
+
 	for _, d := range ctx.Repo().Documents() {
 		severity := severityFor(ctx, d)
 		for _, link := range d.Links() {
 			target, anchor, _ := strings.Cut(link.Target, "#")
-			if strings.Contains(target, "://") || strings.HasPrefix(link.Target, "mailto:") {
-				continue
+			if strings.HasPrefix(link.Target, "/") || uriScheme.MatchString(link.Target) {
+				continue // not relative, as export reads a destination too
 			}
 
 			source := d.Source
 			resolved := d.Path
 			if target != "" {
 				resolved = path.Join(path.Dir(d.Path), target)
+				full := filepath.Join(root, filepath.FromSlash(resolved))
+				base, rel := root, resolved
 				if resolved == ".." || strings.HasPrefix(resolved, "../") {
 					// path.Join cleans a leading ".." away only as far as the
-					// document's own directory; beyond that the path really
-					// does leave root, and reading it was neither wanted nor
-					// this tool's business. Existence alone is an answer about
-					// a file the repository does not own.
-					rep.atf(severity, d, link.Line, "link target %q leaves the repository", target)
-					continue
+					// document's own directory; beyond that the path leaves
+					// root. Past the repository too, reading it was neither
+					// wanted nor this tool's business, and existence alone is
+					// an answer about a file the repository does not own.
+					full = filepath.Join(boundary, mustRel(boundary, root), filepath.FromSlash(resolved))
+					inside, err := filepath.Rel(boundary, full)
+					if err != nil || inside == ".." || strings.HasPrefix(inside, ".."+string(filepath.Separator)) {
+						rep.atf(severity, d, link.Line, "link target %q leaves the repository", target)
+						continue
+					}
+					base, rel = boundary, filepath.ToSlash(inside)
 				}
-				full := filepath.Join(root, filepath.FromSlash(resolved))
 
 				// The file was read from disk once per reference to it, before
 				// anything asked whether its contents were even wanted, so the
@@ -823,12 +836,11 @@ func L17(ctx Context) []Finding {
 					// Already read and already parsed, and the repository
 					// holding it is proof that it exists.
 					source = known.Source
+				case !exists.exactly(base, rel):
+					rep.atf(severity, d, link.Line, "link target %q does not exist", target)
+					continue
 				case anchor == "" || path.Ext(target) != ".md":
 					// Only existence is in question, so do not read the body.
-					if _, err := os.Stat(full); err != nil {
-						rep.atf(severity, d, link.Line, "link target %q does not exist", target)
-						continue
-					}
 				default:
 					contents, err := os.ReadFile(full)
 					if err != nil {
@@ -854,6 +866,51 @@ func L17(ctx Context) []Finding {
 		}
 	}
 	return rep.findings
+}
+
+// uriScheme is a destination naming a scheme, such as https:, mailto: or tel:.
+var uriScheme = regexp.MustCompile(`^[A-Za-z][A-Za-z0-9+.-]*:`)
+
+// mustRel is root as a path below the git top level, both resolved through
+// symbolic links. root is inside the repository, so the two always relate.
+func mustRel(top, root string) string {
+	resolved, err := filepath.EvalSymlinks(root)
+	if err != nil {
+		resolved = root
+	}
+	rel, err := filepath.Rel(top, resolved)
+	if err != nil {
+		return "."
+	}
+	return rel
+}
+
+// existence answers whether a path exists with exactly the case it is written
+// in, reading each directory once. A case-insensitive filesystem found B.md
+// for b.md, and GitHub and a Linux checkout do not.
+type existence map[string]map[string]bool
+
+func (e existence) exactly(base, rel string) bool {
+	if rel == "." {
+		return true // base itself, which no listing holds
+	}
+	dir := base
+	for _, name := range strings.Split(rel, "/") {
+		entries, ok := e[dir]
+		if !ok {
+			entries = map[string]bool{}
+			listed, _ := os.ReadDir(dir)
+			for _, entry := range listed {
+				entries[entry.Name()] = true
+			}
+			e[dir] = entries
+		}
+		if !entries[name] {
+			return false
+		}
+		dir = filepath.Join(dir, name)
+	}
+	return true
 }
 
 // L20 checks the shape of the question sections: each question a level three

@@ -63,7 +63,7 @@ type questionWalk struct {
 	d        *Document
 	raw      []string
 	masked   []string
-	literal  []bool
+	literal  []block
 	inQuote  []bool
 	problems []Problem
 }
@@ -81,7 +81,7 @@ func (w *questionWalk) blank(i int) bool {
 // quoted is a blockquote line: one beginning with > at the start of the line,
 // outside an HTML comment and any literal block the quote does not hold.
 func (w *questionWalk) quoted(i int) bool {
-	return (!w.literal[i] || w.inQuote[i]) && strings.HasPrefix(w.masked[i], ">")
+	return (w.literal[i] == blockProse || w.inQuote[i]) && strings.HasPrefix(w.masked[i], ">")
 }
 
 // span is a half-open run of body line indexes.

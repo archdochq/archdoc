@@ -1131,3 +1131,59 @@ func TestL17ReportsALinkWhateverItsTextHolds(t *testing.T) {
 		}
 	}
 }
+
+func l17Messages(t *testing.T, files map[string]string) []string {
+	t.Helper()
+	var got []string
+	for _, f := range lint.Run(lint.NewContext(repotest.New(t, files), nil, now)) {
+		if f.Rule == "L17" {
+			got = append(got, f.Message)
+		}
+	}
+	return got
+}
+
+func TestL17ReadsExplicitAnchorsInDocuments(t *testing.T) {
+	got := l17Messages(t, map[string]string{
+		"spec/a.md": "---\ntitle: A\nincludes: []\n---\n\n# A\n\n<a id=\"explicit\"></a>\n\n" +
+			"See [b](b.md#here) and [this](#explicit).\n",
+		"spec/b.md": "---\ntitle: B\nincludes: []\n---\n\n# B\n\n<a id=\"here\"></a>\n",
+	})
+	if len(got) != 0 {
+		t.Errorf("findings = %q, want none", got)
+	}
+}
+
+func TestL17SkipsLinksThatAreNotRelative(t *testing.T) {
+	got := l17Messages(t, map[string]string{
+		"spec/a.md": "---\ntitle: A\nincludes: []\n---\n\n# A\n\n" +
+			"Call [us](tel:+441234), see [a host](//example.com/x) or [the root](/spec/b.md).\n",
+	})
+	if len(got) != 0 {
+		t.Errorf("findings = %q, want none", got)
+	}
+}
+
+// TestL17ReportsALinkDifferingOnlyInCase: a case-insensitive filesystem found
+// the file, and GitHub and a Linux checkout do not.
+func TestL17ReportsALinkDifferingOnlyInCase(t *testing.T) {
+	got := l17Messages(t, map[string]string{
+		"spec/a.md":      "---\ntitle: A\nincludes: []\n---\n\n# A\n\nSee [b](B.md) and [img](Img/x.png).\n",
+		"spec/b.md":      "---\ntitle: B\nincludes: []\n---\n\n# B\n",
+		"spec/img/x.png": "png",
+	})
+	if len(got) != 2 || !strings.Contains(got[0], `"B.md" does not exist`) || !strings.Contains(got[1], `"Img/x.png" does not exist`) {
+		t.Errorf("findings = %q, want B.md and Img/x.png reported missing", got)
+	}
+}
+
+// TestL17FindsTheRootALinkNames: a link up to root names a directory that is
+// there, though no directory listing holds ".".
+func TestL17FindsTheRootALinkNames(t *testing.T) {
+	got := l17Messages(t, map[string]string{
+		"spec/a.md": "---\ntitle: A\nincludes: []\n---\n\n# A\n\nSee [the root](..) and [again](../).\n",
+	})
+	if len(got) != 0 {
+		t.Errorf("findings = %q, want none", got)
+	}
+}
