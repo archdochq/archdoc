@@ -304,27 +304,6 @@ func askForScaffold(cmd *cobra.Command, settings *config.Config, licence *string
 	return nil
 }
 
-// askForIncludes offers the accepted documents a glossary edit may cite. It is
-// an optional flag, so it is offered rather than required: an empty selection
-// is a complete answer.
-func askForIncludes(cmd *cobra.Command, given []string, accepted []*repo.Document) ([]string, error) {
-	if len(given) > 0 || !interactive(cmd) || len(accepted) == 0 {
-		return given, nil
-	}
-	options := make([]huh.Option[string], len(accepted))
-	for i, d := range accepted {
-		options[i] = huh.NewOption(fmt.Sprintf("%s  %s", d.ID, d.FrontMatter.Title), d.ID)
-	}
-	var chosen []string
-	err := runForm(huh.NewForm(huh.NewGroup(
-		huh.NewMultiSelect[string]().
-			Title("Which accepted documents does this term come from?").
-			Description("Optional; leave empty to record none.").
-			Options(options...).Value(&chosen),
-	)))
-	return chosen, err
-}
-
 // askForRenumber chooses the document to renumber among the numbered ones that
 // are not frozen. The choice is a path, because the case this command exists
 // for is two documents carrying one identifier.
