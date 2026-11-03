@@ -27,7 +27,9 @@ obsoletes: []
 | L09 | Anything left under `Open questions` in an accepted document |
 | L10 | An H1 differing from the title |
 
-Each stays an error, so lint fails on that repository for good. L08, L09 and L10 read the body, and [ADR-0009](0009-a-lint-error-names-something-the-user-may-change.md)'s list omits them. L01, L02 and L07 read the front matter, which [ADR-0009](0009-a-lint-error-names-something-the-user-may-change.md)'s scope does not reach. L03, L04 and L05 report relationships, which [ADR-0009](0009-a-lint-error-names-something-the-user-may-change.md) sets aside as cleared by editing the other document, but no edit to another document clears these: a type comes from the identifier, a frozen target keeps its status, a frozen document cannot be renumbered, and no document can be written to hold what is not an identifier. The gap in the body and the front matter was raised by an audit of the tool on 2026-10-26, recorded as [#30], and the relationship faults in review of the change on 2026-11-02.
+Each stays an error, so lint fails on that repository for good. L08, L09 and L10 read the body, and [ADR-0009](0009-a-lint-error-names-something-the-user-may-change.md)'s list omits them. L01, L02 and L07 read the front matter, which [ADR-0009](0009-a-lint-error-names-something-the-user-may-change.md)'s scope does not reach. L03, L04 and L05 report relationships, which [ADR-0009](0009-a-lint-error-names-something-the-user-may-change.md) sets aside as cleared by editing the other document, but no edit to another document clears these: a type comes from the identifier, a frozen target keeps its status, a frozen document cannot be renumbered, and no document can be written to hold what is not an identifier. [RFC-0009](../rfc/0009-changelog.md) describes L08's finding of a level two heading after the closing section as an error that does not soften. In a frozen document it is a fault no permitted edit can clear.
+
+The gap in the body and the front matter was raised on 2026-10-26 in [#30], and the relationship faults on 2026-11-02, while the change in [#53] was open.
 
 ## Decision
 
@@ -36,6 +38,7 @@ A finding that no permitted edit could clear is a warning, whatever part of the 
 ## Alternatives
 
 - **The body rules alone.** L08, L09 and L10 become warnings and L01, L02 and L07 stay errors, as [ADR-0009](0009-a-lint-error-names-something-the-user-may-change.md)'s scope gives it. A front matter fault in a frozen document is as permanent as a body fault, so this keeps the failure [ADR-0009](0009-a-lint-error-names-something-the-user-may-change.md) was written to remove.
+- **Relationship faults left as errors**, as [ADR-0009](0009-a-lint-error-names-something-the-user-may-change.md) sets them aside. L03, L04 and L05 stay errors in a frozen document. No edit to another document clears the faults in the table above, so this keeps the failure for them.
 
 No other alternatives were weighed.
 
@@ -55,3 +58,4 @@ Constrained:
 - A rule added later will report a warning wherever its finding could only be cleared by editing a frozen document.
 
 [#30]: https://github.com/archdochq/archdoc/issues/30
+[#53]: https://github.com/archdochq/archdoc/pull/53
