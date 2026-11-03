@@ -631,8 +631,8 @@ func TestL11IgnoresTheUsersDiffRelativeSetting(t *testing.T) {
 	// directory. L11 hands git repository-root-relative pathspecs and matches
 	// the output against the same, so a user with that set in ~/.gitconfig lost
 	// the whole change check whenever archdoc.json sat below the git root, at
-	// exit 0 and in silence. The :(top) prefix fixed the input side of that
-	// assumption; this is the output side.
+	// exit 0 and in silence. The diff now runs from the repository root, where
+	// the setting changes nothing.
 	dir := t.TempDir()
 	run := func(args ...string) {
 		t.Helper()
@@ -732,6 +732,55 @@ func TestL20AndL21SoftenToWarningsOnAFrozenDocument(t *testing.T) {
 				t.Errorf("%s at line %d is a %s, want a warning on a document frozen on the branch", code, f.Line, f.Severity)
 			}
 		}
+	}
+}
+
+func TestL11ReadsARootBeginningWithAColon(t *testing.T) {
+	// Read as a pathspec, ":spec/..." is magic and matches nothing, so no
+	// frozen document read as changed or deleted. An inherited pathspec
+	// setting must change nothing either.
+	for _, inherited := range []string{"", "GIT_GLOB_PATHSPECS", "GIT_ICASE_PATHSPECS"} {
+		t.Run("inheriting "+inherited, func(t *testing.T) {
+			const edited, deleted = ":spec/rfc/0001-edited.md", ":spec/rfc/0002-deleted.md"
+			dir := gitFixture(t, map[string]string{
+				"archdoc.json": `{"name":"Frozen","branch":"main","root":":spec"}`,
+				edited:         rfc("RFC-0001", "Edited", "accepted", " 2026-02-01", "The design."),
+				deleted:        rfc("RFC-0002", "Deleted", "accepted", " 2026-02-01", "The design."),
+			})
+			write(t, dir, edited, rfc("RFC-0001", "Edited", "accepted", " 2026-02-01", "An edit after freezing."))
+			remove(t, dir, deleted)
+			if inherited != "" {
+				t.Setenv(inherited, "1")
+			}
+
+			findings := lintDir(t, dir)
+			for _, path := range []string{"rfc/0001-edited.md", "rfc/0002-deleted.md"} {
+				if got := findingsFor(findings, "L11", path); len(got) != 1 {
+					t.Errorf("want one L11 finding for %s, got %v", path, got)
+				}
+			}
+		})
+	}
+}
+
+func TestL11ReportsAnEditFromAHookInALinkedWorktree(t *testing.T) {
+	// git runs a hook in a linked worktree with GIT_DIR set and no
+	// GIT_WORK_TREE, so it takes the working directory as the top level.
+	// archdoc.json sits below the top level: at the top, the working
+	// directory git falls back to is the right one anyway.
+	const path = "rfc/0001-frozen.md"
+	dir := gitFixture(t, map[string]string{
+		"spec/archdoc.json": `{"name":"Frozen","branch":"main"}`,
+		"spec/" + path:      rfc("RFC-0001", "Frozen", "accepted", " 2026-02-01", "The design."),
+	})
+	wt := filepath.Join(t.TempDir(), "wt")
+	run(t, dir, "worktree", "add", "-q", "-b", "side", wt)
+	write(t, wt, "spec/"+path, rfc("RFC-0001", "Frozen", "accepted", " 2026-02-01", "An edit after freezing."))
+	t.Setenv("GIT_DIR", filepath.Join(dir, ".git", "worktrees", "wt"))
+	t.Chdir(filepath.Join(wt, "spec", "rfc"))
+
+	if got := findingsFor(lintDir(t, filepath.Join(wt, "spec")), "L11", path); len(got) != 1 {
+		t.Errorf("want one L11 finding from the hook, got %v", got)
 	}
 }
 
