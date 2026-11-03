@@ -313,8 +313,8 @@ func L05(ctx Context) []Finding {
 			if target.Type != d.Type {
 				// The type comes from the identifier, so only this document
 				// can change it.
-				rep.atf(severityFor(ctx, d), d, d.FrontMatter.LineOf(ref.field), "%s references %s, which is a %s: only documents of the same type may be updated or obsoleted",
-					ref.field, ref.id, target.Type)
+				rep.atf(severityFor(ctx, d), d, d.FrontMatter.LineOf(ref.field), "%s references %s, which is %s: only documents of the same type may be updated or obsoleted",
+					ref.field, ref.id, target.Type.WithArticle())
 				continue
 			}
 			if s := target.FrontMatter.Status; s != repo.StatusAccepted && s != "" {

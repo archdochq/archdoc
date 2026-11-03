@@ -235,6 +235,8 @@ var Rules = []Rule{
 		Remedy:  "Fix the front matter",
 		Since:   "v0.1.0-alpha.1",
 		Changes: []Change{
+			{Release: "v0.6.0", Summary: "Reports an unknown status at the `status` line rather than line 1"},
+			{Release: "v0.6.0", Summary: "Reads a group's front matter, and reports an `as_of` left empty"},
 			{Release: "v0.6.0", Summary: "Reports a warning rather than an error in a frozen document"},
 			{Release: "v0.6.0", Summary: "Reports invalid YAML once, at the line it stops being valid, with no key reported missing, a missing or unclosed block once, and an empty list item"},
 		},
@@ -247,6 +249,7 @@ var Rules = []Rule{
 		Remedy:  "Rename the file, or correct `id`",
 		Since:   "v0.1.0-alpha.1",
 		Changes: []Change{
+			{Release: "v0.6.0", Summary: "Reports an `id` that differs from the filename at the `id` line rather than line 1"},
 			{Release: "v0.6.0", Summary: "Reports a warning rather than an error in a frozen document"},
 			{Release: "v0.6.0", Summary: "Does not compare an `id` that did not parse, or is missing or empty"},
 		},
@@ -270,6 +273,9 @@ var Rules = []Rule{
 		Remedy:  "Create the document, or correct the reference or the group's list",
 		Since:   "v0.1.0-alpha.1",
 		Changes: []Change{
+			{Release: "v0.6.0", Summary: "Reports a reference at its field's line rather than line 1"},
+			{Release: "v0.6.0", Summary: "Reports a group member that resolves to nothing, or is listed twice"},
+			{Release: "v0.6.0", Summary: "Reports a term's `named_by` that names no document"},
 			{Release: "v0.6.0", Summary: "Reports a ref named in `depends` or `includes`, and a reference that is not an identifier any document can hold, as a warning rather than an error in a frozen document"},
 		},
 	},
@@ -277,10 +283,12 @@ var Rules = []Rule{
 		Code:    "L05",
 		Check:   L05,
 		Title:   "Updates and obsoletes name accepted documents",
-		Summary: "`updates`/`obsoletes` targets something not accepted, of the wrong type, or itself",
+		Summary: "`updates`/`obsoletes` targets something not accepted, of the wrong type, or itself, or one document appears in both",
 		Remedy:  "Accept the target, or correct the list",
 		Since:   "v0.1.0-alpha.1",
 		Changes: []Change{
+			{Release: "v0.6.0", Summary: "Reports each finding at its field's line rather than line 1"},
+			{Release: "v0.6.0", Summary: "Names a target's type with its article, as `an ADR` rather than `a adr`"},
 			{Release: "v0.6.0", Summary: "Reports a warning rather than an error in a frozen document, except for a target that is not accepted and not frozen"},
 		},
 	},
@@ -291,6 +299,9 @@ var Rules = []Rule{
 		Summary: "`includes` targets something not accepted",
 		Remedy:  "Accept the target, or remove it from the page",
 		Since:   "v0.1.0-alpha.1",
+		Changes: []Change{
+			{Release: "v0.6.0", Summary: "Reports a target that is not accepted at the `includes` line rather than line 1"},
+		},
 	},
 	{
 		Code:    "L07",
@@ -300,6 +311,8 @@ var Rules = []Rule{
 		Remedy:  "Correct the dates",
 		Since:   "v0.1.0-alpha.1",
 		Changes: []Change{
+			{Release: "v0.6.0", Summary: "Reports a fault in `decided` at the `decided` line rather than line 1"},
+			{Release: "v0.6.0", Summary: "Reports a ref's `as_of` after its `verified`"},
 			{Release: "v0.6.0", Summary: "Reports a warning rather than an error in a frozen document"},
 			{Release: "v0.6.0", Summary: "Does not check the status against an empty one, or report `decided` unset where it did not parse"},
 		},
@@ -308,11 +321,14 @@ var Rules = []Rule{
 		Code:    "L08",
 		Check:   L08,
 		Title:   "Required sections are present and in order",
-		Summary: "A required section is missing, misnamed, out of order, or the closing section is not last",
-		Remedy:  "Add or reorder. Titles must match exactly",
+		Summary: "A required section is missing, misnamed, out of order, or the closing section is not last, or `Rejection rationale` is present in a document that is not rejected",
+		Remedy:  "Add or reorder. Titles must match exactly. Remove a `Rejection rationale` from a document that is not rejected",
 		Since:   "v0.1.0-alpha.1",
 		Changes: []Change{
+			{Release: "v0.6.0", Summary: "No longer requires `Open questions` or `Changelog` in an RFC"},
 			{Release: "v0.6.0", Summary: "Reports a warning rather than an error in a frozen document"},
+			{Release: "v0.6.0", Summary: "Finds a heading after a paragraph holding a code span opened by three backticks or an unclosed `<!--`, which hid the headings after it"},
+			{Release: "v0.6.0", Summary: "Finds a heading closed by `#` characters in a CRLF file, which it reported as missing"},
 		},
 	},
 	{
@@ -334,6 +350,7 @@ var Rules = []Rule{
 		Remedy:  "Correct whichever is wrong",
 		Since:   "v0.1.0-alpha.1",
 		Changes: []Change{
+			{Release: "v0.6.0", Summary: "Checks a group's H1 against its title"},
 			{Release: "v0.6.0", Summary: "Reports a warning rather than an error in a frozen document"},
 			{Release: "v0.6.0", Summary: "Does not compare a title or `id` that did not parse, or is missing or empty"},
 		},
@@ -347,6 +364,10 @@ var Rules = []Rule{
 		Since:   "v0.1.0-alpha.1",
 		Changes: []Change{
 			{Release: "v0.6.0", Summary: "Judges what changed or was deleted against the merge base of HEAD and the branch, not the branch's tip, and warns once where the branch's `archdoc.json` cannot be read"},
+			{Release: "v0.6.0", Summary: "Reads `branch` as the local branch, or `origin/<branch>`, never a tag of the same name"},
+			{Release: "v0.6.0", Summary: "Follows a moved root, reading each revision's documents under its own root, where an edit or deletion made with the move passed"},
+			{Release: "v0.6.0", Summary: "Stops lint with an error where git fails, rather than skipping the rule as being outside a git repository"},
+			{Release: "v0.6.0", Summary: "Reports a changed frozen document where `GIT_LITERAL_PATHSPECS` is set in the environment, where every one passed"},
 		},
 	},
 	{
@@ -357,6 +378,7 @@ var Rules = []Rule{
 		Remedy:  "Update the page and its `includes`",
 		Since:   "v0.1.0-alpha.1",
 		Changes: []Change{
+			{Release: "v0.6.0", Summary: "Reports a stale page at the `includes` line rather than line 1"},
 			{Release: "v0.6.0", Summary: "Names each obsolete document once"},
 		},
 	},
@@ -368,6 +390,8 @@ var Rules = []Rule{
 		Remedy:  "Re-check the content, then update `verified`. A record of an exchange carries `as_of` instead",
 		Since:   "v0.1.0-alpha.1",
 		Changes: []Change{
+			{Release: "v0.6.0", Summary: "Reports a stale ref at the `verified` line rather than line 1"},
+			{Release: "v0.6.0", Summary: "Does not report a ref carrying `as_of`"},
 			{Release: "v0.6.0", Summary: "Does not report a ref whose `as_of` did not parse"},
 		},
 	},
@@ -378,6 +402,10 @@ var Rules = []Rule{
 		Summary: "A required section is empty",
 		Remedy:  "Write it",
 		Since:   "v0.1.0-alpha.1",
+		Changes: []Change{
+			{Release: "v0.6.0", Summary: "Reports an empty section after a paragraph holding an unclosed `<!--`, which hid it"},
+			{Release: "v0.6.0", Summary: "Reports an empty section whose heading is closed by `#` characters in a CRLF file"},
+		},
 	},
 	{
 		Code:    "L15",
@@ -399,26 +427,41 @@ var Rules = []Rule{
 		Since:   "v0.1.0-alpha.1",
 		Changes: []Change{
 			{Release: "v0.6.0", Summary: "Names the edit that clears a link in a heading, in a frozen document, and in a terminal document outside a git repository"},
+			{Release: "v0.6.0", Summary: "Does not report a `[[...]]` in an indented code block or an HTML block"},
+			{Release: "v0.6.0", Summary: "Reports a `[[...]]` after a code span opened by three backticks or an unclosed `<!--` in a paragraph"},
 		},
 	},
 	{
 		Code:    "L17",
 		Check:   L17,
 		Title:   "Relative links resolve",
-		Summary: "A relative link points at a missing file or heading",
+		Summary: "A relative link points at a missing file or heading, or leaves the repository",
 		Remedy:  "Fix the path or the anchor",
 		Since:   "v0.1.0-alpha.1",
 		Changes: []Change{
-			{Release: "v0.6.0", Summary: "Reads links and heading anchors as GitHub renders them, judges a path against the git repository and in its exact case, finds explicit anchors in documents, and skips a destination with a URI scheme or a leading /"},
+			{Release: "v0.6.0", Summary: "Reports a link as leaving the repository only past the git repository holding `root`, where there is one, not past `root` itself"},
+			{Release: "v0.6.0", Summary: "Skips a destination with a URI scheme, such as `tel:`, or a leading `/`, which it reported as not existing"},
+			{Release: "v0.6.0", Summary: "Matches each component of a path in its exact case"},
+			{Release: "v0.6.0", Summary: "Slugs a heading's anchor as GitHub does, from its rendered text, and reads a document's explicit anchors"},
+			{Release: "v0.6.0", Summary: "Reads a link reference definition directly under a heading or block, and balanced or escaped parentheses in a bare destination"},
+			{Release: "v0.6.0", Summary: "Reads link text that wraps across lines or holds brackets"},
+			{Release: "v0.6.0", Summary: "Does not read a footnote definition, such as `[^1]: note`, as a link reference definition"},
+			{Release: "v0.6.0", Summary: "Does not read a destination holding a space, such as `[a](x y.md)`, as a link to its first word"},
+			{Release: "v0.6.0", Summary: "Reads a link reference definition in a CRLF file"},
+			{Release: "v0.6.0", Summary: "Does not check a link in an HTML block"},
+			{Release: "v0.6.0", Summary: "Checks a link after a code span opened by three backticks or an unclosed `<!--` in a paragraph"},
 		},
 	},
 	{
 		Code:    "L18",
 		Check:   L18,
-		Title:   "Dependencies are as settled as the document",
-		Summary: "`depends` names something less settled than the referring document (warning)",
+		Title:   "Dependencies are accepted",
+		Summary: "`depends` names a document that is not accepted, other than one sharing the referring document's non-terminal status (warning)",
 		Remedy:  "Usually accept the dependency first",
 		Since:   "v0.1.0-alpha.1",
+		Changes: []Change{
+			{Release: "v0.6.0", Summary: "Reports a dependency at the `depends` line rather than line 1"},
+		},
 	},
 	{
 		Code:    "L19",

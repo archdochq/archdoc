@@ -64,6 +64,13 @@ func (t Type) HasLifecycle() bool { return t == TypeRFC || t == TypeADR }
 // may rest on it. A later type would very likely separate them.
 func (t Type) Normative() bool { return t == TypeRFC || t == TypeADR }
 
+// numberedTypes names each numbered type with its article, as a message reads
+// it.
+var numberedTypes = map[Type]string{TypeRFC: "an RFC", TypeADR: "an ADR", TypeRef: "a ref"}
+
+// WithArticle is a numbered type as a message names it: an RFC, an ADR, a ref.
+func (t Type) WithArticle() string { return numberedTypes[t] }
+
 // filenamePattern is the required shape of a numbered type's filename: a
 // four-digit number, a hyphen, and a slug.
 var filenamePattern = regexp.MustCompile(`^(\d{4})-([a-z0-9]+(?:-[a-z0-9]+)*)\.md$`)

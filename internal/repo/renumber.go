@@ -259,8 +259,8 @@ func targetNumber(r *Repo, d *Document, to string) (int, error) {
 		return 0, fmt.Errorf("%q is not an identifier of the form RFC-0001", to)
 	}
 	if t != d.Type {
-		return 0, fmt.Errorf("%s is a %s and cannot become a %s; the type decides the directory and the required sections",
-			d.ID, d.Type, t)
+		return 0, fmt.Errorf("%s is %s and cannot become %s; the type decides the directory and the required sections",
+			d.ID, d.Type.WithArticle(), t.WithArticle())
 	}
 	return n, nil
 }

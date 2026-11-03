@@ -56,7 +56,7 @@ Each rule in the registry carries, besides its code and check:
 | `Summary` | What a finding means, as inline Markdown |
 | `Remedy` | How a finding is cleared, as inline Markdown |
 | `Since` | The tag of the first release carrying the rule: `v0.1.0-alpha.1` for L01 to L18, `v0.5.0` for L19, `v0.6.0` for L20, L21 and M01 to M04 |
-| `Changes` | Each later release that changed what the rule reports, with a one-line account, in release order. Changes made before the registry recorded them are not listed |
+| `Changes` | Each later release that changed what the rule reports, with a one-line account, in release order. Changes in v0.5.1 and earlier releases, tagged before the registry recorded them, are not listed |
 
 A test refuses an entry without a title, summary, remedy or `since`. The table of rules in the triage guide is the registry's summaries and remedies, one row per rule in code order; a test compares the two, and `go test ./internal/template -update-triage` rewrites the table. `archdoc reference` publishes every entry.
 

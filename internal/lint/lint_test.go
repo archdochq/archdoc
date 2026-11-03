@@ -402,6 +402,74 @@ func TestL12NamesEachObsoleteDocumentOnce(t *testing.T) {
 	}
 }
 
+func TestTheRegistryRecordsEachRuleV060Changed(t *testing.T) {
+	// A rule that reports differently in a release says so in its changes,
+	// which the reference publishes. Each of v0.6.0's entries is named by a
+	// phrase of its text, so deleting one, or a rule's last, turns this red,
+	// and a rule absent here records no change in v0.6.0.
+	changed := map[string][]string{
+		"L01": {"unknown status at the `status` line", "group's front matter", "frozen document", "invalid YAML once"},
+		"L02": {"`id` that differs from the filename at the `id` line", "frozen document", "`id` that did not parse"},
+		"L03": {"every document holding the identifier is frozen"},
+		"L04": {"reference at its field's line", "group member", "term's `named_by`", "ref named in `depends` or `includes`"},
+		"L05": {"each finding at its field's line", "with its article", "warning rather than an error in a frozen document"},
+		"L06": {"at the `includes` line"},
+		"L07": {"fault in `decided` at the `decided` line", "`as_of` after its `verified`", "frozen document", "against an empty one"},
+		"L08": {"`Open questions` or `Changelog`", "frozen document", "unclosed `<!--`", "CRLF"},
+		"L09": {"frozen document"},
+		"L10": {"group's H1", "frozen document", "title or `id` that did not parse"},
+		"L11": {"merge base", "tag of the same name", "its own root", "where git fails", "`GIT_LITERAL_PATHSPECS`"},
+		"L12": {"stale page at the `includes` line", "each obsolete document once"},
+		"L13": {"stale ref at the `verified` line", "ref carrying `as_of`", "`as_of` did not parse"},
+		"L14": {"unclosed `<!--`", "CRLF"},
+		"L15": {"blocks to the end of the file"},
+		"L16": {"heading, in a frozen document", "indented code block", "unclosed `<!--`"},
+		"L17": {"holding `root`", "URI scheme", "exact case", "as GitHub does", "link reference definition", "wraps across lines", "footnote", "holding a space", "CRLF", "HTML block", "unclosed `<!--`"},
+		"L18": {"at the `depends` line"},
+	}
+	for _, r := range lint.Rules {
+		var recorded []string
+		for _, c := range r.Changes {
+			if c.Release == "v0.6.0" {
+				recorded = append(recorded, c.Summary)
+			}
+		}
+		want := changed[r.Code]
+		if len(recorded) != len(want) {
+			t.Errorf("%s records %d changes in v0.6.0, want %d: %q", r.Code, len(recorded), len(want), recorded)
+			continue
+		}
+		for i, phrase := range want {
+			if !strings.Contains(recorded[i], phrase) {
+				t.Errorf("%s's v0.6.0 change %d is %q, want one naming %q", r.Code, i+1, recorded[i], phrase)
+			}
+		}
+	}
+}
+
+func TestL05NamesTheTargetsTypeWithItsArticle(t *testing.T) {
+	r := repotest.New(t, map[string]string{
+		"adr/0001-a.md": "---\nid: ADR-0001\ntitle: A\nstatus: accepted\ncreated: 2026-01-01\ndecided: 2026-01-02\ndepends: []\nupdates: []\nobsoletes: []\n---\n\n# ADR-0001: A\n",
+		"rfc/0001-b.md": "---\nid: RFC-0001\ntitle: B\nstatus: draft\ncreated: 2026-01-01\ndecided:\ndepends: []\nupdates: [ADR-0001]\nobsoletes: []\n---\n\n# RFC-0001: B\n",
+		"adr/0002-c.md": "---\nid: ADR-0002\ntitle: C\nstatus: draft\ncreated: 2026-01-01\ndecided:\ndepends: []\nupdates: [RFC-0001]\nobsoletes: [REF-0001]\n---\n\n# ADR-0002: C\n",
+		"ref/0001-d.md": "---\nid: REF-0001\ntitle: D\nverified: 2026-01-01\n---\n\n# REF-0001: D\n",
+	})
+	var said []string
+	for _, f := range lint.Run(lint.NewContext(r, nil, now)) {
+		if f.Rule == "L05" {
+			said = append(said, f.Message)
+		}
+	}
+	want := []string{
+		"updates references RFC-0001, which is an RFC: only documents of the same type may be updated or obsoleted",
+		"obsoletes references REF-0001, which is a ref: only documents of the same type may be updated or obsoleted",
+		"updates references ADR-0001, which is an ADR: only documents of the same type may be updated or obsoleted",
+	}
+	if !slices.Equal(said, want) {
+		t.Errorf("L05 said %q, want %q", said, want)
+	}
+}
+
 func TestL15AcceptsAWellFormedGlossary(t *testing.T) {
 	if got := forRule(t, "repo", "L15"); len(got) != 0 {
 		t.Errorf("L15 fired on a well-formed glossary: %q", got)
