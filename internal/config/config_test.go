@@ -105,7 +105,7 @@ func TestLoadRejectsInvalidConfiguration(t *testing.T) {
 }
 
 func TestLoadAcceptsValidBranchNames(t *testing.T) {
-	for _, branch := range []string{"main", "release/1.0", "it's", "a#b", "feature-x_y"} {
+	for _, branch := range []string{"main", "release/1.0", "it's", "a#b", "feature-x_y", "@", "FETCH_HEAD"} {
 		encoded, _ := json.Marshal(branch)
 		if _, err := config.Load(writeConfig(t, `{"name": "X", "branch": `+string(encoded)+`}`)); err != nil {
 			t.Errorf("branch %q: %v", branch, err)
@@ -115,7 +115,7 @@ func TestLoadAcceptsValidBranchNames(t *testing.T) {
 
 func TestValidateRefusesWhatGitRefusesAsABranch(t *testing.T) {
 	for _, branch := range []string{
-		"", "HEAD", "-x", "@", "a..b", "a b", "a~b", "a^b", "a:b", "a?b", "a*b", "a[b", `a\b`,
+		"", "HEAD", "-x", "a..b", "a b", "a~b", "a^b", "a:b", "a?b", "a*b", "a[b", `a\b`,
 		"a\nb", "/a", "a/", "a//b", ".a", "a/.b", "a.", "a.lock", "a/b.lock/c", "a@{b", "a\x7fb",
 	} {
 		c := &config.Config{Name: "X", Branch: branch, Root: "."}

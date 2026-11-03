@@ -219,15 +219,14 @@ func Validate(c *Config) error {
 }
 
 // validBranch reports whether git would accept name as a branch, by the rules
-// of git check-ref-format --branch, and refuses "@" besides: git accepts it as
-// a branch but reads it as HEAD in a revision, which is how the name reaches
-// git, so every comparison would be against the commit being checked. The
+// of git check-ref-format --branch. The branch reaches git by its full ref, so
+// "@", which git reads as HEAD when bare, is a branch like any other. The
 // branch is also rendered into the workflow, and the characters that break a
 // YAML scalar there, a colon, a space and a line break, are all among those git
 // refuses.
 func validBranch(name string) bool {
 	switch {
-	case name == "", name == "HEAD", name == "@",
+	case name == "", name == "HEAD",
 		strings.HasPrefix(name, "-"), strings.HasPrefix(name, "/"),
 		strings.HasSuffix(name, "/"), strings.HasSuffix(name, "."),
 		strings.Contains(name, ".."), strings.Contains(name, "//"), strings.Contains(name, "@{"),

@@ -440,13 +440,14 @@ the result can delete content it never read.
 - **`archdoc.json`'s keys are checked as written.** `encoding/json` matches a key to a field without
   regard to case and reads `null` as leaving the field alone, so `{"NAME": "x"}` loaded as `name` and
   `{"strict": null}` as the default, while the layout page said unknown keys are an error.
-- **`branch` must be a name git accepts as a branch, and not `@`.** An empty one failed rendering the
+- **`branch` must be a name git accepts as a branch~~, and not `@`~~.** An empty one failed rendering the
   workflow, and one holding `": "`, `" #"` or a line break rendered an invalid or truncated one; git
-  refuses every such name. `@` is a valid branch, but the name reaches `rev-parse` bare, where `@` is
+  refuses every such name. ~~`@` is a valid branch, but the name reaches `rev-parse` bare, where `@` is
   `HEAD`. The names git gives its own refs, such as `FETCH_HEAD` and `ORIG_HEAD`, are valid branches
-  that `rev-parse` also resolves to something else, and are not refused. The rules are applied
-  lexically rather than by asking git, which keeps `internal/config` free of a repository and works
-  where `init` runs outside one.
+  that `rev-parse` also resolves to something else, and are not refused.~~ Resolved by naming the
+  branch to git in full: `@`, `FETCH_HEAD` and every other valid branch name are read as the
+  branch. The rules are applied lexically rather than by asking git, which keeps `internal/config`
+  free of a repository and works where `init` runs outside one.
 - **`README.md`, `PROCESS.md` and `INDEX.md` are not documents** under the discovery rule, so no rule
   examines them, L17 included.
 
@@ -618,6 +619,11 @@ the result can delete content it never read.
   settings standing, with one L11 warning: an error holds until the branch is mended, so the pull
   request mending it could never pass. `branch` is the working tree's: the base is found through it, so no
   other copy can be trusted to name it, and a pull request could edit the workflow instead.
+- **The branch is named to git in full.** A bare name resolves to `$GIT_DIR/<name>`, then a tag, before
+  `refs/heads/<name>`, so a tag named like the branch, or a branch named `FETCH_HEAD`, had L11, the
+  merge rules and `changes` judge against the wrong commit. The branch is read as
+  `refs/heads/<branch>`, or `refs/remotes/origin/<branch>` where there is no local one, and a commit
+  such as the merge base is passed as given.
 - **A missing branch is two different situations.** With no commits at all nothing can be frozen, so the
   rule is skipped with a warning: `archdoc init` followed by `archdoc lint` is the first thing anyone
   does. With commits present a missing branch means the configured name is wrong, and passing quietly

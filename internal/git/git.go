@@ -198,23 +198,41 @@ func (s *shell) probe(rev string) (bool, error) {
 	}
 }
 
-// rev is the revision a branch name should be read from. A checkout often holds
-// the comparison branch only as a remote-tracking ref: actions/checkout leaves a
-// pull request on a detached head with no local branch at all, and rev-parse
-// does not resolve a bare name to origin/<name>. Without this the rule the tool
-// exists for reports that the branch is missing on every pull request.
+// rev is the revision a branch name should be read from: the branch, or its
+// remote-tracking ref, and anything else, such as a commit, as given. A checkout
+// often holds the comparison branch only as a remote-tracking ref:
+// actions/checkout leaves a pull request on a detached head with no local branch
+// at all, and rev-parse does not resolve a bare name to origin/<name>. Without
+// this the rule the tool exists for reports that the branch is missing on every
+// pull request.
+//
+// Named in full, because git resolves a bare name to a tag of the same name,
+// or to a ref of its own such as FETCH_HEAD, before the branch.
 func (s *shell) rev(branch string) string {
 	if cached, ok := s.resolved[branch]; ok {
 		return cached
 	}
 	resolved := branch
-	if local, err := s.exists(branch + "^{commit}"); err == nil && !local {
-		if remote, err := s.exists("origin/" + branch + "^{commit}"); err == nil && remote {
-			resolved = "origin/" + branch
-		}
+	if ref, err := s.branchRef(branch); err == nil && ref != "" {
+		resolved = ref
 	}
 	s.resolved[branch] = resolved
 	return resolved
+}
+
+// branchRef is the full name of the branch, or of its remote-tracking ref where
+// there is no local one, or empty where there is neither.
+func (s *shell) branchRef(branch string) (string, error) {
+	for _, ref := range []string{"refs/heads/" + branch, "refs/remotes/origin/" + branch} {
+		found, err := s.exists(ref + "^{commit}")
+		if err != nil {
+			return "", err
+		}
+		if found {
+			return ref, nil
+		}
+	}
+	return "", nil
 }
 
 // FilesAt reads every requested blob in a single `git cat-file --batch`.
@@ -396,7 +414,8 @@ func (s *shell) listFiles(branch string) ([]string, error) {
 }
 
 func (s *shell) BranchExists(branch string) (bool, error) {
-	return s.exists(s.rev(branch) + "^{commit}")
+	ref, err := s.branchRef(branch)
+	return ref != "", err
 }
 
 func (s *shell) MergeBase(branch string) (string, error) {
