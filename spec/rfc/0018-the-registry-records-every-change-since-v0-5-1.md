@@ -17,7 +17,7 @@ Each rule's `Changes` records every change to what the rule reports in a release
 
 ## Motivation
 
-[RFC-0014](0014-lint-rules-and-the-command-reference-are-published-as-data.md) gives `Changes` starting empty for every rule and recording the changes made once its design is built, with the changes made before it not recorded. The registry was built on 2026-10-26, after v0.5.1 was tagged on 2026-10-01. The rule changes made between those dates are in no tagged release, and v0.6.0 is the first to carry them: findings reported at the line of their field rather than line 1, groups, a ref's `as_of`, and `Open questions` and `Changelog` no longer required in an RFC, among others. Under the History rule, v0.6.0's entries list only what changed once the registry was built, and each rule's page publishes an account of v0.6.0 that leaves out most of what v0.6.0 changes in it, including the changes to L01, L07 and L13 that [RFC-0013](0013-a-ref-can-record-an-exchange.md) gives as recorded in the registry.
+[RFC-0014](0014-lint-rules-and-the-command-reference-are-published-as-data.md) gives `Changes` starting empty for every rule and recording the changes made once its design is built, with the changes made before it not recorded. The registry was built on 2026-10-26, after v0.5.1 was tagged on 2026-10-01. The rule changes made between those dates are in no tagged release, and v0.6.0 is the first to carry them: findings reported at the line of their field rather than line 1, groups, a ref's `as_of`, and `Open questions` and `Changelog` no longer required in an RFC, among others. Under the History rule, v0.6.0's entries list only what changed once the registry was built, and the page of each rule changed before then publishes an account of v0.6.0 that leaves those changes out, including the changes to L01, L07 and L13 that [RFC-0013](0013-a-ref-can-record-an-exchange.md) gives as recorded in the registry.
 
 ## Proposal
 
@@ -55,3 +55,8 @@ No other alternatives were weighed.
 ## Backwards compatibility
 
 Nothing breaks. No tagged release has published the registry, so no published `changes` entry is altered.
+
+## Changelog
+
+- 2026-11-03: v0.5.1 is dated by its tag, 2026-10-01, rather than by the commit it tags, and v0.6.0's entries under the History rule are those made once the registry was built rather than after 2026-10-26. The reference schema's description of `changes` is named, with a Components table, and a paragraph comparing the History rule with the Since of L20 and L21 is removed.
+- 2026-11-03: The Motivation says the History rule leaves out a rule's v0.6.0 changes only for a rule changed before the registry was built, rather than for every rule.
