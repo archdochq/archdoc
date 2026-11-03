@@ -66,12 +66,12 @@ func Apply(d *repo.Document, to repo.Status, now time.Time, g git.Repository) ([
 	}
 	if to == repo.StatusRejected && d.Unclosed() {
 		// The rationale is appended to the end of the file, and when the body
-		// ends inside an unterminated comment or an unclosed fence that
-		// position is not prose: the section would be written inside the
-		// comment, so the document would still be missing the section the
-		// command had just reported writing.
+		// ends inside an unterminated comment, an unclosed fence or an
+		// unclosed HTML block that position is not prose: the section would be
+		// written inside it, so the document would still be missing the
+		// section the command had just reported writing.
 		return nil, fmt.Errorf(
-			"%s ends inside an unterminated <!-- comment or an unclosed code fence, "+
+			"%s ends inside an unterminated <!-- comment, an unclosed code fence or an unclosed HTML block, "+
 				"so the rejection rationale cannot be appended where it would be read; close the marker first", d.Path)
 	}
 
