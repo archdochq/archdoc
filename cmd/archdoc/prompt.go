@@ -160,19 +160,27 @@ func askForDocument(cmd *cobra.Command, args []string, eligible []*repo.Document
 	return chosen, err
 }
 
-// askForTerm fills in a glossary term and, when adding, its definition.
-func askForTerm(cmd *cobra.Command, args []string, needDefinition bool, action string) (term, definition string, err error) {
+// askForTerm fills in a glossary term and, when adding, its definition. Given
+// namedBy, which only adding does, it also offers the numbered documents for
+// --named-by unless the flag was given, with none as the first choice.
+func askForTerm(cmd *cobra.Command, args []string, needDefinition bool, action string, namedBy *string, documents []*repo.Document) (term, definition string, err error) {
 	if len(args) > 0 {
 		term = args[0]
 	}
 	if len(args) > 1 {
 		definition = args[1]
 	}
-	if term != "" && (!needDefinition || definition != "") {
-		return term, definition, nil
-	}
+	complete := term != "" && (!needDefinition || definition != "")
 	if !interactive(cmd) {
+		if complete {
+			return term, definition, nil
+		}
 		return "", "", fmt.Errorf("term %s needs its arguments", action)
+	}
+	// Only adding passes documents, and it passes namedBy with them.
+	askNamedBy := !cmd.Flags().Changed("named-by") && len(documents) > 0
+	if complete && !askNamedBy {
+		return term, definition, nil
 	}
 
 	var fields []huh.Field
@@ -182,7 +190,15 @@ func askForTerm(cmd *cobra.Command, args []string, needDefinition bool, action s
 	if needDefinition && definition == "" {
 		fields = append(fields, huh.NewText().Title("Definition").Value(&definition))
 	}
-	if err := huh.NewForm(huh.NewGroup(fields...)).Run(); err != nil {
+	if askNamedBy {
+		options := []huh.Option[string]{huh.NewOption("None", "")}
+		for _, d := range documents {
+			options = append(options, huh.NewOption(fmt.Sprintf("%s  %s", d.ID, d.FrontMatter.Title), d.ID))
+		}
+		fields = append(fields, huh.NewSelect[string]().Title("Which document introduced this term?").
+			Options(options...).Value(namedBy))
+	}
+	if err := runForm(huh.NewForm(huh.NewGroup(fields...))); err != nil {
 		return "", "", err
 	}
 	return term, definition, nil
@@ -217,7 +233,7 @@ func askForRename(cmd *cobra.Command, args []string, terms []string) (from, to s
 	if to == "" {
 		fields = append(fields, huh.NewInput().Title("New name").Value(&to))
 	}
-	if err := huh.NewForm(huh.NewGroup(fields...)).Run(); err != nil {
+	if err := runForm(huh.NewForm(huh.NewGroup(fields...))); err != nil {
 		return "", "", err
 	}
 	return from, to, nil
@@ -281,7 +297,7 @@ func askForScaffold(cmd *cobra.Command, settings *config.Config, licence *string
 	if len(fields) == 0 {
 		return nil
 	}
-	if err := huh.NewForm(huh.NewGroup(fields...)).Run(); err != nil {
+	if err := runForm(huh.NewForm(huh.NewGroup(fields...))); err != nil {
 		return err
 	}
 	settings.RefStaleDays, _ = strconv.Atoi(refStaleDays)

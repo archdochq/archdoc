@@ -1534,6 +1534,40 @@ func TestNewRefusesAsOfWhereNoRefCouldCarryIt(t *testing.T) {
 	}
 }
 
+func TestTermAddOffersNamedByOnlyWhereItCanBeChosen(t *testing.T) {
+	// The form opens for named_by alone only when adding, without the flag,
+	// in a repository holding a numbered document to choose.
+	original, originalForm := onTerminal, runForm
+	onTerminal = func(*cobra.Command) bool { return true }
+	t.Cleanup(func() { onTerminal, runForm = original, originalForm })
+
+	noNumbered := func(t *testing.T) string {
+		return repotest.New(t, map[string]string{"spec/page.md": "---\ntitle: Page\nincludes: []\n---\n\n# Page\n"}).Config().Dir()
+	}
+	for _, c := range []struct {
+		name string
+		dir  func(*testing.T) string
+		args []string
+		want bool
+	}{
+		{"adding", repository, []string{"term", "add", "Gizmo", "A definition."}, true},
+		{"adding with the flag", repository, []string{"term", "add", "Gizmo", "A definition.", "--named-by", "RFC-0001"}, false},
+		{"adding with nothing to choose", noNumbered, []string{"term", "add", "Gizmo", "A definition."}, false},
+		{"removing", repository, []string{"term", "remove", "Wings"}, false},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			opened := false
+			runForm = func(*huh.Form) error { opened = true; return nil }
+			if out, code := runWith(t, c.dir(t), "", c.args...); code != exitOK {
+				t.Fatalf("exit = %d: %s", code, out)
+			}
+			if opened != c.want {
+				t.Errorf("form opened = %t, want %t", opened, c.want)
+			}
+		})
+	}
+}
+
 func TestNewRefWithATitlePromptsForNothing(t *testing.T) {
 	// as_of is optional and most refs are not records of an exchange, so it
 	// is offered only in a form already asking for the type or title.

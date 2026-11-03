@@ -250,10 +250,11 @@ malformed construct shortens its view of the file, so a writer that trusts the r
 the result can delete content it never read.
 
 - **A writer verifies the structure it produced.** `SetField` re-parses its output and refuses if the
-  front matter no longer reads correctly. The glossary writers re-read the rewritten page and refuse
-  unless the terms on it are exactly those intended, and unless a newly added entry reads back as one
-  paragraph. That single rule subsumes every "refuse this input" check that would otherwise have to be
-  enumerated: a heading hidden in a definition, an unclosed fence, a `Formerly` line offered as prose.
+  front matter no longer reads correctly. `term add` and `term rename` parse the term file they built
+  and refuse unless its title and H1 read back as given, and `add` unless the
+  definition reads as one paragraph. Values are quoted through the YAML encoder, and the read-back is
+  what holds that to be enough: written bare, `Foo: bar` did not parse, `x # y` read as `x`, `#tag`
+  as nothing, and a former name holding a comma became two, so its anchor vanished from GLOSSARY.md.
 - **A writer refuses a document whose parse stops short of the file.** When the body ends inside an
   unterminated comment or an unclosed fence, every line range derived from the parse runs past the
   entries the parser could not see, and removing one glossary term deleted every entry below it on a

@@ -225,6 +225,9 @@ func L04(ctx Context) []Finding {
 				}
 			}
 		}
+		if d.FrontMatter.NamedBy != "" && ctx.Repo().ByID(d.FrontMatter.NamedBy) == nil {
+			rep.errorf(d, d.FrontMatter.LineOf("named_by"), "named_by references %s, which does not exist", d.FrontMatter.NamedBy)
+		}
 		for _, ref := range references(d) {
 			target := ctx.Repo().ByID(ref.id)
 			if target == nil {
