@@ -416,7 +416,9 @@ the result can delete content it never read.
   made elsewhere would be silently discarded. A file that has moved on is left alone and said so.
 - **`archdoc init` followed by `archdoc lint` and `archdoc index --check` exits 0.** A scaffolded
   repository must pass the workflow `init` itself writes, which is why `INDEX.md` is generated rather
-  than templated and why the glossary template may carry a preamble and no entries.
+  than templated ~~and why the glossary template may carry a preamble and no entries~~. Superseded by
+  [RFC-0007](../spec/rfc/0007-the-glossary-is-a-type-of-its-own.md): there is no glossary template, and
+  `GLOSSARY.md` is generated from `term/` as `INDEX.md` is from the documents.
 
 ## Repository layout
 
@@ -519,21 +521,35 @@ the result can delete content it never read.
   afterwards.
 - **A term reaching a link label is escaped**, as a title is, so a term carrying a bracket or a pipe
   cannot put live markup into a document its author never touched.
-- **A glossary entry ends where the walk that found it says.** Deriving the extent from the next entry
-  instead runs straight through an ordinary H1 section sitting among them, and removing a term then
-  deleted it.
-- **The glossary may carry a preamble and may have no entries.** Anything before the first H2 is
-  preamble and is ignored; entries are inserted after it. Arbitrary preamble is permitted rather than
-  comments alone, so the glossary is not the one spec page where a lead sentence is illegal.
-- **`Formerly` lines accumulate**, one per line after the definition paragraph, so repeated renames leave
-  the full chain. They are recognised line by line rather than as a blank-line-separated block, and
-  paragraphs split on a pattern that matches CRLF.
-- **`rename` is remove then re-insert**, which re-sorts the entry for free and keeps one insertion
-  routine. The entry's own lines are carried across verbatim; rebuilding it from its parsed paragraphs
-  deleted comments and reflowed fenced blocks.
-- **`term rename` does not rewrite links elsewhere, and `link` cannot repair them.** `link` expands
-  `[[...]]` and never edits an existing markdown link, and a recorded former name is not a term, so
-  `[[<old name>]]` does not resolve either. L17 reports them and they are corrected by hand.
+- ~~**A glossary entry ends where the walk that found it says.** Deriving the extent from the next entry~~
+  ~~instead runs straight through an ordinary H1 section sitting among them, and removing a term then~~
+  ~~deleted it.~~
+- ~~**The glossary may carry a preamble and may have no entries.** Anything before the first H2 is~~
+  ~~preamble and is ignored; entries are inserted after it. Arbitrary preamble is permitted rather than~~
+  ~~comments alone, so the glossary is not the one spec page where a lead sentence is illegal.~~
+- ~~**`Formerly` lines accumulate**, one per line after the definition paragraph, so repeated renames leave~~
+  ~~the full chain. They are recognised line by line rather than as a blank-line-separated block, and~~
+  ~~paragraphs split on a pattern that matches CRLF.~~
+- ~~**`rename` is remove then re-insert**, which re-sorts the entry for free and keeps one insertion~~
+  ~~routine. The entry's own lines are carried across verbatim; rebuilding it from its parsed paragraphs~~
+  ~~deleted comments and reflowed fenced blocks.~~
+- ~~**`term rename` does not rewrite links elsewhere, and `link` cannot repair them.** `link` expands~~
+  ~~`[[...]]` and never edits an existing markdown link, and a recorded former name is not a term, so~~
+  ~~`[[<old name>]]` does not resolve either. L17 reports them and they are corrected by hand.~~
+- The five entries above described the glossary as one page of H2 entries, and are superseded by
+  [RFC-0007](../spec/rfc/0007-the-glossary-is-a-type-of-its-own.md), under which each term is a file
+  under `term/` and `GLOSSARY.md` is generated from them. What replaces them:
+- **A term's former names are front matter.** `formerly` lists them oldest first, so repeated renames
+  leave the chain, and `GLOSSARY.md` gives each an explicit anchor before the term's heading. A rename
+  leaves out a former name whose anchor is the new name's, as a change of case or a return to an earlier
+  name gives, since the heading answers it.
+- **`term rename` edits the term file field by field and moves it.** It sets `title`, appends the old
+  name to `formerly`, retitles the H1, and writes the file at the new name's path before removing the
+  old one; the rest of the file is carried across as written.
+- **A link to a former name's anchor keeps resolving; nothing else is rewritten.** A link to
+  `GLOSSARY.md#<old name>` resolves through the anchor generation keeps for it. A link to the term's old
+  file under `term/` does not, nor does `[[<old name>]]`, since a former name is not a term; L17 and L16
+  report them.
 - **With no `term/`, `glossary --check` accepts an absent `GLOSSARY.md`.** A repository with no `term/`
   has no glossary, and the check demanded the empty page `archdoc glossary` writes, so removing `term/`
   and the page failed the workflow `init` scaffolds. A page that is there, including a symbolic link
@@ -778,5 +794,9 @@ the result can delete content it never read.
   `cobra/doc` brings `go-md2man` and writes Markdown, man pages, ReST and YAML rather than this shape.
   The walk does not filter `--help`: cobra adds it only to the command running, which is the hidden
   `reference`, and a test fails if it ever appears.
-- **Markdown is handled with the standard library.** The dependency list is cobra, yaml.v3 and huh, with
+- **Markdown is handled with the standard library.** ~~The dependency list is cobra, yaml.v3 and huh, with~~
+  ~~goreleaser at build time. Nothing else.~~ The list left out `x/term`, which
+  [ADR-0005](../spec/adr/0005-the-dependency-list-is-closed.md) names, and the code has since imported
+  pflag and x/text, which [ADR-0025](../spec/adr/0025-the-dependency-list-adds-pflag-and-x-text.md)
+  proposes adding. The dependency list is cobra, pflag, yaml.v3, huh, `x/term` and x/text, with
   goreleaser at build time. Nothing else.

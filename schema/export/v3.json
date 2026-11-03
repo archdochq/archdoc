@@ -74,7 +74,7 @@
         "effectively_obsolete": {"type": "boolean",
                                  "description": "An accepted document obsoletes this one."},
         "implemented": {"type": "boolean",
-                        "description": "An accepted RFC or ADR that some spec page other than the glossary includes."},
+                        "description": "An accepted RFC or ADR that some spec page includes. A spec/glossary.md left from before terms were files does not count."},
         "stale": {"type": "boolean",
                   "description": "A spec page including something effectively obsolete."},
 

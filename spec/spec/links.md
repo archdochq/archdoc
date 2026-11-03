@@ -30,7 +30,7 @@ Neither `link` nor `link --suggest` rewrites a heading. `link` reports each `[[.
 
 A term is one file under `term/`, carrying `title`, `formerly` and `named_by` in its front matter and exactly one paragraph of definition under its H1. The term is the `title`; the filename is its slug, so two terms cannot share one. `named_by` records the document that introduced the term and is not an inclusion.
 
-`GLOSSARY.md` is generated from `term/` and written under `root`, beside `INDEX.md`. Terms appear in ascending case-insensitive order of title. Each definition is written as its file holds it, with comments removed and LF line endings. Every name in a term's `formerly` is written as an explicit anchor before its heading, so a link made before a rename still resolves; L17 checks that, and anchors are read from explicit `<a id="...">` as well as from headings for this reason.
+`GLOSSARY.md` is generated from `term/` and written under `root`, beside `INDEX.md`. Terms appear in ascending case-insensitive order of title. Each definition is written as its file holds it, with comments removed and LF line endings. Every name in a term's `formerly` is written as an explicit anchor before its heading, and a link made before a rename resolves to it. L17 reads anchors from explicit `<a id="...">` as well as from headings.
 
 A repository with no `term/` directory has no glossary, which is valid: L15 and term link resolution are skipped, and `archdoc glossary --check` passes where `GLOSSARY.md` is absent.
 
