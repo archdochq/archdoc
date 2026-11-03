@@ -1,6 +1,7 @@
 package repo_test
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
 	"strings"
@@ -457,5 +458,215 @@ func TestRenumberRefusesALinkItCannotRewriteAsWritten(t *testing.T) {
 		if _, err := os.Stat(r.File("rfc/0001-storage.md")); err != nil {
 			t.Errorf("%s: the document was moved despite the refusal: %v", link, err)
 		}
+	}
+}
+
+// TestRenumberWritesNothingWhenAWriteFails holds the promise the refusal makes:
+// the referring documents were written first and left naming a number no file
+// carried when a later write failed.
+func TestRenumberWritesNothingWhenAWriteFails(t *testing.T) {
+	files := map[string]string{
+		"rfc/0001-base.md":  draft("RFC-0001", "Base"),
+		"rfc/0002-later.md": draftDepending("RFC-0002", "Later", "RFC-0001"),
+		"spec/zz.md":        "---\ntitle: Zz\nincludes: [RFC-0001]\n---\n\n# Zz\n\nSee [[RFC-0001]].\n",
+	}
+	for name, block := range map[string]func(t *testing.T, root string){
+		"the target is a directory": func(t *testing.T, root string) {
+			if err := os.Mkdir(filepath.Join(root, "rfc", "0009-base.md"), 0o755); err != nil {
+				t.Fatal(err)
+			}
+		},
+		"a referrer is a symbolic link": func(t *testing.T, root string) {
+			zz := filepath.Join(root, "spec", "zz.md")
+			real := filepath.Join(filepath.Dir(root), "zz-real.md")
+			if err := os.Rename(zz, real); err != nil {
+				t.Fatal(err)
+			}
+			if err := os.Symlink(real, zz); err != nil {
+				t.Fatal(err)
+			}
+		},
+		"a referrer is read-only": func(t *testing.T, root string) {
+			if os.Getuid() == 0 {
+				t.Skip("root writes through a read-only mode")
+			}
+			if err := os.Chmod(filepath.Join(root, "spec", "zz.md"), 0o444); err != nil {
+				t.Fatal(err)
+			}
+		},
+	} {
+		t.Run(name, func(t *testing.T) {
+			r := repotest.New(t, files)
+			root := r.Config().RootDir()
+			block(t, root)
+			_, _, err := repo.Renumber(r, "RFC-0001", "RFC-0009", nothingFrozen)
+			if err == nil {
+				t.Fatal("Renumber succeeded despite the blocked write")
+			}
+			// A write refused before it began left nothing to restore.
+			if strings.Contains(err.Error(), "could not be") {
+				t.Errorf("an untouched file was reported as not restored: %v", err)
+			}
+			for p, want := range files {
+				got, err := os.ReadFile(filepath.Join(root, filepath.FromSlash(p)))
+				if err != nil || string(got) != want {
+					t.Errorf("%s was changed or removed (%v):\n%s", p, err, got)
+				}
+			}
+			info, err := os.Stat(filepath.Join(root, "rfc", "0009-base.md"))
+			if blocked := name == "the target is a directory"; blocked != (err == nil && info.IsDir()) || err == nil && !info.IsDir() {
+				t.Errorf("rfc/0009-base.md was left behind or the directory in its place removed (%v)", err)
+			}
+		})
+	}
+}
+
+func TestRenumberFollowsATermsNamedBy(t *testing.T) {
+	r := repotest.New(t, map[string]string{
+		"rfc/0001-base.md": draft("RFC-0001", "Base"),
+		"term/widget.md":   "---\ntitle: Widget\nformerly: []\nnamed_by: RFC-0001\n---\n\n# Widget\n\nA definition.\n",
+	})
+	if _, _, err := repo.Renumber(r, "RFC-0001", "RFC-0009", nothingFrozen); err != nil {
+		t.Fatalf("Renumber: %v", err)
+	}
+	body, err := os.ReadFile(filepath.Join(r.Config().RootDir(), "term", "widget.md"))
+	if err != nil || !strings.Contains(string(body), "named_by: RFC-0009\n") {
+		t.Errorf("named_by was not followed (%v):\n%s", err, body)
+	}
+}
+
+// TestRenumberLeavesTheFileWhoseWriteFailed: a full disk or a size limit
+// fails a write part way, and keeps failing the restore that follows. The file
+// whose write failed is never touched, so it needs no restore; a file already
+// rewritten does, and a restore that fails is reported, not passed over.
+func TestRenumberLeavesTheFileWhoseWriteFailed(t *testing.T) {
+	files := map[string]string{
+		"rfc/0001-base.md":  draft("RFC-0001", "Base"),
+		"rfc/0002-later.md": draftDepending("RFC-0002", "Later", "RFC-0001"),
+		"spec/zz.md":        "---\ntitle: Zz\nincludes: [RFC-0001]\n---\n\n# Zz\n\nSee [[RFC-0001]].\n",
+	}
+	for _, restoresFail := range []bool{false, true} {
+		r := repotest.New(t, files)
+		root := r.Config().RootDir()
+		failed := false
+		t.Cleanup(repo.StubWriteFile(func(f *os.File, data []byte) error {
+			if filepath.Base(filepath.Dir(f.Name())) != "spec" && !(failed && restoresFail) {
+				_, err := f.Write(data)
+				return err
+			}
+			failed = true
+			if _, err := f.Write(data[:len(data)/2]); err != nil {
+				return err
+			}
+			return errors.New("file too large")
+		}))
+
+		_, _, err := repo.Renumber(r, "RFC-0001", "RFC-0009", nothingFrozen)
+		if err == nil {
+			t.Fatal("Renumber succeeded despite the failed write")
+		}
+		if got := strings.Contains(err.Error(), "rfc/0002-later.md could not be restored"); got != restoresFail {
+			t.Errorf("restoresFail %v: a failed restore reported %v: %v", restoresFail, got, err)
+		}
+		if strings.Contains(err.Error(), "spec/zz.md could not be restored") {
+			t.Errorf("the file whose write failed was restored: %v", err)
+		}
+		for p, want := range files {
+			if p == "rfc/0002-later.md" && restoresFail {
+				continue
+			}
+			if got, err := os.ReadFile(filepath.Join(root, filepath.FromSlash(p))); err != nil || string(got) != want {
+				t.Errorf("%s was not restored (%v):\n%s", p, err, got)
+			}
+		}
+		if _, err := os.Lstat(filepath.Join(root, "rfc", "0009-base.md")); err == nil {
+			t.Error("the new file was left behind")
+		}
+	}
+}
+
+// TestRenumberLeavesAFileItDidNotCreate: a dangling symbolic link in the new
+// name's place is refused, and the undo does not remove it.
+func TestRenumberLeavesAFileItDidNotCreate(t *testing.T) {
+	r := repotest.New(t, map[string]string{"rfc/0001-base.md": draft("RFC-0001", "Base")})
+	target := filepath.Join(r.Config().RootDir(), "rfc", "0009-base.md")
+	if err := os.Symlink("nowhere.md", target); err != nil {
+		t.Fatal(err)
+	}
+	if _, _, err := repo.Renumber(r, "RFC-0001", "RFC-0009", nothingFrozen); err == nil || !strings.Contains(err.Error(), "already exists") {
+		t.Errorf("err = %v, want the existing name refused", err)
+	}
+	if _, err := os.Lstat(target); err != nil {
+		t.Errorf("the link in the new name's place was removed: %v", err)
+	}
+}
+
+// TestRenumberCreatesNothingOutsideTheRepository: a document directory swapped
+// for a link elsewhere after the repository was read is refused for the new
+// file too, not only for the files rewritten.
+func TestRenumberCreatesNothingOutsideTheRepository(t *testing.T) {
+	r := repotest.New(t, map[string]string{"rfc/0001-base.md": draft("RFC-0001", "Base")})
+	rfc := filepath.Join(r.Config().RootDir(), "rfc")
+	outside := filepath.Join(t.TempDir(), "rfc")
+	if err := os.Rename(rfc, outside); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(outside, rfc); err != nil {
+		t.Skipf("symlinks unavailable: %v", err)
+	}
+	if _, _, err := repo.Renumber(r, "RFC-0001", "RFC-0009", nothingFrozen); err == nil || !strings.Contains(err.Error(), "resolves outside the repository") {
+		t.Errorf("err = %v, want the write outside the repository refused", err)
+	}
+	if _, err := os.Lstat(filepath.Join(outside, "0009-base.md")); err == nil {
+		t.Error("the new file was written outside the repository")
+	}
+}
+
+// TestRenumberRemovesANewFileItCouldNotFill: the new file's write failing part
+// way is a failure like any other, and the half-written file is removed.
+func TestRenumberRemovesANewFileItCouldNotFill(t *testing.T) {
+	r := repotest.New(t, map[string]string{"rfc/0001-base.md": draft("RFC-0001", "Base")})
+	t.Cleanup(repo.StubWriteFile(func(f *os.File, data []byte) error {
+		if _, err := f.Write(data[:len(data)/2]); err != nil {
+			return err
+		}
+		return errors.New("file too large")
+	}))
+	if _, _, err := repo.Renumber(r, "RFC-0001", "RFC-0009", nothingFrozen); err == nil {
+		t.Error("Renumber succeeded despite the failed write")
+	}
+	if _, err := os.Lstat(r.File("rfc/0009-base.md")); err == nil {
+		t.Error("the half-written file was left behind")
+	}
+	if _, err := os.Stat(r.File("rfc/0001-base.md")); err != nil {
+		t.Errorf("the old file was removed: %v", err)
+	}
+}
+
+// TestRenumberReportsAFileItCouldNotRemove: a directory made read-only after
+// the last edit fails removing the old file, and then the undo's removal of
+// the new one. Both are reported.
+func TestRenumberReportsAFileItCouldNotRemove(t *testing.T) {
+	if os.Getuid() == 0 {
+		t.Skip("root removes from a read-only directory")
+	}
+	r := repotest.New(t, map[string]string{
+		"rfc/0001-base.md": draft("RFC-0001", "Base"),
+		"spec/zz.md":       "---\ntitle: Zz\nincludes: [RFC-0001]\n---\n\n# Zz\n\nSee [[RFC-0001]].\n",
+	})
+	rfc := filepath.Join(r.Config().RootDir(), "rfc")
+	t.Cleanup(func() { os.Chmod(rfc, 0o755) })
+	t.Cleanup(repo.StubWriteFile(func(f *os.File, data []byte) error {
+		if _, err := f.Write(data); err != nil {
+			return err
+		}
+		if filepath.Base(filepath.Dir(f.Name())) == "spec" {
+			return os.Chmod(rfc, 0o555)
+		}
+		return nil
+	}))
+	_, _, err := repo.Renumber(r, "RFC-0001", "RFC-0009", nothingFrozen)
+	if err == nil || !strings.Contains(err.Error(), "0001-base.md") || !strings.Contains(err.Error(), "rfc/0009-base.md could not be removed") {
+		t.Errorf("err = %v, want both removals reported", err)
 	}
 }

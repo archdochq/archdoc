@@ -9,6 +9,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -1568,6 +1569,36 @@ func TestTermAddOffersNamedByOnlyWhereItCanBeChosen(t *testing.T) {
 	}
 }
 
+func TestRenumberOffersOnlyNumberedDocumentsThatAreNotFrozen(t *testing.T) {
+	r := repotest.New(t, map[string]string{
+		"rfc/0001-open.md":   rfc("RFC-0001", "Open", "proposed", ""),
+		"rfc/0002-frozen.md": rfc("RFC-0002", "Frozen", "accepted", " 2026-02-01"),
+		"spec/page.md":       "---\ntitle: Page\nincludes: []\n---\n\n# Page\n",
+	})
+	frozen := func(d *repo.Document) bool { return d.Path == "rfc/0002-frozen.md" }
+	var got []string
+	for _, d := range renumberable(r, frozen) {
+		got = append(got, d.Path)
+	}
+	if want := []string{"rfc/0001-open.md"}; !slices.Equal(got, want) {
+		t.Errorf("renumberable = %v, want %v", got, want)
+	}
+
+	original, originalForm := onTerminal, runForm
+	onTerminal = func(*cobra.Command) bool { return true }
+	opened := false
+	runForm = func(*huh.Form) error { opened = true; return nil }
+	t.Cleanup(func() { onTerminal, runForm = original, originalForm })
+	everything := func(*repo.Document) bool { return true }
+	cmd := newRenumberCommand()
+	if _, err := askForRenumber(cmd, r, everything); err == nil || opened {
+		t.Errorf("with nothing to offer: err = %v, form opened = %t; want a refusal and no form", err, opened)
+	}
+	if _, err := askForRenumber(cmd, r, frozen); err != nil || !opened {
+		t.Errorf("with a document to offer: err = %v, form opened = %t", err, opened)
+	}
+}
+
 func TestNewRefWithATitlePromptsForNothing(t *testing.T) {
 	// as_of is optional and most refs are not records of an exchange, so it
 	// is offered only in a form already asking for the type or title.
@@ -1590,5 +1621,15 @@ func TestNewRefWithATitlePromptsForNothing(t *testing.T) {
 	}
 	if strings.Contains(string(written), "as_of") {
 		t.Errorf("a ref created without --as-of carries as_of:\n%s", written)
+	}
+}
+
+// TestRenumberWithNoArgumentAsksOrSaysWhatItNeeds: cobra's argument count
+// refused before the command could prompt, as the interaction rule requires.
+func TestRenumberWithNoArgumentAsksOrSaysWhatItNeeds(t *testing.T) {
+	dir := repository(t)
+	out, code := run(t, dir, "renumber")
+	if code != exitUsage || !strings.Contains(out, "archdoc renumber <id|path>") {
+		t.Errorf("exit = %d, output = %q; want a refusal naming the arguments", code, out)
 	}
 }

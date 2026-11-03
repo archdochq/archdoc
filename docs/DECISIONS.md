@@ -299,6 +299,26 @@ the result can delete content it never read.
   wiki link cannot say which document it means, so neither is rewritten or blocks; each is listed for
   the author to repoint, and marked where the document is frozen. A link to the file names one
   document, so it is still rewritten and a frozen one still blocks.
+- **`renumber` undoes a rename that fails part way.** It wrote the other documents first, in map order,
+  then the new file, then removed the old one, and a failure at any step left referring documents naming
+  a number no file carried. It now refuses a target path that already exists, writes the new file first,
+  writes the edits in path order, and on a failure writes each edited document's original back and
+  removes the new file. Checking every write in advance was not enough on its own: whether a file can be
+  written is known only by writing it. The new file is created with `O_EXCL`, and is removed only once
+  created, so the undo never removes a file it did not make. A document is recorded for the undo once its
+  write succeeds, and a restore or removal that fails is reported with the original error.
+- **A file is replaced by renaming a complete copy over it.** Every writer that replaces a file writes the
+  bytes to a temporary file in the same directory and renames it over the original, keeping the
+  original's permission bits, and removes the temporary file on any failure. `os.WriteFile` truncated the
+  original first, so a write failing part way, at a size limit or on a full disk, left a document cut
+  short, and the undo that wrote it back failed the same way. The original is opened for writing, without
+  truncating it, before anything is written, so a read-only file is still refused although the rename
+  needs only the directory to be writable. A writable file in a read-only directory is refused too, where
+  `os.WriteFile` wrote it, because the temporary file cannot be made there; writing in place for that case
+  alone would bring back the truncation for exactly the files the rename was meant to protect. Every
+  failure names the file asked for rather than the temporary file, which the user never asked for. The
+  rename makes a new file, so a hard link to the original keeps the old contents, and the owner and group
+  become the writer's rather than the original's; only the permission bits are carried over.
 - **Interactive suggestion application re-reads before writing.** The snapshot is taken before the first
   prompt and the write happens after the last answer, so the whole session is a window in which an edit
   made elsewhere would be silently discarded. A file that has moved on is left alone and said so.

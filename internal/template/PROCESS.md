@@ -212,7 +212,7 @@ ArchDoc provides:
 - `archdoc lint`: check the repository against the rules in this document. With `--merge`, also judge a pull request, checked out merged into the configured branch, against that branch.
 - `archdoc changes`: list what the working tree changes in the record against the configured branch, as Markdown for a pull request's summary, or with `--json`.
 - `archdoc link`: resolve `[[...]]` links. With `--suggest`, offer new ones.
-- `archdoc renumber <id|path> [new-id]`: change a document's number, rewriting the filename, the `id`, the heading and every reference to it. Takes the next free number when no target is given. Refuses when the document is frozen, or when a frozen document refers to it.
+- `archdoc renumber <id|path> [new-id]`: change a document's number, rewriting the filename, the `id`, the heading and every reference to it. Takes the next free number when no target is given. Refuses when the document is frozen, or when a frozen document holds a reference it would rewrite.
 - `archdoc term add|rename|remove|list|show`: maintain the glossary.
 - `archdoc index`: regenerate `INDEX.md`. With `--check`, fail if the committed index is out of date.
 - `archdoc glossary`: regenerate `GLOSSARY.md` from `term/`. With `--check`, fail if the committed glossary is out of date.

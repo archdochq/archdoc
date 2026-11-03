@@ -31,8 +31,11 @@ func newRenumberCommand() *cobra.Command {
 			"left unchanged and listed, since they cannot say which document they mean; links to " +
 			"the file are still followed.\n\n" +
 			"Refuses when the document is frozen, or when a frozen document would have to change, " +
-			"because a reference inside a frozen document could never be corrected afterwards.",
-		Args: cobra.RangeArgs(1, 2),
+			"because a reference inside a frozen document could never be corrected afterwards, " +
+			"and when a file already holds the new name. A failure part way restores every file " +
+			"already written.\n\n" +
+			"With no arguments, asks which document to renumber among those that are not frozen.",
+		Args: cobra.MaximumNArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			r, err := openRepo()
 			if err != nil {
@@ -43,6 +46,19 @@ func newRenumberCommand() *cobra.Command {
 				return err
 			}
 
+			// NewContext rather than a literal: Frozen reads the branch
+			// snapshot, and without it every document looks editable, which
+			// would let this command make exactly the unrepairable edit it
+			// exists to refuse.
+			frozen := lint.NewContext(r, g, time.Now()).Frozen
+
+			if len(args) == 0 {
+				chosen, err := askForRenumber(cmd, r, frozen)
+				if err != nil {
+					return err
+				}
+				args = []string{chosen}
+			}
 			var to string
 			if len(args) == 2 {
 				to = strings.ToUpper(args[1])
@@ -51,12 +67,6 @@ func newRenumberCommand() *cobra.Command {
 			// case is not a mistake worth an error message, but a path is
 			// case-sensitive and upper-casing it destroys it.
 			from := canonical(args[0])
-
-			// NewContext rather than a literal: Frozen reads the branch
-			// snapshot, and without it every document looks editable, which
-			// would let this command make exactly the unrepairable edit it
-			// exists to refuse.
-			frozen := lint.NewContext(r, g, time.Now()).Frozen
 
 			changed, unchanged, err := repo.Renumber(r, from, to, frozen)
 			if err != nil {
