@@ -1,9 +1,9 @@
 ---
 id: RFC-0018
 title: The registry records every change since v0.5.1
-status: proposed
+status: accepted
 created: 2026-11-02
-decided:
+decided: 2026-11-03
 depends: []
 updates: [RFC-0014]
 obsoletes: []
