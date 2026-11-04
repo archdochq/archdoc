@@ -21,7 +21,7 @@ Prompts offer a filtered choice where one exists: `new` prompts for type then ti
 
 ## Output
 
-Plain text on stdout. Findings take the form `<path>:<line>: <severity>: <message>` where a line is known and `<path>: <severity>: <message>` otherwise, with `<path>` relative to `root`. `--json` on `lint`, `index --check`, `glossary --check` and `link` emits the same findings as a bare JSON array of objects with `path`, `line`, `severity`, `message` and `rule`; `line` is omitted where unknown, and `rule` is the rule code, or `index` and `glossary` for the generated-file checks. Progress notices go to stderr.
+Plain text on stdout. Findings take the form `<path>:<line>: <severity>: <message>` where a line is known and `<path>: <severity>: <message>` otherwise, with `<path>` relative to `root`. `--json` on `lint`, `index --check`, `glossary --check` and `link` emits the same findings as a bare JSON array of objects with `path`, `line`, `severity`, `message` and `rule`; `line` is omitted where unknown, and `rule` is the rule code, `index` or `glossary` for the generated-file checks, or `link` for `link`'s own findings. Progress notices go to stderr.
 
 ## `archdoc init`
 
@@ -83,7 +83,7 @@ Regenerates `PROCESS.md`, the workflow, and the guides under `agents/` where tha
 
 `AGENTS.md`, `README.md`, `archdoc.json`, `LICENSE`, `INDEX.md`, `GLOSSARY.md` and every document are not touched. `agents/` is refreshed and never created; where it is absent the command says on stderr that `archdoc agents` installs it. It also says on stderr that `AGENTS.md`, `README.md` and `archdoc.json` were not read.
 
-The workflow's `version` pin is raised to the version doing the update. It is kept as it is only when the running binary's version is not a published release. A repository scaffolded before the workflow used `archdochq/lint` names its pin `ARCHDOC_VERSION`, and that spelling is read too, so the pin survives the change.
+The workflow's `version` pin is raised to the version doing the update. It is kept as it is only when the running binary's version is not a published release. A repository scaffolded before the workflow used `archdochq/lint` names its pin `ARCHDOC_VERSION`, and that spelling is read too.
 
 ## `archdoc agents`
 

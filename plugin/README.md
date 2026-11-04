@@ -16,7 +16,7 @@ specification repository, which is where the evidence for backfilling lives.
 | Gemini CLI | `gemini extensions install https://github.com/archdochq/skills` |
 | Any agent `npx skills` supports | `npx skills add archdochq/skills` |
 
-Each release of ArchDoc is tagged here with its own tag. To stay on one, add the marketplace as
+Each stable release of ArchDoc is tagged here with its own tag. To stay on one, add the marketplace as
 `archdochq/skills#v0.6.0` in Claude Code, or pass `--ref v0.6.0` to Gemini CLI.
 
 ## Skills

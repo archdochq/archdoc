@@ -25,7 +25,7 @@ Gather the evidence first and let it determine what gets written.
 git log --oneline --no-merges | head -100
 git log --merges --format='%h %s'                 merged pull requests
 gh pr list --state merged --limit 50 --json number,title,body,mergedAt
-git log --follow -p -- go.mod package.json        when dependencies changed, and why
+git log -p -- go.mod package.json                 when dependencies changed, and why
 git log --diff-filter=A --name-only               when things first appeared
 ```
 

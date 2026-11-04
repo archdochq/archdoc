@@ -9,7 +9,7 @@ The spec describes how the project works **right now**. It is always current, ha
 and no status, and is edited whenever the behaviour it describes changes.
 (PROCESS.md, Document types)
 
-Spec pages are not frozen. They are the one part of the repository you may always edit.
+Spec pages are never frozen, and neither are refs, groups and terms: you may always edit them.
 
 ## Describe, never argue
 
@@ -61,10 +61,16 @@ title: effectively obsolete
 formerly: []
 named_by: ADR-0003
 ---
+
+# effectively obsolete
+
+An RFC or ADR that an accepted document obsoletes. Obsolescence claimed by a document in any other
+status has no effect.
 ```
 
-The body is the definition, exactly one paragraph, which L15 enforces. `named_by` is the
-document that introduced the term. `formerly` lists previous names, oldest first.
+The body is an H1 reading the term as `title` gives it, which L10 enforces, then the definition,
+exactly one paragraph, which L15 enforces. `named_by` is the document that introduced the term.
+`formerly` lists previous names, oldest first.
 
 Use the tool rather than writing the files:
 

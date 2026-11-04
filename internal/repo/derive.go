@@ -124,10 +124,11 @@ func (r *Repo) deriveFacts() {
 				break
 			}
 		}
-		// The glossary is excluded: it defines words, it does not describe
-		// behaviour. The shipped glossary template asks for the RFC that named
-		// a term to go in includes, so counting that as implementation made the
-		// tool report as built whatever it had just instructed someone to cite.
+		// A spec/glossary.md left from before terms were files is excluded: it
+		// defines words, it does not describe behaviour. Its template asked for
+		// the RFC that named a term to go in includes, so counting that as
+		// implementation made the tool report as built whatever it had just
+		// instructed someone to cite.
 		d.Implemented = d.FrontMatter.Status == StatusAccepted && len(ImplementedIn(d.IncludedIn)) > 0
 	}
 
@@ -145,7 +146,8 @@ func (r *Repo) deriveFacts() {
 }
 
 // ImplementedIn is the spec pages whose inclusion of a document means the
-// document has been built, which is every page but the glossary.
+// document has been built, which is every page but a spec/glossary.md left
+// from before terms were files.
 //
 // The full IncludedIn list is kept as written, because "which spec pages
 // reference this" is a separate and factual question.

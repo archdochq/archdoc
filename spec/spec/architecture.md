@@ -46,9 +46,11 @@ archdoc/
 ## Dependencies
 
 - `github.com/spf13/cobra`
+- `github.com/spf13/pflag`, which `cmd/archdoc` imports to walk cobra's flags into the command reference
 - `gopkg.in/yaml.v3`
 - `github.com/charmbracelet/huh`
 - `github.com/charmbracelet/x/term`
+- `golang.org/x/text`, which `internal/changes` imports for Unicode normalisation
 - `github.com/goreleaser/goreleaser`, at build time only
 
 Nothing else. Markdown is handled with the standard library.

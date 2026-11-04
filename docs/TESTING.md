@@ -37,8 +37,10 @@ Fixtures live under `testdata/`: `repo` is a valid repository, `lint` holds a ca
   which left several rules pinned by nothing.
 - **Fixtures are split in two.** `testdata/repo` is a valid repository asserted to produce no errors,
   which is the guard against false positives, and it is expected to contain what a real repository
-  contains. `testdata/lint` holds a case per rule, and a test asserts that every registered rule fires, so
-  a rule cannot be added without a fixture case.
+  contains. `testdata/lint` holds a case per rule, and a test asserts that every registered L rule fires
+  on it or on `testdata/repo`, so a rule cannot be added without a fixture case. The merge rules, M01 to
+  M04, need a base in git, which a fixture directory is not, and `internal/lint/merge_test.go` builds one
+  for each.
 - **The golden index is read before it is trusted.** Generating the expectation from the implementation
   proves nothing on its own.
 - **`internal/repotest` builds throwaway repositories.** Six test packages had near-identical helpers. It

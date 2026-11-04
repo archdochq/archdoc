@@ -50,8 +50,9 @@ which repository is being changed. `setup.md` covers the arrangement in full.
 5. **Never argue in a spec page.** The spec describes what is true now. Argument belongs in
    the RFCs and ADRs the page includes. (PROCESS.md, Document types)
 
-6. **Never delete a document.** Withdraw it. Deleting frees its number for reuse and loses the
-   record that it existed. (PROCESS.md, Identity)
+6. **Never delete a document.** Withdraw it. Deleting loses the record that it existed, and
+   deleting the highest-numbered document of its type frees its number for reuse.
+   (PROCESS.md, Identity)
 
 7. **Run `archdoc lint` before you finish.** Exit code 2 means something is wrong. Warnings do
    not fail the build unless `--strict-warnings` is given.
@@ -63,7 +64,7 @@ archdoc new rfc|adr|ref "Title"   create the next-numbered document, in draft
 archdoc propose|accept|reject|withdraw <id>   move it through its lifecycle
 archdoc link [--suggest]          resolve [[...]] links, or offer new ones
 archdoc term add|rename|remove|list|show      maintain the glossary, one file per term
-archdoc renumber <id|path> [new]  change a document's number, following every reference
+archdoc renumber <id|path> [new]  change a document's number, following every reference but not link text
 archdoc lint [--merge]            check every rule; --merge also judges a pull request against its branch
 archdoc changes [--json]          what the working tree changes in the record against the branch
 archdoc index [--check]           regenerate INDEX.md, or verify it is current
