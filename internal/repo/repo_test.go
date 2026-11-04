@@ -1626,6 +1626,11 @@ func TestLinkTextEndsWithEveryBlock(t *testing.T) {
 		"p\n| x |\n| - |\n[a\n](n.md)\n",
 		"| x |\n| - |\n    [a](n.md)\n",
 		"> [a\n| x |\n> | - |\n> ](n.md)\n",
+		"[a\n| x \\\\| y |\n| - |\n](n.md)\n",
+		"| x |\n| - |\n<span>\n[a](n.md)\n",
+		"| x | y |\n| - | - |\n| [a | b](n.md) |\n",
+		"| x | y |\n| - | - |\n| `[a |` b](n.md) |\n",
+		"| x | y |\n| - | - |\n| [a `|` b](n.md) |\n",
 	} {
 		if got := linksOf(t, body); len(got) != 0 {
 			t.Errorf("%q: links = %q, want none", body, got)
@@ -1659,6 +1664,11 @@ func TestLinkTextRunsOnWhereTheParagraphDoes(t *testing.T) {
 		"# h\n| - |\n[a\n](n.md)\n",
 		"[a\n| x ](n.md) |\n- |\n",
 		"| x |\n| - |\n\n[a\n](n.md)\n",
+		"> [a\n>     <!-- c -->\n> ](n.md)\n",
+		"[a\n    <!-- c -->\n](n.md)\n",
+		"[a\n|\n|-|\n](n.md)\n",
+		"[a\n|\n|\n](n.md)\n",
+		"| x |\n| - |\n| [a \\| b](n.md) |\n",
 	} {
 		if got := linksOf(t, body); len(got) != 1 || !strings.HasPrefix(got[0], "inline n.md ") {
 			t.Errorf("%q: links = %q, want the link to n.md", body, got)
@@ -1775,6 +1785,9 @@ func TestATermDefinitionIsOneParagraphAndNothingElse(t *testing.T) {
 		{"a table indented as a block may be", "# Widget\n\nThe definition.\n | a |\n | - |\n", 1, 1, 0, "The definition."},
 		{"a row with no delimiter row is text", "# Widget\n\nThe definition.\n | a |\n", 1, 0, 0, "The definition.\n | a |"},
 		{"a header row without pipes", "# Widget\n\nThe definition.\nx\n-|\n", 1, 1, 0, "The definition."},
+		{"an escaped pipe after a backslash", "# Widget\n\nThe definition.\n| a \\\\| b |\n| - |\n", 1, 1, 0, "The definition."},
+		{"a lone pipe heads no table", "# Widget\n\nThe definition.\n|\n|-|\n", 1, 0, 0, "The definition.\n|\n|-|"},
+		{"a pipe in a comment parts a header's cells", "# Widget\n\nThe definition.\n| a <!-- | --> |\n| - | - |\n", 1, 1, 0, "The definition."},
 		// A lone carriage return ends a line, as CommonMark has it and as the
 		// definition is published.
 		{"a blank line ended by a lone carriage return", "# Widget\n\nThe definition.\n\rMore.\n", 2, 0, 0, "The definition."},

@@ -211,8 +211,9 @@ would have to round-trip everything it parsed.
   pattern read `2) ` as an item anywhere, which left readable a link inside a code span crossing it,
   and took a heading or a `|` line at any indentation, so link text wrapped onto `    # x`, or onto a
   `|` line starting no table, was not read. A line starts a table only as the header above a
-  delimiter row of as many cells, as in GFM, and each row is read on its own, so neither link text
-  nor a comment opened in one runs into the next.
+  delimiter row of as many cells, as in GFM, and each row and cell is read on its own, so link text
+  does not run from one cell into the next, nor a comment from one row into the next. A line in a
+  paragraph is blank only as written: holding nothing but a comment, it continues the paragraph.
   The scanner and the code span masker read the walk's answer rather than a rule of their own.
 - **Reading links is linear in the length of a line.** The first scanner ran the destination pattern
   from every `]` to the end of the line when no `)` followed, and made every open bracket inactive one
@@ -342,11 +343,11 @@ the result can delete content it never read.
   the heading as a second term. The blocks come from the document's own walk, and ~~a paragraph ends
   where the link scanner's blockStartPattern ends one, at a setext underline and a table row as well,
   so the two agree on where a paragraph stops.~~ Superseded, as the two did not agree: the link
-  scanner took a heading or a table row at any indentation, since it did not know the indentation
-  of the list item holding a line, so `    | x` after a definition's line ended the paragraph for
-  links and continued it for L15, which is what CommonMark does. A paragraph ends at a setext
-  underline ~~and a table row as well,~~ indented at most three spaces as a block start at the top level
-  is, and at a table's header row, by the block walk's own test. The table row is struck because a
+  scanner ~~takes~~ took a heading or a table row at any indentation, since it ~~does~~ did not know
+  the indentation of the list item holding a line, so `    | x` after a definition's line ended the
+  paragraph for links and continued it for L15, which is what CommonMark does. A paragraph ends at a
+  setext underline ~~and a table row as well,~~ indented at most three spaces as a block start at the
+  top level is, and at a table's header row, by the block walk's own test. The table row is struck because a
   `|` line with no delimiter row beneath it is text in GFM, and L15 reported it. A lone carriage
   return ends a line there, as it does in CommonMark and in what is published:
   read as part of its line, `Def.` and `More.` with a line feed and a carriage return between them

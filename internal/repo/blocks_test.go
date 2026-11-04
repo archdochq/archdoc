@@ -168,6 +168,7 @@ func TestLinksAreReadWhereCommonMarkReadsThem(t *testing.T) {
 		"a row with no delimiter row continues one":            {"Text <!-- x\n| [y](a.md) |\n-->\n", nil},
 		"a comment on a header row closes on it or not at all": {"Text <!-- [x](b.md)\n| - |\n-->\n", []string{"b.md"}},
 		"a comment in a table row closes on it or not at all":  {"| x |\n| - |\n| <!-- [y](a.md) |\n| --> |\n", []string{"a.md"}},
+		"an indented comment continues a paragraph":            {"p\n    <!-- c -->\n    code [x](a.md)\n", []string{"a.md"}},
 		"a comment closing on its table row":                   {"| x |\n| - |\n| <!-- [y](a.md) --> |\n", nil},
 		"a commented paragraph continues lazily in a quote":    {"> Text <!-- x\ny --> [z](b.md)\n", []string{"b.md"}},
 		"a commented paragraph continues indented":             {"Text <!-- a\nb -->\n    more [x](a.md)\n", []string{"a.md"}},
