@@ -200,7 +200,7 @@
         "type": {"enum": ["inline", "image", "definition"],
                  "description": "inline is [text](destination), image is ![text](destination), definition is [label]: destination. A reference use carries a label rather than a destination and is not listed: rewriting the definition carries its uses."},
         "destination": {"type": "string", "description": "As written in the document."},
-        "path": {"type": "string", "description": "Resolved against the repository root. Absent when it leaves the repository."},
+        "path": {"type": "string", "description": "Resolved against the directory of the document holding the link, relative to root. Absent for a destination with nothing before its #, one carrying a URI scheme or beginning with /, and one leading outside root."},
         "resolves_to": {"type": "string", "description": "The identifier, or a spec page's name. Absent when the destination is not a document."},
         "anchor": {"type": "string"},
         "line": {"type": "integer", "minimum": 1, "description": "1-based in the file: the line holding the destination, where the text runs across lines."}

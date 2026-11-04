@@ -5,7 +5,7 @@ status: proposed
 created: 2026-11-03
 decided:
 depends: [ADR-0005]
-updates: [ADR-0005]
+updates: [ADR-0005, ADR-0006]
 obsoletes: []
 ---
 
@@ -13,7 +13,7 @@ obsoletes: []
 
 ## Context
 
-[ADR-0005](0005-the-dependency-list-is-closed.md) closes the dependency list at cobra, yaml.v3, huh, `x/term` and goreleaser. The code imports two modules the list does not name:
+[ADR-0005](0005-the-dependency-list-is-closed.md) closes the dependency list at cobra, yaml.v3, huh, `x/term` and goreleaser, and [ADR-0006](0006-markdown-is-handled-with-the-standard-library.md) gives the list as staying at five. The code imports two modules the list does not name:
 
 | Module | Imported by | For |
 |---|---|---|

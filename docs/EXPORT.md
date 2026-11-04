@@ -249,8 +249,8 @@ Markdown:
 ```
 
 `destination` is as written. `path` is resolved against the document's directory
-and given relative to the root, and
-`resolves_to` is the identifier, or a spec page's name, of whatever is there.
+and given relative to the root, and `resolves_to` is the identifier, or a spec
+page's name, of whatever is there.
 Both are absent for a bare `#anchor`, for a destination carrying a URI scheme
 or beginning with `/`, and for one leading outside the root. `resolves_to` is
 absent too where `path` holds no document.

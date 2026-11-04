@@ -545,7 +545,8 @@ the result can delete content it never read.
   name gives, since the heading answers it.
 - **`term rename` edits the term file field by field and moves it.** It sets `title`, appends the old
   name to `formerly`, retitles the H1, and writes the file at the new name's path before removing the
-  old one; the rest of the file is carried across as written.
+  old one, or in place where the slug is unchanged, as in a change of case; the rest of the file is
+  carried across as written.
 - **A link to a former name's anchor keeps resolving; nothing else is rewritten.** A link to
   `GLOSSARY.md#<old name>` resolves through the anchor generation keeps for it. A link to the term's old
   file under `term/` does not, nor does `[[<old name>]]`, since a former name is not a term; L17 and L16
@@ -798,5 +799,5 @@ the result can delete content it never read.
   ~~goreleaser at build time. Nothing else.~~ The list left out `x/term`, which
   [ADR-0005](../spec/adr/0005-the-dependency-list-is-closed.md) names, and the code has since imported
   pflag and x/text, which [ADR-0025](../spec/adr/0025-the-dependency-list-adds-pflag-and-x-text.md)
-  proposes adding. The dependency list is cobra, pflag, yaml.v3, huh, `x/term` and x/text, with
+  proposes adding, which makes the list cobra, pflag, yaml.v3, huh, `x/term` and x/text, with
   goreleaser at build time. Nothing else.
