@@ -608,7 +608,7 @@ func scanBody(text string) (masked []string, literal []block, quoted, continues,
 			// A comment starting a block runs until it closes, however far
 			// that is. One opened inside a paragraph is raw HTML only where
 			// it closes before the paragraph ends, and text otherwise.
-			if marker-at <= 3 && strings.TrimSpace(line[at:marker]) == "" {
+			if strings.TrimSpace(line[at:marker]) == "" && indentColumns(line[at:marker], column(line, at)) <= 3 {
 				block, depth, opened = true, len(w.stack), true
 				return true
 			}
