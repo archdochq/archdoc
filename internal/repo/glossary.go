@@ -153,7 +153,7 @@ func (d *Document) entryBlocks(from int) (paragraphs []string, other int) {
 		}
 	}
 	// A table's header row is read as one outside any container, as the
-	// definition is.
+	// definition is, in the paragraph the line continues if any.
 	var outside blockWalk
 	end := func() {
 		if current == paragraph {
@@ -163,6 +163,7 @@ func (d *Document) entryBlocks(from int) (paragraphs []string, other int) {
 	}
 	for p, piece := range pieces {
 		raw, m, i := piece.raw, piece.masked, piece.line
+		outside.paragraph = current == paragraph
 		// A comment beginning a line opens an HTML block, as CommonMark
 		// has it, and the text after the marker closing it is the
 		// block's. Inside a code block the marker is code.

@@ -211,9 +211,11 @@ would have to round-trip everything it parsed.
   pattern read `2) ` as an item anywhere, which left readable a link inside a code span crossing it,
   and took a heading or a `|` line at any indentation, so link text wrapped onto `    # x`, or onto a
   `|` line starting no table, was not read. A line starts a table only as the header above a
-  delimiter row of as many cells, as in GFM, and each row and cell is read on its own, so link text
-  does not run from one cell into the next, nor a comment from one row into the next. A line in a
-  paragraph is blank only as written: holding nothing but a comment, it continues the paragraph.
+  delimiter row of as many cells, in a paragraph with no line above a delimiter row of another number,
+  as in GFM, and each row and cell is read on its own, so link text, a code span or a comment does
+  not run from one cell into the next. A line in a paragraph is blank only as written, so one holding
+  nothing but a comment indented four columns, or nothing but part of a comment opened earlier in the
+  paragraph, continues it.
   The scanner and the code span masker read the walk's answer rather than a rule of their own.
 - **Reading links is linear in the length of a line.** The first scanner ran the destination pattern
   from every `]` to the end of the line when no `)` followed, and made every open bracket inactive one

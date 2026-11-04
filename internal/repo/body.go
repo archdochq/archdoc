@@ -414,7 +414,7 @@ func Prose(body string, bodyLine int) iter.Seq[ProseLine] {
 	return func(yield func(ProseLine) bool) {
 		raw := strings.Split(body, "\n")
 		masked, literal, _, continues, rows, _ := scanBody(body)
-		masked = maskParagraphCode(masked, continues)
+		masked = maskParagraphCode(masked, continues, rows)
 		for i := range masked {
 			if literal[i] != blockProse {
 				continue
@@ -429,18 +429,34 @@ func Prose(body string, bodyLine int) iter.Seq[ProseLine] {
 // maskParagraphCode blanks the code spans in each run of prose lines that
 // forms one paragraph, since a span may cross a line break within one: read a
 // line at a time, a span wrapped onto the next line left its links readable.
-// A run is the lines the block walk says continue the one before.
-func maskParagraphCode(masked []string, continues []bool) []string {
+// A run is the lines the block walk says continue the one before. A table
+// row continues nothing, and its spans are read a cell at a time.
+func maskParagraphCode(masked []string, continues, rows []bool) []string {
 	out := slices.Clone(masked)
 	for start := 0; start < len(masked); {
 		end := start + 1
 		for end < len(masked) && continues[end] {
 			end++
 		}
-		copy(out[start:], strings.Split(maskCode(strings.Join(masked[start:end], "\n")), "\n"))
+		if rows[start] {
+			out[start] = maskCells(masked[start])
+		} else {
+			copy(out[start:], strings.Split(maskCode(strings.Join(masked[start:end], "\n")), "\n"))
+		}
 		start = end
 	}
 	return out
+}
+
+// maskCells blanks the code spans in each cell of a table row.
+func maskCells(row string) string {
+	out := []byte(row)
+	from := 0
+	for _, at := range append(cellPipes(row), len(row)) {
+		copy(out[from:at], maskCode(row[from:at]))
+		from = at + 1
+	}
+	return string(out)
 }
 
 // Prose is the same over one document's body.
@@ -600,6 +616,10 @@ func scanBody(text string) (masked []string, literal []block, quoted, continues,
 		// closes on it or not at all.
 		header := i+1 < len(lines) && w.tableStarts(line[at:], lines[i+1])
 		row := header || w.leaf == leafTable
+		var pipes []int
+		if row {
+			pipes = append(cellPipes(line), len(line))
+		}
 		opened := false // a comment block opened on this line holds the rest of it
 		masked[i], open = maskCommentsIn(line, false, func(marker int) bool {
 			if opened {
@@ -614,7 +634,11 @@ func scanBody(text string) (masked []string, literal []block, quoted, continues,
 			}
 			block = false
 			if row {
-				return strings.Contains(line[marker+len(commentOpen):], commentClose)
+				// Within its cell, as GFM parts the cells first.
+				for pipes[0] < marker {
+					pipes = pipes[1:]
+				}
+				return strings.Contains(line[marker+len(commentOpen):pipes[0]], commentClose)
 			}
 			return closesInParagraph(lines, i, marker+len(commentOpen), &w) && !inCodeAcrossLines(lines, i, marker, &w)
 		})
@@ -623,7 +647,7 @@ func scanBody(text string) (masked []string, literal []block, quoted, continues,
 			// there if it closes there, so it leaves no paragraph open.
 			w.paragraph = false
 		} else {
-			w.prose(line[at:], masked[i][min(at, len(masked[i])):])
+			w.prose(line[at:], masked[i][min(at, len(masked[i])):], column(line, at))
 			if header && w.paragraph {
 				w.open(leafTable)
 			}
@@ -659,13 +683,13 @@ func closesInParagraph(lines []string, i, from int, w *blockWalk) bool {
 // the paragraph lazily, and an underline read so is text.
 func paragraphEnd(lines []string, i int, w *blockWalk) int {
 	// A stack of its own, as truncating and pushing would overwrite w's.
-	ahead := blockWalk{stack: slices.Clone(w.stack), paragraph: true}
+	ahead := blockWalk{stack: slices.Clone(w.stack), paragraph: true, failed: w.failed}
 	for k := i + 1; k < len(lines); k++ {
 		line := strings.TrimSuffix(lines[k], "\r")
 		at, _ := ahead.line(line)
 		rest := line[at:]
-		if !ahead.paragraph || ahead.underline || IsHeading(rest) || thematicPattern.MatchString(rest) ||
-			indentColumns(rest, column(line, at)) < 4 && strings.HasPrefix(strings.TrimLeft(rest, " \t"), commentOpen) ||
+		t := lead(rest, column(line, at))
+		if !ahead.paragraph || ahead.underline || IsHeading(t) || thematicPattern.MatchString(t) || strings.HasPrefix(t, commentOpen) ||
 			k+1 < len(lines) && ahead.tableStarts(rest, lines[k+1]) {
 			return k
 		}
@@ -723,6 +747,9 @@ type blockWalk struct {
 	// setext underline, which ends the paragraph above it. Only such a line
 	// can follow one, as a line after an underline is no lazy continuation.
 	underline bool
+	// failed is whether the paragraph open had a line above a delimiter
+	// row of another number of cells.
+	failed bool
 }
 
 // container is a blockquote, or a list item whose content starts indent
@@ -827,12 +854,11 @@ func (w *blockWalk) line(s string) (at int, kind block) {
 		}
 		w.leaf, w.paragraph = leafNone, false
 	case leafTable:
-		// Any line is a row until a blank one or the start of another
+		// Any line holding a cell is a row until the start of another
 		// block, indented code and a lone HTML tag included, as a table is
 		// no paragraph.
 		var outside blockWalk
-		_, html := htmlStarts(rest, column(s, at), false)
-		if strings.TrimSpace(rest) != "" && indentColumns(rest, column(s, at)) < 4 && !html && !outside.interrupts(rest, column(s, at)) {
+		if len(tableCells(rest)) > 0 && indentColumns(rest, column(s, at)) < 4 && !outside.interrupts(rest, column(s, at)) {
 			return at, blockProse
 		}
 		w.leaf = leafNone
@@ -856,7 +882,7 @@ func (w *blockWalk) line(s string) (at int, kind block) {
 	rest = s[at:]
 	// Read as written rather than masked, as a comment after an underline
 	// makes the line text.
-	w.underline = w.paragraph && setextPattern.MatchString(rest)
+	w.underline = w.paragraph && setextPattern.MatchString(lead(rest, column(s, at)))
 	switch {
 	case strings.TrimSpace(rest) == "":
 		w.paragraph = false
@@ -918,9 +944,10 @@ func (w *blockWalk) open(leaf leafKind) {
 // prose records what a prose line leaves open: a paragraph, unless it was
 // blank as written, or, with its comments blanked, a heading, a thematic
 // break, a setext underline or a table row. A line holding only a comment
-// inside a paragraph is not blank, and continues it.
-func (w *blockWalk) prose(written, content string) {
-	content = strings.TrimSuffix(content, "\r")
+// inside a paragraph is not blank, and continues it. Its content starts at
+// column from.
+func (w *blockWalk) prose(written, content string, from int) {
+	content = lead(strings.TrimSuffix(content, "\r"), from)
 	w.paragraph = w.leaf != leafTable && strings.TrimSpace(written) != "" && !IsHeading(content) &&
 		!thematicPattern.MatchString(content) && !w.underline
 }
@@ -929,15 +956,21 @@ func (w *blockWalk) prose(written, content string) {
 // containers' markers, is the header row of a GFM table: the next line
 // continues every container open, which a lazy header row need not, is a
 // delimiter row rather than a list item or a setext underline, and has as
-// many cells.
+// many cells. A paragraph with a line above a delimiter row of another
+// number of cells heads no table after it, as GFM marks it then; a line w
+// holds no paragraph at begins one.
 func (w *blockWalk) tableStarts(header, next string) bool {
+	w.failed = w.failed && w.paragraph
+	if w.failed {
+		return false
+	}
 	next = strings.TrimSuffix(next, "\r")
 	matched, at := w.continued(next)
 	if matched < len(w.stack) {
 		return false
 	}
 	rest := next[at:]
-	if indentColumns(rest, column(next, at)) >= 4 || setextPattern.MatchString(rest) {
+	if indentColumns(rest, column(next, at)) >= 4 || setextPattern.MatchString(lead(rest, column(next, at))) {
 		return false
 	}
 	if _, _, item := w.listItem(rest, column(next, at)); item {
@@ -949,7 +982,11 @@ func (w *blockWalk) tableStarts(header, next string) bool {
 			return false
 		}
 	}
-	return len(delimiters) > 0 && len(delimiters) == len(tableCells(header))
+	if len(delimiters) == 0 {
+		return false
+	}
+	w.failed = len(delimiters) != len(tableCells(header))
+	return !w.failed
 }
 
 // delimiterCell is one cell of a table's delimiter row, trimmed.
@@ -993,13 +1030,26 @@ func (w *blockWalk) unclosed() bool {
 	return w.leaf == leafFence || w.leaf == leafHTML && len(w.htmlEnd) > 0
 }
 
-// interrupts reports whether a line starts a block, so that it cannot be a
-// lazy continuation of the paragraph before it.
+// interrupts reports whether a line, starting at column from, starts a block
+// in w, so that it cannot be a lazy continuation of a paragraph w does not
+// hold. A lone HTML tag starts one only where w holds no paragraph.
 func (w *blockWalk) interrupts(s string, from int) bool {
 	_, _, item := w.listItem(s, from)
-	_, html := htmlStarts(s, from, true)
-	return item || html || quoteMarkerPattern.MatchString(s) || fenceOpens(s) || IsHeading(s) ||
-		thematicPattern.MatchString(s) || strings.HasPrefix(strings.TrimLeft(s, " "), commentOpen)
+	_, html := htmlStarts(s, from, w.paragraph)
+	t := lead(s, from)
+	return item || html || quoteMarkerPattern.MatchString(s) || fenceOpens(s) || IsHeading(t) ||
+		thematicPattern.MatchString(t) || strings.HasPrefix(t, commentOpen)
+}
+
+// lead is s without the indentation before its content where that is at
+// most three columns from column from, as a heading, a thematic break, a
+// setext underline or a comment block may be indented so far, a tab running
+// to the next multiple of four; otherwise it is s.
+func lead(s string, from int) string {
+	if indentColumns(s, from) > 3 {
+		return s
+	}
+	return strings.TrimLeft(s, " \t")
 }
 
 // listItem reads a list marker: how many bytes it and the spaces after it
@@ -2227,8 +2277,8 @@ func (d *Document) Anchors() []string {
 // An HTML block is not masked, so a comment within one is removed here, read
 // across the block's lines as a browser reads it.
 func explicitAnchors(body string) []string {
-	masked, literal, _, continues, _, _ := scanBody(body)
-	masked = maskParagraphCode(masked, continues)
+	masked, literal, _, continues, rows, _ := scanBody(body)
+	masked = maskParagraphCode(masked, continues, rows)
 	var anchors []string
 	for i := 0; i < len(masked); i++ {
 		text := masked[i]
