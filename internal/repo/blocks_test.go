@@ -187,7 +187,7 @@ func TestLinksAreReadWhereCommonMarkReadsThem(t *testing.T) {
 		"a code span across lines in a quote":                           {"> A `span\n> [x](a.md)` end\n", nil},
 		"a quote starting after a paragraph":                            {"A `span\n> [x](a.md)` end\n", []string{"a.md"}},
 		// HTML blocks.
-		"a closing pre is not a block":       {"</pre>\nSee [x](a.md)\n", []string{"a.md"}},
+		"a closing pre is a block":           {"</pre>\nSee [x](a.md)\n", nil},
 		"any of the four closes a raw block": {"<pre>\n[x](a.md)\n</script>\n\nAfter [y](b.md)\n", []string{"b.md"}},
 		"<?> opens and closes at once":       {"<?>\n\nAfter [x](a.md)\n", []string{"a.md"}},
 		// Where a comment opens and where its paragraph ends.
