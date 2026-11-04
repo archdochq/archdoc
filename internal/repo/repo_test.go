@@ -1649,6 +1649,8 @@ func TestLinkTextEndsWithEveryBlock(t *testing.T) {
 		"- - [a\n\t ===\n    ](n.md)\n",
 		"[x\n|\na|b\n-|-\ny](n.md)\n",
 		"- a <!-- x\n\t  ***\n  [y](n.md) -->\n",
+		"1.   - [a\n\t\t# x\n\t\t](n.md)\n",
+		"-\t  [a](n.md)\n",
 	} {
 		if got := linksOf(t, body); len(got) != 0 {
 			t.Errorf("%q: links = %q, want none", body, got)
@@ -1708,6 +1710,10 @@ func TestLinkTextRunsOnWhereTheParagraphDoes(t *testing.T) {
 		"> 1.   [a\n>\t  # x\n> ](n.md)\n",
 		"- [a|b\n\t  -|-\n  c](n.md)\n",
 		"> \t- a\n>\n>       [x](n.md)\n",
+		"- [x\n  y](n.md)\n  \t---\n",
+		"  - [a\n\t\t # x\n    ](n.md)\n",
+		"-\t[a](n.md)\n",
+		"1.\t  [a](n.md)\n",
 		"| x |\n| - |\n   <!-- c -->\n[a\n](n.md)\n",
 		"[x\na|b\n-||\ny](n.md)\n",
 		"> [a\n    <!-- c -->\n> ](n.md)\n",
