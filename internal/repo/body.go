@@ -878,9 +878,9 @@ func (w *blockWalk) line(s string) (at int, kind block) {
 			w.paragraph = false
 			continue
 		}
-		if n, indent, ok := w.listItem(rest, from); ok {
+		if n, indent, over, ok := w.listItem(rest, from); ok {
 			w.stack = append(w.stack, container{indent: indent, empty: strings.TrimSpace(rest[n:]) == ""})
-			at, w.spare = passed(at, w.spare, n, 0)
+			at, w.spare = passed(at, w.spare, n, over)
 			w.paragraph = false
 			continue
 		}
@@ -1018,7 +1018,7 @@ func (w *blockWalk) tableStarts(header, next string) bool {
 	if indentColumns(rest, from) >= 4 || setextPattern.MatchString(lead(rest, from)) {
 		return false
 	}
-	if _, _, item := w.listItem(rest, from); item {
+	if _, _, _, item := w.listItem(rest, from); item {
 		return false
 	}
 	delimiters := tableCells(rest)
@@ -1080,7 +1080,7 @@ func (w *blockWalk) unclosed() bool {
 // container it does not continue. A lone HTML tag starts one there.
 func interrupts(s string, from int) bool {
 	var outside blockWalk
-	_, _, item := outside.listItem(s, from)
+	_, _, _, item := outside.listItem(s, from)
 	_, html := htmlStarts(s, from, false)
 	t := lead(s, from)
 	_, _, quote := quoteMarker(s, from)
@@ -1103,15 +1103,15 @@ func lead(s string, from int) string {
 // take, and the column the item's content starts at. A thematic break is not
 // an item, and inside a paragraph neither is an empty item or a numbered one
 // not starting at 1.
-func (w *blockWalk) listItem(s string, from int) (n, indent int, ok bool) {
+func (w *blockWalk) listItem(s string, from int) (n, indent, over int, ok bool) {
 	t := lead(s, from)
 	m := listMarkerPattern.FindStringSubmatchIndex(t)
 	if m == nil || thematicPattern.MatchString(t) {
-		return 0, 0, false
+		return 0, 0, 0, false
 	}
 	empty := m[1] == len(t)
 	if w.paragraph && (empty || m[6] >= 0 && strings.TrimLeft(t[m[6]:m[7]], "0") != "1") {
-		return 0, 0, false
+		return 0, 0, 0, false
 	}
 	// skip is the bytes before the marker, and marker the columns to its end.
 	skip := len(s) - len(t)
@@ -1119,12 +1119,16 @@ func (w *blockWalk) listItem(s string, from int) (n, indent int, ok bool) {
 	spaces := indentColumns(t[m[5]:], from+marker)
 	switch {
 	case empty:
-		return len(s), marker + 1, true
+		return len(s), marker + 1, 0, true
 	case spaces > 4:
-		// The content is an indented code block, one column in.
-		return skip + m[5] + 1, marker + 1, true
+		// The content is an indented code block, one column in, and a tab
+		// after the marker leaves the rest of its columns to it.
+		if t[m[5]] == '\t' {
+			over = advance(from+marker, '\t') - from - marker - 1
+		}
+		return skip + m[5] + 1, marker + 1, over, true
 	}
-	return skip + m[1], marker + spaces, true
+	return skip + m[1], marker + spaces, 0, true
 }
 
 // fenceOpens reports a fence opening a line. A backtick fence's info string
