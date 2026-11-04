@@ -625,6 +625,7 @@ func scanBody(text string) (masked []string, literal []block, quoted, continues,
 			continue
 		}
 		at, kind := w.line(strings.TrimSuffix(line, "\r"))
+		col := column(line, at)
 		quoted[i] = len(w.stack) > 0 && w.stack[0].quote
 		// A line continues the paragraph before it only where the walk
 		// reading it opened nothing and it is still paragraph text once read.
@@ -650,7 +651,7 @@ func scanBody(text string) (masked []string, literal []block, quoted, continues,
 			// A comment starting a block runs until it closes, however far
 			// that is. One opened inside a paragraph is raw HTML only where
 			// it closes before the paragraph ends, and text otherwise.
-			if strings.TrimSpace(line[at:marker]) == "" && w.spare+indentColumns(line[at:marker], column(line, at)) <= 3 {
+			if strings.TrimSpace(line[at:marker]) == "" && w.spare+indentColumns(line[at:marker], col) <= 3 {
 				block, depth, opened = true, len(w.stack), true
 				return true
 			}
@@ -669,7 +670,7 @@ func scanBody(text string) (masked []string, literal []block, quoted, continues,
 			// there if it closes there, so it leaves no paragraph open.
 			w.paragraph = false
 		} else {
-			w.prose(line[at:], masked[i][min(at, len(masked[i])):], column(line, at))
+			w.prose(line[at:], masked[i][min(at, len(masked[i])):], col)
 			if header && w.paragraph {
 				w.open(leafTable)
 			}
@@ -818,10 +819,13 @@ const openTag = `<[A-Za-z][A-Za-z0-9-]*(?:[ \t]+[A-Za-z_:][A-Za-z0-9_.:-]*(?:[ \
 func (w *blockWalk) line(s string) (at int, kind block) {
 	matched, at, spare := w.continued(s)
 	w.spare = spare
+	// col is the column of byte at, kept as markers are passed rather than
+	// counted again from the start of the line for each.
+	col := column(s, at)
 	if matched < len(w.stack) {
 		// Read in the last container the line continues, which is not the
 		// paragraph, so an item of any number or none interrupts it.
-		rest, from := pad(s[at:], column(s, at), spare)
+		rest, from := pad(s[at:], col, spare)
 		if w.leaf == leafNone && w.paragraph && strings.TrimSpace(rest) != "" && !interrupts(rest, from) {
 			return at, blockProse // a lazy continuation of the paragraph
 		}
@@ -836,7 +840,7 @@ func (w *blockWalk) line(s string) (at int, kind block) {
 		w.stack[n-1].empty = false
 	}
 
-	rest, from := pad(s[at:], column(s, at), spare)
+	rest, from := pad(s[at:], col, spare)
 	switch w.leaf {
 	case leafFence:
 		if closesFence(rest, w.fenceChar, w.fenceLen) {
@@ -871,23 +875,23 @@ func (w *blockWalk) line(s string) (at int, kind block) {
 	}
 
 	for {
-		rest, from = pad(s[at:], column(s, at), w.spare)
+		rest, from = pad(s[at:], col, w.spare)
 		if n, over, ok := quoteMarker(rest, from); ok {
 			w.stack = append(w.stack, container{quote: true})
-			at, w.spare = passed(at, w.spare, n, over)
+			at, col, w.spare = passed(s, at, col, w.spare, n, over)
 			w.paragraph = false
 			continue
 		}
 		if n, indent, over, ok := w.listItem(rest, from); ok {
 			w.stack = append(w.stack, container{indent: indent, empty: strings.TrimSpace(rest[n:]) == ""})
-			at, w.spare = passed(at, w.spare, n, over)
+			at, col, w.spare = passed(s, at, col, w.spare, n, over)
 			w.paragraph = false
 			continue
 		}
 		break
 	}
 
-	rest, from = pad(s[at:], column(s, at), w.spare)
+	rest, from = pad(s[at:], col, w.spare)
 	t := lead(rest, from)
 	// Read as written rather than masked, as a comment after an underline
 	// makes the line text.
@@ -922,14 +926,15 @@ func (w *blockWalk) line(s string) (at int, kind block) {
 // content starts at once their markers are passed, and how many columns of a
 // tab before that byte the markers left spare.
 func (w *blockWalk) continued(s string) (matched, at, spare int) {
+	col := 0
 	for ; matched < len(w.stack); matched++ {
-		rest, from := pad(s[at:], column(s, at), spare)
+		rest, from := pad(s[at:], col, spare)
 		if w.stack[matched].quote {
 			n, over, ok := quoteMarker(rest, from)
 			if !ok {
 				break
 			}
-			at, spare = passed(at, spare, n, over)
+			at, col, spare = passed(s, at, col, spare, n, over)
 			continue
 		}
 		if strings.TrimSpace(rest) == "" {
@@ -942,7 +947,7 @@ func (w *blockWalk) continued(s string) (matched, at, spare int) {
 		if !ok {
 			break
 		}
-		at, spare = passed(at, spare, n, over)
+		at, col, spare = passed(s, at, col, spare, n, over)
 	}
 	return matched, at, spare
 }
@@ -955,13 +960,18 @@ func pad(s string, from, spare int) (string, int) {
 	return strings.Repeat(" ", spare) + s, from - spare
 }
 
-// passed is the byte offset and the spare columns after n bytes of a line
-// padded by pad, a tab ending them over columns past what was wanted.
-func passed(at, spare, n, over int) (int, int) {
+// passed is the byte offset in line s, its column and the spare columns
+// after n bytes of the line from byte at, at column col, padded by pad, a tab
+// ending them over columns past what was wanted.
+func passed(s string, at, col, spare, n, over int) (int, int, int) {
 	if n <= spare {
-		return at, spare - n
+		return at, col, spare - n
 	}
-	return at + n - spare, over
+	next := at + n - spare
+	for ; at < next; at++ {
+		col = advance(col, s[at])
+	}
+	return next, col, over
 }
 
 // quoteMarker reads a blockquote marker in s, starting at column from: the

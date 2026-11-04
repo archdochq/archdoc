@@ -1590,6 +1590,19 @@ func TestAParagraphOfUnclosedCommentsIsReadInLinearTime(t *testing.T) {
 	}
 }
 
+// TestALineOfManyContainersIsReadInLinearTime: the column after each marker
+// was counted again from the start of the line, so a line of 40,000 quote
+// markers took three seconds.
+func TestALineOfManyContainersIsReadInLinearTime(t *testing.T) {
+	quotes := strings.Repeat(">", 40000)
+	body := quotes + " a\n" + quotes + " b\n"
+	started := time.Now()
+	linksOf(t, body)
+	if took := time.Since(started); took > 2*time.Second {
+		t.Errorf("reading two lines of 40,000 quote markers took %v", took)
+	}
+}
+
 // TestAReferenceLinkEndsTheLinkAroundIt: a reference link is a link, so the
 // text around it cannot be one, as with an inline link. Its label has to be
 // defined for it to be a link at all, compared as CommonMark compares labels,
