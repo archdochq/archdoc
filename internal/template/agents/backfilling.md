@@ -16,9 +16,9 @@ An alternative nobody weighed, or a rationale reconstructed because it sounds co
 worse than an admission of ignorance, because a later reader cannot tell it from the real
 thing. Where the record does not say, write that it does not say.
 
-This is the one rule in the whole process that no lint rule enforces and that an agent will
-break by default, because producing fluent plausible prose is effortless and the result looks
-exactly like a real recollection. Treat every sentence as needing a source you could point at.
+No lint rule enforces this, and an agent will break it by default, because producing fluent
+plausible prose is effortless and the result looks exactly like a real recollection. Treat
+every sentence as needing a source you could point at.
 
 Acceptable:
 

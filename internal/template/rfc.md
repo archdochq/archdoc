@@ -20,7 +20,7 @@ obsoletes: []
 
 ## Motivation
 
-<!-- What is wrong or missing today, and why does it matter now? Link the GitHub Discussion here once proposed. -->
+<!-- What is wrong or missing today, and why does it matter now? -->
 
 ## Proposal
 

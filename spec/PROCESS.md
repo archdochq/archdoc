@@ -91,7 +91,7 @@ The front matter records only forward relationships. Reverse relationships (what
 
 **`obsoletes`** lists documents this one replaces entirely. The older document becomes historical and should not be implemented from. Use this when rewriting a design from the ground up.
 
-Both `updates` and `obsoletes` may reference only accepted documents: you can amend or replace only what is in force. A document that was never accepted is superseded by withdrawing it, which is what withdrawal is for.
+Both `updates` and `obsoletes` may reference only accepted documents of the same type: you can amend or replace only what is in force, and an RFC is amended or replaced by an RFC, an ADR by an ADR. A document that was never accepted is superseded by withdrawing it, which is what withdrawal is for.
 
 **`includes`**, on spec pages only, lists the RFCs and ADRs the page currently reflects. A spec page may only include accepted documents. This list is how implementation is recorded: an accepted RFC included by no spec page is not yet implemented; an obsoleted RFC still included by a spec page indicates the spec is stale.
 
@@ -178,7 +178,7 @@ Spec pages have no fixed structure. They are written in the present tense and de
 
 Refs have no fixed structure beyond a closing **Sources** section, so that the `verified` date has something to be checked against.
 
-The glossary is not a spec page. Each term is one file, `term/<slug>.md`, whose front matter carries `title` (the term as written), `formerly` (previous names, oldest first) and `named_by` (the document that introduced the term), and whose body is exactly one paragraph defining it. A term has no status and no lifecycle. A glossary with no entries is valid.
+The glossary is not a spec page. Each term is one file, `term/<slug>.md`, whose front matter carries `title` (the term as written), `formerly` (previous names, oldest first) and `named_by` (the document that introduced the term), and whose body is an H1 reading the term as `title` gives it, followed by exactly one paragraph defining it. A term has no status and no lifecycle. A glossary with no entries is valid.
 
 `GLOSSARY.md` is generated from those files, in ascending order of title ignoring case. Every former name keeps an anchor on it, so a link written before a rename still resolves. `spec/glossary.md` is no longer read. `archdoc term` maintains the files, and is easier than writing them by hand.
 
@@ -212,7 +212,7 @@ ArchDoc provides:
 - `archdoc lint`: check the repository against the rules in this document. With `--merge`, also judge a pull request, checked out merged into the configured branch, against that branch.
 - `archdoc changes`: list what the working tree changes in the record against the configured branch, as Markdown for a pull request's summary, or with `--json`.
 - `archdoc link`: resolve `[[...]]` links. With `--suggest`, offer new ones.
-- `archdoc renumber <id|path> [new-id]`: change a document's number, rewriting the filename, the `id`, the heading and every reference to it. Takes the next free number when no target is given. Refuses when the document is frozen, or when a frozen document holds a reference it would rewrite.
+- `archdoc renumber <id|path> [new-id]`: change a document's number, rewriting the filename, the `id`, the heading and every reference to it, but not the text of a link to it. Takes the next free number when no target is given. Refuses when the document is frozen, or when a frozen document holds a reference it would rewrite.
 - `archdoc term add|rename|remove|list|show`: maintain the glossary.
 - `archdoc index`: regenerate `INDEX.md`. With `--check`, fail if the committed index is out of date.
 - `archdoc glossary`: regenerate `GLOSSARY.md` from `term/`. With `--check`, fail if the committed glossary is out of date.
@@ -225,13 +225,13 @@ Lint enforces:
 - Every `id` matches its filename and type; no identifier appears twice.
 - Every identifier in `depends`, `updates`, `obsoletes` and `includes` resolves to an existing document of a permitted type.
 - Every member of a group resolves to an RFC, ADR, ref or spec page, and no group lists a member twice.
-- `includes`, `updates` and `obsoletes` reference only accepted documents. Nothing updates or obsoletes itself, and nothing appears in both lists of one document.
+- `includes`, `updates` and `obsoletes` reference only accepted documents, and `updates` and `obsoletes` only documents of the same type. Nothing updates or obsoletes itself, and nothing appears in both lists of one document.
 - Documents with a terminal status have `decided` set; others do not, and `decided` is never before `created`.
 - A backfilled document is terminal, was written no earlier than the decision it records, and cites its sources.
 - A ref's `as_of` is not after its `verified` date.
 - The first heading matches the front matter.
 - The required sections for the type are present, with their exact titles, in the order listed above, and where the type has a closing section it is the last one.
-- No required section is left empty.
+- No required section is left empty. A draft and a withdrawn document are not checked. Warning for a proposed document and once a document is frozen; an error for a ref, and for an accepted or rejected document not yet on the branch.
 - Accepted documents have an empty Open questions section, or none.
 - Every question is a level three heading, and every resolved one ends on a blockquote holding its answer.
 - Every Changelog entry is a dated list item, in date order and within the document's own dates, written in a form that renders as it is read.

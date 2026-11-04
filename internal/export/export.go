@@ -226,8 +226,10 @@ type Link struct {
 	// rewriting destinations has to tell them apart.
 	Type        string `json:"type"`
 	Destination string `json:"destination"`
-	// Path is the destination resolved against the repository root, empty when
-	// it leaves the repository or names nothing.
+	// Path is the destination resolved against the directory of the document
+	// holding it, relative to root. It is empty for a destination with nothing
+	// before its #, one carrying a scheme or beginning with /, and one leading
+	// outside root.
 	Path string `json:"path,omitempty"`
 	// ResolvesTo is the identifier of the document at Path, or a spec page's
 	// name. Empty when the destination is not a document.

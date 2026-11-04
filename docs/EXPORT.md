@@ -73,7 +73,7 @@ Bodies elided, everything else as it comes out:
   "updated_by":     [],
   "obsoleted_by":   [],
   "depended_on_by": ["RFC-0005", "RFC-0007"],
-  "included_in":    ["database", "glossary"],
+  "included_in":    ["database"],
 
   "effectively_obsolete": false,
   "implemented": true,
@@ -108,11 +108,8 @@ derived by walking the whole repository, and is the reason this command exists.
 | `included_in` | Names of the spec pages listing this document in `includes` |
 | `groups` | Slugs of the groups listing this document, in order of slug |
 | `effectively_obsolete` | An **accepted** document obsoletes this one. A claim by a draft or rejected document does not count |
-| `implemented` | An accepted RFC or ADR that some spec page includes, **excluding the glossary**, which names terms rather than describing behaviour |
+| `implemented` | An accepted RFC or ADR that some spec page includes. A `spec/glossary.md` left from before terms were files, which L19 reports, does not count: it names terms rather than describing behaviour |
 | `stale` | A spec page including something effectively obsolete |
-
-The example shows the glossary distinction: `included_in` lists both `database`
-and `glossary`, and `implemented` is true because of `database` alone.
 
 ## Contents
 
@@ -251,10 +248,12 @@ Markdown:
 }
 ```
 
-`destination` is as written. `path` is resolved against the repository root, and
-`resolves_to` is the identifier, or a spec page's name, of whatever is there.
-Both are absent for a destination carrying a URI scheme or beginning with `/`,
-which is somewhere else entirely.
+`destination` is as written. `path` is resolved against the document's directory
+and given relative to the root, and `resolves_to` is the identifier, or a spec
+page's name, of whatever is there.
+Both are absent for a bare `#anchor`, for a destination carrying a URI scheme
+or beginning with `/`, and for one leading outside the root. `resolves_to` is
+absent too where `path` holds no document.
 
 `type` is `inline` for `[text](destination)`, `image` for
 `![text](destination)`, and `definition` for a link reference definition
@@ -297,11 +296,12 @@ repository has none, which is most of them.
 
 ## The glossary
 
-Emitted twice: as an ordinary spec page among the documents, and again as
-structured terms, so you do not re-parse the page.
+Terms are emitted only in `glossary`, one object per file under `term/`, never
+among the documents.
 
 ```json
-{"name": "Binding", "anchor": "binding", "definition": "...", "formerly": ["Registration"]}
+{"name": "Binding", "anchor": "binding", "path": "term/binding.md",
+ "definition": "...", "formerly": ["Registration"], "named_by": "RFC-0004"}
 ```
 
 ## `--out`

@@ -59,11 +59,11 @@ archdoc lint
 ```
 
 `archdoc init` scaffolds the repository, writes `PROCESS.md` describing the
-process it enforces, and generates a GitHub workflow that runs `archdoc lint`
-and `archdoc index --check` on every push. On a pull request into the configured
-branch it runs `archdoc lint --merge`, which also checks what the pull request
-changes in the record against that branch, and summarises those changes with
-`archdoc changes`.
+process it enforces, and generates a GitHub workflow that runs `archdoc lint`,
+`archdoc index --check` and `archdoc glossary --check` on every push. On a pull
+request into the configured branch it runs `archdoc lint --merge`, which also
+checks what the pull request changes in the record against that branch, and
+summarises those changes with `archdoc changes`.
 
 ## Checking before you commit
 
@@ -98,9 +98,10 @@ of the repository, add `args: [-C, <directory>]` to each hook.
 | `lint [--merge]` | Check every rule. `--merge` also judges a pull request against its branch |
 | `changes [--json]` | List what the working tree changes in the record against the branch |
 | `index [--check]` | Regenerate `INDEX.md`, or verify it is current |
+| `glossary [--check]` | Regenerate `GLOSSARY.md` from `term/`, or verify it is current |
 | `link [--suggest]` | Resolve `[[...]]` links, or offer new ones |
 | `term add\|rename\|remove\|list\|show` | Maintain the glossary |
-| `renumber <id\|path> [new-id]` | Change a document's number, following every reference |
+| `renumber <id\|path> [new-id]` | Change a document's number, following every reference to it but not the text of a link |
 | `export [--out <dir>]` | Write the repository as JSON |
 | `agents` | Install or refresh the guides for coding agents |
 | `update` | Refresh what ArchDoc generates, after upgrading it |

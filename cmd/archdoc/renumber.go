@@ -21,7 +21,7 @@ func canonical(selector string) string {
 func newRenumberCommand() *cobra.Command {
 	return &cobra.Command{
 		Use:   "renumber <id|path> [new-id]",
-		Short: "Change a document's number, following every reference to it",
+		Short: "Change a document's number, following every reference to it but not link text",
 		Long: "Rewrites the filename, the front matter id and the heading, and renames the document " +
 			"in every list and link that refers to it.\n\n" +
 			"With no target, the next free number for the type is taken. That is the form for " +

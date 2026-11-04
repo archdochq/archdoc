@@ -45,4 +45,4 @@ These four sections are always present with their header rows, even when empty. 
 
 Its rows are sorted by slug. `Group` links the group's file, and `Documents` lists the members in the order written, each linked to the document it names; a member that names nothing is left as text. A group's description is not shown. Rows are sorted by identifier for numbered types and by path for spec pages. Every identifier and page in every cell is a relative Markdown link. Empty cells are empty. A status carries its qualifiers in parentheses, comma-separated, in the order backfilled then obsolete: `accepted (backfilled)`, `accepted (obsolete)`, `accepted (backfilled, obsolete)`. `Stale` is `yes` or empty. `Implemented in` lists the spec pages including the document. Terms are not listed: `GLOSSARY.md` is their index.
 
-Every cell is escaped and every link destination is percent-encoded, so a title or filename containing a pipe, a bracket, an angle bracket or a parenthesis cannot alter the table.
+Every cell is escaped, including a pipe, a bracket, an angle bracket or a parenthesis in a title or filename, and every link destination is percent-encoded.
