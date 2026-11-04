@@ -59,7 +59,7 @@
         "remedy": {"type": "string", "description": "How a finding is cleared, as inline Markdown."},
         "since": {"type": "string", "description": "The tag of the first release carrying the rule, pre-releases included."},
         "changes": {"type": "array", "items": {"$ref": "#/$defs/change"},
-                    "description": "Each later release that changed what the rule reports, in release order. Changes made before the registry recorded them are not listed."}
+                    "description": "Each later release that changed what the rule reports, in release order. Changes in v0.5.1 and earlier releases, tagged before the registry recorded them, are not listed."}
       }
     },
     "change": {

@@ -25,6 +25,9 @@ func newGlossaryCommand() *cobra.Command {
 			"still resolves, including one inside a frozen document that could never be corrected.",
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
+			if asJSON && !check {
+				return errors.New("--json reports the findings of --check, so it needs --check")
+			}
 			r, err := openRepo()
 			if err != nil {
 				return err
@@ -40,13 +43,21 @@ func newGlossaryCommand() *cobra.Command {
 				return nil
 			}
 
-			// A missing glossary differs from an out-of-date one only in the
-			// diff, so both are reported the same way.
+			// A missing page differs from an out-of-date one only in the
+			// diff, so both are reported the same way, unless there is no
+			// term/: there is then no glossary, and no page is not a page out
+			// of date. A link is a page that is there, even one that resolves
+			// to nothing.
 			committed, err := os.ReadFile(path)
 			if err != nil && !errors.Is(err, fs.ErrNotExist) {
 				return err
 			}
-			if bytes.Equal(committed, generated) {
+			_, statErr := os.Lstat(path)
+			_, hasGlossary := r.Glossary()
+			if bytes.Equal(committed, generated) || (errors.Is(statErr, fs.ErrNotExist) && !hasGlossary) {
+				if asJSON {
+					printFindings(cmd.OutOrStdout(), nil, true)
+				}
 				return nil
 			}
 

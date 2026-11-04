@@ -143,7 +143,7 @@ adr/0001-timestamps-are-stored-in-utc.md:19: error: section "Decision" is empty
 
 It exits 2 if any finding is an error, 1 when it cannot run at all, as with no `archdoc.json` or a flag it does not know, and 0 otherwise. Warnings do not change the exit code unless you pass `--strict-warnings`. `--json` prints the findings as a JSON array.
 
-The L rules, L01 to L21, check a document on its own and against the rest of the repository: front matter and identifiers (L01 to L03), relationships (L04 to L06, L18), dates (L07), required sections and headings (L08 to L10, L14), freezing (L11), staleness of spec pages and refs (L12, L13), terms (L15, L19), links (L16, L17), and the shape of question and Changelog sections (L20, L21). A fault in a frozen document that no permitted edit could clear is reported as a warning rather than an error.
+The L rules, L01 to L21, check a document on its own and against the rest of the repository: front matter and identifiers (L01 to L03), relationships (L04 to L06, L18), dates (L07), required sections and headings (L08 to L10, L14), freezing (L11), staleness of spec pages and refs (L12, L13), terms (L15, L19), links (L16, L17), and the shape of question and Changelog sections (L20, L21). A finding that only an edit to a frozen document could clear is reported as a warning rather than an error, because L11 forbids that edit. A finding some other permitted edit can clear stays an error, such as a reference to a document that is not yet written.
 
 The M rules, M01 to M04, run only with `archdoc lint --merge`, on a pull request checked out merged into the configured branch. They judge each change against that branch: no RFC or ADR arrives as a draft (M01), an arriving document whose number is already taken is the one renumbered (M02), every change of status is a permitted transition (M03), and a document proposed on the branch is withdrawn rather than deleted or renumbered (M04).
 
@@ -166,9 +166,9 @@ The M rules, M01 to M04, run only with `archdoc lint --merge`, on a pull request
 | Key | Default | Meaning |
 |---|---|---|
 | `name` | none, required | The project name, used in the headings of `README.md` and `INDEX.md`. |
-| `branch` | `main` | The branch frozen documents are compared against, and that pull requests are judged against. |
+| `branch` | `main` | The branch frozen documents are compared against, and that pull requests are judged against. It must be a name git accepts as a branch, and not `@`. |
 | `root` | `.` | The directory, relative to `archdoc.json`, holding the document directories and generated files. It must not be absolute or lead outside the directory holding `archdoc.json`. |
 | `strict` | `true` | Whether `draft -> accepted` and `draft -> rejected` are refused. |
 | `ref_stale_days` | `180` | How old a ref's `verified` date may be before lint warns (L13). A ref carrying `as_of` is not reported. `0` turns the check off. |
 
-An unknown key is an error, and a missing key takes its default. `archdoc init` writes the file, prompting for each value at a terminal or taking them from `--name`, `--branch`, `--root`, `--strict` or `--no-strict`, and `--ref-stale-days`. A `root` other than `.` is how a specification lives inside the code repository it documents; see [A spec repository beside the code](beside-the-code.md).
+A key not spelled exactly as shown is an error, and so is `null` for any key. A missing key takes its default. `archdoc init` writes the file, prompting for each value at a terminal or taking them from `--name`, `--branch`, `--root`, `--strict` or `--no-strict`, and `--ref-stale-days`. A `root` other than `.` is how a specification lives inside the code repository it documents; see [A spec repository beside the code](beside-the-code.md).

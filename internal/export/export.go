@@ -49,10 +49,10 @@ type Repository struct {
 	// Groups is every group, in order of slug, and an empty array where there
 	// are none. A group is a file under group/ but is published only here.
 	Groups []Group `json:"groups"`
-	// Glossary is every term, absent when the repository has none. The
-	// page itself still appears among the documents; this is the same content
-	// as data, so a consumer does not re-parse it.
-	Glossary []Term `json:"glossary,omitempty"`
+	// Glossary is every term, an empty array where term/ holds none, and
+	// absent where there is no term/. A term is published here and nowhere
+	// else. omitzero rather than omitempty, which drops the empty array too.
+	Glossary []Term `json:"glossary,omitzero"`
 }
 
 // Config is every setting archdoc.json holds. The location it was loaded from
@@ -299,7 +299,9 @@ func Build(r *repo.Repo, opts Options) Repository {
 			RefStaleDays: c.RefStaleDays,
 		},
 	}
-	_, out.HasGlossary = r.Glossary()
+	entries, hasGlossary := r.Glossary()
+	out.HasGlossary = hasGlossary
+	out.Documents = []Document{}
 	out.Groups = []Group{}
 	for _, d := range r.Documents() {
 		switch d.Type {
@@ -314,13 +316,14 @@ func Build(r *repo.Repo, opts Options) Repository {
 	// By slug, not by the path groups are read in: "a-b.md" sorts before
 	// "a.md", while the slug "a" sorts before "a-b".
 	slices.SortFunc(out.Groups, func(a, b Group) int { return strings.Compare(a.Slug, b.Slug) })
-	if entries, ok := r.Glossary(); ok {
+	if hasGlossary {
+		out.Glossary = make([]Term, 0, len(entries))
 		for _, e := range entries {
 			out.Glossary = append(out.Glossary, Term{
 				Name:       e.Term,
 				Anchor:     e.Anchor,
 				Path:       e.Path,
-				Definition: strings.Join(e.Paragraphs, "\n\n"),
+				Definition: e.Definition,
 				Formerly:   e.Formerly,
 				NamedBy:    e.NamedBy,
 			})
@@ -338,7 +341,7 @@ func document(r *repo.Repo, d *repo.Document, opts Options) Document {
 		Page:   d.Page,
 		Path:   d.Path,
 		Title:  fm.Title,
-		Status: string(fm.Status),
+		Status: status(fm.Status),
 
 		Created:    date(fm.Created),
 		Decided:    date(fm.Decided),
@@ -346,10 +349,10 @@ func document(r *repo.Repo, d *repo.Document, opts Options) Document {
 		Verified:   date(fm.Verified),
 		AsOf:       date(fm.AsOf),
 
-		Depends:   list(fm.Depends),
-		Updates:   list(fm.Updates),
-		Obsoletes: list(fm.Obsoletes),
-		Includes:  list(fm.Includes),
+		Depends:   identifiers(fm.Depends),
+		Updates:   identifiers(fm.Updates),
+		Obsoletes: identifiers(fm.Obsoletes),
+		Includes:  identifiers(fm.Includes),
 
 		UpdatedBy:    list(d.UpdatedBy),
 		ObsoletedBy:  list(d.ObsoletedBy),
@@ -483,11 +486,32 @@ func link(r *repo.Repo, d *repo.Document, l repo.Link) Link {
 	return out
 }
 
+// status leaves out one that is not a status, as date leaves out one that is
+// not a date, so the export stays within the schema's enum.
+func status(s repo.Status) string {
+	if !slices.Contains(repo.Statuses, s) {
+		return ""
+	}
+	return string(s)
+}
+
 func date(t time.Time) string {
 	if t.IsZero() {
 		return ""
 	}
 	return t.Format(repo.DateLayout)
+}
+
+// identifiers is the list as written, less any entry that is not an
+// identifier, which the schema's pattern would refuse. Lint reports the entry.
+func identifiers(in []string) []string {
+	out := []string{}
+	for _, id := range in {
+		if _, _, ok := repo.ParseIdentifier(id); ok {
+			out = append(out, id)
+		}
+	}
+	return out
 }
 
 // list never returns nil, so every relationship field is an array in the JSON

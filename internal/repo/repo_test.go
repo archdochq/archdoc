@@ -1,6 +1,7 @@
 package repo_test
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -1196,6 +1197,146 @@ func TestWriteFileStillWritesAnOrdinaryFile(t *testing.T) {
 	}
 }
 
+// TestWriteFileReplacesTheFileWhole: the bytes are written beside the original
+// and renamed over it, keeping its mode, so a write that fails part way leaves
+// the original as it was and nothing beside it.
+func TestWriteFileReplacesTheFileWhole(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "run.md")
+	if err := os.WriteFile(path, []byte("original\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Chmod(path, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := repo.WriteFile(path, []byte("rewritten\n"), "run.md"); err != nil {
+		t.Fatal(err)
+	}
+	if info, err := os.Stat(path); err != nil || info.Mode().Perm() != 0o755 {
+		t.Errorf("the mode was not kept: %v, %v", info.Mode(), err)
+	}
+
+	t.Cleanup(repo.StubWriteFile(func(f *os.File, data []byte) error {
+		if _, err := f.Write(data[:3]); err != nil {
+			return err
+		}
+		return errors.New("file too large")
+	}))
+	if err := repo.WriteFile(path, []byte("third\n"), "run.md"); err == nil {
+		t.Error("a failed write was reported as written")
+	}
+	if got, _ := os.ReadFile(path); string(got) != "rewritten\n" {
+		t.Errorf("the original was changed by a failed write: %q", got)
+	}
+	if entries, _ := os.ReadDir(dir); len(entries) != 1 {
+		t.Errorf("the failed write left a file behind: %v", entries)
+	}
+}
+
+// TestWriteFileNamesTheFileItCouldNotWrite: every step after the file is
+// checked can fail, and each failure is reported against the file asked for,
+// never the temporary file beside it, and leaves the file as it was.
+func TestWriteFileNamesTheFileItCouldNotWrite(t *testing.T) {
+	if os.Getuid() == 0 {
+		t.Skip("root writes into a read-only directory")
+	}
+	for name, tc := range map[string]struct {
+		exists bool
+		stub   func(dir string) func(f *os.File, data []byte) error
+	}{
+		"the file is read-only": {exists: true, stub: func(dir string) func(*os.File, []byte) error {
+			if err := os.Chmod(filepath.Join(dir, "run.md"), 0o444); err != nil {
+				t.Fatal(err)
+			}
+			return nil
+		}},
+		// The temporary file cannot be made, so a writable file in a
+		// read-only directory is refused.
+		"the directory is read-only": {exists: true, stub: func(dir string) func(*os.File, []byte) error {
+			if err := os.Chmod(dir, 0o555); err != nil {
+				t.Fatal(err)
+			}
+			return nil
+		}},
+		"the rename fails": {exists: true, stub: func(dir string) func(*os.File, []byte) error {
+			return func(f *os.File, data []byte) error {
+				if _, err := f.Write(data); err != nil {
+					return err
+				}
+				return os.Chmod(dir, 0o555)
+			}
+		}},
+		// A new file skips the Chmod, so the Close is the step that fails.
+		"the close fails": {exists: false, stub: func(dir string) func(*os.File, []byte) error {
+			return func(f *os.File, data []byte) error {
+				if _, err := f.Write(data); err != nil {
+					return err
+				}
+				return f.Close()
+			}
+		}},
+	} {
+		t.Run(name, func(t *testing.T) {
+			dir := t.TempDir()
+			t.Cleanup(func() { os.Chmod(dir, 0o755) })
+			path := filepath.Join(dir, "run.md")
+			if tc.exists {
+				if err := os.WriteFile(path, []byte("original\n"), 0o644); err != nil {
+					t.Fatal(err)
+				}
+			}
+			if stub := tc.stub(dir); stub != nil {
+				t.Cleanup(repo.StubWriteFile(stub))
+			}
+			err := repo.WriteFile(path, []byte("rewritten\n"), "spec/run.md")
+			if err == nil || !strings.HasPrefix(err.Error(), "spec/run.md was not written: ") || strings.Contains(err.Error(), ".tmp") {
+				t.Errorf("err = %v; want it to name spec/run.md and not the temporary file", err)
+			}
+			got, err := os.ReadFile(path)
+			if tc.exists && string(got) != "original\n" || !tc.exists && err == nil {
+				t.Errorf("the file was changed by a failed write: %q, %v", got, err)
+			}
+		})
+	}
+}
+
+// TestRepoWriteFileRefusesADirectoryOutsideTheRepository: a document directory
+// swapped for a link elsewhere after the repository was read is refused, and
+// the file on the other end of the link is left alone.
+func TestRepoWriteFileRefusesADirectoryOutsideTheRepository(t *testing.T) {
+	r := repotest.New(t, map[string]string{"spec/zz.md": "---\ntitle: Zz\n---\n\n# Zz\n"})
+	spec := filepath.Join(r.Config().RootDir(), "spec")
+	outside := filepath.Join(t.TempDir(), "spec")
+	if err := os.Rename(spec, outside); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(outside, spec); err != nil {
+		t.Skipf("symlinks unavailable: %v", err)
+	}
+	if err := r.WriteFile("spec/zz.md", []byte("rewritten\n")); err == nil || !strings.Contains(err.Error(), "resolves outside the repository") {
+		t.Errorf("err = %v; want the write outside the repository refused", err)
+	}
+	if got, _ := os.ReadFile(filepath.Join(outside, "zz.md")); string(got) == "rewritten\n" {
+		t.Error("the file outside the repository was written")
+	}
+}
+
+// TestCreateFileReportsAFailedClose: the bytes are not known to be on disk
+// until the file is closed, so a close that fails is a failed write.
+func TestCreateFileReportsAFailedClose(t *testing.T) {
+	r := repotest.New(t, map[string]string{"spec/zz.md": "---\ntitle: Zz\n---\n\n# Zz\n"})
+	t.Cleanup(repo.StubWriteFile(func(f *os.File, data []byte) error {
+		if _, err := f.Write(data); err != nil {
+			return err
+		}
+		return f.Close()
+	}))
+	var created bool
+	if err := r.CreateFile("spec/new.md", []byte("new\n"), &created); err == nil {
+		t.Error("a failed close was reported as written")
+	}
+}
+
 func TestASectionIncludesItsOwnSubsections(t *testing.T) {
 	// sectionAt ends a section at the next heading of the same level or higher,
 	// which is what lets an author structure Proposal with ### subsections.
@@ -1474,7 +1615,6 @@ func TestLinkTextEndsWithEveryBlock(t *testing.T) {
 		"> - [a\n> - b](n.md)\n",
 		"| [c | d |\n| e](n.md) |\n",
 		"[a\n> b](n.md)\n",
-		"[a\n+\nb](n.md)\n",
 		"[a\n   - b](n.md)\n",
 	} {
 		if got := linksOf(t, body); len(got) != 0 {
@@ -1525,6 +1665,157 @@ func TestPermittedTransitions(t *testing.T) {
 			got := tc.from.Permitted(tc.strict)
 			if !slices.Equal(got, tc.want) {
 				t.Errorf("Permitted(%s, strict=%v) = %v, want %v", tc.from, tc.strict, got, tc.want)
+			}
+		})
+	}
+}
+
+// TestATermIsPublishedAsWritten: what GLOSSARY.md, term show and the export
+// print is the file from the H1 down, every block included, so a block L15
+// reports is not dropped from them as well.
+func TestATermIsPublishedAsWritten(t *testing.T) {
+	for name, c := range map[string]struct{ body, want string }{
+		"a fence and a paragraph after it": {"# Widget\n\nThe definition.\n```\ncode\n\nmore\n```\nAfter.\n", "The definition.\n```\ncode\n\nmore\n```\nAfter."},
+		"comments cut out":                 {"# Widget\n\nOne <!-- c --> two.\n  <!-- c -->  \n\n- an item\n\n<!-- c -->\n", "One  two.\n\n\n- an item"},
+		"CRLF":                             {"# Widget\r\n\r\nThe definition\r\nover two lines.\r\n", "The definition\nover two lines."},
+		"a lone carriage return":           {"# Widget\n\nThe definition\rover two lines.\n", "The definition\nover two lines."},
+		"no definition":                    {"# Widget\n", ""},
+	} {
+		t.Run(name, func(t *testing.T) {
+			r := repotest.New(t, map[string]string{
+				"term/widget.md": "---\ntitle: Widget\nformerly: []\nnamed_by:\n---\n" + c.body,
+			})
+			entries, _ := r.Glossary()
+			if len(entries) != 1 || entries[0].Definition != c.want {
+				t.Errorf("entries = %+v, want the definition %q", entries, c.want)
+			}
+		})
+	}
+}
+
+func TestATermDefinitionIsOneParagraphAndNothingElse(t *testing.T) {
+	// The definition runs from the H1 to the end of the file, and any block
+	// that is not a paragraph counts, written with or without a blank line
+	// before it.
+	cases := []struct {
+		name, body  string
+		paragraphs  int
+		other       int
+		above       int
+		firstWanted string
+	}{
+		{"one paragraph", "# Widget\n\nThe definition\nover two lines.\n", 1, 0, 0, "The definition\nover two lines."},
+		{"a subsection", "# Widget\n\nThe definition.\n## Aside\nA second paragraph.\n", 2, 1, 0, "The definition."},
+		{"a later H1", "# Widget\n\nThe definition.\n\n# Other\n\nMore.\n", 2, 1, 0, "The definition."},
+		{"a bullet", "# Widget\n\nThe definition.\n- a list\n", 1, 1, 0, "The definition."},
+		{"an item numbered 1", "# Widget\n\nThe definition.\n1. first\n", 1, 1, 0, "The definition."},
+		{"a number continuing a sentence", "# Widget\n\nIn use from\n2025. onwards.\n", 1, 0, 0, "In use from\n2025. onwards."},
+		{"a list continued lazily", "# Widget\n\nThe definition.\n\n- an item\ncontinued\n", 1, 1, 0, "The definition."},
+		{"a fence", "# Widget\n\nThe definition.\n```\ncode\n\nmore code\n```\n", 1, 1, 0, "The definition."},
+		{"a blockquote", "# Widget\n\nThe definition.\n> quoted\n", 1, 1, 0, "The definition."},
+		{"a thematic break", "# Widget\n\nThe definition.\n***\n", 1, 1, 0, "The definition."},
+		{"prose above the H1", "\nAbove.\n\n# Widget\n\nThe definition.\n", 1, 0, 7, "The definition."},
+		{"a comment", "# Widget\n\nUse `foo` here<!-- note --> and <!--a\nb--> there.\n", 1, 0, 0, "Use `foo` here and \n there."},
+		{"CRLF", "# Widget\r\n\r\nThe definition\r\nover two lines.\r\n", 1, 0, 0, "The definition\nover two lines."},
+		{"a list numbered from 2 after a blank line", "# Widget\n\nThe definition.\n\n2. second\n", 1, 1, 0, "The definition."},
+		{"a list of two items", "# Widget\n\nThe definition.\n- one\n- two\n", 1, 1, 0, "The definition."},
+		{"a paragraph straight after a fence", "# Widget\n\nThe definition.\n```\ncode\n```\nAfter.\n", 2, 1, 0, "The definition."},
+		{"an indented paragraph", "# Widget\n\n  The definition.\n", 1, 0, 0, "The definition."},
+		{"a CRLF thematic break", "# Widget\r\n\r\nThe definition.\r\n***\r\n", 1, 1, 0, "The definition."},
+		// The paragraph ends where the link scanner ends one.
+		{"a setext underline", "# Widget\n\nThe definition.\n===\n", 1, 1, 0, "The definition."},
+		{"a two-dash setext underline", "# Widget\n\nThe definition.\n--\n", 1, 1, 0, "The definition."},
+		{"an indented underline", "# Widget\n\nThe definition.\n    ===\n", 1, 0, 0, "The definition.\n    ==="},
+		{"a table row", "# Widget\n\nThe definition.\n| a | b |\n| - | - |\n", 1, 1, 0, "The definition."},
+		{"an indented table row", "# Widget\n\nThe definition.\n    | a |\n", 1, 0, 0, "The definition.\n    | a |"},
+		{"an underline indented as a block may be", "# Widget\n\nThe definition.\n  ===\n", 1, 1, 0, "The definition."},
+		{"a table row indented as a block may be", "# Widget\n\nThe definition.\n | a |\n", 1, 1, 0, "The definition."},
+		// A lone carriage return ends a line, as CommonMark has it and as the
+		// definition is published.
+		{"a blank line ended by a lone carriage return", "# Widget\n\nThe definition.\n\rMore.\n", 2, 0, 0, "The definition."},
+		{"a list item after a lone carriage return", "# Widget\n\nThe definition.\r- an item\n", 1, 1, 0, "The definition."},
+		// A comment marker inside a fence is code, and opens nothing.
+		{"a comment marker inside a fence", "# Widget\n\nThe definition.\n```\n<!--\n```\nAfter.\n", 2, 1, 0, "The definition."},
+		// A comment beginning a line opens an HTML block, which holds the rest
+		// of the line that closes it.
+		{"text after a comment", "# Widget\n\nThe definition.\n<!-- c --> tail\n", 1, 1, 0, "The definition."},
+		{"text after a comment over two lines", "# Widget\n\nThe definition.\n<!-- a\nb --> tail\n", 1, 1, 0, "The definition."},
+		{"text after an indented comment", "# Widget\n\nThe definition.\n    <!-- c --> tail\n", 1, 0, 0, "The definition.\n     tail"},
+		{"a paragraph after a comment", "# Widget\n\nThe definition.\n<!-- c -->\nMore.\n", 2, 0, 0, "The definition."},
+		{"a comment above the H1", "<!-- c -->\n\n# Widget\n\nThe definition.\n", 1, 0, 0, "The definition."},
+		{"two lines above the H1", "\nOne.\nTwo.\n\n# Widget\n\nThe definition.\n", 1, 0, 7, "The definition."},
+		{"no newline at the end", "# Widget\n\nThe definition.", 1, 0, 0, "The definition."},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			r := repotest.New(t, map[string]string{
+				"term/widget.md": "---\ntitle: Widget\nformerly: []\nnamed_by:\n---\n" + c.body,
+			})
+			entries, _ := r.Glossary()
+			if len(entries) != 1 {
+				t.Fatalf("got %d entries, want 1", len(entries))
+			}
+			e := entries[0]
+			if len(e.Paragraphs) != c.paragraphs || e.Other != c.other || e.Above != c.above {
+				t.Errorf("paragraphs %d, other %d, above %d; want %d, %d, %d: %q",
+					len(e.Paragraphs), e.Other, e.Above, c.paragraphs, c.other, c.above, e.Paragraphs)
+			}
+			if len(e.Paragraphs) > 0 && e.Paragraphs[0] != c.firstWanted {
+				t.Errorf("first paragraph = %q, want %q", e.Paragraphs[0], c.firstWanted)
+			}
+			if want := c.paragraphs == 1 && c.other == 0 && c.above == 0; e.Defined() != want {
+				t.Errorf("Defined() = %t, want %t", e.Defined(), want)
+			}
+		})
+	}
+}
+
+func TestAFrontMatterFaultIsReportedOnceAtItsLine(t *testing.T) {
+	cases := []struct {
+		name, source string
+		line         int
+		message      string
+		read         bool
+	}{
+		{"a tab", "---\ntitle: T\nincludes:\n\t- RFC-0001\n---\n\n# T\n", 4, "front matter is not valid YAML: found character", false},
+		{"an unclosed flow sequence", "---\ntitle: T\nincludes: []\nstatus: [draft\ncreated: 2026-01-01\n---\n\n# T\n", 4, "front matter is not valid YAML: did not find expected ',' or ']'", false},
+		// Cut after its comma, the sequence fails with a different message,
+		// so the fault is the line that follows it.
+		{"a flow sequence left open after a comma", "---\ntitle: T\nincludes: [RFC-0001,\nstatus: draft\ncreated: 2026-01-01\n---\n\n# T\n", 4, "front matter is not valid YAML: did not find expected ',' or ']'", false},
+		{"a fault on the first line", "---\ntitle: [T\n---\n\n# T\n", 2, "front matter is not valid YAML", false},
+		// A flow sequence over two lines fails when cut between them, with a
+		// different message from the fault that follows.
+		{"a fault after a sequence over two lines", "---\ntitle: T\nincludes: [RFC-0001,\n  RFC-0002]\nformerly:\n\t- x\n---\n\n# T\n", 6, "front matter is not valid YAML: found character", false},
+		{"a scalar", "---\njust text\n---\n\n# T\n", 2, "front matter is not a mapping", false},
+		{"a sequence where a string goes", "---\ntitle: [X, Y]\nincludes: []\n---\n\n# T\n", 2, "title: cannot unmarshal !!seq into string", true},
+		{"a string where a list goes", "---\ntitle: T\nincludes: RFC-0001\n---\n\n# T\n", 3, "includes: cannot unmarshal !!str `RFC-0001` into []string", true},
+		{"a mapping where a list goes", "---\ntitle: T\nincludes: {a: b}\n---\n\n# T\n", 3, "includes: cannot unmarshal !!map into []string", true},
+		{"an empty item", "---\ntitle: T\nincludes:\n  - RFC-0001\n  -\n---\n\n# T\n", 5, "includes holds an empty item", true},
+		// A string over two lines fails when cut between them with the
+		// message of the unterminated one that follows, so the fault is the
+		// last line from which every longer cut fails as the whole does.
+		{"a fault after a string over two lines", "---\ntitle: \"P\n  Q\"\nincludes: []\nformerly: \"x\n---\n\n# T\n", 5, "front matter is not valid YAML: found unexpected end of stream", false},
+		{"a fault closing a sequence over two lines", "---\ntitle: [a,\n  b]: c\nincludes: []\n---\n\n# T\n", 3, "front matter is not valid YAML: mapping values are not allowed", false},
+		{"a fault on the first of several lines", "---\ntitle: a: b\nincludes: []\n---\n\n# T\n", 2, "front matter is not valid YAML: mapping values are not allowed", false},
+		{"a sequence after a comment", "---\n# c\n- a\n---\n\n# T\n", 3, "front matter is not a mapping", false},
+		{"an empty item in a list that did not decode", "---\ntitle: T\nincludes: [~, [a]]\n---\n\n# T\n", 3, "includes: cannot unmarshal !!seq into string", true},
+		{"two type errors in one list", "---\ntitle: T\nincludes: [[a], {b: c}]\n---\n\n# T\n", 3, "includes: cannot unmarshal !!seq into string; cannot unmarshal !!map into string", true},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			d, ok := repo.Parse("spec/page.md", []byte(c.source))
+			if !ok {
+				t.Fatal("not a document path")
+			}
+			if len(d.Problems) != 1 {
+				t.Fatalf("want one problem, got %d: %v", len(d.Problems), d.Problems)
+			}
+			p := d.Problems[0]
+			if p.Line != c.line || !strings.HasPrefix(p.Message, c.message) || strings.Contains(p.Message, "\n") {
+				t.Errorf("problem at line %d: %q; want one line at %d beginning %q", p.Line, p.Message, c.line, c.message)
+			}
+			if d.FrontMatter.Read() != c.read {
+				t.Errorf("Read() = %t, want %t", d.FrontMatter.Read(), c.read)
 			}
 		})
 	}

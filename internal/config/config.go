@@ -7,8 +7,10 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"maps"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 )
 
@@ -169,6 +171,21 @@ func Load(path string) (*Config, error) {
 	if err := dec.Decode(new(json.RawMessage)); !errors.Is(err, io.EOF) {
 		return nil, fmt.Errorf("%s: unexpected content after the closing brace", path)
 	}
+	// encoding/json matches a key to a field without regard to case, and reads
+	// null as leaving the field alone, so {"NAME": "x"} loaded as name and
+	// {"strict": null} as the default. The keys are checked as written.
+	var written map[string]json.RawMessage
+	if err := json.Unmarshal(data, &written); err != nil {
+		return nil, fmt.Errorf("%s: %w", path, err)
+	}
+	for _, key := range slices.Sorted(maps.Keys(written)) {
+		if !slices.ContainsFunc(Keys, func(k Key) bool { return k.Name == key }) {
+			return nil, fmt.Errorf("%s: unknown key %q", path, key)
+		}
+		if bytes.Equal(written[key], []byte("null")) {
+			return nil, fmt.Errorf("%s: %s must not be null", path, key)
+		}
+	}
 
 	if err := Validate(c); err != nil {
 		return nil, fmt.Errorf("%s: %w", path, err)
@@ -189,6 +206,9 @@ func Validate(c *Config) error {
 	if c.Name == "" {
 		return errors.New("name is required and must not be empty")
 	}
+	if !validBranch(c.Branch) {
+		return fmt.Errorf("branch must be a valid git branch name, got %q", c.Branch)
+	}
 	if c.RefStaleDays < 0 {
 		return fmt.Errorf("ref_stale_days must not be negative, got %d", c.RefStaleDays)
 	}
@@ -198,10 +218,34 @@ func Validate(c *Config) error {
 	return rootStaysInside(c)
 }
 
+// validBranch reports whether git would accept name as a branch, by the rules
+// of git check-ref-format --branch. The branch reaches git by its full ref, so
+// "@", which git reads as HEAD when bare, is a branch like any other. The
+// branch is also rendered into the workflow, and the characters that break a
+// YAML scalar there, a colon, a space and a line break, are all among those git
+// refuses.
+func validBranch(name string) bool {
+	switch {
+	case name == "", name == "HEAD",
+		strings.HasPrefix(name, "-"), strings.HasPrefix(name, "/"),
+		strings.HasSuffix(name, "/"), strings.HasSuffix(name, "."),
+		strings.Contains(name, ".."), strings.Contains(name, "//"), strings.Contains(name, "@{"),
+		strings.ContainsAny(name, " ~^:?*[\\"),
+		strings.ContainsFunc(name, func(r rune) bool { return r < 0x20 || r == 0x7f }):
+		return false
+	}
+	for _, part := range strings.Split(name, "/") {
+		if strings.HasPrefix(part, ".") || strings.HasSuffix(part, ".lock") {
+			return false
+		}
+	}
+	return true
+}
+
 // Settings is what L11 and the merge rules read from an archdoc.json as it
-// stands on a branch: the branch it names, its root, and strict.
+// stands on a branch: its root and strict. Its branch is not read: the base is
+// found through the working tree's.
 type Settings struct {
-	Branch string
 	Root   string
 	Strict bool
 }
@@ -212,12 +256,11 @@ type Settings struct {
 // disk, and is lenient on purpose: a branch's archdoc.json written before a
 // check Load now makes must not make the comparison fail.
 func SettingsIn(data []byte) (Settings, error) {
-	s := Settings{Branch: DefaultBranch, Root: DefaultRoot, Strict: DefaultStrict}
+	s := Settings{Root: DefaultRoot, Strict: DefaultStrict}
 	if err := json.Unmarshal(data, &struct {
-		Branch *string `json:"branch"`
 		Root   *string `json:"root"`
 		Strict *bool   `json:"strict"`
-	}{&s.Branch, &s.Root, &s.Strict}); err != nil {
+	}{&s.Root, &s.Strict}); err != nil {
 		return Settings{}, err
 	}
 	return s, nil

@@ -85,6 +85,10 @@ func TestLoadRejectsInvalidConfiguration(t *testing.T) {
 		{"empty name", `{"name": ""}`, "name"},
 		{"unknown key", `{"name": "X", "colour": "red"}`, "colour"},
 		{"negative ref_stale_days", `{"name": "X", "ref_stale_days": -1}`, "ref_stale_days"},
+		{"empty branch", `{"name": "X", "branch": ""}`, "branch"},
+		{"branch git refuses", `{"name": "X", "branch": "a: b"}`, "branch"},
+		{"key in another case", `{"NAME": "X"}`, "NAME"},
+		{"null for a typed key", `{"name": "X", "strict": null}`, "strict"},
 	}
 
 	for _, tc := range cases {
@@ -97,6 +101,27 @@ func TestLoadRejectsInvalidConfiguration(t *testing.T) {
 				t.Errorf("error = %q, want it to mention %q", err, tc.want)
 			}
 		})
+	}
+}
+
+func TestLoadAcceptsValidBranchNames(t *testing.T) {
+	for _, branch := range []string{"main", "release/1.0", "it's", "a#b", "feature-x_y", "@", "FETCH_HEAD"} {
+		encoded, _ := json.Marshal(branch)
+		if _, err := config.Load(writeConfig(t, `{"name": "X", "branch": `+string(encoded)+`}`)); err != nil {
+			t.Errorf("branch %q: %v", branch, err)
+		}
+	}
+}
+
+func TestValidateRefusesWhatGitRefusesAsABranch(t *testing.T) {
+	for _, branch := range []string{
+		"", "HEAD", "-x", "a..b", "a b", "a~b", "a^b", "a:b", "a?b", "a*b", "a[b", `a\b`,
+		"a\nb", "/a", "a/", "a//b", ".a", "a/.b", "a.", "a.lock", "a/b.lock/c", "a@{b", "a\x7fb",
+	} {
+		c := &config.Config{Name: "X", Branch: branch, Root: "."}
+		if err := config.Validate(c); err == nil || !strings.Contains(err.Error(), "branch") {
+			t.Errorf("branch %q: err = %v, want a refusal naming branch", branch, err)
+		}
 	}
 }
 

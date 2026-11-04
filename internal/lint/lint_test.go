@@ -289,6 +289,187 @@ func TestL15ChecksGlossaryStructure(t *testing.T) {
 	reports(t, got, "Two paragraphs", "paragraphs, want exactly one")
 }
 
+func TestL15ReportsOtherBlocksAndProseAboveTheHeading(t *testing.T) {
+	const term = "---\ntitle: %s\nformerly: []\nnamed_by:\n---\n"
+	r := repotest.New(t, map[string]string{
+		"term/widget.md": fmt.Sprintf(term, "Widget") + "\n# Widget\n\nThe definition.\n## Aside\n- a list\n",
+		"term/gadget.md": fmt.Sprintf(term, "Gadget") + "\nAbove.\n\n# Gadget\n\nThe definition.\n",
+		"term/gizmo.md":  fmt.Sprintf(term, "Gizmo") + "\n# Gizmo\n\nOne.\n\nTwo.\n> quoted\n",
+	})
+	var got []string
+	for _, f := range lint.Run(lint.NewContext(r, nil, now)) {
+		if f.Rule == "L15" {
+			got = append(got, fmt.Sprintf("%s:%d: %s", f.Path, f.Line, f.Message))
+		}
+	}
+	want := []string{
+		`term/gadget.md:7: term "Gadget" has prose above its H1, where nothing is read as its definition`,
+		`term/gizmo.md:7: term "Gizmo" has 2 paragraphs and 1 other block, want exactly one paragraph`,
+		`term/widget.md:7: term "Widget" has 1 paragraph and 2 other blocks, want exactly one paragraph`,
+	}
+	if !slices.Equal(got, want) {
+		t.Errorf("L15 reported\n%s\nwant\n%s", strings.Join(got, "\n"), strings.Join(want, "\n"))
+	}
+}
+
+func TestAnUnreadFrontMatterValueIsReportedOnce(t *testing.T) {
+	// A value that did not parse is L01's to report. Missing keys, L02's id
+	// and L10's heading compared against the zero value left in its place
+	// contradict the file.
+	adr := func(id, frontMatter string) string {
+		return "---\nid: " + id + "\n" + frontMatter + "created: 2026-01-01\ndecided:\ndepends: []\nupdates: []\nobsoletes: []\n---\n\n# " + id + ": X\n"
+	}
+	r := repotest.New(t, map[string]string{
+		"spec/tab.md":   "---\ntitle: T\nincludes:\n\t- RFC-0001\n---\n\n# T\n\nWords.\n",
+		"adr/0001-x.md": adr("ADR-0001", "title: X\nstatus: [draft\n"),
+		"adr/0002-y.md": adr("ADR-0002", "title: [X, Y]\nstatus: draft\n"),
+		"adr/0003-z.md": strings.Replace(adr("ADR-0003", "title: X\nstatus: draft\n"), "id: ADR-0003", "id: [ADR-0003]", 1),
+		"adr/0004-w.md": strings.Replace(adr("ADR-0004", "title: X\nstatus:\n"), "decided:", "decided: 2026-01-02\nbackfilled: 2026-01-03", 1),
+	})
+	var got []string
+	for _, f := range lint.Run(lint.NewContext(r, nil, now)) {
+		if slices.Contains([]string{"L01", "L02", "L07", "L10"}, f.Rule) {
+			got = append(got, fmt.Sprintf("%s:%d: %s", f.Path, f.Line, f.Message))
+		}
+	}
+	slices.Sort(got)
+	want := []string{
+		`adr/0001-x.md:4: front matter is not valid YAML: did not find expected ',' or ']'`,
+		`adr/0002-y.md:3: title: cannot unmarshal !!seq into string`,
+		`adr/0003-z.md:2: id: cannot unmarshal !!seq into string`,
+		`adr/0004-w.md:4: front matter key "status" is present but empty`,
+		`spec/tab.md:4: front matter is not valid YAML: found character that cannot start any token`,
+	}
+	if !slices.Equal(got, want) {
+		t.Errorf("got\n%s\nwant\n%s", strings.Join(got, "\n"), strings.Join(want, "\n"))
+	}
+}
+
+func TestAFaultInOneKeyIsReportedOnce(t *testing.T) {
+	// L01 reports a date that did not parse, a block that never closed, and
+	// a title or id missing or empty. A rule comparing against what is left
+	// in its place reports the same fault again.
+	adr := func(n, frontMatter string) string {
+		return "---\n" + frontMatter + "status: accepted\ncreated: 2026-01-01\ndepends: []\nupdates: []\nobsoletes: []\n---\n\n# ADR-" + n + ": X\n"
+	}
+	r := repotest.New(t, map[string]string{
+		"adr/0001-a.md": adr("0001", "id: ADR-0001\ntitle: X\ndecided: notadate\n"),
+		"adr/0002-b.md": strings.TrimSuffix(adr("0002", "id: ADR-0002\ntitle: X\ndecided: 2026-01-02\n"), "---\n\n# ADR-0002: X\n") + "\n# ADR-0002: X\n",
+		"adr/0003-c.md": adr("0003", "title: X\ndecided: 2026-01-02\n"),
+		"adr/0004-d.md": adr("0004", "id:\ntitle: X\ndecided: 2026-01-02\n"),
+		"adr/0005-e.md": adr("0005", "id: ADR-0005\ntitle:\ndecided: 2026-01-02\n"),
+		"spec/page.md":  "---\ntitle:\nincludes: []\n---\n\n# Page\n",
+		"ref/0001-r.md": "---\nid: REF-0001\ntitle: R\nverified: 2026-01-01\nas_of: 2026-02-0x\n---\n\n# REF-0001: R\n",
+	})
+	var got []string
+	for _, f := range lint.Run(lint.NewContext(r, nil, now)) {
+		if slices.Contains([]string{"L01", "L02", "L07", "L10", "L13"}, f.Rule) {
+			got = append(got, fmt.Sprintf("%s:%d: %s", f.Path, f.Line, f.Message))
+		}
+	}
+	slices.Sort(got)
+	want := []string{
+		`adr/0001-a.md:4: decided: "notadate" is not an ISO 8601 date`,
+		`adr/0002-b.md:1: no front matter block`,
+		`adr/0003-c.md:1: missing required front matter key "id"`,
+		`adr/0004-d.md:2: front matter key "id" is present but empty`,
+		`adr/0005-e.md:3: front matter key "title" is present but empty`,
+		`ref/0001-r.md:5: as_of: "2026-02-0x" is not an ISO 8601 date`,
+		`spec/page.md:2: front matter key "title" is present but empty`,
+	}
+	if !slices.Equal(got, want) {
+		t.Errorf("got\n%s\nwant\n%s", strings.Join(got, "\n"), strings.Join(want, "\n"))
+	}
+}
+
+func TestL12NamesEachObsoleteDocumentOnce(t *testing.T) {
+	adr := func(id, obsoletes string) string {
+		return "---\nid: " + id + "\ntitle: X\nstatus: accepted\ncreated: 2026-01-01\ndecided: 2026-01-02\ndepends: []\nupdates: []\nobsoletes: [" + obsoletes + "]\n---\n\n# " + id + ": X\n"
+	}
+	r := repotest.New(t, map[string]string{
+		"adr/0001-old.md": adr("ADR-0001", ""),
+		"adr/0002-new.md": adr("ADR-0002", "ADR-0001"),
+		"spec/page.md":    "---\ntitle: Page\nincludes: [ADR-0001, ADR-0001]\n---\n\n# Page\n",
+	})
+	var said []string
+	for _, f := range lint.Run(lint.NewContext(r, nil, now)) {
+		if f.Rule == "L12" {
+			said = append(said, f.Message)
+		}
+	}
+	if want := []string{"stale: includes ADR-0001, which has been obsoleted"}; !slices.Equal(said, want) {
+		t.Errorf("L12 said %q, want %q", said, want)
+	}
+}
+
+func TestTheRegistryRecordsEachRuleV060Changed(t *testing.T) {
+	// A rule that reports differently in a release says so in its changes,
+	// which the reference publishes. Each of v0.6.0's entries is named by a
+	// phrase of its text, so deleting one, or a rule's last, turns this red,
+	// and a rule absent here records no change in v0.6.0.
+	changed := map[string][]string{
+		"L01": {"unknown status at the `status` line", "group's front matter", "frozen document", "invalid YAML once"},
+		"L02": {"`id` that differs from the filename at the `id` line", "frozen document", "`id` that did not parse"},
+		"L03": {"every document holding the identifier is frozen"},
+		"L04": {"reference at its field's line", "group member", "term's `named_by`", "ref named in `depends` or `includes`"},
+		"L05": {"each finding at its field's line", "with its article", "warning rather than an error in a frozen document"},
+		"L06": {"at the `includes` line"},
+		"L07": {"fault in `decided` at the `decided` line", "`as_of` after its `verified`", "frozen document", "against an empty one"},
+		"L08": {"`Open questions` or `Changelog`", "frozen document", "unclosed `<!--`", "CRLF"},
+		"L09": {"frozen document"},
+		"L10": {"group's H1", "frozen document", "title or `id` that did not parse"},
+		"L11": {"merge base", "tag of the same name", "its own root", "where git fails", "`GIT_LITERAL_PATHSPECS`"},
+		"L12": {"stale page at the `includes` line", "each obsolete document once"},
+		"L13": {"stale ref at the `verified` line", "ref carrying `as_of`", "`as_of` did not parse"},
+		"L14": {"unclosed `<!--`", "CRLF"},
+		"L15": {"blocks to the end of the file"},
+		"L16": {"heading, in a frozen document", "indented code block", "unclosed `<!--`"},
+		"L17": {"holding `root`", "URI scheme", "exact case", "as GitHub does", "link reference definition", "wraps across lines", "footnote", "holding a space", "CRLF", "HTML block", "unclosed `<!--`"},
+		"L18": {"at the `depends` line"},
+	}
+	for _, r := range lint.Rules {
+		var recorded []string
+		for _, c := range r.Changes {
+			if c.Release == "v0.6.0" {
+				recorded = append(recorded, c.Summary)
+			}
+		}
+		want := changed[r.Code]
+		if len(recorded) != len(want) {
+			t.Errorf("%s records %d changes in v0.6.0, want %d: %q", r.Code, len(recorded), len(want), recorded)
+			continue
+		}
+		for i, phrase := range want {
+			if !strings.Contains(recorded[i], phrase) {
+				t.Errorf("%s's v0.6.0 change %d is %q, want one naming %q", r.Code, i+1, recorded[i], phrase)
+			}
+		}
+	}
+}
+
+func TestL05NamesTheTargetsTypeWithItsArticle(t *testing.T) {
+	r := repotest.New(t, map[string]string{
+		"adr/0001-a.md": "---\nid: ADR-0001\ntitle: A\nstatus: accepted\ncreated: 2026-01-01\ndecided: 2026-01-02\ndepends: []\nupdates: []\nobsoletes: []\n---\n\n# ADR-0001: A\n",
+		"rfc/0001-b.md": "---\nid: RFC-0001\ntitle: B\nstatus: draft\ncreated: 2026-01-01\ndecided:\ndepends: []\nupdates: [ADR-0001]\nobsoletes: []\n---\n\n# RFC-0001: B\n",
+		"adr/0002-c.md": "---\nid: ADR-0002\ntitle: C\nstatus: draft\ncreated: 2026-01-01\ndecided:\ndepends: []\nupdates: [RFC-0001]\nobsoletes: [REF-0001]\n---\n\n# ADR-0002: C\n",
+		"ref/0001-d.md": "---\nid: REF-0001\ntitle: D\nverified: 2026-01-01\n---\n\n# REF-0001: D\n",
+	})
+	var said []string
+	for _, f := range lint.Run(lint.NewContext(r, nil, now)) {
+		if f.Rule == "L05" {
+			said = append(said, f.Message)
+		}
+	}
+	want := []string{
+		"updates references RFC-0001, which is an RFC: only documents of the same type may be updated or obsoleted",
+		"obsoletes references REF-0001, which is a ref: only documents of the same type may be updated or obsoleted",
+		"updates references ADR-0001, which is an ADR: only documents of the same type may be updated or obsoleted",
+	}
+	if !slices.Equal(said, want) {
+		t.Errorf("L05 said %q, want %q", said, want)
+	}
+}
+
 func TestL15AcceptsAWellFormedGlossary(t *testing.T) {
 	if got := forRule(t, "repo", "L15"); len(got) != 0 {
 		t.Errorf("L15 fired on a well-formed glossary: %q", got)
@@ -1174,5 +1355,16 @@ func TestL17ReportsALinkDifferingOnlyInCase(t *testing.T) {
 	})
 	if len(got) != 2 || !strings.Contains(got[0], `"B.md" does not exist`) || !strings.Contains(got[1], `"Img/x.png" does not exist`) {
 		t.Errorf("findings = %q, want B.md and Img/x.png reported missing", got)
+	}
+}
+
+// TestL17FindsTheRootALinkNames: a link up to root names a directory that is
+// there, though no directory listing holds ".".
+func TestL17FindsTheRootALinkNames(t *testing.T) {
+	got := l17Messages(t, map[string]string{
+		"spec/a.md": "---\ntitle: A\nincludes: []\n---\n\n# A\n\nSee [the root](..) and [again](../).\n",
+	})
+	if len(got) != 0 {
+		t.Errorf("findings = %q, want none", got)
 	}
 }

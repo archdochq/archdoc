@@ -154,9 +154,9 @@ func askForDocument(cmd *cobra.Command, args []string, eligible []*repo.Document
 			fmt.Sprintf("%s  %s  (%s)", d.ID, d.FrontMatter.Title, d.FrontMatter.Status), d.ID)
 	}
 	var chosen string
-	err := huh.NewForm(huh.NewGroup(
+	err := runForm(huh.NewForm(huh.NewGroup(
 		huh.NewSelect[string]().Title("Which document?").Options(options...).Value(&chosen),
-	)).Run()
+	)))
 	return chosen, err
 }
 
@@ -177,7 +177,8 @@ func askForTerm(cmd *cobra.Command, args []string, needDefinition bool, action s
 		}
 		return "", "", fmt.Errorf("term %s needs its arguments", action)
 	}
-	askNamedBy := namedBy != nil && !cmd.Flags().Changed("named-by") && len(documents) > 0
+	// Only adding passes documents, and it passes namedBy with them.
+	askNamedBy := !cmd.Flags().Changed("named-by") && len(documents) > 0
 	if complete && !askNamedBy {
 		return term, definition, nil
 	}
@@ -197,7 +198,7 @@ func askForTerm(cmd *cobra.Command, args []string, needDefinition bool, action s
 		fields = append(fields, huh.NewSelect[string]().Title("Which document introduced this term?").
 			Options(options...).Value(namedBy))
 	}
-	if err := huh.NewForm(huh.NewGroup(fields...)).Run(); err != nil {
+	if err := runForm(huh.NewForm(huh.NewGroup(fields...))); err != nil {
 		return "", "", err
 	}
 	return term, definition, nil
@@ -232,7 +233,7 @@ func askForRename(cmd *cobra.Command, args []string, terms []string) (from, to s
 	if to == "" {
 		fields = append(fields, huh.NewInput().Title("New name").Value(&to))
 	}
-	if err := huh.NewForm(huh.NewGroup(fields...)).Run(); err != nil {
+	if err := runForm(huh.NewForm(huh.NewGroup(fields...))); err != nil {
 		return "", "", err
 	}
 	return from, to, nil
@@ -296,7 +297,7 @@ func askForScaffold(cmd *cobra.Command, settings *config.Config, licence *string
 	if len(fields) == 0 {
 		return nil
 	}
-	if err := huh.NewForm(huh.NewGroup(fields...)).Run(); err != nil {
+	if err := runForm(huh.NewForm(huh.NewGroup(fields...))); err != nil {
 		return err
 	}
 	settings.RefStaleDays, _ = strconv.Atoi(refStaleDays)
@@ -315,12 +316,12 @@ func askForIncludes(cmd *cobra.Command, given []string, accepted []*repo.Documen
 		options[i] = huh.NewOption(fmt.Sprintf("%s  %s", d.ID, d.FrontMatter.Title), d.ID)
 	}
 	var chosen []string
-	err := huh.NewForm(huh.NewGroup(
+	err := runForm(huh.NewForm(huh.NewGroup(
 		huh.NewMultiSelect[string]().
 			Title("Which accepted documents does this term come from?").
 			Description("Optional; leave empty to record none.").
 			Options(options...).Value(&chosen),
-	)).Run()
+	)))
 	return chosen, err
 }
 
@@ -332,17 +333,27 @@ func askForRenumber(cmd *cobra.Command, r *repo.Repo, frozen func(*repo.Document
 		return "", fmt.Errorf("renumber needs a document: archdoc renumber <id|path> [new-id]")
 	}
 	var options []huh.Option[string]
-	for _, d := range r.Documents() {
-		if d.Type.Numbered() && !frozen(d) {
-			options = append(options, huh.NewOption(fmt.Sprintf("%s  %s  (%s)", d.ID, d.FrontMatter.Title, d.Path), d.Path))
-		}
+	for _, d := range renumberable(r, frozen) {
+		options = append(options, huh.NewOption(fmt.Sprintf("%s  %s  (%s)", d.ID, d.FrontMatter.Title, d.Path), d.Path))
 	}
 	if len(options) == 0 {
 		return "", fmt.Errorf("no document can be renumbered")
 	}
 	var chosen string
-	err := huh.NewForm(huh.NewGroup(
+	err := runForm(huh.NewForm(huh.NewGroup(
 		huh.NewSelect[string]().Title("Which document?").Options(options...).Value(&chosen),
-	)).Run()
+	)))
 	return chosen, err
+}
+
+// renumberable lists the documents renumber may be offered: numbered, and not
+// frozen.
+func renumberable(r *repo.Repo, frozen func(*repo.Document) bool) []*repo.Document {
+	var eligible []*repo.Document
+	for _, d := range r.Documents() {
+		if d.Type.Numbered() && !frozen(d) {
+			eligible = append(eligible, d)
+		}
+	}
+	return eligible
 }

@@ -7,13 +7,17 @@ import (
 	"cmp"
 	"errors"
 	"fmt"
+	"io/fs"
+	"os"
 	"path"
+	"path/filepath"
 	"slices"
 	"strings"
 
 	"archdoc.dev/internal/config"
 	"archdoc.dev/internal/git"
 	"archdoc.dev/internal/repo"
+	"golang.org/x/text/unicode/norm"
 )
 
 // ErrNoBase reports that there is no configured branch to compare against,
@@ -41,7 +45,8 @@ type Base struct {
 	Documents map[string]*repo.Document
 	// Strict is the branch's own setting, so that a pull request cannot relax
 	// the rule it is judged by, or the working tree's where the branch holds no
-	// archdoc.json, as before the first pull request that adds one.
+	// archdoc.json, as before the first pull request that adds one, or one that
+	// cannot be read.
 	Strict bool
 }
 
@@ -104,16 +109,20 @@ func ReadBase(r *repo.Repo, g git.Repository) (*Base, error) {
 type Located struct {
 	config.Settings
 	Root string
+	// Unreadable is why the revision's archdoc.json could not be read, where
+	// it could not, and the working tree's settings stand in for it. It is not
+	// an error: a pull request mending the branch's file could never pass.
+	Unreadable error
 }
 
 // Locate reads the settings rev holds: from its archdoc.json at the working
-// tree's location, or failing that from its only one, so that a pull request
-// moving the file is still judged by the base's strict and followed to the
-// base's root. Where rev holds neither, as before the pull request that adds
-// ArchDoc, or holds several, the working tree's own settings stand.
+// tree's location, or failing that from the one the working tree's moved from,
+// so that a pull request moving the file is still judged by the base's strict
+// and followed to the base's root. Where rev holds neither, as before the pull
+// request that adds ArchDoc, the working tree's own settings stand.
 func Locate(r *repo.Repo, g git.Repository, rev string) (Located, error) {
 	working := Located{
-		Settings: config.Settings{Branch: r.Config().Branch, Root: r.Config().Root, Strict: r.Config().Strict},
+		Settings: config.Settings{Root: r.Config().Root, Strict: r.Config().Strict},
 		// g is opened in the directory holding archdoc.json, as every command
 		// opens it, and root is relative to that.
 		Root: git.PathOf(g, r.Config().Root),
@@ -122,20 +131,11 @@ func Locate(r *repo.Repo, g git.Repository, rev string) (Located, error) {
 	if err != nil {
 		return working, err
 	}
-	settings := git.PathOf(g, config.Filename)
+	here := git.PathOf(g, config.Filename)
+	settings := here
 	if !slices.Contains(files, settings) {
-		settings = ""
-		for _, file := range files {
-			if path.Base(file) != config.Filename {
-				continue
-			}
-			if settings != "" {
-				return working, nil
-			}
-			settings = file
-		}
-		if settings == "" {
-			return working, nil
+		if settings, err = movedFrom(g, files); err != nil || settings == "" {
+			return working, err
 		}
 	}
 	contents, err := g.FilesAt(rev, []string{settings})
@@ -144,19 +144,86 @@ func Locate(r *repo.Repo, g git.Repository, rev string) (Located, error) {
 	}
 	read, err := config.SettingsIn(contents[settings])
 	if err != nil {
-		return working, fmt.Errorf("%s on %s: %w", settings, rev, err)
-	}
-	// The same root the working tree names is the same directory, and git
-	// is asked how it spells it: written in another case, in another Unicode
-	// normalisation or through a symbolic link, it matched nothing listed.
-	if settings == git.PathOf(g, config.Filename) && read.Root == r.Config().Root {
-		return Located{Settings: read, Root: working.Root}, nil
+		working.Unreadable = fmt.Errorf("%s: %w", settings, err)
+		return working, nil
 	}
 	root := path.Join(path.Dir(settings), read.Root)
 	if root == "." {
 		root = ""
 	}
+	// A root rev lists nothing under is asked of git as the working tree
+	// spells it: written in another case, in another Unicode normalisation or
+	// through a symbolic link, it reaches a directory git lists under another
+	// name. Failing that, as for a moved file's root, which is relative to
+	// where the file was, it is matched against rev's listing, case-folded and
+	// composed. One rev lists files under is taken as written, so that a link
+	// left where the root was cannot send rev's documents elsewhere.
+	if !slices.ContainsFunc(files, func(f string) bool { _, ok := Within(f, root); return ok }) {
+		if settings == here {
+			root = git.PathOf(g, read.Root)
+		}
+		root = listedAs(files, root)
+	}
+	// A file gone from the working tree moved only if the record came with it:
+	// one whose documents are none of them under the working tree's root, such
+	// as an example deleted beside the record, was not the record's.
+	if settings != here {
+		held, kept := false, false
+		for _, f := range files {
+			if docPath, ok := Within(f, root); ok {
+				if _, isDoc := repo.TypeOf(docPath); isDoc {
+					held = true
+					kept = kept || r.ByPath(docPath) != nil
+				}
+			}
+		}
+		if held && !kept {
+			return working, nil
+		}
+	}
 	return Located{Settings: read, Root: root}, nil
+}
+
+// listedAs is root as files spell it, where a directory in files matches it
+// case-folded and composed, and root as written where none does. The first
+// match in git's order is taken, so a listing holding the same directory under
+// two such spellings, which only a case-sensitive checkout can produce, is read
+// under the first.
+func listedAs(files []string, root string) string {
+	want := norm.NFC.String(root)
+	for _, f := range files {
+		for dir := path.Dir(f); dir != "."; dir = path.Dir(dir) {
+			if strings.EqualFold(norm.NFC.String(dir), want) {
+				return dir
+			}
+		}
+	}
+	return root
+}
+
+// movedFrom is the archdoc.json among files that the working tree's moved
+// from: the only one the working tree no longer holds. One still there belongs
+// to something else, such as an example beside the record, and of several gone
+// which one moved cannot be told, so it is empty for both.
+func movedFrom(g git.Repository, files []string) (string, error) {
+	top, err := g.RepoRoot()
+	if err != nil {
+		return "", err
+	}
+	from := ""
+	for _, file := range files {
+		if path.Base(file) != config.Filename {
+			continue
+		}
+		if _, err := os.Lstat(filepath.Join(top, filepath.FromSlash(file))); !errors.Is(err, fs.ErrNotExist) {
+			continue
+		}
+		if from != "" {
+			return "", nil
+		}
+		from = file
+	}
+	return from, nil
 }
 
 // Within is file as a path inside root, both from the top level.

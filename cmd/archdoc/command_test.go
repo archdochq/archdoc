@@ -4,9 +4,12 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
+	"fmt"
+	"io"
 	"io/fs"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -23,28 +26,40 @@ import (
 // main would have used.
 func run(t *testing.T, dir string, args ...string) (string, int) {
 	t.Helper()
-	t.Chdir(dir)
 
 	// Both streams into one buffer: a test asserting on a notice cannot see it
 	// otherwise, and sending the real stderr through made the suite's own
 	// output noisy.
 	var out bytes.Buffer
-	root := newRoot(&out, &out)
 	// Every test is non-interactive: prompting is the one thing this package
 	// does that a test cannot drive.
-	root.SetArgs(append([]string{"--no-interaction"}, args...))
+	code := execute(t, dir, &out, &out, nil, append([]string{"--no-interaction"}, args...)...)
+	return out.String(), code
+}
+
+// execute runs archdoc inside dir on the streams given and returns the exit
+// code main would have used, printing to stderr what main would have printed.
+// A nil stdin leaves the command's own.
+func execute(t *testing.T, dir string, stdout, stderr io.Writer, stdin io.Reader, args ...string) int {
+	t.Helper()
+	t.Chdir(dir)
+
+	root := newRoot(stdout, stderr)
+	if stdin != nil {
+		root.SetIn(stdin)
+	}
+	root.SetArgs(args)
 
 	err := root.Execute()
+	var quiet silentExit
 	switch {
 	case err == nil:
-		return out.String(), exitOK
+		return exitOK
+	case errors.As(err, &quiet):
+		return int(quiet)
 	default:
-		var quiet silentExit
-		if errors.As(err, &quiet) {
-			return out.String(), int(quiet)
-		}
-		out.WriteString("archdoc: " + err.Error() + "\n")
-		return out.String(), exitUsage
+		fmt.Fprintln(stderr, "archdoc:", err)
+		return exitUsage
 	}
 }
 
@@ -541,6 +556,19 @@ func TestTermListAndShow(t *testing.T) {
 	if code != exitOK || !strings.Contains(out, "The node daemon.") {
 		t.Errorf("show exited %d with %q", code, out)
 	}
+
+	// A block L15 reports is still shown, as GLOSSARY.md writes it.
+	wings := filepath.Join(dir, "term", "wings.md")
+	source, err := os.ReadFile(wings)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(wings, append(source, "```\nwings run\n```\n"...), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if out, _ := run(t, dir, "term", "show", "wings"); !strings.Contains(out, "The node daemon.\n```\nwings run\n```\n") {
+		t.Errorf("show = %q, want the fence below the definition", out)
+	}
 }
 
 func TestTermAddInsertsAlphabetically(t *testing.T) {
@@ -700,17 +728,13 @@ func TestLinkJSONEmitsExactlyOneArray(t *testing.T) {
 	// Separate streams here, unlike run: the whole claim is that --json puts
 	// the array and nothing else on stdout, and progress notices go to stderr
 	// precisely so this holds.
-	t.Chdir(dir)
-	var stdout, stderr bytes.Buffer
-	root := newRoot(&stdout, &stderr)
-	root.SetArgs([]string{"--no-interaction", "link", "--suggest", "--json"})
-	_ = root.Execute()
+	stdout, stderr, _ := runSplit(t, dir, "link", "--suggest", "--json")
 
 	var findings []jsonFinding
-	if err := json.Unmarshal(stdout.Bytes(), &findings); err != nil {
-		t.Fatalf("link --json did not emit one JSON array: %v\nstdout:\n%s", err, stdout.String())
+	if err := json.Unmarshal([]byte(stdout), &findings); err != nil {
+		t.Fatalf("link --json did not emit one JSON array: %v\nstdout:\n%s", err, stdout)
 	}
-	if stderr.Len() == 0 {
+	if stderr == "" {
 		t.Error("nothing reached stderr, so this no longer distinguishes the two streams")
 	}
 }
@@ -824,23 +848,137 @@ func TestBackfillDateErrorNamesTheSameFlagEveryTime(t *testing.T) {
 // runWith is run, with something on stdin for the interactive paths.
 func runWith(t *testing.T, dir, stdin string, args ...string) (string, int) {
 	t.Helper()
-	t.Chdir(dir)
-
 	var out bytes.Buffer
-	root := newRoot(&out, &out)
-	root.SetIn(strings.NewReader(stdin))
-	root.SetArgs(args)
+	code := execute(t, dir, &out, &out, strings.NewReader(stdin), args...)
+	return out.String(), code
+}
 
-	err := root.Execute()
-	switch {
-	case err == nil:
-		return out.String(), exitOK
-	default:
-		var quiet silentExit
-		if errors.As(err, &quiet) {
-			return out.String(), int(quiet)
+// runSplit is run with stdout and stderr kept apart, for the tests whose claim
+// is about which stream something reached.
+func runSplit(t *testing.T, dir string, args ...string) (stdout, stderr string, code int) {
+	t.Helper()
+	var out, errOut bytes.Buffer
+	code = execute(t, dir, &out, &errOut, nil, append([]string{"--no-interaction"}, args...)...)
+	return out.String(), errOut.String(), code
+}
+
+// A current file is no findings, and no findings is [] like lint --json's,
+// not an empty stdout that no JSON parser accepts. Without --json a match
+// still prints nothing.
+func TestCheckPrintsAnEmptyArrayOnlyUnderJSONWhenCurrent(t *testing.T) {
+	for _, command := range []string{"index", "glossary"} {
+		t.Run(command, func(t *testing.T) {
+			dir := repository(t)
+			if out, code := run(t, dir, command); code != exitOK {
+				t.Fatalf("%s exited %d: %s", command, code, out)
+			}
+			stdout, stderr, code := runSplit(t, dir, command, "--check", "--json")
+			if code != exitOK {
+				t.Fatalf("%s --check --json exited %d: %s%s", command, code, stdout, stderr)
+			}
+			var findings []jsonFinding
+			if err := json.Unmarshal([]byte(stdout), &findings); err != nil || findings == nil || len(findings) != 0 {
+				t.Errorf("%s --check --json printed %q, want []", command, stdout)
+			}
+			if stdout, _, _ := runSplit(t, dir, command, "--check"); stdout != "" {
+				t.Errorf("%s --check printed %q on a match, want nothing", command, stdout)
+			}
+		})
+	}
+}
+
+// A repository with no term/ has no glossary, so the page being absent is not
+// a glossary out of date. A page that is there, or a term/ that is, is checked
+// as before.
+func TestGlossaryCheckWithNoTermDirectory(t *testing.T) {
+	bare := func(t *testing.T) string {
+		dir := repository(t)
+		for _, name := range []string{"term", "GLOSSARY.md"} {
+			if err := os.RemoveAll(filepath.Join(dir, name)); err != nil {
+				t.Fatal(err)
+			}
 		}
-		return out.String() + "archdoc: " + err.Error() + "\n", exitUsage
+		return dir
+	}
+
+	t.Run("no page passes", func(t *testing.T) {
+		dir := bare(t)
+		if stdout, stderr, code := runSplit(t, dir, "glossary", "--check"); code != exitOK || stdout != "" {
+			t.Errorf("glossary --check exited %d, printing %q%s", code, stdout, stderr)
+		}
+		stdout, stderr, code := runSplit(t, dir, "glossary", "--check", "--json")
+		var findings []jsonFinding
+		if code != exitOK || json.Unmarshal([]byte(stdout), &findings) != nil || findings == nil || len(findings) != 0 {
+			t.Errorf("glossary --check --json exited %d, printing %q%s, want []", code, stdout, stderr)
+		}
+	})
+
+	t.Run("a stale page fails", func(t *testing.T) {
+		dir := bare(t)
+		repotest.Write(t, dir, "GLOSSARY.md", "# Glossary\n\n## Wings\n\nThe node daemon.\n")
+		if _, _, code := runSplit(t, dir, "glossary", "--check"); code != exitFindings {
+			t.Errorf("glossary --check passed a stale page with no term/: exit %d", code)
+		}
+	})
+
+	t.Run("a dangling link fails", func(t *testing.T) {
+		dir := bare(t)
+		if err := os.Symlink(filepath.Join(t.TempDir(), "absent"), filepath.Join(dir, "GLOSSARY.md")); err != nil {
+			t.Fatal(err)
+		}
+		if _, _, code := runSplit(t, dir, "glossary", "--check"); code != exitFindings {
+			t.Errorf("glossary --check passed a dangling link with no term/: exit %d", code)
+		}
+	})
+
+	t.Run("an empty term directory with no page fails", func(t *testing.T) {
+		dir := bare(t)
+		if err := os.Mkdir(filepath.Join(dir, "term"), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if _, _, code := runSplit(t, dir, "glossary", "--check"); code != exitFindings {
+			t.Errorf("glossary --check passed a missing page with term/ present: exit %d", code)
+		}
+	})
+}
+
+// --json shapes the findings of --check, so without --check it is a usage
+// error rather than a flag ignored.
+func TestJSONWithoutCheckIsRefused(t *testing.T) {
+	for _, command := range []string{"index", "glossary"} {
+		t.Run(command, func(t *testing.T) {
+			dir := repository(t)
+			_, stderr, code := runSplit(t, dir, command, "--json")
+			if code != exitUsage || !strings.Contains(stderr, "--check") {
+				t.Errorf("%s --json exited %d: %s", command, code, stderr)
+			}
+		})
+	}
+}
+
+// With a terminal on stdin, link --suggest --json still owes stdout one JSON
+// array, so the question goes to stderr, which is also where the person
+// answering it is looking when stdout is redirected.
+func TestLinkSuggestJSONAsksOnStderr(t *testing.T) {
+	original := onTerminal
+	onTerminal = func(*cobra.Command) bool { return true }
+	t.Cleanup(func() { onTerminal = original })
+
+	dir := repository(t)
+	repotest.Write(t, dir, "spec/queues.md",
+		"---\ntitle: Queues\nincludes: []\n---\n\n# Queues\n\nA bare RFC-0001 mention.\n")
+
+	var stdout, stderr bytes.Buffer
+	code := execute(t, dir, &stdout, &stderr, strings.NewReader("n\n"), "link", "--suggest", "--json")
+	if code != exitOK {
+		t.Fatalf("exit = %d: %s%s", code, stdout.String(), stderr.String())
+	}
+	var findings []jsonFinding
+	if err := json.Unmarshal(stdout.Bytes(), &findings); err != nil {
+		t.Errorf("stdout is not one JSON array: %v\n%s", err, stdout.String())
+	}
+	if !strings.Contains(stderr.String(), "[y]es") || !strings.Contains(stderr.String(), "spec/queues.md:") {
+		t.Errorf("the suggestion and its question did not reach stderr: %q", stderr.String())
 	}
 }
 
@@ -875,6 +1013,59 @@ func TestLinkSuggestApplyRewritesTheDocument(t *testing.T) {
 	written, _ := os.ReadFile(filepath.Join(dir, "spec", "queues.md"))
 	if !strings.Contains(string(written), "[RFC-0001](../rfc/0001-queues.md)") {
 		t.Errorf("the suggestion was not applied:\n%s", written)
+	}
+}
+
+func TestLinkSuggestApplySettlesInOneRun(t *testing.T) {
+	dir := repository(t)
+	repotest.Write(t, dir, "spec/queues.md",
+		"---\ntitle: Queues\nincludes: []\n---\n\n# Queues\n\nRFC-0001 here.\n\nRFC-0001 there.\n\nRFC-0001 everywhere.\n")
+
+	if out, code := run(t, dir, "link", "--suggest", "--apply"); code != exitOK {
+		t.Fatalf("exit = %d: %s", code, out)
+	}
+	if out, code := run(t, dir, "link", "--suggest"); code != exitOK {
+		t.Errorf("a second --suggest still offered something, exit = %d: %s", code, out)
+	}
+}
+
+func TestLinkAndLintAgreeOnAWikiLinkInAHeading(t *testing.T) {
+	dir := repository(t)
+	const page = "---\ntitle: Queues\nincludes: []\n---\n\n# Queues\n\n## Builds on [[RFC-0001]]\n\nWords.\n"
+	repotest.Write(t, dir, "spec/queues.md", page)
+
+	out, code := run(t, dir, "link")
+	if code == exitOK || strings.Contains(out, "wiki links resolved") || !strings.Contains(out, "write the heading without it") {
+		t.Errorf("link should refuse the heading, name the edit and claim nothing; exit = %d:\n%s", code, out)
+	}
+	if written, _ := os.ReadFile(filepath.Join(dir, "spec", "queues.md")); string(written) != page {
+		t.Errorf("the page changed:\n%s", written)
+	}
+	if out, _ := run(t, dir, "lint"); !strings.Contains(out, "unresolved wiki link [[RFC-0001]]: write the heading without it") {
+		t.Errorf("lint's remedy differs from link's:\n%s", out)
+	}
+}
+
+func TestNewRefusesATitleHoldingAWikiLink(t *testing.T) {
+	out, code := run(t, repository(t), "new", "rfc", "Foo [[RFC-0001]]")
+	if code != exitUsage || !strings.Contains(out, "wiki link") {
+		t.Errorf("exit = %d, want %d naming the wiki link; output: %s", code, exitUsage, out)
+	}
+}
+
+func TestTermAddAndRenameRefuseANameHoldingAWikiLink(t *testing.T) {
+	// The name is the term's H1, where link leaves a [[...]] as written.
+	dir := repository(t)
+	for _, args := range [][]string{
+		{"term", "add", "Gizmo [[RFC-0001]]", "A thing."},
+		{"term", "rename", "Wings", "Wings [[RFC-0001]]"},
+	} {
+		if out, code := run(t, dir, args...); code == exitOK || !strings.Contains(out, "wiki link") {
+			t.Errorf("%v: exit = %d, want a refusal naming the wiki link; output: %s", args, code, out)
+		}
+	}
+	if _, err := os.Stat(filepath.Join(dir, "term", "gizmo-rfc-0001.md")); err == nil {
+		t.Error("the term was written")
 	}
 }
 
@@ -1407,6 +1598,70 @@ func TestNewRefusesAsOfWhereNoRefCouldCarryIt(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+func TestTermAddOffersNamedByOnlyWhereItCanBeChosen(t *testing.T) {
+	// The form opens for named_by alone only when adding, without the flag,
+	// in a repository holding a numbered document to choose.
+	original, originalForm := onTerminal, runForm
+	onTerminal = func(*cobra.Command) bool { return true }
+	t.Cleanup(func() { onTerminal, runForm = original, originalForm })
+
+	noNumbered := func(t *testing.T) string {
+		return repotest.New(t, map[string]string{"spec/page.md": "---\ntitle: Page\nincludes: []\n---\n\n# Page\n"}).Config().Dir()
+	}
+	for _, c := range []struct {
+		name string
+		dir  func(*testing.T) string
+		args []string
+		want bool
+	}{
+		{"adding", repository, []string{"term", "add", "Gizmo", "A definition."}, true},
+		{"adding with the flag", repository, []string{"term", "add", "Gizmo", "A definition.", "--named-by", "RFC-0001"}, false},
+		{"adding with nothing to choose", noNumbered, []string{"term", "add", "Gizmo", "A definition."}, false},
+		{"removing", repository, []string{"term", "remove", "Wings"}, false},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			opened := false
+			runForm = func(*huh.Form) error { opened = true; return nil }
+			if out, code := runWith(t, c.dir(t), "", c.args...); code != exitOK {
+				t.Fatalf("exit = %d: %s", code, out)
+			}
+			if opened != c.want {
+				t.Errorf("form opened = %t, want %t", opened, c.want)
+			}
+		})
+	}
+}
+
+func TestRenumberOffersOnlyNumberedDocumentsThatAreNotFrozen(t *testing.T) {
+	r := repotest.New(t, map[string]string{
+		"rfc/0001-open.md":   rfc("RFC-0001", "Open", "proposed", ""),
+		"rfc/0002-frozen.md": rfc("RFC-0002", "Frozen", "accepted", " 2026-02-01"),
+		"spec/page.md":       "---\ntitle: Page\nincludes: []\n---\n\n# Page\n",
+	})
+	frozen := func(d *repo.Document) bool { return d.Path == "rfc/0002-frozen.md" }
+	var got []string
+	for _, d := range renumberable(r, frozen) {
+		got = append(got, d.Path)
+	}
+	if want := []string{"rfc/0001-open.md"}; !slices.Equal(got, want) {
+		t.Errorf("renumberable = %v, want %v", got, want)
+	}
+
+	original, originalForm := onTerminal, runForm
+	onTerminal = func(*cobra.Command) bool { return true }
+	opened := false
+	runForm = func(*huh.Form) error { opened = true; return nil }
+	t.Cleanup(func() { onTerminal, runForm = original, originalForm })
+	everything := func(*repo.Document) bool { return true }
+	cmd := newRenumberCommand()
+	if _, err := askForRenumber(cmd, r, everything); err == nil || opened {
+		t.Errorf("with nothing to offer: err = %v, form opened = %t; want a refusal and no form", err, opened)
+	}
+	if _, err := askForRenumber(cmd, r, frozen); err != nil || !opened {
+		t.Errorf("with a document to offer: err = %v, form opened = %t", err, opened)
 	}
 }
 

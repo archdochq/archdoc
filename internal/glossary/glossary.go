@@ -10,6 +10,7 @@ import (
 	"path"
 	"slices"
 	"strings"
+	"unicode/utf8"
 
 	"archdoc.dev/internal/repo"
 	"gopkg.in/yaml.v3"
@@ -32,8 +33,8 @@ func PathOf(term string) string {
 // depend on document order.
 func Add(r *repo.Repo, term, definition, namedBy string) (docPath string, source []byte, err error) {
 	term = strings.TrimSpace(term)
-	if term == "" {
-		return "", nil, fmt.Errorf("a term needs a name")
+	if err := checkName(term); err != nil {
+		return "", nil, err
 	}
 	slug := repo.Slug(term)
 	if slug == "" {
@@ -53,8 +54,9 @@ func Add(r *repo.Repo, term, definition, namedBy string) (docPath string, source
 	if err != nil {
 		return "", nil, err
 	}
-	if len(entry.Paragraphs) != 1 {
-		return "", nil, fmt.Errorf("the definition reads as %d paragraphs, and a term has exactly one", len(entry.Paragraphs))
+	if !entry.Defined() {
+		return "", nil, fmt.Errorf("the definition reads as %s and %s, and a term has exactly one paragraph",
+			count(len(entry.Paragraphs), "paragraph"), count(entry.Other, "other block"))
 	}
 	return docPath, source, nil
 }
@@ -65,8 +67,8 @@ func Add(r *repo.Repo, term, definition, namedBy string) (docPath string, source
 // to follow one.
 func Rename(r *repo.Repo, from, to string) (oldPath, newPath string, source []byte, err error) {
 	to = strings.TrimSpace(to)
-	if to == "" {
-		return "", "", nil, fmt.Errorf("a term needs a name")
+	if err := checkName(to); err != nil {
+		return "", "", nil, err
 	}
 	entry, ok := r.Term(from)
 	if !ok {
@@ -116,10 +118,28 @@ func Rename(r *repo.Repo, from, to string) (oldPath, newPath string, source []by
 	return entry.Path, newPath, out, nil
 }
 
-// readBack parses a term file as written and refuses it unless its H1 reads as
-// the term. The front matter is quoted through the YAML encoder, which a
-// heading has no equivalent of: a name ending in " #" reads as an ATX closing
-// sequence, and one holding a line break as a heading and a paragraph.
+// checkName refuses a name no term file can hold: none at all, one with a line
+// break, which a heading cannot carry, one holding a [[...]] wiki link, which
+// link leaves as written in a heading, and one that is not UTF-8, which YAML
+// cannot encode.
+func checkName(name string) error {
+	switch {
+	case name == "":
+		return fmt.Errorf("a term needs a name")
+	case strings.ContainsAny(name, "\r\n"):
+		return fmt.Errorf("a term's name cannot contain a line break")
+	case repo.WikiLinkPattern.MatchString(name):
+		return fmt.Errorf("a term's name cannot hold a [[...]] wiki link: archdoc link does not rewrite one in a heading, so write the link out or leave it out")
+	case !utf8.ValidString(name):
+		return fmt.Errorf("%q is not valid UTF-8", name)
+	}
+	return nil
+}
+
+// readBack parses a term file as written and refuses it unless it parses
+// cleanly and both its title and its H1 read as the term. The front matter is
+// quoted through the YAML encoder, which a heading has no equivalent of: a name
+// ending in " #" reads as an ATX closing sequence.
 func readBack(docPath string, source []byte, term string) (repo.GlossaryEntry, error) {
 	d, _ := repo.Parse(docPath, source)
 	entry := d.TermEntry()
@@ -130,7 +150,7 @@ func readBack(docPath string, source []byte, term string) (repo.GlossaryEntry, e
 			break
 		}
 	}
-	if heading != term {
+	if len(d.Problems) > 0 || entry.Term != term || heading != term {
 		return entry, fmt.Errorf("%q would not read back as written; choose another name", term)
 	}
 	return entry, nil
@@ -188,12 +208,8 @@ func Generate(r *repo.Repo) []byte {
 			fmt.Fprintf(&b, "<a id=%q></a>\n", repo.Anchor(former))
 		}
 		fmt.Fprintf(&b, "## %s\n\n", e.Term)
-		for i, p := range e.Paragraphs {
-			if i > 0 {
-				b.WriteString("\n")
-			}
-			b.WriteString(strings.TrimRight(p, "\n"))
-			b.WriteString("\n")
+		if e.Definition != "" {
+			b.WriteString(e.Definition + "\n")
 		}
 	}
 	return b.Bytes()
@@ -205,7 +221,11 @@ func render(term, definition string, formerly []string, namedBy string) []byte {
 	b.WriteString("---\n")
 	fmt.Fprintf(&b, "title: %s\n", scalar(term))
 	fmt.Fprintf(&b, "formerly: %s\n", list(formerly))
-	fmt.Fprintf(&b, "named_by: %s\n", namedBy)
+	b.WriteString("named_by:")
+	if namedBy != "" {
+		b.WriteString(" " + scalar(namedBy))
+	}
+	b.WriteString("\n")
 	b.WriteString("---\n\n")
 	fmt.Fprintf(&b, "# %s\n\n", term)
 	b.WriteString(strings.TrimRight(definition, "\n"))
@@ -231,7 +251,8 @@ func list(items []string) string {
 	return marshal(seq)
 }
 
-// marshal encodes one node. A string node cannot fail to encode, so an error
+// marshal encodes one node. A string node fails to encode only when it is not
+// UTF-8, which checkName refuses and a parsed file cannot hold, so an error
 // here is a fault in this package.
 func marshal(n *yaml.Node) string {
 	out, err := yaml.Marshal(n)
@@ -256,4 +277,12 @@ func retitleHeading(source []byte, from, to string) []byte {
 		}
 	}
 	return bytes.Join(lines, []byte("\n"))
+}
+
+// count is n and noun, with an s where n is not 1.
+func count(n int, noun string) string {
+	if n == 1 {
+		return "1 " + noun
+	}
+	return fmt.Sprintf("%d %ss", n, noun)
 }

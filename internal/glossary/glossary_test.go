@@ -285,6 +285,61 @@ func TestAddRefusesADefinitionOfMoreThanOneParagraph(t *testing.T) {
 	}
 }
 
+func TestAddRefusesADefinitionHoldingAnotherBlock(t *testing.T) {
+	r := repotest.New(t, map[string]string{})
+	_, _, err := glossary.Add(r, "Widget", "One.\n## Aside", "")
+	if err == nil {
+		t.Fatal("accepted a definition followed by a heading")
+	}
+	if want := "reads as 1 paragraph and 1 other block,"; !strings.Contains(err.Error(), want) {
+		t.Errorf("err = %q, want it to say %q", err, want)
+	}
+	if _, _, err := glossary.Add(r, "Widget", "One.\n\nTwo.\n\n## Aside\n\n- a", ""); err == nil ||
+		!strings.Contains(err.Error(), "reads as 2 paragraphs and 2 other blocks,") {
+		t.Errorf("err = %v, want it to count 2 paragraphs and 2 other blocks", err)
+	}
+}
+
+func TestGenerateWritesTheDefinitionAsWrittenWithoutComments(t *testing.T) {
+	r := repotest.New(t, map[string]string{
+		"term/widget.md": "---\r\ntitle: Widget\r\nformerly: []\r\nnamed_by:\r\n---\r\n\r\n# Widget\r\n\r\n" +
+			"Use `foo` here<!-- note --> and\r\nthere.\r\n",
+	})
+	got := string(glossary.Generate(r))
+	if want := "## Widget\n\nUse `foo` here and\nthere.\n"; !strings.Contains(got, want) {
+		t.Errorf("the generated glossary lacks %q:\n%q", want, got)
+	}
+	if strings.Contains(got, "\r") {
+		t.Errorf("the generated glossary holds a carriage return:\n%q", got)
+	}
+}
+
+// TestGenerateWritesEveryBlockOfTheDefinition: L15 reports a block that is
+// not a paragraph, but GLOSSARY.md still prints the file as it stands rather
+// than dropping what L15 reported.
+func TestGenerateWritesEveryBlockOfTheDefinition(t *testing.T) {
+	r := repotest.New(t, map[string]string{
+		"term/widget.md": "---\ntitle: Widget\nformerly: []\nnamed_by:\n---\n\n# Widget\n\n" +
+			"The definition.\n```\ncode\n```\nAfter.\n\n- an item\n",
+	})
+	got := string(glossary.Generate(r))
+	if want := "## Widget\n\nThe definition.\n```\ncode\n```\nAfter.\n\n- an item\n"; !strings.HasSuffix(got, want) {
+		t.Errorf("the generated glossary does not end %q:\n%q", want, got)
+	}
+}
+
+// A term with no definition is its heading alone, one blank line before the
+// next.
+func TestGenerateWritesNothingForNoDefinition(t *testing.T) {
+	r := repotest.New(t, map[string]string{
+		"term/a.md": "---\ntitle: A\nformerly: []\nnamed_by:\n---\n\n# A\n",
+		"term/b.md": "---\ntitle: B\nformerly: []\nnamed_by:\n---\n\n# B\n\nDefined.\n",
+	})
+	if got, want := string(glossary.Generate(r)), "## A\n\n\n## B\n\nDefined.\n"; !strings.HasSuffix(got, want) {
+		t.Errorf("the generated glossary does not end %q:\n%q", want, got)
+	}
+}
+
 func TestAddAcceptsOnlyAnExistingDocumentAsNamedBy(t *testing.T) {
 	r := repotest.New(t, map[string]string{
 		"adr/0001-chosen.md": "---\nid: ADR-0001\ntitle: Chosen\nstatus: proposed\ncreated: 2026-01-20\n" +
@@ -324,7 +379,7 @@ func TestRemoveRefusesEveryLinkAFrozenDocumentHolds(t *testing.T) {
 	}
 }
 
-// TestAddRefusesANameTheHeadingReadsDifferently: a trailing " #" is an ATX
+// TestAddAndRenameRefuseANameTheHeadingReadsDifferently: a trailing " #" is an ATX
 // closing sequence, so the H1 would read as the name without it.
 func TestAddAndRenameRefuseANameTheHeadingReadsDifferently(t *testing.T) {
 	r := repotest.New(t, map[string]string{
@@ -335,5 +390,58 @@ func TestAddAndRenameRefuseANameTheHeadingReadsDifferently(t *testing.T) {
 	}
 	if _, _, _, err := glossary.Rename(r, "Plain", "Sharp #"); err == nil {
 		t.Error("Rename accepted a name whose heading reads as another")
+	}
+}
+
+// TestRemoveIgnoresAFrozenLinkElsewhere: a link holding the term's anchor
+// within its own page, or one to another term in the glossary, does not reach
+// this term, and refusing for it would block every removal.
+func TestRemoveIgnoresAFrozenLinkElsewhere(t *testing.T) {
+	for name, link := range map[string]string{
+		"an anchor in its own page": "#widget",
+		"another term":              "../GLOSSARY.md#gadget",
+	} {
+		t.Run(name, func(t *testing.T) {
+			r := repotest.New(t, map[string]string{
+				"term/widget.md": repotest.Term("Widget", "A definition."),
+				"term/gadget.md": repotest.Term("Gadget", "Another."),
+				"spec/uses.md":   "---\ntitle: Uses\nincludes: []\n---\n\n# Uses\n\n## Widget\n\nIt holds a [link](" + link + ").\n",
+			})
+			if _, err := glossary.Remove(r, "Widget", everythingFrozen); err != nil {
+				t.Errorf("Remove refused for a link elsewhere: %v", err)
+			}
+		})
+	}
+}
+
+func TestAddAndRenameRefuseANameNoTermFileCanHold(t *testing.T) {
+	r := repotest.New(t, map[string]string{"term/widget.md": repotest.Term("Widget", "A definition.")})
+	for _, name := range []string{"a\xffb", "Two\nlines", "Carriage\rreturn"} {
+		if _, _, err := glossary.Add(r, name, "A definition.", ""); err == nil {
+			t.Errorf("Add accepted %q", name)
+		}
+		if _, _, _, err := glossary.Rename(r, "Widget", name); err == nil {
+			t.Errorf("Rename accepted %q", name)
+		}
+	}
+}
+
+func TestAddWritesNamedByAsAString(t *testing.T) {
+	r := repotest.New(t, map[string]string{
+		"adr/0001-chosen.md": "---\nid: ADR-0001\ntitle: Chosen\nstatus: proposed\ncreated: 2026-01-20\n" +
+			"depends: []\nupdates: []\nobsoletes: []\n---\n\n# ADR-0001: Chosen\n",
+	})
+	_, source, err := glossary.Add(r, "Widget", "A definition.", "ADR-0001")
+	if err != nil || !strings.Contains(string(source), "named_by: ADR-0001\n") {
+		t.Errorf("Add with named_by = %q, %v", source, err)
+	}
+}
+
+func TestAddLeavesNamedByEmptyWithoutADocument(t *testing.T) {
+	r := repotest.New(t, nil)
+	_, source, err := glossary.Add(r, "Widget", "A definition.", "")
+	want := "---\ntitle: Widget\nformerly: []\nnamed_by:\n---\n\n# Widget\n\nA definition.\n"
+	if err != nil || string(source) != want {
+		t.Errorf("Add without named_by = %q, %v, want %q", source, err, want)
 	}
 }

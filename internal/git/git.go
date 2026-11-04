@@ -51,7 +51,8 @@ type Repository interface {
 	// to tell a repository with no such branch from one where every document is
 	// new, which would otherwise pass silently.
 	BranchExists(branch string) (bool, error)
-	// ListFiles names every path committed on branch, sorted. L11 needs it to
+	// ListFiles names every path committed on branch, from the repository's
+	// top level whichever directory it was opened in, sorted. L11 needs it to
 	// notice a frozen document deleted from the working tree, which discovery
 	// cannot see.
 	ListFiles(branch string) ([]string, error)
@@ -134,12 +135,17 @@ func command(dir string, args ...string) *exec.Cmd {
 		name, _, _ := strings.Cut(kv, "=")
 		return slices.Contains(inherited, name)
 	})
-	cmd.Env = append(cmd.Env, "LC_ALL=C")
+	// Every path is passed as a name. Read as a pathspec, a root beginning
+	// with ":" was magic, and diff matched nothing under it, so no frozen
+	// document read as changed. git refuses the literal setting beside the
+	// glob or icase one, so every inherited pathspec setting is dropped first.
+	cmd.Env = append(cmd.Env, "LC_ALL=C", "GIT_LITERAL_PATHSPECS=1")
 	return cmd
 }
 
 var inherited = []string{
 	"GIT_DIR", "GIT_WORK_TREE", "GIT_COMMON_DIR", "GIT_INDEX_FILE",
+	"GIT_LITERAL_PATHSPECS", "GIT_GLOB_PATHSPECS", "GIT_NOGLOB_PATHSPECS", "GIT_ICASE_PATHSPECS",
 }
 
 // run executes git and returns its standard output. A command that exits
@@ -192,23 +198,41 @@ func (s *shell) probe(rev string) (bool, error) {
 	}
 }
 
-// rev is the revision a branch name should be read from. A checkout often holds
-// the comparison branch only as a remote-tracking ref: actions/checkout leaves a
-// pull request on a detached head with no local branch at all, and rev-parse
-// does not resolve a bare name to origin/<name>. Without this the rule the tool
-// exists for reports that the branch is missing on every pull request.
+// rev is the revision a branch name should be read from: the branch, or its
+// remote-tracking ref, and anything else, such as a commit, as given. A checkout
+// often holds the comparison branch only as a remote-tracking ref:
+// actions/checkout leaves a pull request on a detached head with no local branch
+// at all, and rev-parse does not resolve a bare name to origin/<name>. Without
+// this the rule the tool exists for reports that the branch is missing on every
+// pull request.
+//
+// Named in full, because git resolves a bare name to a tag of the same name,
+// or to a ref of its own such as FETCH_HEAD, before the branch.
 func (s *shell) rev(branch string) string {
 	if cached, ok := s.resolved[branch]; ok {
 		return cached
 	}
 	resolved := branch
-	if local, err := s.exists(branch + "^{commit}"); err == nil && !local {
-		if remote, err := s.exists("origin/" + branch + "^{commit}"); err == nil && remote {
-			resolved = "origin/" + branch
-		}
+	if ref, err := s.branchRef(branch); err == nil && ref != "" {
+		resolved = ref
 	}
 	s.resolved[branch] = resolved
 	return resolved
+}
+
+// branchRef is the full name of the branch, or of its remote-tracking ref where
+// there is no local one, or empty where there is neither.
+func (s *shell) branchRef(branch string) (string, error) {
+	for _, ref := range []string{"refs/heads/" + branch, "refs/remotes/origin/" + branch} {
+		found, err := s.exists(ref + "^{commit}")
+		if err != nil {
+			return "", err
+		}
+		if found {
+			return ref, nil
+		}
+	}
+	return "", nil
 }
 
 // FilesAt reads every requested blob in a single `git cat-file --batch`.
@@ -217,7 +241,7 @@ func (s *shell) rev(branch string) string {
 // "<sha> <type> <size>" followed by that many bytes and a newline, or
 // "<request> missing". Pairing responses with requests by position is what lets
 // a path containing a space be read back safely, since only the missing form
-// echoes the request and it is recognised by its suffix.
+// echoes the request, and it is recognised by matching the whole request.
 func (s *shell) FilesAt(branch string, paths []string) (map[string][]byte, error) {
 	if len(paths) == 0 {
 		return nil, nil
@@ -369,12 +393,14 @@ func (s *shell) ListFiles(branch string) ([]string, error) {
 }
 
 func (s *shell) listFiles(branch string) ([]string, error) {
-	out, _, err := s.run("ls-tree", "-r", "--full-name", "--name-only", "-z", s.rev(branch))
+	out, _, err := s.run("ls-tree", "-r", "--full-tree", "--name-only", "-z", s.rev(branch))
 	if err != nil {
 		return nil, err
 	}
-	// --full-name prints paths from the repository root rather than from the
-	// working directory, which is the base every caller translates against.
+	// --full-tree lists the whole tree, by paths from the repository root,
+	// rather than the working directory's subtree by paths from it. A branch
+	// whose root or archdoc.json is above the directory archdoc runs in, as
+	// before a pull request moving them down, held nothing otherwise.
 	// -z separates with NUL, so paths containing newlines or quotes survive
 	// intact and need no unquoting.
 	var files []string
@@ -388,7 +414,8 @@ func (s *shell) listFiles(branch string) ([]string, error) {
 }
 
 func (s *shell) BranchExists(branch string) (bool, error) {
-	return s.exists(s.rev(branch) + "^{commit}")
+	ref, err := s.branchRef(branch)
+	return ref != "", err
 }
 
 func (s *shell) MergeBase(branch string) (string, error) {

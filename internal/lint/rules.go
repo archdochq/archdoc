@@ -1,6 +1,7 @@
 package lint
 
 import (
+	"cmp"
 	"fmt"
 	"os"
 	"path"
@@ -66,10 +67,10 @@ func L01(ctx Context) []Finding {
 		// that is not one. The message is already written, so it is added rather
 		// than formatted.
 		for _, p := range d.Problems {
-			rep.add(Error, d.Path, p.Line, p.Message)
+			rep.add(severityFor(ctx, d), d.Path, p.Line, p.Message)
 		}
 		for _, key := range d.FrontMatter.Unknown() {
-			rep.errorf(d, key.Line, "unknown front matter field %q", key.Name)
+			rep.atf(severityFor(ctx, d), d, key.Line, "unknown front matter field %q", key.Name)
 		}
 		// Whether each key was left empty. The schema says which keys must
 		// carry a value: a document with an empty `status` would otherwise be
@@ -108,20 +109,39 @@ func L01(ctx Context) []Finding {
 		for _, key := range repo.Keys(d.Type) {
 			has := d.FrontMatter.Has(key.Name)
 			line := d.FrontMatter.LineOf(key.Name)
-			if key.Required && !has {
-				rep.errorf(d, 1, "missing required front matter key %q", key.Name)
+			// Where the block did not parse, no key was read, and calling one
+			// missing contradicts the file.
+			if key.Required && !has && fm.Read() {
+				rep.atf(severityFor(ctx, d), d, 1, "missing required front matter key %q", key.Name)
 			}
 			if !key.MayBeEmpty && empty[key.Name] && has && !unparsed[line] {
-				rep.errorf(d, line, "front matter key %q is present but empty", key.Name)
+				rep.atf(severityFor(ctx, d), d, line, "front matter key %q is present but empty", key.Name)
 			}
 			if key.Name == "status" {
 				if s := string(d.FrontMatter.Status); s != "" && !slices.Contains(key.Values, s) {
-					rep.errorf(d, line, "status %q is not one of %s", s, strings.Join(key.Values, ", "))
+					rep.atf(severityFor(ctx, d), d, line, "status %q is not one of %s", s, strings.Join(key.Values, ", "))
 				}
 			}
 		}
 	}
 	return rep.findings
+}
+
+// readable reports whether a key's value is known: the block parsed, and the
+// value decoded. L01 reports a value that did not, and a rule comparing
+// against the zero value left in its place reports something the file
+// contradicts.
+func readable(d *repo.Document, key string) bool {
+	if !d.FrontMatter.Read() {
+		return false
+	}
+	line := d.FrontMatter.LineOf(key)
+	for _, p := range d.Problems {
+		if p.Line == line {
+			return false
+		}
+	}
+	return true
 }
 
 // L02 checks that the identifier matches the type and filename, and that the
@@ -133,14 +153,15 @@ func L02(ctx Context) []Finding {
 			continue
 		}
 		if d.ID == "" {
-			rep.errorf(d, 0, "filename does not match <NNNN>-<slug>.md, so no identifier can be derived")
+			rep.atf(severityFor(ctx, d), d, 0, "filename does not match <NNNN>-<slug>.md, so no identifier can be derived")
 			continue
 		}
 		if d.Number == 0 {
-			rep.errorf(d, 0, "filename number is 0000, but sequences start at 1")
+			rep.atf(severityFor(ctx, d), d, 0, "filename number is 0000, but sequences start at 1")
 		}
-		if got := d.FrontMatter.ID; got != d.ID {
-			rep.errorf(d, d.FrontMatter.LineOf("id"), "id is %q but the filename gives %q", got, d.ID)
+		// A missing or empty id is L01's to report.
+		if got := d.FrontMatter.ID; got != d.ID && got != "" && readable(d, "id") {
+			rep.atf(severityFor(ctx, d), d, d.FrontMatter.LineOf("id"), "id is %q but the filename gives %q", got, d.ID)
 		}
 	}
 	return rep.findings
@@ -159,6 +180,14 @@ func L03(ctx Context) []Finding {
 		if len(docs) < 2 {
 			continue
 		}
+		// While any holder is editable it can be renumbered, which clears
+		// the finding on every holder.
+		severity := Warning
+		for _, d := range docs {
+			if !ctx.Frozen(d) {
+				severity = Error
+			}
+		}
 		for _, d := range docs {
 			var others []string
 			for _, other := range docs {
@@ -166,7 +195,7 @@ func L03(ctx Context) []Finding {
 					others = append(others, other.Path)
 				}
 			}
-			rep.errorf(d, 0, "identifier %s is also used by %s", id, strings.Join(others, ", "))
+			rep.atf(severity, d, 0, "identifier %s is also used by %s", id, strings.Join(others, ", "))
 		}
 	}
 	return rep.findings
@@ -232,14 +261,20 @@ func L04(ctx Context) []Finding {
 		for _, ref := range references(d) {
 			target := ctx.Repo().ByID(ref.id)
 			if target == nil {
-				rep.errorf(d, d.FrontMatter.LineOf(ref.field), "%s references %s, which does not exist", ref.field, ref.id)
+				// A document that does not exist can be written, unless no
+				// document can ever hold the identifier.
+				severity := Error
+				if _, _, ok := repo.ParseIdentifier(ref.id); !ok {
+					severity = severityFor(ctx, d)
+				}
+				rep.atf(severity, d, d.FrontMatter.LineOf(ref.field), "%s references %s, which does not exist", ref.field, ref.id)
 				continue
 			}
 			// depends and includes name designs and decisions. Refs are
 			// informational and are cited from the body instead.
 			if ref.field == "depends" || ref.field == "includes" {
 				if !target.Type.Normative() {
-					rep.errorf(d, d.FrontMatter.LineOf(ref.field), "%s references %s, but only RFCs and ADRs are permitted there", ref.field, ref.id)
+					rep.atf(severityFor(ctx, d), d, d.FrontMatter.LineOf(ref.field), "%s references %s, but only RFCs and ADRs are permitted there", ref.field, ref.id)
 				}
 			}
 		}
@@ -260,7 +295,7 @@ func L05(ctx Context) []Finding {
 			if !slices.Contains(d.FrontMatter.Obsoletes, id) {
 				continue
 			}
-			rep.errorf(d, d.FrontMatter.LineOf("obsoletes"), "%s appears in both updates and obsoletes", id)
+			rep.atf(severityFor(ctx, d), d, d.FrontMatter.LineOf("obsoletes"), "%s appears in both updates and obsoletes", id)
 		}
 
 		for _, ref := range references(d) {
@@ -268,7 +303,7 @@ func L05(ctx Context) []Finding {
 				continue
 			}
 			if ref.id == d.ID {
-				rep.errorf(d, d.FrontMatter.LineOf(ref.field), "%s names itself in %s", ref.id, ref.field)
+				rep.atf(severityFor(ctx, d), d, d.FrontMatter.LineOf(ref.field), "%s names itself in %s", ref.id, ref.field)
 				continue
 			}
 			target := ctx.Repo().ByID(ref.id)
@@ -276,14 +311,22 @@ func L05(ctx Context) []Finding {
 				continue // L04 reports it
 			}
 			if target.Type != d.Type {
-				rep.errorf(d, d.FrontMatter.LineOf(ref.field), "%s references %s, which is a %s: only documents of the same type may be updated or obsoleted",
-					ref.field, ref.id, target.Type)
+				// The type comes from the identifier, so only this document
+				// can change it.
+				rep.atf(severityFor(ctx, d), d, d.FrontMatter.LineOf(ref.field), "%s references %s, which is %s: only documents of the same type may be updated or obsoleted",
+					ref.field, ref.id, target.Type.WithArticle())
 				continue
 			}
 			if s := target.FrontMatter.Status; s != repo.StatusAccepted && s != "" {
 				// Not when the status is empty: L01 reports the missing value,
 				// and this rule would only render it into a broken sentence.
-				rep.errorf(d, d.FrontMatter.LineOf(ref.field), "%s references %s, which is %s: only an accepted document is in force and can be amended or replaced",
+				// A frozen target keeps its status, so while this document is
+				// frozen too nothing permitted clears the finding.
+				severity := Error
+				if ctx.Frozen(d) && ctx.Frozen(target) {
+					severity = Warning
+				}
+				rep.atf(severity, d, d.FrontMatter.LineOf(ref.field), "%s references %s, which is %s: only an accepted document is in force and can be amended or replaced",
 					ref.field, ref.id, s)
 			}
 		}
@@ -333,24 +376,24 @@ func L07(ctx Context) []Finding {
 		}
 		terminal := fm.Status.Terminal()
 		switch {
-		case terminal && fm.Decided.IsZero():
-			rep.errorf(d, d.FrontMatter.LineOf("decided"), "status is %s but decided is not set", fm.Status)
-		case !terminal && !fm.Decided.IsZero():
-			rep.errorf(d, d.FrontMatter.LineOf("decided"), "decided is set but status is %s, which is not terminal", fm.Status)
+		case terminal && fm.Decided.IsZero() && readable(d, "decided"):
+			rep.atf(severityFor(ctx, d), d, d.FrontMatter.LineOf("decided"), "status is %s but decided is not set", fm.Status)
+		case !terminal && fm.Status != "" && !fm.Decided.IsZero():
+			rep.atf(severityFor(ctx, d), d, d.FrontMatter.LineOf("decided"), "decided is set but status is %s, which is not terminal", fm.Status)
 		}
 		if !fm.Backfilled.IsZero() {
-			if !terminal {
-				rep.errorf(d, fm.LineOf("backfilled"),
+			if !terminal && fm.Status != "" {
+				rep.atf(severityFor(ctx, d), d, fm.LineOf("backfilled"),
 					"backfilled is set but status is %s: backfilling records a decision already taken", fm.Status)
 			}
 			if !fm.Decided.IsZero() && fm.Backfilled.Before(fm.Decided) {
-				rep.errorf(d, fm.LineOf("backfilled"),
+				rep.atf(severityFor(ctx, d), d, fm.LineOf("backfilled"),
 					"backfilled %s is before decided %s: a record cannot predate what it records",
 					fm.Backfilled.Format(repo.DateLayout), fm.Decided.Format(repo.DateLayout))
 			}
 		}
 		if !fm.Decided.IsZero() && !fm.Created.IsZero() && fm.Decided.Before(fm.Created) {
-			rep.errorf(d, d.FrontMatter.LineOf("decided"), "decided %s is before created %s",
+			rep.atf(severityFor(ctx, d), d, d.FrontMatter.LineOf("decided"), "decided %s is before created %s",
 				fm.Decided.Format(repo.DateLayout), fm.Created.Format(repo.DateLayout))
 		}
 	}
@@ -380,11 +423,11 @@ func L08(ctx Context) []Finding {
 		for _, want := range required {
 			at, present := position[want]
 			if !present {
-				rep.errorf(d, 0, "missing required section %q", want)
+				rep.atf(severityFor(ctx, d), d, 0, "missing required section %q", want)
 				continue
 			}
 			if at < previous {
-				rep.errorf(d, 0, "section %q appears before %q, but must come after it", want, previousName)
+				rep.atf(severityFor(ctx, d), d, 0, "section %q appears before %q, but must come after it", want, previousName)
 			}
 			if at > previous {
 				previous, previousName = at, want
@@ -398,7 +441,7 @@ func L08(ctx Context) []Finding {
 		if closing, wanted := d.ClosingSection(); wanted {
 			_, present := position[closing]
 			if present && len(titles) > 0 && titles[len(titles)-1] != closing {
-				rep.errorf(d, 0, "%q must be the last H2, but %q follows it", closing, titles[len(titles)-1])
+				rep.atf(severityFor(ctx, d), d, 0, "%q must be the last H2, but %q follows it", closing, titles[len(titles)-1])
 			}
 		}
 
@@ -407,7 +450,7 @@ func L08(ctx Context) []Finding {
 		if d.Type.HasLifecycle() {
 			_, present := position[repo.RejectionRationale]
 			if rejected := d.FrontMatter.Status == repo.StatusRejected; !rejected && present {
-				rep.errorf(d, 0, "%q is present but the status is %s", repo.RejectionRationale, d.FrontMatter.Status)
+				rep.atf(severityFor(ctx, d), d, 0, "%q is present but the status is %s", repo.RejectionRationale, d.FrontMatter.Status)
 			}
 		}
 	}
@@ -427,7 +470,7 @@ func L09(ctx Context) []Finding {
 			if section.Empty() {
 				continue
 			}
-			rep.errorf(d, section.Heading.Line, `an accepted document must have an empty "Open questions" section`)
+			rep.atf(severityFor(ctx, d), d, section.Heading.Line, `an accepted document must have an empty "Open questions" section`)
 		}
 	}
 	return rep.findings
@@ -437,17 +480,23 @@ func L09(ctx Context) []Finding {
 func L10(ctx Context) []Finding {
 	var rep report
 	for _, d := range ctx.Repo().Documents() {
+		// A title or id that is missing, empty or did not parse is L01's to
+		// report, and the heading wanted from it would be wrong.
+		fm := d.FrontMatter
+		if !readable(d, "title") || fm.Title == "" || (d.Type.Numbered() && (!readable(d, "id") || fm.ID == "")) {
+			continue
+		}
 		want := d.FrontMatter.Title
 		if d.Type.Numbered() {
 			want = d.FrontMatter.ID + ": " + d.FrontMatter.Title
 		}
 		h1, ok := d.H1()
 		if !ok {
-			rep.errorf(d, 0, "the first heading must be an H1 reading %q", want)
+			rep.atf(severityFor(ctx, d), d, 0, "the first heading must be an H1 reading %q", want)
 			continue
 		}
 		if h1.Text != want {
-			rep.errorf(d, h1.Line, "H1 is %q but the front matter gives %q", h1.Text, want)
+			rep.atf(severityFor(ctx, d), d, h1.Line, "H1 is %q but the front matter gives %q", h1.Text, want)
 		}
 	}
 	return rep.findings
@@ -464,7 +513,7 @@ func L12(ctx Context) []Finding {
 		}
 		var obsolete []string
 		for _, id := range d.FrontMatter.Includes {
-			if target := ctx.Repo().ByID(id); target != nil && target.EffectivelyObsolete {
+			if target := ctx.Repo().ByID(id); target != nil && target.EffectivelyObsolete && !slices.Contains(obsolete, id) {
 				obsolete = append(obsolete, id)
 			}
 		}
@@ -489,7 +538,8 @@ func L13(ctx Context) []Finding {
 	// old was silent at midnight UTC and stale by breakfast in London.
 	cutoff := repo.StartOfDay(ctx.Now()).AddDate(0, 0, -days)
 	for _, d := range ctx.Repo().Documents() {
-		if d.Type != repo.TypeRef || d.FrontMatter.Verified.IsZero() || !d.FrontMatter.AsOf.IsZero() {
+		// An as_of that did not parse is L01's, and may well have been set.
+		if d.Type != repo.TypeRef || d.FrontMatter.Verified.IsZero() || !d.FrontMatter.AsOf.IsZero() || !readable(d, "as_of") {
 			continue
 		}
 		if !d.FrontMatter.Verified.Before(cutoff) {
@@ -635,6 +685,11 @@ func L11(ctx Context) []Finding {
 		rep.add(Error, ".", 0, err.Error())
 		return rep.findings
 	}
+	// Once, whichever side holds it. An error would hold for as long as the
+	// branch does, so a pull request mending the file could never pass.
+	if fault := cmp.Or(tip.Unreadable, atBase.Unreadable); fault != nil {
+		rep.addf(Warning, ".", 0, "the archdoc.json on %s cannot be read, so the working tree's settings stand for it: %v", branch, fault)
+	}
 
 	// Reported only where the file differs from the tip as well: a branch
 	// stacked on one whose acceptance was squash-merged holds exactly what the
@@ -731,7 +786,14 @@ func L15(ctx Context) []Finding {
 		if d == nil {
 			continue
 		}
-		if n := len(e.Paragraphs); n != 1 {
+		if e.Above != 0 {
+			rep.errorf(d, e.Above, "term %q has prose above its H1, where nothing is read as its definition", e.Term)
+		}
+		switch n := len(e.Paragraphs); {
+		case e.Other > 0:
+			rep.errorf(d, e.Line, "term %q has %d %s and %d other %s, want exactly one paragraph",
+				e.Term, n, plural(n, "paragraph", "paragraphs"), e.Other, plural(e.Other, "block", "blocks"))
+		case n != 1:
 			rep.errorf(d, e.Line, "term %q has %d paragraphs, want exactly one", e.Term, n)
 		}
 	}
@@ -769,7 +831,20 @@ func L16(ctx Context) []Finding {
 	var rep report
 	for _, d := range ctx.Repo().Documents() {
 		for _, link := range d.WikiLinks() {
-			rep.atf(severityFor(ctx, d), d, link.Line, "unresolved wiki link [[%s]]: run archdoc link", link.Name)
+			// The remedy is the one that clears it: archdoc link rewrites no
+			// frozen document, leaves a heading as written, and outside git
+			// cannot tell whether a terminal one is frozen. Frozen comes
+			// first, since L11 forbids editing a frozen heading by hand too.
+			remedy := "run archdoc link"
+			switch {
+			case ctx.Frozen(d):
+				remedy = "the document is frozen, so it is left as written"
+			case link.Heading:
+				remedy = "write the heading without it"
+			case ctx.Git() == nil && d.FrontMatter.Status.Terminal():
+				remedy = "archdoc link does not rewrite a terminal document outside a git repository, so replace it by hand"
+			}
+			rep.atf(severityFor(ctx, d), d, link.Line, "unresolved wiki link [[%s]]: %s", link.Name, remedy)
 		}
 	}
 	return rep.findings
@@ -907,6 +982,9 @@ func mustRel(top, root string) string {
 type existence map[string]map[string]bool
 
 func (e existence) exactly(base, rel string) bool {
+	if rel == "." {
+		return true // base itself, which no listing holds
+	}
 	dir := base
 	for _, name := range strings.Split(rel, "/") {
 		entries, ok := e[dir]

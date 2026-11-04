@@ -716,3 +716,97 @@ func TestSuggestLeavesAnInlineLinkDestinationAlone(t *testing.T) {
 		t.Errorf("Suggest offered %v inside an inline link's destination", got)
 	}
 }
+
+func TestSuggestLeavesAnHTMLBlockAndAWWWURLAlone(t *testing.T) {
+	// An HTML block runs to the blank line, so a line inside one holding no
+	// tag is still not markdown. GitHub links a www. URL with no scheme.
+	for _, body := range []string{
+		"<div>\nThe widget is the unit of work.\n</div>\n",
+		"See www.example.com/widget/docs for more.\n",
+	} {
+		r := suggestable(t, map[string]string{"Widget": "A small thing."}, body)
+		if got := suggestionsFor(t, r); len(got) != 0 {
+			t.Errorf("Suggest offered %v in:\n%s", got, body)
+		}
+	}
+}
+
+func TestSuggestOffersATargetOnlyBeforeItIsFirstLinked(t *testing.T) {
+	// The first occurrence is linked and later ones are left, so once it is,
+	// nothing more is offered for that target: --apply settles in one run.
+	// A link after the first mention does not make that mention linked.
+	r := repotest.New(t, map[string]string{
+		"rfc/0001-a.md": "---\nid: RFC-0001\ntitle: Alpha\nstatus: draft\n---\n\n# RFC-0001: Alpha\n",
+		"spec/linked.md": "---\ntitle: Linked\nincludes: []\n---\n\n# Linked\n\n" +
+			"First [RFC-0001](../rfc/0001-a.md), then RFC-0001.\n\nAnd RFC-0001 and [the widget](../GLOSSARY.md#widget) and widget.\n\n" +
+			"Again [RFC-0001](../rfc/0001-a.md).\n\n[alpha]: ../rfc/0001-a.md\n",
+		"spec/later.md":             "---\ntitle: Later\nincludes: []\n---\n\n# Later\n\nFirst RFC-0001, then [RFC-0001](../rfc/0001-a.md).\n",
+		repotest.TermPath("Widget"): repotest.Term("Widget", "A small thing."),
+	})
+	got := suggestionsFor(t, r)
+	if want := []string{`spec/later.md:8 "RFC-0001"`}; !slices.Equal(got, want) {
+		t.Errorf("Suggest offered %v, want %v", got, want)
+	}
+}
+
+func TestResolveReportsALinkInAHeadingAndWritesNothingForIt(t *testing.T) {
+	r := repotest.New(t, map[string]string{
+		"rfc/0001-a.md": "---\nid: RFC-0001\ntitle: Alpha\nstatus: draft\n---\n\n# RFC-0001: Alpha\n",
+		"spec/page.md":  "---\ntitle: Page\nincludes: []\n---\n\n# Page\n\n## Builds on [[RFC-0001]]\n\nWords.\n",
+	})
+	changes, findings := link.Resolve(lint.NewContext(r, nil, now))
+	if len(changes) != 0 {
+		t.Errorf("a document with nothing rewritten was written: %v", slices.Collect(maps.Keys(changes)))
+	}
+	if len(findings) != 1 || findings[0].Line != 8 || !strings.Contains(findings[0].Message, "write the heading without it") {
+		t.Errorf("want one finding at line 8 naming the edit, got %v", findings)
+	}
+}
+
+func TestSuggestCountsAReferenceLinkWhereItIsUsed(t *testing.T) {
+	// A reference link is a link where it is used, not where its definition
+	// stands, and a definition no text uses links nothing.
+	alpha := "---\nid: RFC-0001\ntitle: Alpha\nstatus: draft\n---\n\n# RFC-0001: Alpha\n"
+	page := func(body string) string {
+		return "---\ntitle: Page\nincludes: []\n---\n\n# Page\n\n" + body
+	}
+	r := repotest.New(t, map[string]string{
+		"rfc/0001-a.md":     alpha,
+		"spec/full.md":      page("See [Alpha][ALPHA], then RFC-0001, then [A](../rfc/0001-a.md).\n\n[alpha]: ../rfc/0001-a.md\n"),
+		"spec/collapsed.md": page("See [ALPHA][], then RFC-0001.\n\n[alpha]: ../rfc/0001-a.md\n"),
+		"spec/shortcut.md":  page("See [ALPHA], then RFC-0001.\n\n[alpha]: ../rfc/0001-a.md\n"),
+		// The first definition of a label is the one a use takes.
+		"spec/twice.md": page("See [Alpha][a], then RFC-0001.\n\n[a]: ../rfc/0001-a.md\n[a]: ../rfc/0002-b.md\n"),
+		"spec/after.md": page("First RFC-0001, then [Alpha][alpha].\n\n[alpha]: ../rfc/0001-a.md\n"),
+		"spec/none.md":  page("[alpha]: ../rfc/0001-a.md\n\nThen RFC-0001.\n"),
+	})
+	got := suggestionsFor(t, r)
+	if want := []string{`spec/after.md:8 "RFC-0001"`, `spec/none.md:10 "RFC-0001"`}; !slices.Equal(got, want) {
+		t.Errorf("Suggest offered %v, want %v", got, want)
+	}
+}
+
+func TestSuggestCountsALinkToATermsFileOrFormerName(t *testing.T) {
+	// A term is linked by its own file as well as by the generated glossary,
+	// and through the anchor a former name keeps there.
+	r := repotest.New(t, map[string]string{
+		"spec/file.md":     "---\ntitle: File\nincludes: []\n---\n\n# File\n\nThe [widget](../term/widget.md) and the widget.\n",
+		"spec/formerly.md": "---\ntitle: Formerly\nincludes: []\n---\n\n# Formerly\n\nThe [gadget](../GLOSSARY.md#gadget) and the widget.\n",
+		"term/widget.md":   "---\ntitle: Widget\nformerly: [Gadget]\nnamed_by:\n---\n\n# Widget\n\nA small thing.\n",
+	})
+	if got := suggestionsFor(t, r); len(got) != 0 {
+		t.Errorf("Suggest offered %v after a link to the term", got)
+	}
+}
+
+func TestSuggestOffersAMentionOnALineBeforeTheLink(t *testing.T) {
+	// The link stands at an earlier column on a later line: the mention still
+	// comes first.
+	r := repotest.New(t, map[string]string{
+		"rfc/0001-a.md": "---\nid: RFC-0001\ntitle: Alpha\nstatus: draft\n---\n\n# RFC-0001: Alpha\n",
+		"spec/page.md":  "---\ntitle: Page\nincludes: []\n---\n\n# Page\n\nA long run of words, then RFC-0001.\n\n[A](../rfc/0001-a.md).\n",
+	})
+	if got, want := suggestionsFor(t, r), []string{`spec/page.md:8 "RFC-0001"`}; !slices.Equal(got, want) {
+		t.Errorf("Suggest offered %v, want %v", got, want)
+	}
+}
