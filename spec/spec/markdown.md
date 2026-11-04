@@ -76,4 +76,4 @@ Nothing inside a code block or an HTML block is prose. It holds no heading, link
 
 ## Masking
 
-Before a body is searched, the text that must not match is masked: the inside of comments and code spans. The lines of code blocks and HTML blocks are not searched. Every masked byte becomes a space. The masked text is the same length as the text as written and differs from it only where a byte became a space, so a position found in one is the same position in the other. Masked text is never shown.
+Before a body is searched, the text that must not match is masked: the inside of comments and code spans. The lines of code blocks and HTML blocks are not searched. Every masked byte becomes a space. The masked text is the same length as the text as written and differs from it only where a byte became a space: a position in one is the same position in the other. Masked text is never shown.

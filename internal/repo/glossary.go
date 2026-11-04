@@ -33,8 +33,8 @@ type GlossaryEntry struct {
 	// the file as written, comments cut out, with LF line endings. It holds
 	// the blocks L15 reports too, rather than dropping them unseen.
 	Definition string
-	// Formerly holds the previous names recorded by `Formerly *Old Term*.`
-	// lines, which are not paragraphs.
+	// Formerly is the term file's `formerly`: its previous names, oldest
+	// first.
 	Formerly []string
 }
 

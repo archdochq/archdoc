@@ -14,10 +14,6 @@ import (
 	"archdoc.dev/internal/repotest"
 )
 
-// fixturePath is the shared fixture repository, used by every package that
-// needs a realistic set of documents.
-const fixturePath = "../../testdata/repo/archdoc.json"
-
 func openFixture(t *testing.T) *repo.Repo {
 	t.Helper()
 	return repotest.Fixture(t, "repo")

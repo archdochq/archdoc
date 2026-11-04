@@ -156,12 +156,10 @@ type Document struct {
 	unclosed bool
 	repo     *Repo
 
-	// lines and glossary are derived from an immutable document, so they are
-	// computed once on first use. bodyLines was re-splitting the whole body on
-	// every section lookup, which made reading a glossary quadratic in its
-	// entries.
-	lines    []string
-	glossary []GlossaryEntry
+	// lines is derived from an immutable document, so it is computed once on
+	// first use. bodyLines was re-splitting the whole body on every section
+	// lookup, which made reading a glossary quadratic in its entries.
+	lines []string
 }
 
 // Repo is the repository this document was discovered in.

@@ -53,7 +53,7 @@ A group names documents that belong together, such as the documents concerning o
 
 RFCs, ADRs and refs are numbered, each type in its own sequence starting at 1 and running to 9999. `archdoc new rfc|adr|ref "Title"` creates the next one: one above the highest number in that directory, so gaps are permitted and never filled. The filename is the number and a slug of the title, `rfc/0004-database-component.md`, and the `id` in the front matter must match it. The number is the identity: references between documents use the identifier, never the filename.
 
-A document that is no longer wanted is withdrawn, not deleted. `archdoc renumber <id|path> [new-id]` changes the number of a document that is not frozen, rewriting the file name, the `id`, the heading and every reference to it; [Contributing by pull request](pull-requests.md) covers when you need it.
+A document that is no longer wanted is withdrawn, not deleted. `archdoc renumber <id|path> [new-id]` changes the number of a document that is not frozen, rewriting the file name, the `id`, the heading and every reference to it, though not the text of a link to it; [Contributing by pull request](pull-requests.md) covers when you need it.
 
 ## The lifecycle
 

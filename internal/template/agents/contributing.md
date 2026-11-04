@@ -47,6 +47,7 @@ repository's CI runs `archdoc lint --merge`, which fails on a document arriving 
 ```
 archdoc link        resolve any [[...]] you wrote
 archdoc index       regenerate INDEX.md, which your new document changes
+archdoc glossary    regenerate GLOSSARY.md, where you added, renamed or removed a term
 archdoc lint        must exit 0
 archdoc lint --merge   once rebased onto the target branch, also exits 0
 ```
@@ -82,8 +83,8 @@ archdoc lint
 both rather than guessing, because guessing would renumber the other contributor's work.
 
 `renumber` takes the next free number, rewrites the filename, the `id` and the heading, and
-follows every reference to the old identifier. Pass a second argument to choose the number
-yourself.
+follows every reference to the old identifier, though not the text of a link to it. Pass the new
+identifier as a second argument, such as `RFC-0009`, to choose the number yourself.
 
 Expect `INDEX.md` to conflict on the rebase. Regenerating it is the resolution, never a hand
 merge.
@@ -113,9 +114,9 @@ archdoc withdraw RFC-0007
 
 ## What happens next
 
-Your pull request runs `archdoc lint --merge`, `archdoc index --check` and `archdoc changes`,
-which summarises what it does to the record. The checks must pass. Review is about the content;
-the tooling only checks the shape.
+Your pull request runs `archdoc lint --merge`, `archdoc index --check`, `archdoc glossary --check`
+and `archdoc changes`, which summarises what it does to the record. The checks must pass. Review is
+about the content; the tooling only checks the shape.
 
 Once it merges, your document is proposed on the branch and its number is permanent. A
 maintainer gives the verdict. Where `strict` is on, the default, that follows the merge, as a

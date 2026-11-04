@@ -1142,19 +1142,6 @@ func closesFence(line string, char byte, length int) bool {
 	return strings.TrimSpace(line[loc[3]:]) == ""
 }
 
-// hasContent reports whether text holds anything but whitespace and HTML
-// comments, reading a comment exactly as the prose walk does. A fenced block is
-// content, marker or no marker.
-func hasContent(text string) bool {
-	masked, _, _, _, _, _ := scanBody(text)
-	for _, line := range masked {
-		if strings.TrimSpace(line) != "" {
-			return true
-		}
-	}
-	return false
-}
-
 const (
 	commentOpen  = "<!--"
 	commentClose = "-->"
