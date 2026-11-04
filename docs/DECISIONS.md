@@ -203,9 +203,17 @@ would have to round-trip everything it parsed.
   one does, so the document's definitions are read before its links; without that, `[RFC [1]](x.md)`
   beside a definition of `[1]` was read as a link to `x.md`, which GitHub does not render. Each block
   that ends a paragraph ends the text, since text carried into the next block made a link of a `](`
-  whose `[` was in a heading, a table row or another list item. Whether a line opens a list item is
+  whose `[` was in a heading, a table row or another list item. ~~Whether a line opens a list item is
   the block walk's to say, as it depends on the containers around the line: a pattern read `2) ` as
-  an item anywhere, and so left readable a link inside a code span crossing it.
+  an item anywhere, and so left readable a link inside a code span crossing it.~~ Superseded, as a
+  pattern still decided headings and table rows: whether a line continues the paragraph before it is
+  the block walk's to say, for every block, as each depends on the containers around the line. A
+  pattern read `2) ` as an item anywhere, which left readable a link inside a code span crossing it,
+  and took a heading or a `|` line at any indentation, so link text wrapped onto `    # x`, or onto a
+  `|` line starting no table, was not read. A line starts a table only as the header above a
+  delimiter row of as many cells, as in GFM, and each row is read on its own, so neither link text
+  nor a comment opened in one runs into the next.
+  The scanner and the code span masker read the walk's answer rather than a rule of their own.
 - **Reading links is linear in the length of a line.** The first scanner ran the destination pattern
   from every `]` to the end of the line when no `)` followed, and made every open bracket inactive one
   at a time when a link closed, so a 60 KB line took ten seconds. The pattern is not tried after a
@@ -334,11 +342,13 @@ the result can delete content it never read.
   the heading as a second term. The blocks come from the document's own walk, and ~~a paragraph ends
   where the link scanner's blockStartPattern ends one, at a setext underline and a table row as well,
   so the two agree on where a paragraph stops.~~ Superseded, as the two did not agree: the link
-  scanner takes a heading or a table row at any indentation, since it does not know the indentation
+  scanner took a heading or a table row at any indentation, since it did not know the indentation
   of the list item holding a line, so `    | x` after a definition's line ended the paragraph for
   links and continued it for L15, which is what CommonMark does. A paragraph ends at a setext
-  underline and a table row as well, indented at most three spaces as a block start at the top level
-  is. A lone carriage return ends a line there, as it does in CommonMark and in what is published:
+  underline ~~and a table row as well,~~ indented at most three spaces as a block start at the top level
+  is, and at a table's header row, by the block walk's own test. The table row is struck because a
+  `|` line with no delimiter row beneath it is text in GFM, and L15 reported it. A lone carriage
+  return ends a line there, as it does in CommonMark and in what is published:
   read as part of its line, `Def.` and `More.` with a line feed and a carriage return between them
   passed L15 as one paragraph and were published as two. A comment marker inside a code block is
   code, and taking it as an open comment miscounted every block after the fence. Prose above the H1

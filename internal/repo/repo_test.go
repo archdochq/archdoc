@@ -1613,12 +1613,55 @@ func TestLinkTextEndsWithEveryBlock(t *testing.T) {
 		"para [x\n***\nmore](n.md)\n",
 		"- a\n    - [b\n    - c](n.md)\n",
 		"> - [a\n> - b](n.md)\n",
-		"| [c | d |\n| e](n.md) |\n",
+		"| [c | d |\n| - | - |\n| e](n.md) |\n",
 		"[a\n> b](n.md)\n",
 		"[a\n   - b](n.md)\n",
+		"- [a\n  # x\n  ](n.md)\n",
+		"# [a\n](n.md)\n",
+		"<!-- c --> [a\n](n.md)\n",
+		"[a\n| x |\n| - |\n](n.md)\n",
+		"[a\nx\n-|\n](n.md)\n",
+		"[a\n| x |\n- | -\n](n.md)\n",
+		"- [a\n  | x |\n  | - |\n  ](n.md)\n",
+		"p\n| x |\n| - |\n[a\n](n.md)\n",
+		"| x |\n| - |\n    [a](n.md)\n",
+		"> [a\n| x |\n> | - |\n> ](n.md)\n",
 	} {
 		if got := linksOf(t, body); len(got) != 0 {
 			t.Errorf("%q: links = %q, want none", body, got)
+		}
+	}
+}
+
+// TestLinkTextRunsOnWhereTheParagraphDoes: each of these lines looks like a
+// block but continues the paragraph, so a link whose text wraps onto it is
+// read. A heading or a table row indented four columns past its container's
+// content is text, and a row starts a table only as the header above a
+// delimiter row with as many cells.
+func TestLinkTextRunsOnWhereTheParagraphDoes(t *testing.T) {
+	for _, body := range []string{
+		"[a\n    # x\n](n.md)\n",
+		"[a\n\t# x\n](n.md)\n",
+		"- [a\n      # x\n  ](n.md)\n",
+		"> [a\n>     # x\n> ](n.md)\n",
+		"[a\n    | x\n](n.md)\n",
+		"[a\n| x\n](n.md)\n",
+		"| [c | d |\n| e](n.md) |\n",
+		"[a\n| x | y |\n| - |\n](n.md)\n",
+		"[a\n| x |\n    | - |\n](n.md)\n",
+		"[a\n| `b|c` |\n| - |\n](n.md)\n",
+		"[a\n| x \\| y |\n| - | - |\n](n.md)\n",
+		"[a <!-- c\nd -->\n](n.md)\n",
+		"- [a\n  | x |\n| - |\n  ](n.md)\n",
+		"Title\n---\n[a\n](n.md)\n",
+		"| x |\n- | -\n[a\n](n.md)\n",
+		"p\n| x |\n| - |\n> [a\n> ](n.md)\n",
+		"# h\n| - |\n[a\n](n.md)\n",
+		"[a\n| x ](n.md) |\n- |\n",
+		"| x |\n| - |\n\n[a\n](n.md)\n",
+	} {
+		if got := linksOf(t, body); len(got) != 1 || !strings.HasPrefix(got[0], "inline n.md ") {
+			t.Errorf("%q: links = %q, want the link to n.md", body, got)
 		}
 	}
 }
@@ -1729,7 +1772,9 @@ func TestATermDefinitionIsOneParagraphAndNothingElse(t *testing.T) {
 		{"a table row", "# Widget\n\nThe definition.\n| a | b |\n| - | - |\n", 1, 1, 0, "The definition."},
 		{"an indented table row", "# Widget\n\nThe definition.\n    | a |\n", 1, 0, 0, "The definition.\n    | a |"},
 		{"an underline indented as a block may be", "# Widget\n\nThe definition.\n  ===\n", 1, 1, 0, "The definition."},
-		{"a table row indented as a block may be", "# Widget\n\nThe definition.\n | a |\n", 1, 1, 0, "The definition."},
+		{"a table indented as a block may be", "# Widget\n\nThe definition.\n | a |\n | - |\n", 1, 1, 0, "The definition."},
+		{"a row with no delimiter row is text", "# Widget\n\nThe definition.\n | a |\n", 1, 0, 0, "The definition.\n | a |"},
+		{"a header row without pipes", "# Widget\n\nThe definition.\nx\n-|\n", 1, 1, 0, "The definition."},
 		// A lone carriage return ends a line, as CommonMark has it and as the
 		// definition is published.
 		{"a blank line ended by a lone carriage return", "# Widget\n\nThe definition.\n\rMore.\n", 2, 0, 0, "The definition."},
