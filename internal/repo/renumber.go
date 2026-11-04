@@ -292,12 +292,10 @@ func renameInSelf(d *Document, source []byte, from, to string) ([]byte, error) {
 		return source, nil
 	}
 	i := h1.Line - 1
-	// Only where the heading actually opens with the old identifier: a heading
-	// that does not match the front matter is L10's to report, not this
-	// command's to silently repair.
-	if strings.Contains(lines[i], from) {
-		lines[i] = strings.Replace(lines[i], from, to, 1)
-	}
+	// The first mention of the old identifier is replaced, wherever it is in
+	// the heading. A heading not holding it is left as it is, for L10 to
+	// report rather than this command to repair.
+	lines[i] = strings.Replace(lines[i], from, to, 1)
 	return []byte(strings.Join(lines, "\n")), nil
 }
 
