@@ -580,6 +580,28 @@ func scanBody(text string) (masked []string, literal []block, quoted, continues,
 	// containers held it. A block ends with its container; a comment inside a
 	// paragraph leaves the paragraph open around it.
 	block, depth := false, 0
+	// closing[k] is the first line from k on holding a comment's close.
+	closing := make([]int, len(lines)+1)
+	closing[len(lines)] = len(lines)
+	for k := len(lines) - 1; k >= 0; k-- {
+		closing[k] = closing[k+1]
+		if strings.Contains(lines[k], commentClose) {
+			closing[k] = k
+		}
+	}
+	// end is where the last paragraph asked about ends, found once for the
+	// paragraph rather than once for each comment or code span in it. A line
+	// at or past it is in another paragraph, whose end is found afresh.
+	end := 0
+	ends := func(i int) int {
+		if end <= i {
+			end = paragraphEnd(lines, i, &w)
+		}
+		return end
+	}
+	closes := func(i, from int) bool {
+		return strings.Contains(lines[i][from:], commentClose) || closing[i+1] < ends(i)
+	}
 	for i, line := range lines {
 		before := w.paragraph
 		if open && block {
@@ -596,7 +618,7 @@ func scanBody(text string) (masked []string, literal []block, quoted, continues,
 				if block {
 					return false
 				}
-				return closesInParagraph(lines, i, marker+len(commentOpen), &w)
+				return closes(i, marker+len(commentOpen))
 			})
 			w.paragraph = !block
 			continues[i] = before && w.paragraph
@@ -640,7 +662,7 @@ func scanBody(text string) (masked []string, literal []block, quoted, continues,
 				}
 				return strings.Contains(line[marker+len(commentOpen):pipes[0]], commentClose)
 			}
-			return closesInParagraph(lines, i, marker+len(commentOpen), &w) && !inCodeAcrossLines(lines, i, marker, &w)
+			return closes(i, marker+len(commentOpen)) && !inCodeAcrossLines(lines, i, marker, ends(i))
 		})
 		if opened {
 			// A comment block holds the rest of its first line, and ends
@@ -658,20 +680,6 @@ func scanBody(text string) (masked []string, literal []block, quoted, continues,
 	// end of the text. Either way the walk masked everything from there on,
 	// so the parse that follows is a prefix of what the author wrote.
 	return masked, literal, quoted, continues, rows, open || w.unclosed()
-}
-
-// closesInParagraph reports whether a comment opened at column from of line i
-// closes before its paragraph ends, w having read the lines up to i.
-func closesInParagraph(lines []string, i, from int, w *blockWalk) bool {
-	if strings.Contains(lines[i][from:], commentClose) {
-		return true
-	}
-	for _, line := range lines[i+1 : paragraphEnd(lines, i, w)] {
-		if strings.Contains(line, commentClose) {
-			return true
-		}
-	}
-	return false
 }
 
 // paragraphEnd is the index of the line that ends the paragraph holding line
@@ -699,8 +707,9 @@ func paragraphEnd(lines []string, i int, w *blockWalk) int {
 
 // inCodeAcrossLines reports whether the marker at column marker of line i sits
 // in a code span opening before it on that line and closing on a later line
-// of the paragraph. A span closing on the same line is maskCommentsIn's.
-func inCodeAcrossLines(lines []string, i, marker int, w *blockWalk) bool {
+// of the paragraph, which ends at line end. A span closing on the same line
+// is maskCommentsIn's.
+func inCodeAcrossLines(lines []string, i, marker, end int) bool {
 	s := lines[i]
 	for j := 0; j < marker; {
 		if s[j] != '`' {
@@ -715,7 +724,7 @@ func inCodeAcrossLines(lines []string, i, marker int, w *blockWalk) bool {
 			j = closed
 			continue
 		}
-		for _, next := range lines[i+1 : paragraphEnd(lines, i, w)] {
+		for _, next := range lines[i+1 : end] {
 			if matchingRun(next, 0, j-opening) > 0 {
 				return true
 			}
