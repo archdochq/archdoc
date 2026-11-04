@@ -28,7 +28,7 @@ The dependency list is cobra for the command tree, pflag for its flags, yaml.v3 
 
 ## Alternatives
 
-No alternatives were weighed.
+Whether any other module was weighed for either need is not recorded.
 
 ## Consequences
 
