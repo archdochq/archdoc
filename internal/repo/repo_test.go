@@ -1577,6 +1577,19 @@ func TestALongLineIsReadInLinearTime(t *testing.T) {
 	}
 }
 
+// TestAParagraphOfUnclosedCommentsIsReadInLinearTime: each comment opened in
+// a paragraph used to walk to the paragraph's end to find whether it closed,
+// so a paragraph of lines each opening one was quadratic: 4,000 lines took
+// twenty seconds.
+func TestAParagraphOfUnclosedCommentsIsReadInLinearTime(t *testing.T) {
+	body := strings.Repeat("x <!-- y\n", 20000)
+	started := time.Now()
+	linksOf(t, body)
+	if took := time.Since(started); took > 2*time.Second {
+		t.Errorf("reading 20,000 lines took %v", took)
+	}
+}
+
 // TestALineOfManyContainersIsReadInLinearTime: the column after each marker
 // was counted again from the start of the line, so a line of 40,000 quote
 // markers took three seconds.
@@ -1664,6 +1677,12 @@ func TestLinkTextEndsWithEveryBlock(t *testing.T) {
 		"- a <!-- x\n\t  ***\n  [y](n.md) -->\n",
 		"1.   - [a\n\t\t# x\n\t\t](n.md)\n",
 		"-\t  [a](n.md)\n",
+		"a <!--\nb|c\n:-\n--><!--\n[d](n.md)\n:-\n-->\n",
+		"> ` <!--\n> b`\n> --- <!-- c -->\nd <!--\n> [e](n.md)\n-->\n",
+		"` <!--\nb|c`\n:-\n--- <!-- c -->\nd <!--\n[e](n.md)|f\n-|-\n-->\n",
+		"a <!-- b\n\nc <!-- [d](n.md)\n-->\n",
+		"a <!--\n--> b <!-- [c](n.md)\n-->\n",
+		"a <!-- [b](n.md)\n-->\n",
 	} {
 		if got := linksOf(t, body); len(got) != 0 {
 			t.Errorf("%q: links = %q, want none", body, got)
@@ -1727,6 +1746,9 @@ func TestLinkTextRunsOnWhereTheParagraphDoes(t *testing.T) {
 		"  - [a\n\t\t # x\n    ](n.md)\n",
 		"-\t[a](n.md)\n",
 		"1.\t  [a](n.md)\n",
+		"a <!-- [b](n.md)",
+		"a <!--\n--> b <!--> [c](n.md)\n",
+		"a <!--\n--> b <!-- [c](n.md)\n\n-->\n",
 		"[a\n--- <!-- c -->\n](n.md)\n",
 		"[a\n#<!-- c -->\n](n.md)\n",
 		"[a\n*** <!-- c -->\n](n.md)\n",

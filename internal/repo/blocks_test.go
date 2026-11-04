@@ -62,6 +62,15 @@ func TestProseAfterABlockStaysVisible(t *testing.T) {
 	}
 }
 
+// TestACommentOnTheBodysFirstLineHidesWhatItHolds: a comment opened on the
+// first line of the body closes on a later line as it does anywhere else.
+func TestACommentOnTheBodysFirstLineHidesWhatItHolds(t *testing.T) {
+	d, _ := repo.Parse("spec/page.md", []byte("---\ntitle: Page\nincludes: []\n---\nText <!-- [[RFC-0001]]\n-->\n"))
+	if got := d.WikiLinks(); len(got) != 0 {
+		t.Errorf("wiki links = %v, want none", got)
+	}
+}
+
 // TestLiteralBlocksHoldNoProse: GitHub shows these as code or raw HTML, so
 // nothing in them is a heading, a link or a wiki link.
 func TestLiteralBlocksHoldNoProse(t *testing.T) {
