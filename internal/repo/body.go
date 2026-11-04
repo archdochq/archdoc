@@ -670,7 +670,7 @@ func scanBody(text string) (masked []string, literal []block, quoted, continues,
 			// there if it closes there, so it leaves no paragraph open.
 			w.paragraph = false
 		} else {
-			w.prose(line[at:], masked[i][min(at, len(masked[i])):], col)
+			w.prose(line[at:], col)
 			if header && w.paragraph {
 				w.open(leafTable)
 			}
@@ -996,15 +996,16 @@ func (w *blockWalk) open(leaf leafKind) {
 	w.leaf, w.depth, w.paragraph = leaf, len(w.stack), false
 }
 
-// prose records what a prose line leaves open: a paragraph, unless it was
-// blank as written, or, with its comments blanked, a heading, a thematic
-// break, a setext underline or a table row. A line holding only a comment
-// inside a paragraph is not blank, and continues it. Its content starts at
-// column from, past the columns the line's markers left spare.
-func (w *blockWalk) prose(written, content string, from int) {
-	content = lead(pad(strings.TrimSuffix(content, "\r"), from, w.spare))
-	w.paragraph = w.leaf != leafTable && strings.TrimSpace(written) != "" && !IsHeading(content) &&
-		!thematicPattern.MatchString(content) && !w.underline
+// prose records what a prose line, past its containers' markers, leaves
+// open: a paragraph, unless it is blank, a heading, a thematic break, a
+// setext underline or a table row. It is read as written, so a line holding
+// only a comment inside a paragraph is not blank and continues it, and a
+// comment after `***` makes the line text. Its content starts at column from,
+// past the columns the line's markers left spare.
+func (w *blockWalk) prose(written string, from int) {
+	t := lead(pad(strings.TrimSuffix(written, "\r"), from, w.spare))
+	w.paragraph = w.leaf != leafTable && strings.TrimSpace(written) != "" && !IsHeading(t) &&
+		!thematicPattern.MatchString(t) && !w.underline
 }
 
 // tableStarts reports whether a paragraph line, header from past its
@@ -2102,10 +2103,6 @@ func (in *inlineLinks) read(line ProseLine) []Link {
 				i += skip
 			}
 		}
-	}
-	if headingPattern.MatchString(s) {
-		// A heading is one line, so nothing it leaves open continues.
-		in.paragraph, in.open, in.inactiveBelow = nil, nil, 0
 	}
 	return links
 }
