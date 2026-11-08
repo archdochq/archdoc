@@ -4,8 +4,6 @@ import (
 	"maps"
 	"path/filepath"
 	"slices"
-
-	"archdoc.dev/internal/config"
 )
 
 // acknowledge leaves out each warning archdoc.json accepts, and returns what is
@@ -35,10 +33,9 @@ func acknowledge(ctx Context, findings []Finding) (kept, stale []Finding) {
 		kept = append(kept, f)
 	}
 
-	at := config.Filename
-	if rel, err := filepath.Rel(cfg.RootDir(), cfg.Path); err == nil {
-		at = filepath.ToSlash(rel)
-	}
+	// Both are absolute, so Rel cannot fail.
+	at, _ := filepath.Rel(cfg.RootDir(), cfg.Path)
+	at = filepath.ToSlash(at)
 	rep := report{}
 	for _, path := range slices.Sorted(maps.Keys(cfg.Acknowledged)) {
 		switch {

@@ -1,6 +1,7 @@
 package lint_test
 
 import (
+	"os/exec"
 	"slices"
 	"strings"
 	"testing"
@@ -90,6 +91,25 @@ func TestAWarningOnADocumentThatIsNotFrozenIsNeverAcknowledged(t *testing.T) {
 
 	if got := findingsFor(findings, "L13", path); len(got) != 1 || got[0].Severity != lint.Warning {
 		t.Errorf("L13 = %v, want its warning still reported", got)
+	}
+}
+
+func TestAWarningOnTheRepositoryIsNeverAcknowledged(t *testing.T) {
+	// Before the first commit, L11 warns at ".", which is not a document.
+	dir := t.TempDir()
+	if out, err := exec.Command("git", "-C", dir, "init", "-b", "main").CombinedOutput(); err != nil {
+		t.Fatalf("git init: %v\n%s", err, out)
+	}
+	write(t, dir, "archdoc.json", acknowledging(`{".": ["L11"]}`))
+
+	findings := lintDir(t, dir)
+
+	if got := findingsFor(findings, "L11", "."); len(got) != 1 || got[0].Severity != lint.Warning {
+		t.Errorf("L11 = %v, want its warning still reported", got)
+	}
+	want := []string{"acknowledged . is not a document: remove it from acknowledged"}
+	if got := messages(findingsFor(findings, "L22", "archdoc.json")); !slices.Equal(got, want) {
+		t.Errorf("L22 reports %q, want %q", got, want)
 	}
 }
 
