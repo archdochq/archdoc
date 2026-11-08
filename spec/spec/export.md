@@ -9,7 +9,7 @@ includes: [ADR-0019, ADR-0020, ADR-0021, ADR-0022, RFC-0004, RFC-0006, RFC-0007,
 
 ## Shape
 
-The output is an object with `schema`, currently `3`; `config`, every setting `archdoc.json` holds; `has_glossary`; `documents`, an array; `groups`, an array; `glossary`, an array of every term, present where `term/` exists and empty where it holds no terms; and `commit`, present only when `--commit` was given. The revision is taken as written and is not checked against a repository. `has_glossary` is present even where `glossary` is not, including in `index.json`, which carries no glossary.
+The output is an object with `schema`, currently `3`; `config`, every setting `archdoc.json` holds, with `acknowledged` an empty object where the file has none; `has_glossary`; `documents`, an array; `groups`, an array; `glossary`, an array of every term, present where `term/` exists and empty where it holds no terms; and `commit`, present only when `--commit` was given. The revision is taken as written and is not checked against a repository. `has_glossary` is present even where `glossary` is not, including in `index.json`, which carries no glossary.
 
 Each document carries its front matter, the derived reverse relationships (`updated_by`, `obsoleted_by`, `depended_on_by`, `included_in`, `groups`), the derived facts (`effectively_obsolete`, `implemented`, `stale`), `required_sections`, `contents`, `questions`, `changelog`, `rejection_rationale` and `links`, and `source` where it was asked for. Dates are ISO 8601 strings. A date or status that is not valid is omitted, and so is an entry of `depends`, `updates`, `obsoletes` or `includes` that is not an identifier. Every array field is an array and never null.
 

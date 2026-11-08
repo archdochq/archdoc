@@ -521,8 +521,8 @@ func TestEveryRuleHasAFixtureCase(t *testing.T) {
 			t.Errorf("no fixture document makes %s fire", rule.Code)
 		}
 	}
-	if len(lint.Rules) != 25 {
-		t.Errorf("registered %d rules, want 25", len(lint.Rules))
+	if len(lint.Rules) != 26 {
+		t.Errorf("registered %d rules, want 26", len(lint.Rules))
 	}
 }
 

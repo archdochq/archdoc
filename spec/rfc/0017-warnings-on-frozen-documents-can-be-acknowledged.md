@@ -1,7 +1,7 @@
 ---
 id: RFC-0017
 title: Warnings on frozen documents can be acknowledged
-status: draft
+status: proposed
 created: 2026-10-31
 decided:
 depends: [ADR-0009, ADR-0023]
@@ -37,9 +37,12 @@ A repository running `lint --strict-warnings` fails on such a warning for good. 
 |---|---|
 | `internal/config` | The `acknowledged` key: decoding, its default, and its shape |
 | `internal/lint` | Leaving acknowledged warnings out of a run's findings, and L22 |
+| `internal/reference` | `object` among the types the reference schema permits for a configuration key |
+| `internal/export` | `acknowledged` in the exported configuration, which publishes every setting `archdoc.json` holds, and in the export schema |
 | `testdata/lint` | A fixture for L22 |
 | Spec pages | `layout.md` for the key; `lint.md` for acknowledged warnings, their effect on `--strict-warnings`, and L22 |
 | `agents/triage.md` | Acknowledging a warning on a frozen document as its remedy, and the L22 row generated from the registry |
+| `PROCESS.md` | The key, and acknowledgements among what lint enforces |
 
 ### The key
 
@@ -68,7 +71,7 @@ Which paths name frozen documents and which codes name rules is not checked when
 2. A finding is acknowledged when its severity is warning, its path is a key of `acknowledged`, its rule is listed under that key, and the document at that path is frozen.
 3. An acknowledged finding is left out of the printed findings and the `--json` array.
 4. `--strict-warnings` exits 2 on a warning only where it is not acknowledged.
-5. L22 runs over the findings left after step 2 and reports each stale acknowledgement.
+5. L22 runs over the findings of step 1, before any is left out, and reports each stale acknowledgement.
 
 An error is never acknowledged, so an acknowledgement cannot hide a fault that can be cleared. A warning on a document that is not frozen is never acknowledged, since editing the document clears it.
 
@@ -80,9 +83,9 @@ An error, because `archdoc.json` is always editable. A fault that is later clear
 
 ### Examples
 
-ADR-0003 is accepted on `main` with its `decided` date before `created`. L07 reports `adr/0003-storage-engine.md:6: warning: decided 2026-01-05 is before created 2026-02-01` on every run. With `"acknowledged": {"adr/0003-storage-engine.md": ["L07"]}` the warning is not printed and `--strict-warnings` passes. If ADR-0003 later gains a broken link, L17's warning is printed, because only L07 is acknowledged there.
+An ADR at `adr/0003-storage-engine.md` is accepted on `main` with its `decided` date before `created`. L07 reports `adr/0003-storage-engine.md:6: warning: decided 2026-01-05 is before created 2026-02-01` on every run. With `"acknowledged": {"adr/0003-storage-engine.md": ["L07"]}` the warning is not printed and `--strict-warnings` passes. If it later gains a broken link, L17's warning is printed, because only L07 is acknowledged there.
 
-A repository acknowledges L17 on RFC-0012 for a link to a file that was deleted. The file is restored, L17 no longer reports the link, and L22 reports `archdoc.json: error: acknowledged rule L17 reports no warning on rfc/0012-retry-policy.md: remove it from acknowledged`.
+A repository acknowledges L17 on an RFC at `rfc/0012-retry-policy.md` for a link to a file that was deleted. The file is restored, L17 no longer reports the link, and L22 reports `archdoc.json: error: acknowledged rule L17 reports no warning on rfc/0012-retry-policy.md: remove it from acknowledged`.
 
 ### Out of scope
 
@@ -103,3 +106,7 @@ No other alternatives were weighed.
 ## Backwards compatibility
 
 Nothing changes for a repository without the key. A repository using it fails to load under an earlier release, whose `archdoc.json` decoder refuses an unknown key, so a CI pin older than the release adding it fails with a configuration error.
+
+## Changelog
+
+- 2026-11-04: `internal/reference`, `internal/export` and `PROCESS.md` are named in Components. The reference publishes each configuration key's type, the export publishes every setting `archdoc.json` holds, and `PROCESS.md` lists what lint enforces. Step 5 of the effect on lint says L22 reads the findings before any is left out, where it said after step 2. The examples name their documents by path, since ADR-0003 and RFC-0012 are documents in this repository.

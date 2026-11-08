@@ -22,7 +22,7 @@
     "config": {
       "type": "object",
       "description": "Every setting archdoc.json holds. The location it was read from is not among them: it describes the machine that ran the command.",
-      "required": ["name", "branch", "root", "strict", "ref_stale_days"],
+      "required": ["name", "branch", "root", "strict", "ref_stale_days", "acknowledged"],
       "additionalProperties": false,
       "properties": {
         "name": {"type": "string", "description": "The project name, used in the headings of the README and INDEX.md."},
@@ -30,7 +30,10 @@
         "root": {"type": "string", "description": "The directory holding the document directories and the files archdoc generates, relative to the directory holding archdoc.json."},
         "strict": {"type": "boolean", "description": "True keeps the transition graph as PROCESS.md gives it. False also permits draft to accepted and draft to rejected."},
         "ref_stale_days": {"type": "integer", "minimum": 0,
-                           "description": "How old a ref's verified date may be. 0 disables the check."}
+                           "description": "How old a ref's verified date may be. 0 disables the check."},
+        "acknowledged": {"type": "object",
+                         "additionalProperties": {"type": "array", "items": {"type": "string"}, "minItems": 1, "uniqueItems": true},
+                         "description": "Frozen documents, by path within root, and the rules whose warnings on each are accepted and left out of lint. Empty where archdoc.json names none."}
       }
     },
     "document": {

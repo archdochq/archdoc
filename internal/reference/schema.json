@@ -89,7 +89,7 @@
       "additionalProperties": false,
       "properties": {
         "key": {"type": "string"},
-        "type": {"enum": ["string", "boolean", "integer"]},
+        "type": {"enum": ["string", "boolean", "integer", "object"]},
         "required": {"type": "boolean"},
         "default": {"description": "The value taken where the key is absent, in the key's type. Absent for a key with no default."},
         "description": {"type": "string"}
