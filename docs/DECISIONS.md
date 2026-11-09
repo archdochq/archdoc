@@ -225,6 +225,13 @@ would have to round-trip everything it parsed.
   at a time when a link closed, so a 60 KB line took ten seconds. The pattern is not tried after a
   line's last `)`, inactivity is one bound on the stack rather than a flag on each bracket, and a
   label's length is measured only as far as the longest label can run.
+- **A paragraph's end is found once for the paragraph.** Each comment opened inside a paragraph walked
+  to the paragraph's end to learn whether it closed, and each code span left open before such a comment
+  walked there again, so a paragraph of lines each opening a comment was quadratic in its length.
+  `scanBody` finds the end once and every line before it reuses it; a line at or past it is in another
+  paragraph, and a line leaving no paragraph open discards it, since a comment in a heading asks for
+  the end of a paragraph that is not there. The first line from each line on holding a `-->` is found once for the body, so asking
+  whether a comment closes does not reread the lines of its paragraph.
 - **A line is a link reference definition only if that is all it is.** The pattern is anchored at both
   ends, requires a non-empty label, allows a title and does not count a line that interrupts a
   paragraph. Without the end anchor a footnote, a numbered citation or any sentence beginning with a
