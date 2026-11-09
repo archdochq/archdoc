@@ -414,6 +414,151 @@ func TestAnUnclosedFenceIsUnclosed(t *testing.T) {
 	}
 }
 
+// TestLinksAroundDeclarationsAndCommentsAreReadAsGitHubReadsThem: each reading
+// is cmark-gfm's.
+func TestLinksAroundDeclarationsAndCommentsAreReadAsGitHubReadsThem(t *testing.T) {
+	for name, c := range map[string]struct {
+		body string
+		want []string
+	}{
+		// <! opens an HTML block only before an uppercase letter.
+		"a lowercase declaration in link text":     {"[a\n<!x>\n](n.md)\n", []string{"n.md"}},
+		"an uppercase declaration in link text":    {"[a\n<!X>\n](n.md)\n", nil},
+		"a lowercase declaration in a blockquote":  {"> [a\n> <!x>\n> ](n.md)\n", []string{"n.md"}},
+		"a lowercase declaration in a list item":   {"- [a\n  <!x>\n  ](n.md)\n", []string{"n.md"}},
+		"a lowercase declaration in a CRLF file":   {"[a\r\n<!x>\r\n](n.md)\r\n", []string{"n.md"}},
+		"an uppercase declaration closes on its >": {"<!X y>\n[a](n.md)\n", []string{"n.md"}},
+		"a lowercase declaration alone is a para":  {"<!x>\n\n[a](n.md)\n", []string{"n.md"}},
+		// A heading is one line, so a comment closes on it or is text.
+		"an unclosed comment in a heading":          {"# a <!-- x\n[b](n.md) -->\n", []string{"n.md"}},
+		"in a CRLF heading":                         {"# a <!-- x\r\n[b](n.md) -->\r\n", []string{"n.md"}},
+		"in a heading in a blockquote":              {"> # a <!-- x\n> [b](n.md) -->\n", []string{"n.md"}},
+		"in a heading in a list item":               {"- # a <!-- x\n  [b](n.md) -->\n", []string{"n.md"}},
+		"a marker closing before the opener":        {"# a --> <!-- x\n[b](n.md) -->\n", []string{"n.md"}},
+		"a comment closed in a heading":             {"# a <!-- x --> [b](n.md)\n", []string{"n.md"}},
+		"a heading wins over a delimiter row":       {"# a|b <!-- x|[c](n.md) --> y\n-|-|-\n", nil},
+		"a heading three spaces in":                 {"   # a <!-- x\n[b](n.md) -->\n", []string{"n.md"}},
+		"a tab's spare columns make it no heading":  {"> p\n>\t  # a <!-- x\n> [b](n.md) -->\n", nil},
+		"a tab's spare columns make it a table row": {"> p\n>\t  <!-- c|[x](n.md) -->\n> -|-\n", []string{"n.md"}},
+		"a heading indented four is no heading":     {"p\n    # a <!-- x\n[b](n.md) -->\n", nil},
+		// A table's cells are parted first, so each is read on its own.
+		"a backtick in an earlier cell":            {"a|b\n-|-\n| `x | <!-- ` [c](n.md) --> |\n", nil},
+		"a backtick in an earlier cell, CRLF":      {"a|b\r\n-|-\r\n| `x | <!-- ` [c](n.md) --> |\r\n", nil},
+		"a backtick in an earlier header cell":     {"| `x | <!-- ` [c](n.md) --> |\n|-|-|\n", nil},
+		"a backtick in an earlier cell, quoted":    {"> a|b\n> -|-\n> | `x | <!-- ` [c](n.md) --> |\n", nil},
+		"a backtick in an earlier cell, listed":    {"- a|b\n  -|-\n  | `x | <!-- ` [c](n.md) --> |\n", nil},
+		"a span holding the marker in its cell":    {"a|b\n-|-\n| `x <!-- y` [c](n.md) --> | z |\n", []string{"n.md"}},
+		"a span holding a whole comment":           {"a|b\n-|-\n| `x <!-- y --> z` | [c](n.md) |\n", []string{"n.md"}},
+		"a marker closing in another cell":         {"a|b\n-|-\n| x <!-- y | [c](n.md) --> |\n", []string{"n.md"}},
+		"a marker closing before it in the cell":   {"a|b\n-|-\n| --> <!-- [x](n.md) | z |\n", []string{"n.md"}},
+		"a comment holding an escaped pipe":        {"a|b\n-|-\n| x \\| <!-- [c](n.md) --> |\n", nil},
+		"too few cells for a table":                {"`a|b <!-- x|y --> [c](n.md)\n-|-\n", []string{"n.md"}},
+		"a comment block on a header row":          {"<!-- c|d\n-|-\n--> x\n[y](n.md)\n", []string{"n.md"}},
+		"a comment block on a one-line header row": {"<!-- c -->|[x](m.md)\n-|-\n", nil},
+		// <!--> and <!---> are complete comments.
+		"an empty comment beginning a line":         {"<!-->\n[y](n.md)\n", []string{"n.md"}},
+		"a three-dash comment beginning a line":     {"<!--->\n[y](n.md)\n", []string{"n.md"}},
+		"text after an empty comment block":         {"<!--> x [y](n.md)\n[z](m.md)\n", []string{"m.md"}},
+		"text after a three-dash comment block":     {"<!---> x [y](n.md)\n[z](m.md)\n", []string{"m.md"}},
+		"an empty comment beginning a CRLF line":    {"<!-->\r\n[y](n.md)\r\n", []string{"n.md"}},
+		"an empty comment interrupting a paragraph": {"a\n<!-->\n[y](n.md)\n", []string{"n.md"}},
+		"an empty comment and an unclosed one":      {"a <!--> b <!-- c\n[y](n.md)\n", []string{"n.md"}},
+		"an empty comment and a closed one":         {"a <!--> <!-- [y](n.md)\nb --> c\n", nil},
+		"an empty comment in a code span":           {"`<!-->` [y](n.md)\n", []string{"n.md"}},
+		"an empty comment in a cell's code span":    {"a|b\n-|-\n| `x <!-->` [y](n.md) | z |\n", []string{"n.md"}},
+		"an escaped empty comment":                  {"\\<!--> [y](n.md)\n", []string{"n.md"}},
+		"a closed comment in a cell":                {"a|b\n-|-\n| x <!--> [y](n.md) | z |\n", []string{"n.md"}},
+		"a cell's empty comment closes it":          {"a|b\n-|-\n| x <!-->| [y](n.md) |\n", []string{"n.md"}},
+	} {
+		t.Run(name, func(t *testing.T) {
+			if got := linkTargets(page(t, c.body)); !slices.Equal(got, c.want) {
+				t.Errorf("links = %q, want %q in:\n%s", got, c.want, c.body)
+			}
+		})
+	}
+}
+
+// TestAnUnclosedCommentInAHeadingLeavesTheLinesAfterItRead: GitHub renders
+// the marker as text, so it opens nothing and the parse is not cut short.
+func TestAnUnclosedCommentInAHeadingLeavesTheLinesAfterItRead(t *testing.T) {
+	d := page(t, "# a <!-- x\n## b\n")
+	if got := headingTexts(d); !slices.Equal(got, []string{"a <!-- x", "b"}) {
+		t.Errorf("headings = %q, want [a <!-- x, b]", got)
+	}
+	if d.Unclosed() {
+		t.Error("the body reads as unclosed")
+	}
+}
+
+// TestAnEmptyCommentIsBlanked: <!--> and <!---> are comments wherever a comment
+// can open, and the masked text keeps every offset.
+func TestAnEmptyCommentIsBlanked(t *testing.T) {
+	for name, c := range map[string]struct{ body, want string }{
+		"in a paragraph":          {"a <!--> b\n", "a       b"},
+		"three dashes":            {"a <!---> b\n", "a        b"},
+		"before a later close":    {"a <!--> b -->\n", "a       b -->"},
+		"in a table cell":         {"a|b\n-|-\n| x <!--> y | z |\n", "| x       y | z |"},
+		"three dashes in cell":    {"a|b\n-|-\n| x <!---> y | z |\n", "| x        y | z |"},
+		"in a blockquote":         {"> a <!--> b\n", "> a       b"},
+		"in a list item":          {"- a <!--> b\n", "- a       b"},
+		"in a CRLF file":          {"a <!--> b\r\n", "a       b\r"},
+		"in a code span":          {"`<!-->`\n", "       "},
+		"escaped":                 {"\\<!-->\n", "\\<!-->"},
+		"after a comment's close": {"a <!--\n--> b <!--> c\n", "    b       c"},
+	} {
+		t.Run(name, func(t *testing.T) {
+			var last string
+			for line := range repo.Prose(c.body, 1) {
+				if line.Raw != "" {
+					last = line.Masked
+				}
+			}
+			if last != c.want {
+				t.Errorf("masked = %q, want %q", last, c.want)
+			}
+		})
+	}
+}
+
+// TestAnEmptyCommentLeavesLinkTextAndHeadings: GitHub renders nothing for it.
+func TestAnEmptyCommentLeavesLinkTextAndHeadings(t *testing.T) {
+	for body, want := range map[string]string{
+		"[a <!--> b](n.md)\n":     "a       b",
+		"[a <!---> b](n.md)\n":    "a        b",
+		"[a <!--> b](n.md) -->\n": "a       b",
+		"[a <!--> b\nc](n.md)\n":  "a       b\nc",
+	} {
+		links := page(t, body).Links()
+		if len(links) != 1 || links[0].Text != want {
+			t.Errorf("links = %+v, want text %q in:\n%s", links, want, body)
+		}
+	}
+	for body, want := range map[string]string{
+		"# a <!--> b\n":              "a--b",
+		"# a <!---> b\n":             "a--b",
+		"# a <!--> b <!-- c --> d\n": "a--b--d",
+		"# <!--> a\n":                "-a",
+	} {
+		if got := page(t, body).Headings()[1].Anchor; got != want {
+			t.Errorf("anchor = %q, want %q for %q", got, want, body)
+		}
+	}
+}
+
+// TestAnEmptyCommentInAnHTMLBlockEndsThere: a browser reads <!--> as a whole
+// comment, so what follows it in the block is a target.
+func TestAnEmptyCommentInAnHTMLBlockEndsThere(t *testing.T) {
+	for _, comment := range []string{"<!-->", "<!--->"} {
+		body := "<div>\n" + comment + " <a id=\"x\"></a> -->\n</div>\n"
+		if got := page(t, body).Anchors(); !slices.Contains(got, "x") {
+			t.Errorf("anchors = %q, want x in:\n%s", got, body)
+		}
+	}
+	if got := page(t, "<div>\n<!-- <a id=\"x\"></a> -->\n</div>\n").Anchors(); slices.Contains(got, "x") {
+		t.Errorf("anchors = %q, want no x inside a comment", got)
+	}
+}
+
 // TestAnHTMLBlockAtTheEndIsClosed: a blank line closes a <div> block, so the
 // end of a file with no final newline closes it too.
 func TestAnHTMLBlockAtTheEndIsClosed(t *testing.T) {

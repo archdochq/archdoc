@@ -182,10 +182,9 @@ func (d *Document) entryBlocks(from int) (paragraphs []string, other int) {
 			}
 		// A line is blank or a break as written, so one a comment holds whole
 		// inside a paragraph continues it, unless the comment opens a block.
-		// A heading is the section parse's.
 		case strings.TrimSpace(raw) == "" || strings.TrimSpace(m) == "" && (html || current != paragraph):
 			end()
-		case html || IsHeading(m) || thematicPattern.MatchString(raw) || setextPattern.MatchString(raw):
+		case html || IsHeading(raw) || thematicPattern.MatchString(raw) || setextPattern.MatchString(raw):
 			end()
 			other++
 		case d.quoted[i] || p+1 < len(pieces) && outside.tableStarts(raw, pieces[p+1].raw) || interruptsWithList(m, current == paragraph):

@@ -915,6 +915,10 @@ func FuzzProseNeverMovesAByte(f *testing.F) {
 		"> <!-- a\n> b --> [y](n.md)\r\n",
 		"```\n<!--\n```\ntext\n",
 		"<!-->empty\n",
+		"a <!---> b <!--> c\n",
+		"# a <!-- x\ny -->\n",
+		"a|b\n-|-\n| `x | <!-- ` y --> |\n",
+		"<!x>\n<!X>\n",
 		"`a` <!-- `b` --> `c`\n",
 		"unterminated <!-- runs on\nand on\n",
 		"é <!-- é --> é\n",
@@ -1122,9 +1126,12 @@ func TestACommentClosingInsideASectionLeavesItEmpty(t *testing.T) {
 	// invisible to the section-level check: the walk that had already masked
 	// it was thrown away and the stray "-->" left behind read as content.
 	// scanBody was the single definition of a comment but not the single walk.
+	// A comment can reach past a heading only where the line is a heading once
+	// masked: one written as a heading closes its comment on its line or holds
+	// none.
 	d := repotest.New(t, map[string]string{
 		"adr/0001-a.md": "---\nid: ADR-0001\ntitle: A\n---\n\n# ADR-0001: A\n\n" +
-			"## Consequences <!-- I will\nfill this in later -->\n\n",
+			"##<!-- a --> Consequences <!-- I will\nfill this in later -->\n\n",
 	}).ByPath("adr/0001-a.md")
 
 	sections := d.Sections("Consequences")
@@ -1133,6 +1140,20 @@ func TestACommentClosingInsideASectionLeavesItEmpty(t *testing.T) {
 	}
 	if !sections[0].Empty() {
 		t.Errorf("the section holds only a comment but does not read as empty; its text is %q", sections[0].Text)
+	}
+}
+
+func TestACommentOpenInAHeadingWrittenAsOneDoesNotRunOn(t *testing.T) {
+	d := repotest.New(t, map[string]string{
+		"adr/0001-a.md": "---\nid: ADR-0001\ntitle: A\n---\n\n# ADR-0001: A\n\n" +
+			"## Consequences <!-- I will\nfill this in later -->\n\n",
+	}).ByPath("adr/0001-a.md")
+	sections := d.Sections("Consequences <!-- I will")
+	if len(sections) != 1 {
+		t.Fatalf("want the heading read as written, got %q", d.SectionTitles())
+	}
+	if sections[0].Empty() {
+		t.Error("the line after the heading is text, but the section reads as empty")
 	}
 }
 
@@ -1901,6 +1922,11 @@ func TestATermDefinitionIsOneParagraphAndNothingElse(t *testing.T) {
 		{"an indented comment alone on a line", "# Widget\n\nThe definition.\n    <!-- c -->\nMore.\n", 1, 0, 0, "The definition.\nMore."},
 		{"a comment after a thematic break", "# Widget\n\nThe definition.\n*** <!-- c -->\n", 1, 0, 0, "The definition.\n***"},
 		{"a comment after a setext underline", "# Widget\n\nThe definition.\n=== <!-- c -->\n", 1, 0, 0, "The definition.\n==="},
+		{"a heading only once masked", "# Widget\n\nThe definition.\n#<!-- c -->\n", 1, 0, 0, "The definition.\n#"},
+		{"a heading only once masked, with text", "# Widget\n\nThe definition.\n#<!-- c --> x\n", 1, 0, 0, "The definition.\n# x"},
+		{"a heading in a comment-free definition", "# Widget\n\nThe definition.\n# x\n", 1, 1, 0, "The definition."},
+		{"a lowercase declaration", "# Widget\n\nThe definition.\n<!x>\n", 1, 0, 0, "The definition.\n<!x>"},
+		{"an uppercase declaration", "# Widget\n\nThe definition.\n<!X>\n", 1, 1, 0, "The definition."},
 		// A lone carriage return ends a line, as CommonMark has it and as the
 		// definition is published.
 		{"a blank line ended by a lone carriage return", "# Widget\n\nThe definition.\n\rMore.\n", 2, 0, 0, "The definition."},

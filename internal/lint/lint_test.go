@@ -312,6 +312,27 @@ func TestL15ReportsOtherBlocksAndProseAboveTheHeading(t *testing.T) {
 	}
 }
 
+// TestL15ReadsTextAsGitHubDoes: a lowercase declaration and a line that is a
+// heading only once masked are text in the definition's paragraph.
+func TestL15ReadsTextAsGitHubDoes(t *testing.T) {
+	const term = "---\ntitle: %s\nformerly: []\nnamed_by:\n---\n"
+	r := repotest.New(t, map[string]string{
+		"term/widget.md": fmt.Sprintf(term, "Widget") + "\n# Widget\n\nThe definition.\n<!x>\n",
+		"term/gadget.md": fmt.Sprintf(term, "Gadget") + "\n# Gadget\n\nThe definition.\n#<!-- c -->\n",
+		"term/gizmo.md":  fmt.Sprintf(term, "Gizmo") + "\n# Gizmo\n\nThe definition.\n<!X>\n",
+	})
+	var got []string
+	for _, f := range lint.Run(lint.NewContext(r, nil, now)) {
+		if f.Rule == "L15" {
+			got = append(got, fmt.Sprintf("%s:%d: %s", f.Path, f.Line, f.Message))
+		}
+	}
+	want := []string{`term/gizmo.md:7: term "Gizmo" has 1 paragraph and 1 other block, want exactly one paragraph`}
+	if !slices.Equal(got, want) {
+		t.Errorf("L15 reported\n%s\nwant\n%s", strings.Join(got, "\n"), strings.Join(want, "\n"))
+	}
+}
+
 func TestAnUnreadFrontMatterValueIsReportedOnce(t *testing.T) {
 	// A value that did not parse is L01's to report. Missing keys, L02's id
 	// and L10's heading compared against the zero value left in its place

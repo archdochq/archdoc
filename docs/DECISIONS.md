@@ -116,6 +116,15 @@ would have to round-trip everything it parsed.
   `<!--` in it. The rule that any unterminated `<!--` ran to the end hid every heading and link after
   a sentence mentioning the marker, and a code span wrapped onto a second line did the same, while
   GitHub showed them.
+- **A heading and a table cell hold their own comments.** A `<!--` in a heading is a comment only where
+  `-->` closes it on the heading's line: a heading is one line, and read as running on, a stray marker
+  hid lines GitHub renders. A row is parted into cells before anything else, as GFM
+  does, and each cell's comments and code spans are read in it, so a backtick in an earlier cell opens
+  no span over a marker in a later one. A heading or a comment block takes a line a delimiter row
+  follows, as neither is a table's header. `<!-->` and `<!--->` are complete comments, the `-->`
+  sharing the `<!--`'s dashes, in the masker and in the patterns that read a comment whole for anchors.
+  `<!` opens an HTML block only before an uppercase letter, as cmark-gfm has it, so `<!x>` is text in
+  its paragraph.
 - **A tab runs to the next multiple of four columns.** Counted as four wherever it fell, a tab after
   `- ` or `> ` read the item's text as an indented code block and hid its links.
 - **Code wins over comments; whichever of a comment and a fence opens first wins over the other.** A
@@ -224,6 +233,7 @@ would have to round-trip everything it parsed.
   The scanner and the code span masker read the walk's answer rather than a rule of their own.
   Section boundaries do not: a heading is read from the masked line there, so `#<!-- c --> x` opens a
   section while the scanner reads it as text, and L21 reports the difference at a `Changelog` section.
+  L15 reads such a line as written, as the scanner does, so it is text in a definition.
 - **Reading links is linear in the length of a line.** The first scanner ran the destination pattern
   from every `]` to the end of the line when no `)` followed, and made every open bracket inactive one
   at a time when a link closed, so a 60 KB line took ten seconds. The pattern is not tried after a
@@ -233,8 +243,9 @@ would have to round-trip everything it parsed.
   to the paragraph's end to learn whether it closed, and each code span left open before such a comment
   walked there again, so a paragraph of lines each opening a comment was quadratic in its length.
   `scanBody` finds the end once and every line before it reuses it; a line at or past it is in another
-  paragraph, and a line leaving no paragraph open discards it, since a comment in a heading asks for
-  the end of a paragraph that is not there. The first line from each line on holding a `-->` is found once for the body, so asking
+  paragraph~~, and a line leaving no paragraph open discards it, since a comment in a heading asks for
+  the end of a paragraph that is not there~~. A comment in a heading no longer asks: it closes on its
+  line or is text. The first line from each line on holding a `-->` is found once for the body, so asking
   whether a comment closes does not reread the lines of its paragraph.
 - **A line is a link reference definition only if that is all it is.** The pattern is anchored at both
   ends, requires a non-empty label, allows a title and does not count a line that interrupts a
