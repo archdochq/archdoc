@@ -92,8 +92,9 @@ A specification repository is a directory containing `archdoc.json` and, under `
 - `root`: as above.
 - `strict`: `true` keeps the transition graph as PROCESS.md gives it; `false` additionally permits `draft → accepted` and `draft → rejected`.
 - `ref_stale_days`: refs whose `verified` date is older than this produce a lint warning, except a ref carrying `as_of`. `0` disables the check; a negative value is a configuration error.
+- `acknowledged`: an object naming frozen documents, by path within `root` as lint prints it, and for each a list of the rule codes whose warnings on it [Lint](lint.md) leaves out, as in `"acknowledged": {"adr/0003-storage-engine.md": ["L07"]}`. Each list holds at least one code, each once. Anything else, `null` in a list included, is a configuration error. Which paths are documents and which codes are rules is not checked when the file is read; L22 reports both. `archdoc init` does not write it.
 
-A key not spelled exactly as shown is an error, and so is `null` for any key. A missing key takes the default shown, except `name`, which is required. The file is decoded onto a struct already holding the defaults, and the decoder must reach the end of the file.
+A key not spelled exactly as shown is an error, and so is `null` for any key. A missing key takes the default shown, except `name`, which is required, and `acknowledged`, which is empty. The file is decoded onto a struct already holding the defaults, and the decoder must reach the end of the file.
 
 ## Templates
 

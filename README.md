@@ -14,7 +14,7 @@ a repository describing several.
 
 RFCs and ADRs are frozen once they reach a terminal status. To change what an
 accepted document says you write a new one that updates or obsoletes it, and the
-tool enforces that: twenty-one lint rules, four more for pull requests, a
+tool enforces that: twenty-two lint rules, four more for pull requests, a
 generated index of every derived relationship, and a CI workflow it scaffolds for
 you.
 

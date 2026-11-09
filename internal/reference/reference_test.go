@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"reflect"
 	"regexp"
+	"slices"
 	"strings"
 	"testing"
 
@@ -174,5 +175,28 @@ func TestBuildFillsEverySection(t *testing.T) {
 	}
 	if !strings.Contains(string(encoded), `"key":"ref_stale_days","type":"integer","required":false,"default":180,`) {
 		t.Error("ref_stale_days does not carry its default as an integer")
+	}
+}
+
+func TestEveryConfigKeyTypeIsOneTheSchemaPermits(t *testing.T) {
+	var schema struct {
+		Defs struct {
+			ConfigKey struct {
+				Properties struct {
+					Type struct {
+						Enum []string `json:"enum"`
+					} `json:"type"`
+				} `json:"properties"`
+			} `json:"config_key"`
+		} `json:"$defs"`
+	}
+	if err := json.Unmarshal(reference.JSONSchema, &schema); err != nil {
+		t.Fatal(err)
+	}
+	permitted := schema.Defs.ConfigKey.Properties.Type.Enum
+	for _, k := range config.Keys {
+		if !slices.Contains(permitted, k.Type) {
+			t.Errorf("config key %s has type %q, which the reference schema does not permit: %v", k.Name, k.Type, permitted)
+		}
 	}
 }

@@ -27,7 +27,7 @@ disagree, the schema is right.
   "schema": 3,
   "commit": "49a14a5c2d3f9ac640bf7db8d88208254b9af105",
   "config": {"name": "ArchDoc", "branch": "main", "root": ".",
-             "strict": true, "ref_stale_days": 180},
+             "strict": true, "ref_stale_days": 180, "acknowledged": {}},
   "has_glossary": true,
   "documents": [],
   "groups": [],
@@ -36,10 +36,11 @@ disagree, the schema is right.
 ```
 
 `config` is every setting `archdoc.json` holds, so you can explain what frozen
-means, which transitions exist, and when a ref goes stale, rather than choosing
-your own answers. A ref carrying `as_of`, a record of an exchange, never goes
-stale, whatever its `verified` date. The location the configuration was read from is not among
-them: it describes the machine that ran the command.
+means, which transitions exist, when a ref goes stale, and which warnings lint
+leaves out, rather than choosing your own answers. A ref carrying `as_of`, a
+record of an exchange, never goes stale, whatever its `verified` date. The
+location the configuration was read from is not among them: it describes the
+machine that ran the command.
 
 `commit` appears only when `--commit` was given, and is taken as written.
 ArchDoc does not ask git, because a revision read from a working tree holding

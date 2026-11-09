@@ -64,6 +64,8 @@ type Config struct {
 	Root         string `json:"root"`
 	Strict       bool   `json:"strict"`
 	RefStaleDays int    `json:"ref_stale_days"`
+	// Acknowledged is empty, not absent, where archdoc.json names nothing.
+	Acknowledged map[string][]string `json:"acknowledged"`
 }
 
 // Document is one RFC, ADR, spec page or ref.
@@ -299,6 +301,7 @@ func Build(r *repo.Repo, opts Options) Repository {
 			Root:         c.Root,
 			Strict:       c.Strict,
 			RefStaleDays: c.RefStaleDays,
+			Acknowledged: c.Acknowledged,
 		},
 	}
 	entries, hasGlossary := r.Glossary()

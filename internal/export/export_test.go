@@ -886,3 +886,32 @@ func TestAHeadingOfLevelOneEndsAStructuredSection(t *testing.T) {
 		t.Errorf("contents = %q, want the H1 after the Changelog kept", got)
 	}
 }
+
+func TestAcknowledgedWarningsAreExported(t *testing.T) {
+	config := func(r export.Repository) map[string]any {
+		t.Helper()
+		raw, err := json.Marshal(r)
+		if err != nil {
+			t.Fatal(err)
+		}
+		var out struct {
+			Config map[string]any `json:"config"`
+		}
+		if err := json.Unmarshal(raw, &out); err != nil {
+			t.Fatal(err)
+		}
+		return out.Config
+	}
+
+	got := config(export.Build(repotest.NewWith(t,
+		`{"name": "X", "acknowledged": {"adr/0003-storage-engine.md": ["L07", "L10"]}}`, nil), export.Options{}))
+	want := map[string]any{"adr/0003-storage-engine.md": []any{"L07", "L10"}}
+	if !reflect.DeepEqual(got["acknowledged"], want) {
+		t.Errorf("acknowledged = %v, want %v", got["acknowledged"], want)
+	}
+
+	// Present where archdoc.json leaves it out, as every other setting is.
+	if got := config(export.Build(repotest.New(t, nil), export.Options{}))["acknowledged"]; !reflect.DeepEqual(got, map[string]any{}) {
+		t.Errorf("acknowledged = %#v where archdoc.json has none, want {}", got)
+	}
+}
