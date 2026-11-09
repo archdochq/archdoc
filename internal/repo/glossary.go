@@ -121,7 +121,8 @@ func (r *Repo) Term(name string) (GlossaryEntry, bool) {
 // entryBlocks reads the blocks from body line from to the end of the body,
 // subsections included, from the document's own walk: a comment opened before
 // the definition and closed inside it is already blanked there. A line holding
-// only a comment, like a blank one, separates blocks.
+// only a comment, like a blank one, separates blocks, unless it continues the
+// paragraph above it.
 //
 // A paragraph runs over the lines that continue it; a heading, a thematic
 // break, a list, a blockquote, a table, or a code or HTML block is another
@@ -180,8 +181,9 @@ func (d *Document) entryBlocks(from int) (paragraphs []string, other int) {
 				other++
 			}
 		// A line is blank or a break as written, so one a comment holds whole
-		// inside a paragraph continues it. A heading is the section parse's.
-		case strings.TrimSpace(raw) == "" || strings.TrimSpace(m) == "" && !d.continues[i]:
+		// inside a paragraph continues it, unless the comment opens a block.
+		// A heading is the section parse's.
+		case strings.TrimSpace(raw) == "" || strings.TrimSpace(m) == "" && (html || current != paragraph):
 			end()
 		case html || IsHeading(m) || thematicPattern.MatchString(raw) || setextPattern.MatchString(raw):
 			end()
@@ -237,8 +239,9 @@ func (d *Document) definition(from int) string {
 		line := withoutComments(strings.TrimSuffix(lines[i], "\r"), masked[i])
 		if strings.TrimSpace(line) == "" {
 			// A line a comment holds whole inside a paragraph leaves no gap
-			// in it, as a blank line would.
-			if d.continues[i] {
+			// in it, as a blank line would. A lone carriage return still ends
+			// the line it is on.
+			if d.continues[i] && !strings.Contains(line, "\r") {
 				continue
 			}
 			line = ""
