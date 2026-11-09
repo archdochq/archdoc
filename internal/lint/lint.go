@@ -488,6 +488,14 @@ var Rules = []Rule{
 		Since:   "v0.6.0",
 	},
 	{
+		Code: "L22",
+		// No Check: acknowledge, in acknowledged.go, computes it in Run.
+		Title:   "Every acknowledgement names a warning",
+		Summary: "An entry in `acknowledged` names a path that is not a document, a document that is not frozen, a code that is not an L rule, or a rule that reports no warning on the document",
+		Remedy:  "Remove the entry from `acknowledged`",
+		Since:   "v0.6.0",
+	},
+	{
 		Code:    "M01",
 		Check:   M01,
 		Title:   "No draft lands",
@@ -524,18 +532,8 @@ var Rules = []Rule{
 // Run applies every rule and returns the findings, ordered by path, then line,
 // then rule, so that output is stable between runs.
 func Run(ctx Context) []Finding {
-	// The registry is the single source of truth for a rule's code, so the rule
-	// functions do not repeat it on every finding they build.
-	var findings []Finding
-	for _, rule := range Rules {
-		if rule.Merge() && ctx.base == nil {
-			continue
-		}
-		for _, f := range rule.Check(ctx) {
-			f.Rule = rule.Code
-			findings = append(findings, f)
-		}
-	}
+	kept, stale := acknowledge(ctx, check(ctx))
+	findings := append(kept, stale...)
 	slices.SortStableFunc(findings, func(a, b Finding) int {
 		return cmp.Or(
 			strings.Compare(a.Path, b.Path),
@@ -543,5 +541,23 @@ func Run(ctx Context) []Finding {
 			strings.Compare(a.Rule, b.Rule),
 		)
 	})
+	return findings
+}
+
+// check applies every rule with a check. L22 has none: it judges what the others
+// report, and acknowledge computes it over their findings.
+func check(ctx Context) []Finding {
+	// The registry is the single source of truth for a rule's code, so the rule
+	// functions do not repeat it on every finding they build.
+	var findings []Finding
+	for _, rule := range Rules {
+		if rule.Check == nil || rule.Merge() && ctx.base == nil {
+			continue
+		}
+		for _, f := range rule.Check(ctx) {
+			f.Rule = rule.Code
+			findings = append(findings, f)
+		}
+	}
 	return findings
 }

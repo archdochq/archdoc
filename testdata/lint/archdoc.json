@@ -3,5 +3,8 @@
   "branch": "main",
   "root": ".",
   "strict": true,
-  "ref_stale_days": 180
+  "ref_stale_days": 180,
+  "acknowledged": {
+    "rfc/9999-l22-not-a-document.md": ["L07"]
+  }
 }

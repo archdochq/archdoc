@@ -690,6 +690,23 @@ the result can delete content it never read.
   Where the base has no `archdoc.json`, as before the pull request that adds ArchDoc, the working
   tree's is the only setting there is. ~~The base's is read at the working tree's location.~~ It is
   found as L11 finds it, so moving the file does not escape it.
+- **Acknowledged warnings are left out by `Run`, and L22 is computed there.** L22 judges what the
+  other rules report before any is left out, so `Run` applies every other rule, then separates the
+  acknowledged warnings and the stale acknowledgements in one pass. L22's registry entry has no
+  `Check`: `Run` is the only caller of one, and a check of its own would have to run every other
+  rule again, from an initialiser of `Rules` that refers to `Rules`, which Go refuses.
+- **With no branch, every acknowledgement is stale.** Outside a git repository or before the branch
+  exists nothing is frozen, so nothing is acknowledged and L22 reports each entry as not frozen.
+  Every other rule reads "no branch" as "nothing frozen" through the same `Frozen`. A fault that is a
+  warning only because its document is frozen is an error there anyway, so the exit status is the
+  same with or without the entry. A rule that warns on any document, as L18 does, exits 0 without the
+  entry and 2 with it. Treating it as unknown would add a state that holds for L22 alone.
+- **`archdoc init` does not write `acknowledged`.** The field is left out of the file where empty. A
+  release before the one reading the key refuses it as unknown, and a repository acknowledging
+  nothing must not fail under such a CI pin.
+- **The export carries `acknowledged`**, empty where `archdoc.json` has none, since `config` is every
+  setting the file holds and its schema refuses a property it does not declare. Adding a field does
+  not change `schema`.
 
 ## The index
 

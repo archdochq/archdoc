@@ -607,6 +607,37 @@ func TestLintStrictWarningsTurnsWarningsIntoFailure(t *testing.T) {
 	}
 }
 
+func TestLintLeavesOutAnAcknowledgedWarning(t *testing.T) {
+	const path = "rfc/0003-backdated.md"
+	dir := repository(t)
+	// Decided before it was created, and frozen by the commit, so L07's
+	// warning on it can never be cleared.
+	repotest.Write(t, dir, path, strings.Replace(rfc("RFC-0003", "Backdated", "accepted", " 2026-01-01"),
+		"created: 2026-01-01", "created: 2026-01-05", 1))
+	onMain(t, dir)
+	out, code := run(t, dir, "lint", "--strict-warnings")
+	if code != exitFindings || !strings.Contains(out, path+":6: warning: decided 2026-01-01 is before created 2026-01-05") {
+		t.Fatalf("before acknowledging: exit = %d, want %d with L07's warning on %s; output:\n%s", code, exitFindings, path, out)
+	}
+
+	repotest.Write(t, dir, "archdoc.json", `{"name": "Fixture", "acknowledged": {"`+path+`": ["L07"]}}`)
+
+	if out, code := run(t, dir, "lint", "--strict-warnings"); code != exitOK || out != "" {
+		t.Errorf("acknowledged: exit = %d, want %d and nothing printed; output:\n%s", code, exitOK, out)
+	}
+	out, code = run(t, dir, "lint", "--json")
+	if code != exitOK {
+		t.Fatalf("--json: exit = %d: %s", code, out)
+	}
+	var findings []map[string]any
+	if err := json.Unmarshal([]byte(out), &findings); err != nil {
+		t.Fatalf("--json output is not an array: %v\n%s", err, out)
+	}
+	if len(findings) != 0 {
+		t.Errorf("--json = %v, want no findings", findings)
+	}
+}
+
 func TestLinkResolvesWikiLinksAndWritesThem(t *testing.T) {
 	dir := repository(t)
 	repotest.Write(t, dir, "spec/queues.md",

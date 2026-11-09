@@ -243,6 +243,7 @@ Lint enforces:
 - Every relative link resolves to a file that exists, and to a heading or explicit anchor that exists where it carries an anchor.
 - Every `depends` entry references a document that is accepted, or one sharing the referencing document's own non-terminal status. Warning.
 - No `spec/glossary.md` is left from before terms became files. Warning.
+- Every warning `archdoc.json` acknowledges is one lint reports on a frozen document.
 
 On a pull request into the configured branch, `lint --merge` also enforces, judging each change as one step from that branch:
 
@@ -266,5 +267,7 @@ On a pull request into the configured branch, `lint --merge` also enforces, judg
   "ref_stale_days": 180
 }
 ```
+
+An optional `acknowledged` key names frozen documents and, for each, the rules whose warnings on it lint leaves out. Only a warning on a frozen document can be acknowledged.
 
 The process itself is not configurable. A project that needs a different process needs a different tool.

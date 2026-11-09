@@ -51,6 +51,7 @@ var Keys = []Key{
 	{Name: "root", Type: "string", Default: DefaultRoot},
 	{Name: "strict", Type: "boolean", Default: DefaultStrict},
 	{Name: "ref_stale_days", Type: "integer", Default: DefaultRefStaleDays},
+	{Name: "acknowledged", Type: "object", Default: map[string][]string{}},
 }
 
 // Config is the contents of archdoc.json.
@@ -60,6 +61,14 @@ type Config struct {
 	Root         string `json:"root"`
 	Strict       bool   `json:"strict"`
 	RefStaleDays int    `json:"ref_stale_days"`
+	// Acknowledged names frozen documents, by path within root, and the rules
+	// whose warnings on each are accepted. Which paths and codes these are is
+	// not checked here, since this package knows neither: L22 reports both.
+	//
+	// Left out where empty, so init does not write it: a release before the
+	// one reading it refuses the key, and a repository acknowledging nothing
+	// must not fail under such a pin.
+	Acknowledged map[string][]string `json:"acknowledged,omitempty"`
 
 	// Path is the absolute location of the archdoc.json this was loaded from.
 	// It is not part of the file, and naming it here keeps a document that
@@ -157,6 +166,7 @@ func Load(path string) (*Config, error) {
 		Root:         DefaultRoot,
 		Strict:       DefaultStrict,
 		RefStaleDays: DefaultRefStaleDays,
+		Acknowledged: map[string][]string{},
 	}
 	dec := json.NewDecoder(bytes.NewReader(data))
 	dec.DisallowUnknownFields()
@@ -186,6 +196,19 @@ func Load(path string) (*Config, error) {
 			return nil, fmt.Errorf("%s: %s must not be null", path, key)
 		}
 	}
+	// A null in a list of rules decodes as an empty string, which is the same
+	// leniency as null for a key, one level down.
+	if raw, ok := written["acknowledged"]; ok {
+		var rules map[string][]*string
+		if err := json.Unmarshal(raw, &rules); err != nil {
+			return nil, fmt.Errorf("%s: acknowledged: %w", path, err)
+		}
+		for _, doc := range slices.Sorted(maps.Keys(rules)) {
+			if slices.Contains(rules[doc], nil) {
+				return nil, fmt.Errorf("%s: acknowledged %s must not list null", path, doc)
+			}
+		}
+	}
 
 	if err := Validate(c); err != nil {
 		return nil, fmt.Errorf("%s: %w", path, err)
@@ -211,6 +234,17 @@ func Validate(c *Config) error {
 	}
 	if c.RefStaleDays < 0 {
 		return fmt.Errorf("ref_stale_days must not be negative, got %d", c.RefStaleDays)
+	}
+	for _, doc := range slices.Sorted(maps.Keys(c.Acknowledged)) {
+		rules := c.Acknowledged[doc]
+		if len(rules) == 0 {
+			return fmt.Errorf("acknowledged %s must list at least one rule", doc)
+		}
+		for i, rule := range rules {
+			if slices.Contains(rules[:i], rule) {
+				return fmt.Errorf("acknowledged %s lists %s twice", doc, rule)
+			}
+		}
 	}
 	if err := ValidateRoot(c.Root); err != nil {
 		return err
