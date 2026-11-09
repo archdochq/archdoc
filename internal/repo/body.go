@@ -479,7 +479,7 @@ func maskCode(text string) string {
 	out := []byte(text)
 	at := 0
 	for _, r := range backtickRuns(text) {
-		if r.start < at || r.close == 0 {
+		if r.start < at {
 			continue
 		}
 		for j := r.start; j < r.close; j++ {

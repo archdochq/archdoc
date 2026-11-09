@@ -179,6 +179,7 @@ func TestLinksAreReadWhereCommonMarkReadsThem(t *testing.T) {
 		"a comment in a table row closes on it or not at all":  {"| x |\n| - |\n| <!-- [y](a.md) |\n| --> |\n", []string{"a.md"}},
 		"an indented comment continues a paragraph":            {"p\n    <!-- c -->\n    code [x](a.md)\n", []string{"a.md"}},
 		"a comment closing on its table row":                   {"| x |\n| - |\n| <!-- [y](a.md) --> |\n", nil},
+		"a second comment closing in its cell":                 {"| x |\n| - |\n| <!-- a --> <!-- [y](a.md) --> |\n", nil},
 		"a commented paragraph continues lazily in a quote":    {"> Text <!-- x\ny --> [z](b.md)\n", []string{"b.md"}},
 		"a commented paragraph continues indented":             {"Text <!-- a\nb -->\n    more [x](a.md)\n", []string{"a.md"}},
 		"a comment four spaces in, then an indented line":      {"Text\n    <!-- a\nb -->\n    more [x](a.md)\n", []string{"a.md"}},
