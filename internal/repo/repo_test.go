@@ -1863,6 +1863,7 @@ func TestATermIsPublishedAsWritten(t *testing.T) {
 		"a comment never closed in text":       {"# Widget\n\nDef. <!-- open\n", "Def. <!-- open"},
 		"a marker in a code block":             {"# Widget\n\n```\n<!-- x\n", "```\n<!-- x"},
 		"a comment block ending with its item": {"# Widget\n\n- a\n\n  <!-- x\n\nAfter.\n", "- a\n\n  <!-- x\n\nAfter."},
+		"a comment block after a lone return":  {"# Widget\n\nDef.\n\r<!-- open\n", "Def."},
 		"a comment block in an item":           {"# Widget\n\n- <!-- x\n  more\n", "- <!-- x\n  more"},
 		"a line of spaces":                     {"# Widget\n\nDef.\n   \n\n- x\n", "Def.\n\n\n- x"},
 	} {

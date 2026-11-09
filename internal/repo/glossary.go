@@ -238,23 +238,24 @@ func readsAsBlock(line string) bool {
 // included, except a comment block left open at the end, which on the generated
 // page would run on over the terms after it. A line left blank is written
 // empty, and a lone carriage return, which CommonMark reads as a line ending,
-// as a line feed.
+// ends a line.
 func (d *Document) definition(from int) string {
 	lines, masked := d.bodyLines(), d.maskedLines()
 	out := make([]string, 0, len(lines)-from)
 	open := -1
 	for i := from; i < len(lines); i++ {
-		line := strings.TrimSuffix(lines[i], "\r")
-		if open < 0 && opensCommentBlock(line) {
-			open = len(out)
+		for line, m := range crLines(strings.TrimSuffix(lines[i], "\r"), strings.TrimSuffix(masked[i], "\r")) {
+			if open < 0 && opensCommentBlock(line) {
+				open = len(out)
+			}
+			if strings.Contains(line, commentClose) || strings.TrimSpace(m) != "" {
+				open = -1
+			}
+			if strings.TrimSpace(line) == "" {
+				line = ""
+			}
+			out = append(out, line)
 		}
-		if strings.Contains(line, commentClose) || strings.TrimSpace(masked[i]) != "" {
-			open = -1
-		}
-		if strings.TrimSpace(line) == "" {
-			line = ""
-		}
-		out = append(out, strings.ReplaceAll(line, "\r", "\n"))
 	}
 	if open >= 0 {
 		out = out[:open]
