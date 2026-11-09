@@ -1845,19 +1845,26 @@ func TestPermittedTransitions(t *testing.T) {
 // reports is not dropped from them as well.
 func TestATermIsPublishedAsWritten(t *testing.T) {
 	for name, c := range map[string]struct{ body, want string }{
-		"a fence and a paragraph after it": {"# Widget\n\nThe definition.\n```\ncode\n\nmore\n```\nAfter.\n", "The definition.\n```\ncode\n\nmore\n```\nAfter."},
-		"comments cut out":                 {"# Widget\n\nOne <!-- c --> two.\n  <!-- c -->  \n\n- an item\n\n<!-- c -->\n", "One  two.\n\n\n- an item"},
-		"CRLF":                             {"# Widget\r\n\r\nThe definition\r\nover two lines.\r\n", "The definition\nover two lines."},
-		"a lone carriage return":           {"# Widget\n\nThe definition\rover two lines.\n", "The definition\nover two lines."},
-		"no definition":                    {"# Widget\n", ""},
-		"a comment across a paragraph":     {"# Widget\n\ndef <!-- x\ny\nz --> more\n", "def \n more"},
-		"a comment and a lone return":      {"# Widget\n\np\n    <!-- c -->\r\r\nq\n", "p\n\nq"},
-		// Cutting a comment that is all that keeps a line text would publish
-		// another block, so the comment stays.
+		"a fence and a paragraph after it":    {"# Widget\n\nThe definition.\n```\ncode\n\nmore\n```\nAfter.\n", "The definition.\n```\ncode\n\nmore\n```\nAfter."},
+		"comments kept":                       {"# Widget\n\nOne <!-- c --> two.\n  <!-- c -->  \n\n- an item\n\n<!-- c -->\n", "One <!-- c --> two.\n  <!-- c -->  \n\n- an item\n\n<!-- c -->"},
+		"CRLF":                                {"# Widget\r\n\r\nThe definition\r\nover two lines.\r\n", "The definition\nover two lines."},
+		"a lone carriage return":              {"# Widget\n\nThe definition\rover two lines.\n", "The definition\nover two lines."},
+		"no definition":                       {"# Widget\n", ""},
+		"a comment across a paragraph":        {"# Widget\n\ndef <!-- x\ny\nz --> more\n", "def <!-- x\ny\nz --> more"},
+		"a comment and a lone return":         {"# Widget\n\np\n    <!-- c -->\r\r\nq\n", "p\n    <!-- c -->\n\nq"},
 		"a comment keeping a break text":      {"# Widget\n\nDef.\n*** <!-- c -->\n", "Def.\n*** <!-- c -->"},
 		"a comment keeping an underline text": {"# Widget\n\nDef.\n=== <!-- c -->\n", "Def.\n=== <!-- c -->"},
 		"a comment keeping a heading text":    {"# Widget\n\n#<!-- c --> x\n", "#<!-- c --> x"},
-		"a heading losing its comment":        {"# Widget\n\nDef.\n\n# a <!-- c -->\n", "Def.\n\n# a "},
+		"a heading keeping its comment":       {"# Widget\n\nDef.\n\n# a <!-- c -->\n", "Def.\n\n# a <!-- c -->"},
+		// A comment block never closed would run over the terms after it on
+		// the generated page.
+		"a comment block never closed":         {"# Widget\n\nDef.\n\n<!-- open\nmore\n\n", "Def."},
+		"a comment block opening another":      {"# Widget\n\nDef.\n<!-- a\n<!-- b\n", "Def."},
+		"a comment never closed in text":       {"# Widget\n\nDef. <!-- open\n", "Def. <!-- open"},
+		"a marker in a code block":             {"# Widget\n\n```\n<!-- x\n", "```\n<!-- x"},
+		"a comment block ending with its item": {"# Widget\n\n- a\n\n  <!-- x\n\nAfter.\n", "- a\n\n  <!-- x\n\nAfter."},
+		"a comment block in an item":           {"# Widget\n\n- <!-- x\n  more\n", "- <!-- x\n  more"},
+		"a line of spaces":                     {"# Widget\n\nDef.\n   \n\n- x\n", "Def.\n\n\n- x"},
 	} {
 		t.Run(name, func(t *testing.T) {
 			r := repotest.New(t, map[string]string{

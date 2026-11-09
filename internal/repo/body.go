@@ -352,7 +352,7 @@ func (d *Document) bodyLines() []string {
 // what a comment is without being the single walk over the document.
 func (d *Document) maskedLines() []string {
 	if d.masked == nil {
-		d.masked, d.literal, d.quoted, d.continues, _, d.unclosed = scanBody(d.Body)
+		d.masked, d.literal, d.quoted, _, _, d.unclosed = scanBody(d.Body)
 	}
 	return d.masked
 }

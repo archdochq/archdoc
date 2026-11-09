@@ -381,13 +381,17 @@ the result can delete content it never read.
   passed L15 as one paragraph and were published as two. A comment marker inside a code block is
   code, and taking it as an open comment miscounted every block after the fence. Prose above the H1
   is reported rather than dropped, since nothing publishes it. What is published is every line from
-  the H1 to the end of the file as written, with its comments cut out, rather than the paragraphs
-  alone: L15 reports a block that is not a paragraph, but export never fails on it, and publishing
+  the H1 to the end of the file as written, ~~with its comments cut out,~~ comments included, rather
+  than the paragraphs alone: L15 reports a block that is not a paragraph, but export never fails on it, and publishing
   only the paragraphs dropped the block from GLOSSARY.md, `term show` and the export unseen.
-  Printing the masked text showed the blanks a comment left. A comment on one line that is all that
+  Printing the masked text showed the blanks a comment left. ~~A comment on one line that is all that
   keeps it from being a heading, a thematic break or an underline stays, since cutting it published a
   block L15 had read as text. The decision is made a line at a time, so a comment spanning lines is
-  still cut.
+  still cut.~~ Cutting a comment changes what surrounds it: `Def.` above `*** <!-- c -->` passed L15
+  and published a thematic break, and a comment spanning lines could do the same, so comments are
+  published with the definition and `term show` and the export carry their text. A comment block
+  left open at the end of the file is the exception: `GLOSSARY.md` would read every term after it as
+  part of the comment.
 - **A writer refuses a document whose parse stops short of the file.** When the body ends inside an
   unterminated comment or an unclosed fence, every line range derived from the parse runs past the
   entries the parser could not see, and removing one glossary term deleted every entry below it on a

@@ -30,8 +30,8 @@ type GlossaryEntry struct {
 	Other      int
 	Above      int
 	// Definition is what is published: every line from the H1 to the end of
-	// the file as written, comments cut out, with LF line endings. It holds
-	// the blocks L15 reports too, rather than dropping them unseen.
+	// the file as written, with LF line endings. It holds the blocks L15
+	// reports too, rather than dropping them unseen.
 	Definition string
 	// Formerly is the term file's `formerly`: its previous names, oldest
 	// first.
@@ -168,7 +168,7 @@ func (d *Document) entryBlocks(from int) (paragraphs []string, other int) {
 		// A comment beginning a line opens an HTML block, as CommonMark
 		// has it, and the text after the marker closing it is the
 		// block's. Inside a code block the marker is code.
-		if t := strings.TrimLeft(raw, " "); d.literal[i] == blockProse && len(raw)-len(t) <= 3 && strings.HasPrefix(t, commentOpen) {
+		if d.literal[i] == blockProse && opensCommentBlock(raw) {
 			comment = true
 		}
 		html := comment
@@ -234,32 +234,39 @@ func readsAsBlock(line string) bool {
 	return IsHeading(line) || thematicPattern.MatchString(line) || setextPattern.MatchString(line)
 }
 
-// definition is the body from line from to its end as written, with the
-// comments cut out, except from a line only its comment keeps from being a
-// heading, a thematic break or an underline, which cutting it would publish.
-// A line left blank is written empty, and a lone carriage return, which
-// CommonMark reads as a line ending, as a line feed.
+// definition is the body from line from to its end as written, comments
+// included, except a comment block left open at the end, which on the generated
+// page would run on over the terms after it. A line left blank is written
+// empty, and a lone carriage return, which CommonMark reads as a line ending,
+// as a line feed.
 func (d *Document) definition(from int) string {
 	lines, masked := d.bodyLines(), d.maskedLines()
 	out := make([]string, 0, len(lines)-from)
+	open := -1
 	for i := from; i < len(lines); i++ {
-		written := strings.TrimSuffix(lines[i], "\r")
-		line := withoutComments(written, masked[i])
-		if readsAsBlock(line) && !readsAsBlock(written) {
-			line = written
+		line := strings.TrimSuffix(lines[i], "\r")
+		if open < 0 && opensCommentBlock(line) {
+			open = len(out)
+		}
+		if strings.Contains(line, commentClose) || strings.TrimSpace(masked[i]) != "" {
+			open = -1
 		}
 		if strings.TrimSpace(line) == "" {
-			// A line a comment holds whole inside a paragraph leaves no gap
-			// in it, as a blank line would. A lone carriage return still ends
-			// the line it is on.
-			if d.continues[i] && !strings.Contains(line, "\r") {
-				continue
-			}
 			line = ""
 		}
 		out = append(out, strings.ReplaceAll(line, "\r", "\n"))
 	}
+	if open >= 0 {
+		out = out[:open]
+	}
 	return strings.Trim(strings.Join(out, "\n"), "\n")
+}
+
+// opensCommentBlock reports whether a line, read outside any container, begins
+// with a comment at most three spaces in.
+func opensCommentBlock(line string) bool {
+	t := strings.TrimLeft(line, " ")
+	return len(line)-len(t) <= 3 && strings.HasPrefix(t, commentOpen)
 }
 
 // interruptsWithList reports whether a line opens a list item. Within a
