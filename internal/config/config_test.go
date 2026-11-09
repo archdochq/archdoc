@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
 
@@ -89,6 +90,13 @@ func TestLoadRejectsInvalidConfiguration(t *testing.T) {
 		{"branch git refuses", `{"name": "X", "branch": "a: b"}`, "branch"},
 		{"key in another case", `{"NAME": "X"}`, "NAME"},
 		{"null for a typed key", `{"name": "X", "strict": null}`, "strict"},
+		{"acknowledged not an object", `{"name": "X", "acknowledged": ["L07"]}`, "acknowledged"},
+		{"acknowledged rules not a list", `{"name": "X", "acknowledged": {"adr/0001-a.md": "L07"}}`, "acknowledged"},
+		{"acknowledged rule not a string", `{"name": "X", "acknowledged": {"adr/0001-a.md": [7]}}`, "acknowledged"},
+		{"acknowledged rule null", `{"name": "X", "acknowledged": {"adr/0001-a.md": ["L07", null]}}`, "adr/0001-a.md"},
+		{"acknowledged rules null", `{"name": "X", "acknowledged": {"adr/0001-a.md": null}}`, "adr/0001-a.md"},
+		{"acknowledged rules empty", `{"name": "X", "acknowledged": {"adr/0001-a.md": []}}`, "adr/0001-a.md"},
+		{"acknowledged rule repeated", `{"name": "X", "acknowledged": {"adr/0001-a.md": ["L07", "L10", "L07"]}}`, "L07"},
 	}
 
 	for _, tc := range cases {
@@ -101,6 +109,36 @@ func TestLoadRejectsInvalidConfiguration(t *testing.T) {
 				t.Errorf("error = %q, want it to mention %q", err, tc.want)
 			}
 		})
+	}
+}
+
+func TestLoadReadsAcknowledgedWarnings(t *testing.T) {
+	c, err := config.Load(writeConfig(t, `{
+  "name": "X",
+  "acknowledged": {
+    "adr/0003-storage-engine.md": ["L07", "L10"],
+    "rfc/0012-retry-policy.md": ["L17"]
+  }
+}`))
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	want := map[string][]string{
+		"adr/0003-storage-engine.md": {"L07", "L10"},
+		"rfc/0012-retry-policy.md":   {"L17"},
+	}
+	if !reflect.DeepEqual(c.Acknowledged, want) {
+		t.Errorf("Acknowledged = %v, want %v", c.Acknowledged, want)
+	}
+}
+
+func TestLoadLeavesAcknowledgedEmptyWhenAbsent(t *testing.T) {
+	c, err := config.Load(writeConfig(t, `{"name": "X"}`))
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if c.Acknowledged == nil || len(c.Acknowledged) != 0 {
+		t.Errorf("Acknowledged = %#v, want an empty map", c.Acknowledged)
 	}
 }
 
@@ -284,9 +322,14 @@ func TestLoadAppliesTheDefaultsTheTableGives(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	jsonType := map[string]string{"string": "string", "bool": "boolean", "float64": "integer"}
+	jsonType := map[string]string{"string": "string", "bool": "boolean", "float64": "integer", "map[string]interface {}": "object"}
 	for _, key := range config.Keys {
 		value, ok := loaded[key.Name]
+		if !ok && key.Name == "acknowledged" {
+			// An empty object is left out of the file init writes, and
+			// TestLoadLeavesAcknowledgedEmptyWhenAbsent holds its default.
+			continue
+		}
 		if !ok {
 			t.Errorf("%s is in the table but not a key of archdoc.json", key.Name)
 			continue
@@ -304,7 +347,7 @@ func TestLoadAppliesTheDefaultsTheTableGives(t *testing.T) {
 		var want any
 		b, _ := json.Marshal(key.Default)
 		_ = json.Unmarshal(b, &want)
-		if value != want {
+		if !reflect.DeepEqual(value, want) {
 			t.Errorf("%s loads as %v when absent, but the table gives %v", key.Name, value, want)
 		}
 	}
