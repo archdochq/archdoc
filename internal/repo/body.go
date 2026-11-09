@@ -591,8 +591,9 @@ func scanBody(text string) (masked []string, literal []block, quoted, continues,
 	}
 	// end is where the paragraph holding the first comment or code span
 	// asked about ends, found once rather than once for each. A line at or
-	// past it is in another paragraph, whose end is found afresh. A line
-	// before it keeps it.
+	// past it is in another paragraph, whose end is found afresh, and so is
+	// the end after a line leaving no paragraph open, as a comment in a heading
+	// asks for one where there is none. A line before it keeps it.
 	end := 0
 	ends := func(i int) int {
 		if end <= i {
@@ -605,6 +606,9 @@ func scanBody(text string) (masked []string, literal []block, quoted, continues,
 	}
 	for i, line := range lines {
 		before := w.paragraph
+		if !before {
+			end = 0
+		}
 		if open && block {
 			if n, _, _ := w.continued(strings.TrimSuffix(line, "\r")); n < depth {
 				open = false
