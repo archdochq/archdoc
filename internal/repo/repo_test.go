@@ -1613,6 +1613,37 @@ func TestAParagraphOfUnclosedCommentsIsReadInLinearTime(t *testing.T) {
 	}
 }
 
+// TestALineOfManyCommentMarkersIsReadInLinearTime: each marker on a line asked
+// whether the rest of the line closed it, where the next code span began, and
+// which spans were left open before it, so a line of 40,000 took twenty seconds
+// and one in a heading took minutes. A line of many spans and one marker is
+// longer, as finding the same marker again is quick but no less quadratic.
+func TestALineOfManyCommentMarkersIsReadInLinearTime(t *testing.T) {
+	const n = 40000
+	unclosed := strings.Repeat("a <!--", n)
+	for _, shape := range []struct{ name, body string }{
+		{"each after a backtick", strings.Repeat("` <!--", n) + "\n`\n-->\n"},
+		{"never closed", unclosed + "\n"},
+		{"each closed", strings.Repeat("a <!-- b --> ", n) + "\n"},
+		{"in a table row's cell", "| h |\n|---|\n| " + unclosed + " |\n"},
+		{"in a heading", "### " + unclosed + "\n\ntext\n"},
+		{"in link text", "[" + unclosed + "](x.md)\n"},
+		{"inside a code span closing on the next line", "`` " + unclosed + "\n``\n-->\n"},
+		{"after the close of a comment in a paragraph", "x <!-- y\n--> " + unclosed + "\n"},
+		{"after a comment block", "<!-- x --> " + unclosed + "\n"},
+		{"after a long indent", "para\n" + strings.Repeat(" ", 2*n) + unclosed + "\n"},
+		{"after many code spans", strings.Repeat("`a` ", 300000) + "<!-- x\n"},
+	} {
+		t.Run(shape.name, func(t *testing.T) {
+			started := time.Now()
+			linksOf(t, shape.body)
+			if took := time.Since(started); took > 2*time.Second {
+				t.Errorf("reading the line took %v", took)
+			}
+		})
+	}
+}
+
 // TestALineOfManyContainersIsReadInLinearTime: the column after each marker
 // was counted again from the start of the line, so a line of 40,000 quote
 // markers took three seconds.

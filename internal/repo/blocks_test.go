@@ -225,6 +225,8 @@ func TestLinksAreReadWhereCommonMarkReadsThem(t *testing.T) {
 		"a line numbered 2 continues a commented item":                {"- a <!-- x\n  2. b [z](a.md) -->\n", nil},
 		"a code span opening after the marker":                        {"Text <!-- [a](a.md) `y\nz` -->\n", nil},
 		"a code span closing before the marker":                       {"`a` <!-- [x](a.md)\n`b` -->\n", nil},
+		"a run inside a code span opens no other":                     {"`a``b` [x](a.md) ``\n", []string{"a.md"}},
+		"a code span closes only on a run of its own length":          {"`` ` `` [x](a.md) `\n", []string{"a.md"}},
 		"a backtick closing only past the paragraph":                  {"A `x <!-- [a](a.md) -->\nmore\n\nb` c\n", nil},
 		// Containers, lazy continuation and the leaf blocks they hold.
 		"code after a quote's blank line":                      {"> a\n>\n    [x](a.md)\n", nil},

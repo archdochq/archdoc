@@ -464,7 +464,8 @@ func maskCells(row string, mask func(cell string) string) string {
 // cell opens runs past it, so whether a marker is in a code span is read
 // within the cell too.
 func maskCellComments(cell string) string {
-	masked, _ := maskCommentsIn(cell, false, func(marker int) bool { return closedIn(cell, marker) })
+	last := strings.LastIndex(cell, commentClose)
+	masked, _ := maskCommentsIn(cell, false, func(marker int) bool { return closedIn(last, marker) })
 	return masked
 }
 
@@ -476,22 +477,28 @@ func (d *Document) Prose() iter.Seq[ProseLine] { return Prose(d.Body, d.BodyLine
 // is kept, so text joined from several lines splits back into them.
 func maskCode(text string) string {
 	out := []byte(text)
-	for i := 0; i < len(text); {
-		start, end, ok := codeSpan(text[i:])
-		if !ok {
-			break
+	at := 0
+	for _, r := range backtickRuns(text) {
+		if r.start < at || r.close == 0 {
+			continue
 		}
-		for j := i + start; j < i+end; j++ {
+		for j := r.start; j < r.close; j++ {
 			if out[j] != '\n' && out[j] != '\r' {
 				out[j] = ' '
 			}
 		}
-		i += end
+		at = r.close
 	}
 	return string(out)
 }
 
-// codeSpan finds the first inline code span in s and returns its byte range.
+// backtickRun is one run of backticks, s[start:end], and close the index just
+// past the next run of exactly its length, or 0 when none follows.
+type backtickRun struct{ start, end, close int }
+
+// backtickRuns finds the runs of backticks in s and what closes each, once for
+// the text, so that where the next code span lies is a walk along the result
+// however many times it is asked.
 //
 // A span opens on a run of backticks and closes on a run of exactly the same
 // length. That "exactly the same" is what a regular expression cannot say here:
@@ -501,23 +508,26 @@ func maskCode(text string) string {
 // is how “a `<!--` “ in a document opened a comment and buried the headings
 // below it.
 //
-// A run with no matching closer is literal text, and scanning resumes just
-// after it, so a shorter span later on the line is still found.
-func codeSpan(s string) (start, end int, ok bool) {
-	for i := 0; i < len(s); {
-		if s[i] != '`' {
-			i++
-			continue
-		}
-		opening := i
-		for i < len(s) && s[i] == '`' {
-			i++
-		}
-		if closed := matchingRun(s, i, i-opening); closed > 0 {
-			return opening, closed, true
+// A run with no matching closer is literal text, and a shorter span later on
+// the line is still found.
+func backtickRuns(s string) []backtickRun {
+	var runs []backtickRun
+	for i := 0; i < len(s); i++ {
+		if s[i] == '`' {
+			start := i
+			for i+1 < len(s) && s[i+1] == '`' {
+				i++
+			}
+			runs = append(runs, backtickRun{start: start, end: i + 1})
 		}
 	}
-	return 0, 0, false
+	next := map[int]int{} // by length, the end of the nearest run after this one
+	for k := len(runs) - 1; k >= 0; k-- {
+		n := runs[k].end - runs[k].start
+		runs[k].close = next[n]
+		next[n] = runs[k].end
+	}
+	return runs
 }
 
 // matchingRun is the index just past the first run of exactly n backticks at or
@@ -589,12 +599,15 @@ func scanBody(text string) (masked []string, literal []block, quoted, continues,
 	// containers held it. A block ends with its container; a comment inside a
 	// paragraph leaves the paragraph open around it.
 	block, depth := false, 0
-	// closing[k] is the first line from k on holding a comment's close.
+	// closing[k] is the first line from k on holding a comment's close, and
+	// last[k] where the last close on line k begins, or -1.
 	closing := make([]int, len(lines)+1)
 	closing[len(lines)] = len(lines)
+	last := make([]int, len(lines))
 	for k := len(lines) - 1; k >= 0; k-- {
 		closing[k] = closing[k+1]
-		if strings.Contains(lines[k], commentClose) {
+		last[k] = strings.LastIndex(lines[k], commentClose)
+		if last[k] >= 0 {
 			closing[k] = k
 		}
 	}
@@ -610,7 +623,7 @@ func scanBody(text string) (masked []string, literal []block, quoted, continues,
 		return end
 	}
 	closes := func(i, marker int) bool {
-		return closedIn(lines[i], marker) || closing[i+1] < ends(i)
+		return closedIn(last[i], marker) || closing[i+1] < ends(i)
 	}
 	for i, line := range lines {
 		before := w.paragraph
@@ -665,6 +678,10 @@ func scanBody(text string) (masked []string, literal []block, quoted, continues,
 		header := i+1 < len(lines) && w.tableStarts(line[at:], lines[i+1])
 		row := !heading && !strings.HasPrefix(t, commentOpen) && (header || w.leaf == leafTable)
 		opened := false // a comment block opened on this line holds the rest of it
+		// leading is whether no marker has asked yet, as only the first to ask
+		// can have nothing before it, and left where a span left open on the
+		// line starts, found for the first marker that needs it.
+		leading, left := true, -1
 		if row {
 			masked[i] = maskCells(line, maskCellComments)
 		} else {
@@ -675,15 +692,21 @@ func scanBody(text string) (masked []string, literal []block, quoted, continues,
 				// A comment starting a block runs until it closes, however far
 				// that is. One opened inside a paragraph is raw HTML only where
 				// it closes before the paragraph ends, and text otherwise.
-				if strings.TrimSpace(line[at:marker]) == "" && w.spare+indentColumns(line[at:marker], col) <= 3 {
+				if leading && strings.TrimSpace(line[at:marker]) == "" && w.spare+indentColumns(line[at:marker], col) <= 3 {
 					block, depth, opened = true, len(w.stack), true
 					return true
 				}
-				block = false
+				leading, block = false, false
 				if heading {
-					return closedIn(line, marker)
+					return closedIn(last[i], marker)
 				}
-				return closes(i, marker) && !inCodeAcrossLines(lines, i, marker, ends(i))
+				if !closes(i, marker) {
+					return false
+				}
+				if left < 0 {
+					left = spanLeftOpen(lines, i, ends(i))
+				}
+				return marker < left
 			})
 		}
 		if opened {
@@ -742,32 +765,26 @@ func paragraphEnd(lines []string, i int, w *blockWalk) int {
 	return len(lines)
 }
 
-// inCodeAcrossLines reports whether the marker at column marker of line i sits
-// in a code span opening before it on that line and closing on a later line
-// of the paragraph, which ends at line end. A span closing on the same line
-// is maskCommentsIn's.
-func inCodeAcrossLines(lines []string, i, marker, end int) bool {
-	s := lines[i]
-	for j := 0; j < marker; {
-		if s[j] != '`' {
-			j++
-			continue
-		}
-		opening := j
-		for j < len(s) && s[j] == '`' {
-			j++
-		}
-		if closed := matchingRun(s, j, j-opening); closed > 0 {
-			j = closed
-			continue
-		}
-		for _, next := range lines[i+1 : end] {
-			if matchingRun(next, 0, j-opening) > 0 {
-				return true
+// spanLeftOpen is the column of the first code span opening on line i and
+// closing on a later line of the paragraph, which ends at line end, or the
+// line's length when none does. A marker past that column sits in the span. A
+// span closing on the same line is maskCommentsIn's.
+func spanLeftOpen(lines []string, i, end int) int {
+	at := 0
+	for _, r := range backtickRuns(lines[i]) {
+		switch {
+		case r.start < at:
+		case r.close > 0:
+			at = r.close
+		default:
+			for _, next := range lines[i+1 : end] {
+				if matchingRun(next, 0, r.end-r.start) > 0 {
+					return r.start
+				}
 			}
 		}
 	}
-	return false
+	return len(lines[i])
 }
 
 // blockWalk follows the blocks of a body a line at a time: the blockquotes
@@ -1318,6 +1335,8 @@ const (
 // it sits.
 func maskCommentsIn(line string, open bool, opens func(marker int) bool) (string, bool) {
 	out := []byte(line)
+	runs := backtickRuns(line)
+	marker := -1 // the next opening marker, kept until it is passed
 	for i := 0; i < len(line); {
 		if open {
 			// Searched from the opening marker rather than past it, so that
@@ -1333,34 +1352,42 @@ func maskCommentsIn(line string, open bool, opens func(marker int) bool) (string
 			continue
 		}
 
-		rest := line[i:]
-		start := strings.Index(rest, commentOpen)
-		if start < 0 {
-			break
+		if marker < i {
+			next := strings.Index(line[i:], commentOpen)
+			if next < 0 {
+				break
+			}
+			marker = i + next
+		}
+		// The first span from here on is the first run not passed that has a
+		// run to close it. i is never inside a run.
+		for len(runs) > 0 && (runs[0].start < i || runs[0].close == 0) {
+			runs = runs[1:]
 		}
 		// A code span that begins before the marker either contains it, making
-		// it literal, or ends before it, in which case the marker is found
+		// it literal, or ends before it, in which case the marker is reached
 		// again on the next pass. Resuming after the span is right either way.
-		if spanStart, spanEnd, ok := codeSpan(rest); ok && spanStart < start {
-			i += spanEnd
+		if len(runs) > 0 && runs[0].start < marker {
+			i = runs[0].close
 			continue
 		}
 		// A marker after an odd run of backslashes is escaped. Any other opens
 		// a comment where opens says so, and is text otherwise.
-		if escaped(line, i+start) || !opens(i+start) {
-			i += start + len(commentOpen)
+		if escaped(line, marker) || !opens(marker) {
+			i = marker + len(commentOpen)
 			continue
 		}
-		i, open = i+start, true
+		i, open = marker, true
 	}
 	return string(out), open
 }
 
-// closedIn reports whether the comment whose marker is at s[at] closes in s.
-// The closing marker may share the opening one's dashes, as <!--> and <!--->
-// are complete comments.
-func closedIn(s string, at int) bool {
-	return strings.Contains(s[at+len("<!"):], commentClose)
+// closedIn reports whether the comment whose marker is at column at closes in
+// its text, given where the last close in that text begins, found once rather
+// than for each marker. The close need only begin after the marker does, as
+// it may share the marker's dashes: <!--> and <!---> are complete comments.
+func closedIn(last, at int) bool {
+	return last > at
 }
 
 // escaped reports an odd run of backslashes before s[at].
@@ -1518,6 +1545,9 @@ func (in inline) render(from, to int, bracketed bool) string {
 	// for a link's once a link after it has closed. While a link's or an
 	// image's is open, a bare address is not linked.
 	var brackets []byte
+	// A comment after the last close closes nowhere, and the pattern would
+	// read to the end of the text to learn that, for each one.
+	last := strings.LastIndex(s[from:], commentClose) + from
 	for i := from; i < to; {
 		if !bracketed && !slices.ContainsFunc(brackets, func(c byte) bool { return c != ' ' }) {
 			if end := in.autolink(i); end > 0 {
@@ -1554,7 +1584,11 @@ func (in inline) render(from, to int, bracketed bool) string {
 			b.WriteByte(c)
 			i++
 		case c == '<':
-			if m := inlineTagPattern.FindString(s[i:]); m != "" {
+			m := ""
+			if !strings.HasPrefix(s[i:], commentOpen) || closedIn(last, i) {
+				m = inlineTagPattern.FindString(s[i:])
+			}
+			if m != "" {
 				i += len(m)
 			} else if m := autolinkPattern.FindStringSubmatch(s[i:]); m != nil {
 				b.WriteString(m[1])
