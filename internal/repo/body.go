@@ -592,10 +592,7 @@ func scanBody(text string) (masked []string, literal []block, quoted, continues,
 	// end is where the paragraph holding the first comment or code span
 	// asked about ends, found once rather than once for each. A line at or
 	// past it is in another paragraph, whose end is found afresh. A line
-	// before it keeps it, even where the walk has since read the paragraph
-	// differently: the walk passes over the lines inside a comment, so reads
-	// no delimiter row in them, where the end was found reading every line as
-	// a block, as GitHub does.
+	// before it keeps it.
 	end := 0
 	ends := func(i int) int {
 		if end <= i {
