@@ -101,8 +101,8 @@ would have to round-trip everything it parsed.
   offset valid and lets prose sharing a line with a comment survive. ~~An unterminated comment runs to
   the end of the body, as a browser reads one.~~ Superseded by the next entry: only a comment opening
   a block does.
-- **A comment is read where CommonMark reads one.** A `<!--` opening a block, at most three spaces in,
-  runs until a line holds `-->`, ~~or to the end~~ or until the blockquote or list item holding it
+- **A comment is read where CommonMark reads one.** A `<!--` opening a block, ~~at most three spaces in,~~
+  at most three columns in, a tab running to the next multiple of four, runs until a line holds `-->`, ~~or to the end~~ or until the blockquote or list item holding it
   ends, or to the end: run on past its container, it hid everything after a quoted `<!-- note`.
   Anywhere else it is raw HTML only where a `-->` follows before the paragraph ends, and text
   otherwise, as is one after a backslash. ~~The paragraph ends at a blank line.~~ It ends where
@@ -215,8 +215,11 @@ would have to round-trip everything it parsed.
   as in GFM, and each row and cell is read on its own, so link text, a code span or a comment does
   not run from one cell into the next. A line in a paragraph is blank only as written, so one holding
   nothing but a comment indented four columns, or nothing but part of a comment opened earlier in the
-  paragraph, continues it.
+  paragraph, continues it, for L15 as for links, and a delimiter row on a line such a comment holds
+  still marks the paragraph, as GFM reads blocks before comments.
   The scanner and the code span masker read the walk's answer rather than a rule of their own.
+  Section boundaries do not: a heading is read from the masked line there, so `#<!-- c --> x` opens a
+  section while the scanner reads it as text, and L21 reports the difference at a `Changelog` section.
 - **Reading links is linear in the length of a line.** The first scanner ran the destination pattern
   from every `]` to the end of the line when no `)` followed, and made every open bracket inactive one
   at a time when a link closed, so a 60 KB line took ten seconds. The pattern is not tried after a

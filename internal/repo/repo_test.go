@@ -1620,6 +1620,8 @@ func TestLinkTextEndsWithEveryBlock(t *testing.T) {
 		"Title [x\n===\nmore](n.md)\n",
 		"Title [x\n--\nmore](n.md)\n",
 		"para [x\n***\nmore](n.md)\n",
+		"> [a\n>    # b\n> ](n.md)\n",
+		"- a\n***\n     [x](n.md)\n",
 		"- a\n    - [b\n    - c](n.md)\n",
 		"> - [a\n> - b](n.md)\n",
 		"| [c | d |\n| - | - |\n| e](n.md) |\n",
@@ -1729,6 +1731,7 @@ func TestLinkTextRunsOnWhereTheParagraphDoes(t *testing.T) {
 		"1.\t  [a](n.md)\n",
 		"[a\n--- <!-- c -->\n](n.md)\n",
 		"[a\n#<!-- c -->\n](n.md)\n",
+		"a <!--\nb|c\n:-\n-->\n[d\ne\n:-\n](n.md)\n",
 		"[a\n*** <!-- c -->\n](n.md)\n",
 		"| x |\n| - |\n   <!-- c -->\n[a\n](n.md)\n",
 		"[x\na|b\n-||\ny](n.md)\n",
@@ -1800,6 +1803,7 @@ func TestATermIsPublishedAsWritten(t *testing.T) {
 		"CRLF":                             {"# Widget\r\n\r\nThe definition\r\nover two lines.\r\n", "The definition\nover two lines."},
 		"a lone carriage return":           {"# Widget\n\nThe definition\rover two lines.\n", "The definition\nover two lines."},
 		"no definition":                    {"# Widget\n", ""},
+		"a comment across a paragraph":     {"# Widget\n\ndef <!-- x\ny\nz --> more\n", "def \n more"},
 	} {
 		t.Run(name, func(t *testing.T) {
 			r := repotest.New(t, map[string]string{
@@ -1858,6 +1862,12 @@ func TestATermDefinitionIsOneParagraphAndNothingElse(t *testing.T) {
 		{"nor after a later row", "# Widget\n\nThe definition.\na|b|c\n-|-\nd|e\n-|-\n", 1, 0, 0, "The definition.\na|b|c\n-|-\nd|e\n-|-"},
 		{"a lone pipe heads no table", "# Widget\n\nThe definition.\n|\n|-|\n", 1, 0, 0, "The definition.\n|\n|-|"},
 		{"a pipe in a comment parts a header's cells", "# Widget\n\nThe definition.\n| a <!-- | --> |\n| - | - |\n", 1, 1, 0, "The definition."},
+		{"a delimiter row in a comment marks the paragraph", "# Widget\n\na <!--\nb|c\n:-\n-->\n[d\ne\n:-\n](n.md)\n", 1, 0, 0, "a \n[d\ne\n:-\n](n.md)"},
+		// A paragraph line is blank or a break only as written.
+		{"a comment across the lines of a paragraph", "# Widget\n\ndef <!-- x\ny\nz --> more\n", 1, 0, 0, "def \n more"},
+		{"an indented comment alone on a line", "# Widget\n\nThe definition.\n    <!-- c -->\nMore.\n", 1, 0, 0, "The definition.\nMore."},
+		{"a comment after a thematic break", "# Widget\n\nThe definition.\n*** <!-- c -->\n", 1, 0, 0, "The definition.\n***"},
+		{"a comment after a setext underline", "# Widget\n\nThe definition.\n=== <!-- c -->\n", 1, 0, 0, "The definition.\n==="},
 		// A lone carriage return ends a line, as CommonMark has it and as the
 		// definition is published.
 		{"a blank line ended by a lone carriage return", "# Widget\n\nThe definition.\n\rMore.\n", 2, 0, 0, "The definition."},
