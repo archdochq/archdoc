@@ -1826,6 +1826,7 @@ func TestATermIsPublishedAsWritten(t *testing.T) {
 		"a lone carriage return":           {"# Widget\n\nThe definition\rover two lines.\n", "The definition\nover two lines."},
 		"no definition":                    {"# Widget\n", ""},
 		"a comment across a paragraph":     {"# Widget\n\ndef <!-- x\ny\nz --> more\n", "def \n more"},
+		"a comment and a lone return":      {"# Widget\n\np\n    <!-- c -->\r\r\nq\n", "p\n\nq"},
 	} {
 		t.Run(name, func(t *testing.T) {
 			r := repotest.New(t, map[string]string{
@@ -1885,6 +1886,12 @@ func TestATermDefinitionIsOneParagraphAndNothingElse(t *testing.T) {
 		{"a lone pipe heads no table", "# Widget\n\nThe definition.\n|\n|-|\n", 1, 0, 0, "The definition.\n|\n|-|"},
 		{"a pipe in a comment parts a header's cells", "# Widget\n\nThe definition.\n| a <!-- | --> |\n| - | - |\n", 1, 1, 0, "The definition."},
 		{"a delimiter row in a comment marks the paragraph", "# Widget\n\na <!--\nb|c\n:-\n-->\n[d\ne\n:-\n](n.md)\n", 1, 0, 0, "a \n[d\ne\n:-\n](n.md)"},
+		// A line a comment holds continues only a paragraph it is a line of.
+		{"a comment alone under a heading only once masked", "#<!-- c --> Widget\n    <!-- c -->\n", 0, 0, 0, ""},
+		{"a comment line after a lone carriage return", "# Widget\n\nAlpha\nbeta\r<!-- c -->\n", 1, 0, 0, "Alpha\nbeta"},
+		{"a comment across a lone carriage return", "# Widget\n\nAlpha <!-- x\ry\nz -->\n", 1, 0, 0, "Alpha"},
+		{"text after a comment across a lone carriage return", "# Widget\n\nAlpha <!-- x\ry\nz --> more\n", 1, 0, 0, "Alpha \n more"},
+		{"a comment's lines in a blockquote", "# Widget\n\n> [e <!--\n--\n-->\n", 0, 1, 0, ""},
 		// A paragraph line is blank or a break only as written.
 		{"a comment across the lines of a paragraph", "# Widget\n\ndef <!-- x\ny\nz --> more\n", 1, 0, 0, "def \n more"},
 		{"an indented comment alone on a line", "# Widget\n\nThe definition.\n    <!-- c -->\nMore.\n", 1, 0, 0, "The definition.\nMore."},
