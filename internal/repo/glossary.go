@@ -184,7 +184,7 @@ func (d *Document) entryBlocks(from int) (paragraphs []string, other int) {
 		// inside a paragraph continues it, unless the comment opens a block.
 		case strings.TrimSpace(raw) == "" || strings.TrimSpace(m) == "" && (html || current != paragraph):
 			end()
-		case html || IsHeading(raw) || thematicPattern.MatchString(raw) || setextPattern.MatchString(raw):
+		case html || readsAsBlock(raw):
 			end()
 			other++
 		case d.quoted[i] || p+1 < len(pieces) && outside.tableStarts(raw, pieces[p+1].raw) || interruptsWithList(m, current == paragraph):
@@ -228,14 +228,26 @@ func crLines(raw, masked string) iter.Seq2[string, string] {
 	}
 }
 
+// readsAsBlock reports whether a line as written is a heading, a thematic
+// break or a setext underline.
+func readsAsBlock(line string) bool {
+	return IsHeading(line) || thematicPattern.MatchString(line) || setextPattern.MatchString(line)
+}
+
 // definition is the body from line from to its end as written, with the
-// comments cut out. A line left blank is written empty, and a lone carriage
-// return, which CommonMark reads as a line ending, as a line feed.
+// comments cut out, except from a line only its comment keeps from being a
+// heading, a thematic break or an underline, which cutting it would publish.
+// A line left blank is written empty, and a lone carriage return, which
+// CommonMark reads as a line ending, as a line feed.
 func (d *Document) definition(from int) string {
 	lines, masked := d.bodyLines(), d.maskedLines()
 	out := make([]string, 0, len(lines)-from)
 	for i := from; i < len(lines); i++ {
-		line := withoutComments(strings.TrimSuffix(lines[i], "\r"), masked[i])
+		written := strings.TrimSuffix(lines[i], "\r")
+		line := withoutComments(written, masked[i])
+		if readsAsBlock(line) && !readsAsBlock(written) {
+			line = written
+		}
 		if strings.TrimSpace(line) == "" {
 			// A line a comment holds whole inside a paragraph leaves no gap
 			// in it, as a blank line would. A lone carriage return still ends

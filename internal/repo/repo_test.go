@@ -1852,6 +1852,12 @@ func TestATermIsPublishedAsWritten(t *testing.T) {
 		"no definition":                    {"# Widget\n", ""},
 		"a comment across a paragraph":     {"# Widget\n\ndef <!-- x\ny\nz --> more\n", "def \n more"},
 		"a comment and a lone return":      {"# Widget\n\np\n    <!-- c -->\r\r\nq\n", "p\n\nq"},
+		// Cutting a comment that is all that keeps a line text would publish
+		// another block, so the comment stays.
+		"a comment keeping a break text":      {"# Widget\n\nDef.\n*** <!-- c -->\n", "Def.\n*** <!-- c -->"},
+		"a comment keeping an underline text": {"# Widget\n\nDef.\n=== <!-- c -->\n", "Def.\n=== <!-- c -->"},
+		"a comment keeping a heading text":    {"# Widget\n\n#<!-- c --> x\n", "#<!-- c --> x"},
+		"a heading losing its comment":        {"# Widget\n\nDef.\n\n# a <!-- c -->\n", "Def.\n\n# a "},
 	} {
 		t.Run(name, func(t *testing.T) {
 			r := repotest.New(t, map[string]string{

@@ -384,7 +384,9 @@ the result can delete content it never read.
   the H1 to the end of the file as written, with its comments cut out, rather than the paragraphs
   alone: L15 reports a block that is not a paragraph, but export never fails on it, and publishing
   only the paragraphs dropped the block from GLOSSARY.md, `term show` and the export unseen.
-  Printing the masked text showed the blanks a comment left.
+  Printing the masked text showed the blanks a comment left. A comment that is all that keeps a line
+  from being a heading, a thematic break or an underline stays, since cutting it published a block L15
+  had read as text.
 - **A writer refuses a document whose parse stops short of the file.** When the body ends inside an
   unterminated comment or an unclosed fence, every line range derived from the parse runs past the
   entries the parser could not see, and removing one glossary term deleted every entry below it on a
