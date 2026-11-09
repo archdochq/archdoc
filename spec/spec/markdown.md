@@ -9,7 +9,7 @@ The body of a document is everything after the closing `---` of the front matter
 
 ## Headings
 
-Headings are `#` through `######`, at most three spaces in. A heading of nothing but a closing sequence, such as `## #`, is empty. A line inside a code block or an HTML block is not a heading. This holds wherever headings are read: section parsing, anchors and link scanning. Setext headings are not read.
+Headings are `#` through `######`, at most three spaces in. A heading of nothing but a closing sequence, such as `## #`, is empty. A line inside a code block or an HTML block is not a heading. This holds wherever headings are read: section parsing, anchors and link scanning. Section parsing and anchors read a line with its comments masked, so `#<!-- c --> x` opens a section, which L21 reports where it bounds a `Changelog` section. Link scanning reads the same line as written, as text. Setext headings are not read.
 
 The first heading is an H1 of the form `<id>: <title>` for a numbered type, or `<title>` for a spec page, a term or a group.
 
@@ -66,7 +66,7 @@ Text inside an HTML comment is not content anywhere. It is passed over when find
 
 ## Code and HTML blocks
 
-A fenced code block opens on a run of three or more backticks or tildes at most three spaces in. A backtick fence's info string holds no backtick, so ```go``` opening a line is a code span. The block closes on a run of the same character at least as long, carrying no info string, or where the blockquote or list item holding it ends. An indented code block is a run of lines indented four or more columns, a tab running to the next multiple of four, that does not continue a paragraph (a setext underline, a run of `=` or `-` alone at most three spaces in, ends the paragraph above it), and ends at the first line indented less.
+A fenced code block opens on a run of three or more backticks or tildes at most three columns in. A backtick fence's info string holds no backtick, so ```go``` opening a line is a code span. The block closes on a run of the same character at least as long, carrying no info string, or where the blockquote or list item holding it ends. An indented code block is a run of lines indented four or more columns, a tab running to the next multiple of four, that does not continue a paragraph (a setext underline, a run of `=` or `-` alone at most three columns in, ends the paragraph above it), and ends at the first line indented less.
 
 An HTML block opens a line, at most three columns in. One opening with `<script`, `<pre`, `<style` or `<textarea` closes on the line holding any of `</script>`, `</pre>`, `</style>` or `</textarea>`; with `<?`, `<![CDATA[` or `<!` and a letter, on the line holding `?>`, `]]>` or `>`, which may be the line it opens on, `<?>` included. One opening with a tag of a block-level HTML element, or outside a paragraph with any single complete tag alone on its line other than an opening tag of one of those four, closes before the next blank line.
 

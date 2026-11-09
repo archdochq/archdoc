@@ -179,9 +179,11 @@ func (d *Document) entryBlocks(from int) (paragraphs []string, other int) {
 				current, kind = leaf, d.literal[i]
 				other++
 			}
-		case strings.TrimSpace(m) == "":
+		// A line is blank or a break as written, so one a comment holds whole
+		// inside a paragraph continues it. A heading is the section parse's.
+		case strings.TrimSpace(raw) == "" || strings.TrimSpace(m) == "" && !d.continues[i]:
 			end()
-		case html || IsHeading(m) || thematicPattern.MatchString(m) || setextPattern.MatchString(m):
+		case html || IsHeading(m) || thematicPattern.MatchString(raw) || setextPattern.MatchString(raw):
 			end()
 			other++
 		case d.quoted[i] || p+1 < len(pieces) && outside.tableStarts(raw, pieces[p+1].raw) || interruptsWithList(m, current == paragraph):
@@ -195,7 +197,9 @@ func (d *Document) entryBlocks(from int) (paragraphs []string, other int) {
 			current = paragraph
 			fallthrough
 		case current == paragraph:
-			text = append(text, withoutComments(raw, m))
+			if strings.TrimSpace(m) != "" {
+				text = append(text, withoutComments(raw, m))
+			}
 		default:
 			// A line continuing a list or a blockquote lazily stays in it.
 		}
@@ -232,6 +236,11 @@ func (d *Document) definition(from int) string {
 	for i := from; i < len(lines); i++ {
 		line := withoutComments(strings.TrimSuffix(lines[i], "\r"), masked[i])
 		if strings.TrimSpace(line) == "" {
+			// A line a comment holds whole inside a paragraph leaves no gap
+			// in it, as a blank line would.
+			if d.continues[i] {
+				continue
+			}
 			line = ""
 		}
 		out = append(out, strings.ReplaceAll(line, "\r", "\n"))

@@ -352,7 +352,7 @@ func (d *Document) bodyLines() []string {
 // what a comment is without being the single walk over the document.
 func (d *Document) maskedLines() []string {
 	if d.masked == nil {
-		d.masked, d.literal, d.quoted, _, _, d.unclosed = scanBody(d.Body)
+		d.masked, d.literal, d.quoted, d.continues, _, d.unclosed = scanBody(d.Body)
 	}
 	return d.masked
 }
@@ -614,6 +614,14 @@ func scanBody(text string) (masked []string, literal []block, quoted, continues,
 			}
 		}
 		if open {
+			// A line a comment holds is still a line of the paragraph around
+			// the comment, and a delimiter row of another number of cells
+			// beneath it marks that paragraph, as GFM reads blocks before
+			// comments. A comment block leaves no paragraph to mark.
+			if i+1 < len(lines) {
+				_, at, _ := w.continued(strings.TrimSuffix(line, "\r"))
+				w.tableStarts(line[at:], lines[i+1])
+			}
 			// Past the marker that closes it, a comment opens only as one
 			// inside a paragraph does.
 			masked[i], open = maskCommentsIn(line, true, func(marker int) bool {
