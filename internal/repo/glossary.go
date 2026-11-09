@@ -4,7 +4,6 @@ import (
 	"iter"
 	"os"
 	"path/filepath"
-	"regexp"
 	"slices"
 	"strings"
 )
@@ -122,12 +121,13 @@ func (r *Repo) Term(name string) (GlossaryEntry, bool) {
 // entryBlocks reads the blocks from body line from to the end of the body,
 // subsections included, from the document's own walk: a comment opened before
 // the definition and closed inside it is already blanked there. A line holding
-// only a comment, like a blank one, separates blocks.
+// only a comment, like a blank one, separates blocks, unless it continues the
+// paragraph above it.
 //
 // A paragraph runs over the lines that continue it; a heading, a thematic
 // break, a list, a blockquote, a table, or a code or HTML block is another
-// block. It ends at a setext underline and a table row as well, as the link
-// scanner's does, and a lone carriage return ends a line.
+// block. It ends at a setext underline and a table's header row as well, as
+// the block walk's does, and a lone carriage return ends a line.
 func (d *Document) entryBlocks(from int) (paragraphs []string, other int) {
 	lines, masked := d.bodyLines(), d.maskedLines()
 	// What holds the lines of the current block: none after a blank line.
@@ -141,49 +141,69 @@ func (d *Document) entryBlocks(from int) (paragraphs []string, other int) {
 	// comment is whether a comment that began a line is still open.
 	comment := false
 	var text []string
+	// Each line split at its lone carriage returns, so a header row can be
+	// read with the line after it.
+	type piece struct {
+		raw, masked string
+		line        int
+	}
+	var pieces []piece
+	for i := from; i < len(lines); i++ {
+		for raw, m := range crLines(strings.TrimSuffix(lines[i], "\r"), strings.TrimSuffix(masked[i], "\r")) {
+			pieces = append(pieces, piece{raw, m, i})
+		}
+	}
+	// A table's header row is read as one outside any container, as the
+	// definition is, in the paragraph the line continues if any.
+	var outside blockWalk
 	end := func() {
 		if current == paragraph {
 			paragraphs = append(paragraphs, strings.TrimSpace(strings.Join(text, "\n")))
 		}
 		current, text = none, nil
 	}
-	for i := from; i < len(lines); i++ {
-		for raw, m := range crLines(strings.TrimSuffix(lines[i], "\r"), strings.TrimSuffix(masked[i], "\r")) {
-			// A comment beginning a line opens an HTML block, as CommonMark
-			// has it, and the text after the marker closing it is the
-			// block's. Inside a code block the marker is code.
-			if t := strings.TrimLeft(raw, " "); d.literal[i] == blockProse && len(raw)-len(t) <= 3 && strings.HasPrefix(t, commentOpen) {
-				comment = true
-			}
-			html := comment
-			comment = comment && !strings.Contains(raw, commentClose)
-			switch {
-			case d.literal[i] != blockProse:
-				if current != leaf || kind != d.literal[i] {
-					end()
-					current, kind = leaf, d.literal[i]
-					other++
-				}
-			case strings.TrimSpace(m) == "":
+	for p, piece := range pieces {
+		raw, m, i := piece.raw, piece.masked, piece.line
+		outside.paragraph = current == paragraph
+		// A comment beginning a line opens an HTML block, as CommonMark
+		// has it, and the text after the marker closing it is the
+		// block's. Inside a code block the marker is code.
+		if t := strings.TrimLeft(raw, " "); d.literal[i] == blockProse && len(raw)-len(t) <= 3 && strings.HasPrefix(t, commentOpen) {
+			comment = true
+		}
+		html := comment
+		comment = comment && !strings.Contains(raw, commentClose)
+		switch {
+		case d.literal[i] != blockProse:
+			if current != leaf || kind != d.literal[i] {
 				end()
-			case html || IsHeading(m) || thematicPattern.MatchString(m) || setextPattern.MatchString(m):
-				end()
+				current, kind = leaf, d.literal[i]
 				other++
-			case d.quoted[i] || tablePattern.MatchString(m) || interruptsWithList(m, current == paragraph):
-				if current != container {
-					end()
-					current = container
-					other++
-				}
-			case current == none || current == leaf:
-				end()
-				current = paragraph
-				fallthrough
-			case current == paragraph:
-				text = append(text, withoutComments(raw, m))
-			default:
-				// A line continuing a list or a blockquote lazily stays in it.
 			}
+		// A line is blank or a break as written, so one a comment holds whole
+		// inside a paragraph continues it, unless the comment opens a block.
+		// A heading is the section parse's.
+		case strings.TrimSpace(raw) == "" || strings.TrimSpace(m) == "" && (html || current != paragraph):
+			end()
+		case html || IsHeading(m) || thematicPattern.MatchString(raw) || setextPattern.MatchString(raw):
+			end()
+			other++
+		case d.quoted[i] || p+1 < len(pieces) && outside.tableStarts(raw, pieces[p+1].raw) || interruptsWithList(m, current == paragraph):
+			if current != container {
+				end()
+				current = container
+				other++
+			}
+		case current == none || current == leaf:
+			end()
+			current = paragraph
+			fallthrough
+		case current == paragraph:
+			if strings.TrimSpace(m) != "" {
+				text = append(text, withoutComments(raw, m))
+			}
+		default:
+			// A line continuing a list or a blockquote lazily stays in it.
 		}
 	}
 	end()
@@ -209,13 +229,6 @@ func crLines(raw, masked string) iter.Seq2[string, string] {
 	}
 }
 
-// The table row that ends a paragraph, indented as CommonMark lets a block
-// start be at the top level. blockStartPattern takes a table row at any
-// indentation, since it does not know a list item's; a definition is read
-// outside any container, where four spaces continue the paragraph. A setext
-// underline is setextPattern, which the block walk uses too.
-var tablePattern = regexp.MustCompile(`^ {0,3}\|`)
-
 // definition is the body from line from to its end as written, with the
 // comments cut out. A line left blank is written empty, and a lone carriage
 // return, which CommonMark reads as a line ending, as a line feed.
@@ -225,6 +238,12 @@ func (d *Document) definition(from int) string {
 	for i := from; i < len(lines); i++ {
 		line := withoutComments(strings.TrimSuffix(lines[i], "\r"), masked[i])
 		if strings.TrimSpace(line) == "" {
+			// A line a comment holds whole inside a paragraph leaves no gap
+			// in it, as a blank line would. A lone carriage return still ends
+			// the line it is on.
+			if d.continues[i] && !strings.Contains(line, "\r") {
+				continue
+			}
 			line = ""
 		}
 		out = append(out, strings.ReplaceAll(line, "\r", "\n"))

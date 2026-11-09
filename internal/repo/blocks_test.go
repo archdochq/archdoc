@@ -162,11 +162,17 @@ func TestLinksAreReadWhereCommonMarkReadsThem(t *testing.T) {
 		"a tab in a list item's continuation": {"- a\n\n  \tfoo [x](a.md)\n", []string{"a.md"}},
 		"a tab four columns into a list item": {"- a\n\n  \t  code [x](a.md)\n", nil},
 		// An inline comment's paragraph ends where a block interrupts it.
-		"a heading ends a commented paragraph":              {"Text <!-- x\n## Heading [y](a.md) -->\n\n[z](b.md)\n", []string{"a.md", "b.md"}},
-		"a comment block ends a commented paragraph":        {"Text <!-- x\n<!-- y -->\n[z](b.md)\n", []string{"b.md"}},
-		"a commented paragraph continues lazily in a quote": {"> Text <!-- x\ny --> [z](b.md)\n", []string{"b.md"}},
-		"a commented paragraph continues indented":          {"Text <!-- a\nb -->\n    more [x](a.md)\n", []string{"a.md"}},
-		"a comment four spaces in, then an indented line":   {"Text\n    <!-- a\nb -->\n    more [x](a.md)\n", []string{"a.md"}},
+		"a heading ends a commented paragraph":                 {"Text <!-- x\n## Heading [y](a.md) -->\n\n[z](b.md)\n", []string{"a.md", "b.md"}},
+		"a comment block ends a commented paragraph":           {"Text <!-- x\n<!-- y -->\n[z](b.md)\n", []string{"b.md"}},
+		"a table ends a commented paragraph":                   {"Text <!-- x\n| [y](a.md) |\n| - |\n-->\n", []string{"a.md"}},
+		"a row with no delimiter row continues one":            {"Text <!-- x\n| [y](a.md) |\n-->\n", nil},
+		"a comment on a header row closes on it or not at all": {"Text <!-- [x](b.md)\n| - |\n-->\n", []string{"b.md"}},
+		"a comment in a table row closes on it or not at all":  {"| x |\n| - |\n| <!-- [y](a.md) |\n| --> |\n", []string{"a.md"}},
+		"an indented comment continues a paragraph":            {"p\n    <!-- c -->\n    code [x](a.md)\n", []string{"a.md"}},
+		"a comment closing on its table row":                   {"| x |\n| - |\n| <!-- [y](a.md) --> |\n", nil},
+		"a commented paragraph continues lazily in a quote":    {"> Text <!-- x\ny --> [z](b.md)\n", []string{"b.md"}},
+		"a commented paragraph continues indented":             {"Text <!-- a\nb -->\n    more [x](a.md)\n", []string{"a.md"}},
+		"a comment four spaces in, then an indented line":      {"Text\n    <!-- a\nb -->\n    more [x](a.md)\n", []string{"a.md"}},
 		// A comment block ends with the container holding it.
 		"a comment block in a quote":                {"> <!-- note\n\n## Later\n\n[x](a.md)\n", []string{"a.md"}},
 		"a comment block in a list item":            {"- <!-- TODO\n\nAfter [x](a.md)\n", []string{"a.md"}},
@@ -181,7 +187,7 @@ func TestLinksAreReadWhereCommonMarkReadsThem(t *testing.T) {
 		"a code span across lines in a quote":                           {"> A `span\n> [x](a.md)` end\n", nil},
 		"a quote starting after a paragraph":                            {"A `span\n> [x](a.md)` end\n", []string{"a.md"}},
 		// HTML blocks.
-		"a closing pre is not a block":       {"</pre>\nSee [x](a.md)\n", []string{"a.md"}},
+		"a closing pre is a block":           {"</pre>\nSee [x](a.md)\n", nil},
 		"any of the four closes a raw block": {"<pre>\n[x](a.md)\n</script>\n\nAfter [y](b.md)\n", []string{"b.md"}},
 		"<?> opens and closes at once":       {"<?>\n\nAfter [x](a.md)\n", []string{"a.md"}},
 		// Where a comment opens and where its paragraph ends.

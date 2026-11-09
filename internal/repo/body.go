@@ -63,12 +63,6 @@ var (
 	linkPattern     = regexp.MustCompile(`!?\[([^\]]*)\]\([^)]*\)`)
 	closingHashes   = regexp.MustCompile(`[ \t]+#+$`)
 	wikiLinkPattern = regexp.MustCompile(`\[\[([^\[\]]+)\]\]`)
-	// A line, read from behind any quote markers, that ends the paragraph
-	// before it and so any link text left open there: a heading, a table row,
-	// a thematic break or a setext underline. A list item is the block walk's
-	// to say, as whether one interrupts depends on the containers around it.
-	blockStartPattern = regexp.MustCompile(
-		`^[ \t]*(?:#{1,6}(?:[ \t]|\r?$)|\|)|^ {0,3}(?:[*_-][ \t]*){3,}[ \t]*\r?$|` + setextUnderline)
 	// A setext underline, which under a paragraph ends it.
 	setextPattern = regexp.MustCompile(setextUnderline)
 	// A reference after a link's closing bracket: [label], or [] to use the
@@ -358,7 +352,7 @@ func (d *Document) bodyLines() []string {
 // what a comment is without being the single walk over the document.
 func (d *Document) maskedLines() []string {
 	if d.masked == nil {
-		d.masked, d.literal, d.quoted, _, d.unclosed = scanBody(d.Body)
+		d.masked, d.literal, d.quoted, d.continues, _, d.unclosed = scanBody(d.Body)
 	}
 	return d.masked
 }
@@ -380,9 +374,13 @@ type ProseLine struct {
 	Masked string
 	// Number is the line's 1-based number in the file.
 	Number int
-	// Item is whether the line opens a list item, which ends the paragraph
-	// before it.
-	Item bool
+	// Continues is whether the line continues the paragraph of the line
+	// before it, as the block walk reads them. Link text and code spans run
+	// only across such lines.
+	Continues bool
+	// Row is whether the line is a row of a table, whose cells end link text
+	// as its rows do.
+	Row bool
 }
 
 // Unclosed reports whether the body ends inside an HTML comment, a fenced
@@ -406,7 +404,7 @@ func UnclosedIn(source []byte) bool {
 	if !ok {
 		body = source
 	}
-	_, _, _, _, unclosed := scanBody(string(body))
+	_, _, _, _, _, unclosed := scanBody(string(body))
 	return unclosed
 }
 
@@ -415,13 +413,13 @@ func UnclosedIn(source []byte) bool {
 func Prose(body string, bodyLine int) iter.Seq[ProseLine] {
 	return func(yield func(ProseLine) bool) {
 		raw := strings.Split(body, "\n")
-		masked, literal, _, item, _ := scanBody(body)
-		masked = maskParagraphCode(masked, literal, item)
+		masked, literal, _, continues, rows, _ := scanBody(body)
+		masked = maskParagraphCode(masked, continues, rows)
 		for i := range masked {
 			if literal[i] != blockProse {
 				continue
 			}
-			if !yield(ProseLine{Raw: raw[i], Masked: masked[i], Number: bodyLine + i, Item: item[i]}) {
+			if !yield(ProseLine{Raw: raw[i], Masked: masked[i], Number: bodyLine + i, Continues: continues[i], Row: rows[i]}) {
 				return
 			}
 		}
@@ -431,26 +429,34 @@ func Prose(body string, bodyLine int) iter.Seq[ProseLine] {
 // maskParagraphCode blanks the code spans in each run of prose lines that
 // forms one paragraph, since a span may cross a line break within one: read a
 // line at a time, a span wrapped onto the next line left its links readable.
-// A heading, a list item and the other block starts begin a run of their own.
-func maskParagraphCode(masked []string, literal []block, item []bool) []string {
+// A run is the lines the block walk says continue the one before. A table
+// row continues nothing, and its spans are read a cell at a time.
+func maskParagraphCode(masked []string, continues, rows []bool) []string {
 	out := slices.Clone(masked)
-	joins := func(i int) bool {
-		inner, _ := stripQuotes(masked[i])
-		return literal[i] == blockProse && strings.TrimSpace(inner) != "" && !IsHeading(inner)
-	}
 	for start := 0; start < len(masked); {
 		end := start + 1
-		if joins(start) {
-			// Given the line before, so a quoted line continues a quoted
-			// paragraph rather than starting a block of its own.
-			for end < len(masked) && joins(end) && !startsBlock(ProseLine{Masked: masked[end], Item: item[end]}, []ProseLine{{Masked: masked[end-1]}}) {
-				end++
-			}
+		for end < len(masked) && continues[end] {
+			end++
 		}
-		copy(out[start:], strings.Split(maskCode(strings.Join(masked[start:end], "\n")), "\n"))
+		if rows[start] {
+			out[start] = maskCells(masked[start])
+		} else {
+			copy(out[start:], strings.Split(maskCode(strings.Join(masked[start:end], "\n")), "\n"))
+		}
 		start = end
 	}
 	return out
+}
+
+// maskCells blanks the code spans in each cell of a table row.
+func maskCells(row string) string {
+	out := []byte(row)
+	from := 0
+	for _, at := range append(cellPipes(row), len(row)) {
+		copy(out[from:at], maskCode(row[from:at]))
+		from = at + 1
+	}
+	return string(out)
 }
 
 // Prose is the same over one document's body.
@@ -528,7 +534,7 @@ func matchingRun(s string, from, n int) int {
 // zero-based index and with everything inside an HTML comment blanked.
 func proseLines(body string) iter.Seq2[int, string] {
 	return func(yield func(int, string) bool) {
-		masked, literal, _, _, _ := scanBody(body)
+		masked, literal, _, _, _, _ := scanBody(body)
 		for i, line := range masked {
 			if literal[i] != blockProse {
 				continue
@@ -543,8 +549,8 @@ func proseLines(body string) iter.Seq2[int, string] {
 // scanBody splits text into lines, blanks the HTML comments in each, and
 // reports which lines are literal: inside a fenced or indented code block or
 // an HTML block, where nothing is prose but everything is content. quoted
-// marks the lines a blockquote holds, literal or not, and item those that open
-// a list item.
+// marks the lines a blockquote holds, literal or not, continues those that
+// continue the paragraph of the line before, and rows a table's rows.
 //
 // It is the single definition of how blocks, code spans and comments
 // interact, and every consumer reads it rather than restating the rule. There
@@ -560,12 +566,13 @@ func proseLines(body string) iter.Seq2[int, string] {
 // Blocks are read inside blockquotes and list items, as CommonMark reads
 // them: a fence indented under a list item hid the rest of the document
 // behind a `<!--` it held, because it was read as prose.
-func scanBody(text string) (masked []string, literal []block, quoted, item []bool, unclosed bool) {
+func scanBody(text string) (masked []string, literal []block, quoted, continues, rows []bool, unclosed bool) {
 	lines := strings.Split(text, "\n")
 	masked = make([]string, len(lines))
 	literal = make([]block, len(lines))
 	quoted = make([]bool, len(lines))
-	item = make([]bool, len(lines))
+	continues = make([]bool, len(lines))
+	rows = make([]bool, len(lines))
 
 	var w blockWalk
 	open := false
@@ -574,12 +581,21 @@ func scanBody(text string) (masked []string, literal []block, quoted, item []boo
 	// paragraph leaves the paragraph open around it.
 	block, depth := false, 0
 	for i, line := range lines {
+		before := w.paragraph
 		if open && block {
-			if n, _ := w.continued(strings.TrimSuffix(line, "\r")); n < depth {
+			if n, _, _ := w.continued(strings.TrimSuffix(line, "\r")); n < depth {
 				open = false
 			}
 		}
 		if open {
+			// A line a comment holds is still a line of the paragraph around
+			// the comment, and a delimiter row of another number of cells
+			// beneath it marks that paragraph, as GFM reads blocks before
+			// comments. A comment block leaves no paragraph to mark.
+			if i+1 < len(lines) {
+				_, at, _ := w.continued(strings.TrimSuffix(line, "\r"))
+				w.tableStarts(line[at:], lines[i+1])
+			}
 			// Past the marker that closes it, a comment opens only as one
 			// inside a paragraph does.
 			masked[i], open = maskCommentsIn(line, true, func(marker int) bool {
@@ -591,13 +607,27 @@ func scanBody(text string) (masked []string, literal []block, quoted, item []boo
 				return closesInParagraph(lines, i, marker+len(commentOpen), &w)
 			})
 			w.paragraph = !block
+			continues[i] = before && w.paragraph
 			continue
 		}
 		at, kind := w.line(strings.TrimSuffix(line, "\r"))
-		quoted[i], item[i] = len(w.stack) > 0 && w.stack[0].quote, w.item
+		col := column(line, at)
+		quoted[i] = len(w.stack) > 0 && w.stack[0].quote
+		// A line continues the paragraph before it only where the walk
+		// reading it opened nothing and it is still paragraph text once read.
+		within := before && w.paragraph
 		if kind != blockProse {
 			masked[i], literal[i] = line, kind
 			continue
+		}
+		// A table's header row, if the line is paragraph text once read. A
+		// row is its own text, so a comment in it, or in any later row,
+		// closes on it or not at all.
+		header := i+1 < len(lines) && w.tableStarts(line[at:], lines[i+1])
+		row := header || w.leaf == leafTable
+		var pipes []int
+		if row {
+			pipes = append(cellPipes(line), len(line))
 		}
 		opened := false // a comment block opened on this line holds the rest of it
 		masked[i], open = maskCommentsIn(line, false, func(marker int) bool {
@@ -607,11 +637,18 @@ func scanBody(text string) (masked []string, literal []block, quoted, item []boo
 			// A comment starting a block runs until it closes, however far
 			// that is. One opened inside a paragraph is raw HTML only where
 			// it closes before the paragraph ends, and text otherwise.
-			if marker-at <= 3 && strings.TrimSpace(line[at:marker]) == "" {
+			if strings.TrimSpace(line[at:marker]) == "" && w.spare+indentColumns(line[at:marker], col) <= 3 {
 				block, depth, opened = true, len(w.stack), true
 				return true
 			}
 			block = false
+			if row {
+				// Within its cell, as GFM parts the cells first.
+				for pipes[0] < marker {
+					pipes = pipes[1:]
+				}
+				return strings.Contains(line[marker+len(commentOpen):pipes[0]], commentClose)
+			}
 			return closesInParagraph(lines, i, marker+len(commentOpen), &w) && !inCodeAcrossLines(lines, i, marker, &w)
 		})
 		if opened {
@@ -619,13 +656,17 @@ func scanBody(text string) (masked []string, literal []block, quoted, item []boo
 			// there if it closes there, so it leaves no paragraph open.
 			w.paragraph = false
 		} else {
-			w.prose(masked[i][min(at, len(masked[i])):])
+			w.prose(line[at:], col)
+			if header && w.paragraph {
+				w.open(leafTable)
+			}
 		}
+		continues[i], rows[i] = within && w.paragraph, w.leaf == leafTable
 	}
 	// open means a comment never closed, and unclosed a block that runs to the
 	// end of the text. Either way the walk masked everything from there on,
 	// so the parse that follows is a prefix of what the author wrote.
-	return masked, literal, quoted, item, open || w.unclosed()
+	return masked, literal, quoted, continues, rows, open || w.unclosed()
 }
 
 // closesInParagraph reports whether a comment opened at column from of line i
@@ -645,19 +686,20 @@ func closesInParagraph(lines []string, i, from int, w *blockWalk) bool {
 // paragraphEnd is the index of the line that ends the paragraph holding line
 // i, each line after it read in the containers w, the walk up to i, holds
 // open: the next line blank once its containers' markers are passed, one
-// underlining it, or one starting a block, which a line leaving the
-// paragraph's container does more readily than one within it. A line
-// continuing no container but starting no block continues the paragraph
-// lazily, and an underline read so is text.
+// underlining it, or one starting a block, a table's header row among them,
+// which a line leaving the paragraph's container does more readily than one
+// within it. A line continuing no container but starting no block continues
+// the paragraph lazily, and an underline read so is text.
 func paragraphEnd(lines []string, i int, w *blockWalk) int {
 	// A stack of its own, as truncating and pushing would overwrite w's.
-	ahead := blockWalk{stack: slices.Clone(w.stack), paragraph: true}
+	ahead := blockWalk{stack: slices.Clone(w.stack), paragraph: true, failed: w.failed}
 	for k := i + 1; k < len(lines); k++ {
 		line := strings.TrimSuffix(lines[k], "\r")
 		at, _ := ahead.line(line)
-		rest := line[at:]
-		if !ahead.paragraph || ahead.underline || IsHeading(rest) || thematicPattern.MatchString(rest) ||
-			indentColumns(rest, column(line, at)) < 4 && strings.HasPrefix(strings.TrimLeft(rest, " \t"), commentOpen) {
+		rest, from := pad(line[at:], column(line, at), ahead.spare)
+		t := lead(rest, from)
+		if !ahead.paragraph || ahead.underline || IsHeading(t) || thematicPattern.MatchString(t) || strings.HasPrefix(t, commentOpen) ||
+			k+1 < len(lines) && ahead.tableStarts(rest, lines[k+1]) {
 			return k
 		}
 	}
@@ -710,12 +752,16 @@ type blockWalk struct {
 	// empty, a blank line closes it.
 	htmlEnd   []string
 	paragraph bool
-	// item is whether the last line read opened a list item.
-	item bool
 	// underline is whether the last line read past its containers was a
 	// setext underline, which ends the paragraph above it. Only such a line
 	// can follow one, as a line after an underline is no lazy continuation.
 	underline bool
+	// failed is whether the paragraph open had a line above a delimiter
+	// row of another number of cells.
+	failed bool
+	// spare is how many columns of a tab the last line's container markers
+	// took past the content column, which count as indentation after it.
+	spare int
 }
 
 // container is a blockquote, or a list item whose content starts indent
@@ -745,24 +791,22 @@ const (
 	leafFence
 	leafIndented
 	leafHTML
+	// leafTable is a GFM table, from its header row to a blank line or the
+	// start of another block. Each row is read on its own, as a cell's text
+	// ends with its row.
+	leafTable
 )
 
 var (
-	// The space after a quote marker is optional and may be a tab, which
-	// is taken whole: CommonMark reads part of it as the space and the rest as
-	// indentation, and counting the rest as four columns made code of a
-	// definition written after a tab.
-	quoteMarkerPattern = regexp.MustCompile(`^ {0,3}>[ \t]?`)
-	listMarkerPattern  = regexp.MustCompile(`^( {0,3})([-+*]|(\d{1,9})[.)])([ \t]+|$)`)
-	thematicPattern    = regexp.MustCompile(`^ {0,3}(?:(?:\*[ \t]*){3,}|(?:-[ \t]*){3,}|(?:_[ \t]*){3,})$`)
+	listMarkerPattern = regexp.MustCompile(`^( {0,3})([-+*]|(\d{1,9})[.)])([ \t]+|$)`)
+	thematicPattern   = regexp.MustCompile(`^ {0,3}(?:(?:\*[ \t]*){3,}|(?:-[ \t]*){3,}|(?:_[ \t]*){3,})$`)
 	// The HTML blocks CommonMark recognises, other than a comment, which the
 	// comment masker reads: those closing on a marker, then those closing on a
 	// blank line. The last, a lone tag, cannot interrupt a paragraph.
-	htmlRawPattern    = regexp.MustCompile(`(?i)^<(script|pre|style|textarea)(?:[ \t>]|$)`)
-	htmlRawTagPattern = regexp.MustCompile(`(?i)^</?(?:script|pre|style|textarea)\b`)
-	htmlOtherPattern  = regexp.MustCompile(`^<(?:\?|!\[CDATA\[|![A-Za-z])`)
-	htmlBlockPattern  = regexp.MustCompile(`(?i)^</?(?:address|article|aside|base|basefont|blockquote|body|caption|center|col|colgroup|dd|details|dialog|dir|div|dl|dt|fieldset|figcaption|figure|footer|form|frame|frameset|h[1-6]|head|header|hr|html|iframe|legend|li|link|main|menu|menuitem|nav|noframes|ol|optgroup|option|p|param|search|section|summary|table|tbody|td|tfoot|th|thead|title|tr|track|ul)(?:[ \t]|/?>|$)`)
-	htmlTagPattern    = regexp.MustCompile(`^(?:` + openTag + `|</[A-Za-z][A-Za-z0-9-]*[ \t]*>)[ \t]*$`)
+	htmlRawPattern   = regexp.MustCompile(`(?i)^<(script|pre|style|textarea)(?:[ \t>]|$)`)
+	htmlOtherPattern = regexp.MustCompile(`^<(?:\?|!\[CDATA\[|![A-Za-z])`)
+	htmlBlockPattern = regexp.MustCompile(`(?i)^</?(?:address|article|aside|base|basefont|blockquote|body|caption|center|col|colgroup|dd|details|dialog|dir|div|dl|dt|fieldset|figcaption|figure|footer|form|frame|frameset|h[1-6]|head|header|hr|html|iframe|legend|li|link|main|menu|menuitem|nav|noframes|ol|optgroup|option|p|param|search|section|summary|table|tbody|td|tfoot|th|thead|title|tr|track|ul)(?:[ \t]|/?>|$)`)
+	htmlTagPattern   = regexp.MustCompile(`^(?:` + openTag + `|</[A-Za-z][A-Za-z0-9-]*[ \t]*>)[ \t]*$`)
 )
 
 // openTag is an HTML opening tag with its attributes.
@@ -772,13 +816,16 @@ const openTag = `<[A-Za-z][A-Za-z0-9-]*(?:[ \t]+[A-Za-z_:][A-Za-z0-9_.:-]*(?:[ \
 // its content starts at once its containers' markers are passed, and
 // the block holding it.
 func (w *blockWalk) line(s string) (at int, kind block) {
-	w.item = false
-	matched, at := w.continued(s)
+	matched, at, spare := w.continued(s)
+	w.spare = spare
+	// col is the column of byte at, kept as markers are passed rather than
+	// counted again from the start of the line for each.
+	col := column(s, at)
 	if matched < len(w.stack) {
 		// Read in the last container the line continues, which is not the
 		// paragraph, so an item of any number or none interrupts it.
-		var outside blockWalk
-		if w.leaf == leafNone && w.paragraph && strings.TrimSpace(s[at:]) != "" && !outside.interrupts(s[at:], column(s, at)) {
+		rest, from := pad(s[at:], col, spare)
+		if w.leaf == leafNone && w.paragraph && strings.TrimSpace(rest) != "" && !interrupts(rest, from) {
 			return at, blockProse // a lazy continuation of the paragraph
 		}
 		w.stack, w.paragraph = w.stack[:matched], false
@@ -792,7 +839,7 @@ func (w *blockWalk) line(s string) (at int, kind block) {
 		w.stack[n-1].empty = false
 	}
 
-	rest := s[at:]
+	rest, from := pad(s[at:], col, spare)
 	switch w.leaf {
 	case leafFence:
 		if closesFence(rest, w.fenceChar, w.fenceLen) {
@@ -812,45 +859,56 @@ func (w *blockWalk) line(s string) (at int, kind block) {
 		if strings.TrimSpace(rest) == "" {
 			return at, blockProse
 		}
-		if indentColumns(rest, column(s, at)) >= 4 {
+		if indentColumns(rest, from) >= 4 {
 			return at, blockCode
 		}
 		w.leaf, w.paragraph = leafNone, false
+	case leafTable:
+		// Any line holding a cell is a row until the start of another
+		// block, indented code and a lone HTML tag included, as a table is
+		// no paragraph.
+		if len(tableCells(rest)) > 0 && indentColumns(rest, from) < 4 && !interrupts(rest, from) {
+			return at, blockProse
+		}
+		w.leaf = leafNone
 	}
 
 	for {
-		rest = s[at:]
-		if m := quoteMarkerPattern.FindStringIndex(rest); m != nil {
+		rest, from = pad(s[at:], col, w.spare)
+		if n, over, ok := quoteMarker(rest, from); ok {
 			w.stack = append(w.stack, container{quote: true})
-			at, w.paragraph = at+m[1], false
+			at, col, w.spare = passed(s, at, col, w.spare, n, over)
+			w.paragraph = false
 			continue
 		}
-		if n, indent, ok := w.listItem(rest, column(s, at)); ok {
+		if n, indent, over, ok := w.listItem(rest, from); ok {
 			w.stack = append(w.stack, container{indent: indent, empty: strings.TrimSpace(rest[n:]) == ""})
-			at, w.paragraph, w.item = at+n, false, true
+			at, col, w.spare = passed(s, at, col, w.spare, n, over)
+			w.paragraph = false
 			continue
 		}
 		break
 	}
 
-	rest = s[at:]
+	rest, from = pad(s[at:], col, w.spare)
+	t := lead(rest, from)
 	// Read as written rather than masked, as a comment after an underline
 	// makes the line text.
-	w.underline = w.paragraph && setextPattern.MatchString(rest)
+	w.underline = w.paragraph && setextPattern.MatchString(t)
 	switch {
 	case strings.TrimSpace(rest) == "":
 		w.paragraph = false
 		return at, blockProse
-	case fenceOpens(rest):
-		m := fencePattern.FindStringSubmatch(rest)
+	case fenceOpens(t):
+		m := fencePattern.FindStringSubmatch(t)
 		w.open(leafFence)
 		w.fenceChar, w.fenceLen = m[1][0], len(m[1])
 		return at, blockCode
-	case !w.paragraph && indentColumns(rest, column(s, at)) >= 4:
+	case !w.paragraph && indentColumns(rest, from) >= 4:
 		w.open(leafIndented)
 		return at, blockCode
 	}
-	if end, ok := htmlStarts(rest, column(s, at), w.paragraph); ok {
+	if end, ok := htmlStarts(rest, from, w.paragraph); ok {
 		w.open(leafHTML)
 		w.htmlEnd = end
 		// Searched from past the "<" that opened it, as the opening and the
@@ -863,17 +921,19 @@ func (w *blockWalk) line(s string) (at int, kind block) {
 	return at, blockProse
 }
 
-// continued is how many of the open containers line s continues, and the byte
-// its content starts at once their markers are passed.
-func (w *blockWalk) continued(s string) (matched, at int) {
+// continued is how many of the open containers line s continues, the byte its
+// content starts at once their markers are passed, and how many columns of a
+// tab before that byte the markers left spare.
+func (w *blockWalk) continued(s string) (matched, at, spare int) {
+	col := 0
 	for ; matched < len(w.stack); matched++ {
-		rest := s[at:]
+		rest, from := pad(s[at:], col, spare)
 		if w.stack[matched].quote {
-			m := quoteMarkerPattern.FindStringIndex(rest)
-			if m == nil {
+			n, over, ok := quoteMarker(rest, from)
+			if !ok {
 				break
 			}
-			at += m[1]
+			at, col, spare = passed(s, at, col, spare, n, over)
 			continue
 		}
 		if strings.TrimSpace(rest) == "" {
@@ -882,25 +942,142 @@ func (w *blockWalk) continued(s string) (matched, at int) {
 			}
 			continue
 		}
-		n, ok := consumeIndent(rest, w.stack[matched].indent, column(s, at))
+		n, over, ok := consumeIndent(rest, w.stack[matched].indent, from)
 		if !ok {
 			break
 		}
-		at += n
+		at, col, spare = passed(s, at, col, spare, n, over)
 	}
-	return matched, at
+	return matched, at, spare
+}
+
+// pad is s, starting at column from, with the spare columns of a tab before
+// it written as spaces ahead of it, and the column the result starts at: a
+// container's content column. Markers and indentation are read in it, as
+// CommonMark reads a tab partly taken by a container's marker.
+func pad(s string, from, spare int) (string, int) {
+	return strings.Repeat(" ", spare) + s, from - spare
+}
+
+// passed is the byte offset in line s, its column and the spare columns
+// after n bytes of the line from byte at, at column col, padded by pad, a tab
+// ending them over columns past what was wanted.
+func passed(s string, at, col, spare, n, over int) (int, int, int) {
+	if n <= spare {
+		return at, col, spare - n
+	}
+	next := at + n - spare
+	for ; at < next; at++ {
+		col = advance(col, s[at])
+	}
+	return next, col, over
+}
+
+// quoteMarker reads a blockquote marker in s, starting at column from: the
+// bytes it and an optional space after it take, and the columns left over
+// where that space is a tab, which CommonMark reads as one column of space
+// and the rest as indentation.
+func quoteMarker(s string, from int) (n, over int, ok bool) {
+	t := lead(s, from)
+	if !strings.HasPrefix(t, ">") {
+		return 0, 0, false
+	}
+	n = len(s) - len(t) + 1
+	col := from + indentColumns(s, from) + 1
+	if n < len(s) && (s[n] == ' ' || s[n] == '\t') {
+		over = advance(col, s[n]) - col - 1
+		n++
+	}
+	return n, over, true
 }
 
 func (w *blockWalk) open(leaf leafKind) {
 	w.leaf, w.depth, w.paragraph = leaf, len(w.stack), false
 }
 
-// prose records what a prose line, with its comments blanked, leaves open: a
-// paragraph, unless it was blank, a heading, a thematic break or a setext
-// underline.
-func (w *blockWalk) prose(content string) {
-	content = strings.TrimSuffix(content, "\r")
-	w.paragraph = strings.TrimSpace(content) != "" && !IsHeading(content) && !thematicPattern.MatchString(content) && !w.underline
+// prose records what a prose line, past its containers' markers, leaves
+// open: a paragraph, unless it is blank, a heading, a thematic break, a
+// setext underline or a table row. It is read as written, so a line holding
+// only a comment inside a paragraph is not blank and continues it, and a
+// comment after `***` makes the line text. Its content starts at column from,
+// past the columns the line's markers left spare.
+func (w *blockWalk) prose(written string, from int) {
+	t := lead(pad(strings.TrimSuffix(written, "\r"), from, w.spare))
+	w.paragraph = w.leaf != leafTable && strings.TrimSpace(written) != "" && !IsHeading(t) &&
+		!thematicPattern.MatchString(t) && !w.underline
+}
+
+// tableStarts reports whether a paragraph line, header from past its
+// containers' markers, is the header row of a GFM table: the next line
+// continues every container open, which a lazy header row need not, is a
+// delimiter row rather than a list item or a setext underline, and has as
+// many cells. A paragraph with a line above a delimiter row of another
+// number of cells heads no table after it, as GFM marks it then; a line w
+// holds no paragraph at begins one.
+func (w *blockWalk) tableStarts(header, next string) bool {
+	w.failed = w.failed && w.paragraph
+	if w.failed {
+		return false
+	}
+	next = strings.TrimSuffix(next, "\r")
+	matched, at, spare := w.continued(next)
+	if matched < len(w.stack) {
+		return false
+	}
+	rest, from := pad(next[at:], column(next, at), spare)
+	if indentColumns(rest, from) >= 4 || setextPattern.MatchString(lead(rest, from)) {
+		return false
+	}
+	if _, _, _, item := w.listItem(rest, from); item {
+		return false
+	}
+	delimiters := tableCells(rest)
+	for _, cell := range delimiters {
+		if !delimiterCell.MatchString(cell) {
+			return false
+		}
+	}
+	if len(delimiters) == 0 {
+		return false
+	}
+	w.failed = len(delimiters) != len(tableCells(header))
+	return !w.failed
+}
+
+// delimiterCell is one cell of a table's delimiter row, trimmed.
+var delimiterCell = regexp.MustCompile(`^:?-+:?$`)
+
+// tableCells splits a table row into its cells, trimmed, at its cellPipes, a
+// pipe at either end opening or closing the row rather than parting two
+// cells. A row of nothing but a pipe has none.
+func tableCells(row string) []string {
+	row = strings.Trim(row, " \t\r")
+	var cells []string
+	start := 0
+	for _, at := range cellPipes(row) {
+		if at > 0 {
+			cells = append(cells, strings.Trim(row[start:at], " \t"))
+		}
+		start = at + 1
+	}
+	if start < len(row) {
+		cells = append(cells, strings.Trim(row[start:], " \t"))
+	}
+	return cells
+}
+
+// cellPipes are the offsets of the pipes that part a table row's cells: every
+// pipe but one straight after a backslash, which GitHub reads as escaped
+// whatever comes before the backslash. GFM splits a row before reading its
+// spans, so a pipe in a code span or a comment parts cells too.
+func cellPipes(row string) []int {
+	var at []int
+	for i := 0; i < len(row); i++ {
+		if row[i] == '|' && (i == 0 || row[i-1] != '\\') {
+			at = append(at, i)
+		}
+	}
+	return at
 }
 
 // unclosed reports a block still open at the end that only a marker closes.
@@ -908,38 +1085,60 @@ func (w *blockWalk) unclosed() bool {
 	return w.leaf == leafFence || w.leaf == leafHTML && len(w.htmlEnd) > 0
 }
 
-// interrupts reports whether a line starts a block, so that it cannot be a
-// lazy continuation of the paragraph before it.
-func (w *blockWalk) interrupts(s string, from int) bool {
-	_, _, item := w.listItem(s, from)
-	_, html := htmlStarts(s, from, true)
-	return item || html || quoteMarkerPattern.MatchString(s) || fenceOpens(s) || IsHeading(s) ||
-		thematicPattern.MatchString(s) || strings.HasPrefix(strings.TrimLeft(s, " "), commentOpen)
+// interrupts reports whether a line, starting at column from, starts a block
+// outside any paragraph, so that it cannot be a lazy continuation of one in a
+// container it does not continue. A lone HTML tag starts one there.
+func interrupts(s string, from int) bool {
+	var outside blockWalk
+	_, _, _, item := outside.listItem(s, from)
+	_, html := htmlStarts(s, from, false)
+	t := lead(s, from)
+	_, _, quote := quoteMarker(s, from)
+	return item || html || quote || fenceOpens(t) || IsHeading(t) ||
+		thematicPattern.MatchString(t) || strings.HasPrefix(t, commentOpen)
+}
+
+// lead is s without the indentation before its content where that is at
+// most three columns from column from, as a block's marker may be indented
+// so far, a tab running to the next multiple of four; otherwise it is empty,
+// as no marker is read there.
+func lead(s string, from int) string {
+	if indentColumns(s, from) > 3 {
+		return ""
+	}
+	return strings.TrimLeft(s, " \t")
 }
 
 // listItem reads a list marker: how many bytes it and the spaces after it
 // take, and the column the item's content starts at. A thematic break is not
 // an item, and inside a paragraph neither is an empty item or a numbered one
 // not starting at 1.
-func (w *blockWalk) listItem(s string, from int) (n, indent int, ok bool) {
-	m := listMarkerPattern.FindStringSubmatchIndex(s)
-	if m == nil || thematicPattern.MatchString(s) {
-		return 0, 0, false
+func (w *blockWalk) listItem(s string, from int) (n, indent, over int, ok bool) {
+	t := lead(s, from)
+	m := listMarkerPattern.FindStringSubmatchIndex(t)
+	if m == nil || thematicPattern.MatchString(t) {
+		return 0, 0, 0, false
 	}
-	empty := m[1] == len(s)
-	if w.paragraph && (empty || m[6] >= 0 && strings.TrimLeft(s[m[6]:m[7]], "0") != "1") {
-		return 0, 0, false
+	empty := m[1] == len(t)
+	if w.paragraph && (empty || m[6] >= 0 && strings.TrimLeft(t[m[6]:m[7]], "0") != "1") {
+		return 0, 0, 0, false
 	}
-	marker := m[5]
-	spaces := indentColumns(s[marker:], from+marker)
+	// skip is the bytes before the marker, and marker the columns to its end.
+	skip := len(s) - len(t)
+	marker := indentColumns(s, from) + m[5]
+	spaces := indentColumns(t[m[5]:], from+marker)
 	switch {
 	case empty:
-		return len(s), marker + 1, true
+		return len(s), marker + 1, 0, true
 	case spaces > 4:
-		// The content is an indented code block, one column in.
-		return marker + 1, marker + 1, true
+		// The content is an indented code block, one column in, and a tab
+		// after the marker leaves the rest of its columns to it.
+		if t[m[5]] == '\t' {
+			over = advance(from+marker, '\t') - from - marker - 1
+		}
+		return skip + m[5] + 1, marker + 1, over, true
 	}
-	return m[1], marker + spaces, true
+	return skip + m[1], marker + spaces, 0, true
 }
 
 // fenceOpens reports a fence opening a line. A backtick fence's info string
@@ -968,9 +1167,9 @@ func htmlStarts(s string, from int, paragraph bool) (end []string, ok bool) {
 	default:
 		return []string{">"}, true
 	}
-	// A lone tag is any but the four the first kind opens with, whose closing
-	// tags are not a block of their own either.
-	if htmlBlockPattern.MatchString(s) || !paragraph && htmlTagPattern.MatchString(s) && !htmlRawTagPattern.MatchString(s) {
+	// A lone tag is any but an opening one of the four the first kind opens
+	// with, their closing tags included.
+	if htmlBlockPattern.MatchString(s) || !paragraph && htmlTagPattern.MatchString(s) {
 		return nil, true
 	}
 	return nil, false
@@ -1017,23 +1216,23 @@ func indentColumns(s string, from int) int {
 }
 
 // consumeIndent passes want columns of leading whitespace, s beginning at
-// column from, and returns the bytes that took, or false when the line has
-// fewer.
-func consumeIndent(s string, want, from int) (int, bool) {
+// column from, and returns the bytes that took and the columns of a tab
+// ending them past want, or false when the line has fewer.
+func consumeIndent(s string, want, from int) (n, over int, ok bool) {
 	col := from
 	for i := 0; col-from < want; i++ {
 		if i == len(s) {
-			return 0, false
+			return 0, 0, false
 		}
 		if s[i] != ' ' && s[i] != '\t' {
-			return 0, false
+			return 0, 0, false
 		}
 		col = advance(col, s[i])
 		if col-from >= want {
-			return i + 1, true
+			return i + 1, col - from - want, true
 		}
 	}
-	return 0, true
+	return 0, 0, true
 }
 
 // closesFence reports whether a line closes an open fence: a run of the same
@@ -1843,7 +2042,7 @@ type opener struct {
 // read takes the next prose line and returns the links that close on it.
 func (in *inlineLinks) read(line ProseLine) []Link {
 	gap := len(in.paragraph) > 0 && in.paragraph[len(in.paragraph)-1].Number != line.Number-1
-	if gap || strings.TrimSpace(line.Masked) == "" || startsBlock(line, in.paragraph) {
+	if gap || !line.Continues {
 		in.paragraph, in.open, in.inactiveBelow = nil, nil, 0
 	}
 	in.paragraph = append(in.paragraph, line)
@@ -1855,7 +2054,15 @@ func (in *inlineLinks) read(line ProseLine) []Link {
 	// none to try for. Without this each ] ran the pattern to the end of the
 	// line, which made a long line quadratic.
 	lastClose := strings.LastIndexByte(s, ')')
+	// A table's cells are read apart, so a pipe parting two ends the text.
+	var cuts []int
+	if line.Row {
+		cuts = cellPipes(line.Raw)
+	}
 	for i := 0; i < len(s); i++ {
+		for len(cuts) > 0 && cuts[0] <= i {
+			in.open, in.inactiveBelow, cuts = nil, 0, cuts[1:]
+		}
 		switch {
 		case s[i] == '\\':
 			i++
@@ -1895,10 +2102,6 @@ func (in *inlineLinks) read(line ProseLine) []Link {
 				i += skip
 			}
 		}
-	}
-	if headingPattern.MatchString(s) {
-		// A heading is one line, so nothing it leaves open continues.
-		in.paragraph, in.open, in.inactiveBelow = nil, nil, 0
 	}
 	return links
 }
@@ -2027,37 +2230,6 @@ func (in *inlineLinks) label(o opener, last, end int) (string, bool) {
 	return in.text(o, last, end), true
 }
 
-// startsBlock reports whether a line ends the paragraph before it. A list item
-// does, and so does the first line of a quote; its later lines continue the
-// quote, and are read from behind their markers like any other line.
-func startsBlock(line ProseLine, paragraph []ProseLine) bool {
-	if line.Item {
-		return true
-	}
-	inner, quoted := stripQuotes(line.Masked)
-	if quoted && (len(paragraph) == 0 || !isQuoted(paragraph[len(paragraph)-1].Masked)) {
-		return true
-	}
-	return blockStartPattern.MatchString(inner)
-}
-
-// stripQuotes removes a line's blockquote markers, each with one space after.
-func stripQuotes(line string) (string, bool) {
-	quoted := false
-	for {
-		trimmed := strings.TrimLeft(line, " ")
-		if !strings.HasPrefix(trimmed, ">") {
-			return line, quoted
-		}
-		line, quoted = strings.TrimPrefix(trimmed[1:], " "), true
-	}
-}
-
-func isQuoted(line string) bool {
-	_, quoted := stripQuotes(line)
-	return quoted
-}
-
 // text is a link's text from its opener to the closing bracket at column end
 // of paragraph line last, its lines joined by "\n" as written, quote markers
 // and indentation included.
@@ -2165,8 +2337,8 @@ func (d *Document) Anchors() []string {
 // An HTML block is not masked, so a comment within one is removed here, read
 // across the block's lines as a browser reads it.
 func explicitAnchors(body string) []string {
-	masked, literal, _, item, _ := scanBody(body)
-	masked = maskParagraphCode(masked, literal, item)
+	masked, literal, _, continues, rows, _ := scanBody(body)
+	masked = maskParagraphCode(masked, continues, rows)
 	var anchors []string
 	for i := 0; i < len(masked); i++ {
 		text := masked[i]

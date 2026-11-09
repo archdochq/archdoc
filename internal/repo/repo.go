@@ -151,6 +151,9 @@ type Document struct {
 	// block, and quoted those a blockquote holds, from the same walk.
 	literal []block
 	quoted  []bool
+	// continues marks the lines continuing the paragraph of the line before
+	// them, from the same walk.
+	continues []bool
 	// unclosed records that the body ends inside a comment or a block only a
 	// marker closes.
 	unclosed bool

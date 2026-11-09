@@ -1577,6 +1577,19 @@ func TestALongLineIsReadInLinearTime(t *testing.T) {
 	}
 }
 
+// TestALineOfManyContainersIsReadInLinearTime: the column after each marker
+// was counted again from the start of the line, so a line of 40,000 quote
+// markers took three seconds.
+func TestALineOfManyContainersIsReadInLinearTime(t *testing.T) {
+	quotes := strings.Repeat(">", 40000)
+	body := quotes + " a\n" + quotes + " b\n"
+	started := time.Now()
+	linksOf(t, body)
+	if took := time.Since(started); took > 2*time.Second {
+		t.Errorf("reading two lines of 40,000 quote markers took %v", took)
+	}
+}
+
 // TestAReferenceLinkEndsTheLinkAroundIt: a reference link is a link, so the
 // text around it cannot be one, as with an inline link. Its label has to be
 // defined for it to be a link at all, compared as CommonMark compares labels,
@@ -1607,14 +1620,128 @@ func TestLinkTextEndsWithEveryBlock(t *testing.T) {
 		"Title [x\n===\nmore](n.md)\n",
 		"Title [x\n--\nmore](n.md)\n",
 		"para [x\n***\nmore](n.md)\n",
+		"> [a\n>    # b\n> ](n.md)\n",
+		"- a\n***\n     [x](n.md)\n",
 		"- a\n    - [b\n    - c](n.md)\n",
 		"> - [a\n> - b](n.md)\n",
-		"| [c | d |\n| e](n.md) |\n",
+		"| [c | d |\n| - | - |\n| e](n.md) |\n",
 		"[a\n> b](n.md)\n",
 		"[a\n   - b](n.md)\n",
+		"- [a\n  # x\n  ](n.md)\n",
+		"# [a\n](n.md)\n",
+		"<!-- c --> [a\n](n.md)\n",
+		"[a\n| x |\n| - |\n](n.md)\n",
+		"[a\nx\n-|\n](n.md)\n",
+		"[a\n| x |\n- | -\n](n.md)\n",
+		"- [a\n  | x |\n  | - |\n  ](n.md)\n",
+		"p\n| x |\n| - |\n[a\n](n.md)\n",
+		"| x |\n| - |\n    [a](n.md)\n",
+		"> [a\n| x |\n> | - |\n> ](n.md)\n",
+		"[a\n| x \\\\| y |\n| - |\n](n.md)\n",
+		"| x |\n| - |\n<span>\n[a](n.md)\n",
+		"[a\n   <!-- c -->\n](n.md)\n",
+		"| x | y |\n| - | - |\n| [a | b](n.md) |\n",
+		"| x | y |\n| - | - |\n| `[a |` b](n.md) |\n",
+		"| x | y |\n| - | - |\n| [a `|` b](n.md) |\n",
+		"> [a\n> \t# x\n> ](n.md)\n",
+		"- [a\n  \t# x\n  ](n.md)\n",
+		"> [a\n> \t***\n> ](n.md)\n",
+		"> [a\n> \t---\n> ](n.md)\n",
+		"> [a\n<span>\n> ](n.md)\n",
+		"- [a\n<span>\n  ](n.md)\n",
+		"> [a\n   <a href=x>\n> ](n.md)\n",
+		"> [a\n> \t===\n> ](n.md)\n",
+		"> [a <!-- c\n> \t# x\n> --> b](n.md)\n",
+		"x|y\n-|-|-\n\n[a\n| x |\n| - |\n](n.md)\n",
+		"> > [a\n> \t# x\n> > ](n.md)\n",
+		"> [a\n   <!-- c -->\n> ](n.md)\n",
+		"a <!-- [y](n.md)\n-|-\n-|-\n-->\n",
+		"> [a\n</pre>\n> ](n.md)\n",
+		"- > [a\n  \t- b\n  > ](n.md)\n",
+		"> [a\n> \t- b\n> ](n.md)\n",
+		"> [a\n> \t> b\n> ](n.md)\n",
+		"> [a\n> \t```\n> ](n.md)\n",
+		"- - [a\n\t ===\n    ](n.md)\n",
+		"[x\n|\na|b\n-|-\ny](n.md)\n",
+		"- a <!-- x\n\t  ***\n  [y](n.md) -->\n",
+		"1.   - [a\n\t\t# x\n\t\t](n.md)\n",
+		"-\t  [a](n.md)\n",
 	} {
 		if got := linksOf(t, body); len(got) != 0 {
 			t.Errorf("%q: links = %q, want none", body, got)
+		}
+	}
+}
+
+// TestLinkTextRunsOnWhereTheParagraphDoes: each of these lines looks like a
+// block but continues the paragraph, so a link whose text wraps onto it is
+// read. A heading or a table row indented four columns past its container's
+// content is text, and a row starts a table only as the header above a
+// delimiter row with as many cells, in a paragraph with no line above a
+// delimiter row with another number. A table ends at a line with no cell, and
+// a code span or a comment ends with its cell.
+func TestLinkTextRunsOnWhereTheParagraphDoes(t *testing.T) {
+	for _, body := range []string{
+		"[a\n    # x\n](n.md)\n",
+		"[a\n\t# x\n](n.md)\n",
+		"- [a\n      # x\n  ](n.md)\n",
+		"> [a\n>     # x\n> ](n.md)\n",
+		"[a\n    | x\n](n.md)\n",
+		"[a\n| x\n](n.md)\n",
+		"| [c | d |\n| e](n.md) |\n",
+		"[a\n| x | y |\n| - |\n](n.md)\n",
+		"[a\n| x |\n    | - |\n](n.md)\n",
+		"[a\n| `b|c` |\n| - |\n](n.md)\n",
+		"[a\n| x \\| y |\n| - | - |\n](n.md)\n",
+		"[a <!-- c\nd -->\n](n.md)\n",
+		"- [a\n  | x |\n| - |\n  ](n.md)\n",
+		"Title\n---\n[a\n](n.md)\n",
+		"| x |\n- | -\n[a\n](n.md)\n",
+		"p\n| x |\n| - |\n> [a\n> ](n.md)\n",
+		"# h\n| - |\n[a\n](n.md)\n",
+		"[a\n| x ](n.md) |\n- |\n",
+		"| x |\n| - |\n\n[a\n](n.md)\n",
+		"> [a\n>     <!-- c -->\n> ](n.md)\n",
+		"[a\n    <!-- c -->\n](n.md)\n",
+		"[a\n\t<!-- c -->\n](n.md)\n",
+		"[a\n \t<!-- c -->\n](n.md)\n",
+		"[a\n|\n|-|\n](n.md)\n",
+		"[a\n|\n|\n](n.md)\n",
+		"| x |\n| - |\n| [a \\| b](n.md) |\n",
+		"[x\n-|-\n-|-\ny](n.md)\n",
+		"[x\nq\n-|-\n-|-\ny](n.md)\n",
+		"[p\nx|y|z\n:-:|--\nu|v\n--|--\nq](n.md)\n",
+		"a|b\n-|-\n|\n[x\ny](n.md)\n",
+		"| a | b |\n|---|---|\n|  \n[x\ny](n.md)\n",
+		"[x\n:\ny](n.md)\n",
+		"[a <!-- c\n-|-\n-|-\n--> b](n.md)\n",
+		"> a\n> \t-\n> [b\n> c](n.md)\n",
+		"> | x |\n> | - |\n> \t# x\n> [a\n> ](n.md)\n",
+		"- [a\n\t  ***\n  ](n.md)\n",
+		">[a\n>\t  ===\n>](n.md)\n",
+		"- [a\n\t  > b\n  ](n.md)\n",
+		"> a <!-- x\n> \t***\n> [y](n.md) -->\n",
+		"- [a\n\t  <!-- c -->\n  ](n.md)\n",
+		"> 1.   [a\n>\t  # x\n> ](n.md)\n",
+		"- [a|b\n\t  -|-\n  c](n.md)\n",
+		"> \t- a\n>\n>       [x](n.md)\n",
+		"- [x\n  y](n.md)\n  \t---\n",
+		"  - [a\n\t\t # x\n    ](n.md)\n",
+		"-\t[a](n.md)\n",
+		"1.\t  [a](n.md)\n",
+		"[a\n--- <!-- c -->\n](n.md)\n",
+		"[a\n#<!-- c -->\n](n.md)\n",
+		"a <!--\nb|c\n:-\n-->\n[d\ne\n:-\n](n.md)\n",
+		"[a\n*** <!-- c -->\n](n.md)\n",
+		"| x |\n| - |\n   <!-- c -->\n[a\n](n.md)\n",
+		"[x\na|b\n-||\ny](n.md)\n",
+		"> [a\n    <!-- c -->\n> ](n.md)\n",
+		"> `a [y](n.md)\n> \t# x\n> `\n",
+		"a|b|c\n-|-|-\n| a | `b | [c](n.md) ` |\n",
+		"a|b|c\n-|-|-\n| a | <!-- b | [c](n.md) --> |\n",
+	} {
+		if got := linksOf(t, body); len(got) != 1 || !strings.HasPrefix(got[0], "inline n.md ") {
+			t.Errorf("%q: links = %q, want the link to n.md", body, got)
 		}
 	}
 }
@@ -1676,6 +1803,8 @@ func TestATermIsPublishedAsWritten(t *testing.T) {
 		"CRLF":                             {"# Widget\r\n\r\nThe definition\r\nover two lines.\r\n", "The definition\nover two lines."},
 		"a lone carriage return":           {"# Widget\n\nThe definition\rover two lines.\n", "The definition\nover two lines."},
 		"no definition":                    {"# Widget\n", ""},
+		"a comment across a paragraph":     {"# Widget\n\ndef <!-- x\ny\nz --> more\n", "def \n more"},
+		"a comment and a lone return":      {"# Widget\n\np\n    <!-- c -->\r\r\nq\n", "p\n\nq"},
 	} {
 		t.Run(name, func(t *testing.T) {
 			r := repotest.New(t, map[string]string{
@@ -1725,7 +1854,27 @@ func TestATermDefinitionIsOneParagraphAndNothingElse(t *testing.T) {
 		{"a table row", "# Widget\n\nThe definition.\n| a | b |\n| - | - |\n", 1, 1, 0, "The definition."},
 		{"an indented table row", "# Widget\n\nThe definition.\n    | a |\n", 1, 0, 0, "The definition.\n    | a |"},
 		{"an underline indented as a block may be", "# Widget\n\nThe definition.\n  ===\n", 1, 1, 0, "The definition."},
-		{"a table row indented as a block may be", "# Widget\n\nThe definition.\n | a |\n", 1, 1, 0, "The definition."},
+		{"a table indented as a block may be", "# Widget\n\nThe definition.\n | a |\n | - |\n", 1, 1, 0, "The definition."},
+		{"a row with no delimiter row is text", "# Widget\n\nThe definition.\n | a |\n", 1, 0, 0, "The definition.\n | a |"},
+		{"a header row without pipes", "# Widget\n\nThe definition.\nx\n-|\n", 1, 1, 0, "The definition."},
+		{"an escaped pipe after a backslash", "# Widget\n\nThe definition.\n| a \\\\| b |\n| - |\n", 1, 1, 0, "The definition."},
+		{"a paragraph whose line failed a delimiter row heads no table", "# Widget\n\nThe definition.\n-|-\n-|-\n", 1, 0, 0, "The definition.\n-|-\n-|-"},
+		{"a table after a paragraph that failed one", "# Widget\n\nThe definition.\n-|-\n\na|b\n-|-\n", 1, 1, 0, "The definition.\n-|-"},
+		{"nor after a later row", "# Widget\n\nThe definition.\na|b|c\n-|-\nd|e\n-|-\n", 1, 0, 0, "The definition.\na|b|c\n-|-\nd|e\n-|-"},
+		{"a lone pipe heads no table", "# Widget\n\nThe definition.\n|\n|-|\n", 1, 0, 0, "The definition.\n|\n|-|"},
+		{"a pipe in a comment parts a header's cells", "# Widget\n\nThe definition.\n| a <!-- | --> |\n| - | - |\n", 1, 1, 0, "The definition."},
+		{"a delimiter row in a comment marks the paragraph", "# Widget\n\na <!--\nb|c\n:-\n-->\n[d\ne\n:-\n](n.md)\n", 1, 0, 0, "a \n[d\ne\n:-\n](n.md)"},
+		// A line a comment holds continues only a paragraph it is a line of.
+		{"a comment alone under a heading only once masked", "#<!-- c --> Widget\n    <!-- c -->\n", 0, 0, 0, ""},
+		{"a comment line after a lone carriage return", "# Widget\n\nAlpha\nbeta\r<!-- c -->\n", 1, 0, 0, "Alpha\nbeta"},
+		{"a comment across a lone carriage return", "# Widget\n\nAlpha <!-- x\ry\nz -->\n", 1, 0, 0, "Alpha"},
+		{"text after a comment across a lone carriage return", "# Widget\n\nAlpha <!-- x\ry\nz --> more\n", 1, 0, 0, "Alpha \n more"},
+		{"a comment's lines in a blockquote", "# Widget\n\n> [e <!--\n--\n-->\n", 0, 1, 0, ""},
+		// A paragraph line is blank or a break only as written.
+		{"a comment across the lines of a paragraph", "# Widget\n\ndef <!-- x\ny\nz --> more\n", 1, 0, 0, "def \n more"},
+		{"an indented comment alone on a line", "# Widget\n\nThe definition.\n    <!-- c -->\nMore.\n", 1, 0, 0, "The definition.\nMore."},
+		{"a comment after a thematic break", "# Widget\n\nThe definition.\n*** <!-- c -->\n", 1, 0, 0, "The definition.\n***"},
+		{"a comment after a setext underline", "# Widget\n\nThe definition.\n=== <!-- c -->\n", 1, 0, 0, "The definition.\n==="},
 		// A lone carriage return ends a line, as CommonMark has it and as the
 		// definition is published.
 		{"a blank line ended by a lone carriage return", "# Widget\n\nThe definition.\n\rMore.\n", 2, 0, 0, "The definition."},
