@@ -697,9 +697,10 @@ the result can delete content it never read.
   rule again, from an initialiser of `Rules` that refers to `Rules`, which Go refuses.
 - **With no branch, every acknowledgement is stale.** Outside a git repository or before the branch
   exists nothing is frozen, so nothing is acknowledged and L22 reports each entry as not frozen.
-  Every other rule reads "no branch" as "nothing frozen" through the same `Frozen`, and the faults the
-  entries name are errors there anyway, so the exit status is the same either way. Treating it as
-  unknown would add a state that holds for L22 alone.
+  Every other rule reads "no branch" as "nothing frozen" through the same `Frozen`. A fault that is a
+  warning only because its document is frozen is an error there anyway, so the exit status is the
+  same with or without the entry. A rule that warns on any document, as L18 does, exits 0 without the
+  entry and 2 with it. Treating it as unknown would add a state that holds for L22 alone.
 - **`archdoc init` does not write `acknowledged`.** The field is left out of the file where empty. A
   release before the one reading the key refuses it as unknown, and a repository acknowledging
   nothing must not fail under such a CI pin.

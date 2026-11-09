@@ -53,7 +53,7 @@ A document in the working tree was on the base when the base holds a document at
 
 ## Rule entries
 
-Each rule in the registry carries, besides its code and check:
+Each rule in the registry carries, besides its code and check (L22 has no check, being computed from what the other rules report):
 
 | Field | Content |
 |---|---|
