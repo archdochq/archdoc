@@ -161,6 +161,20 @@ func TestChangelogReportsWhatItCannotReadAsCommonMarkDoes(t *testing.T) {
 	}
 }
 
+// A heading written straight after a comment block's "-->" renders as the
+// block's raw HTML, so the section runs on past it and L21 reports the comment
+// that does not close cleanly, not a heading.
+func TestAHeadingAfterACommentBlocksCloseDoesNotEndTheSection(t *testing.T) {
+	d := changelogDoc(t, "", "## Changelog\n- 2026-09-02: One.\n<!--\n-->## Next\n- 2026-09-03: Two.\n")
+	got := problemLines(d.ChangelogProblems(time.Time{}))
+	if len(got) != 1 || !strings.HasPrefix(got[0], "14: this line belongs to no entry") {
+		t.Errorf("reported %q, want one finding at the comment's first line", got)
+	}
+	if n := len(d.Changelog()); n != 2 {
+		t.Errorf("read %d entries, want both, the section running past the line", n)
+	}
+}
+
 func TestChangelogReportsOneFindingPerGapBetweenEntries(t *testing.T) {
 	d := changelogDoc(t, "", "## Changelog\nOne\nTwo\n\nThree\n- 2026-09-02: One.\n\nFour\n")
 	got := problemLines(d.ChangelogProblems(time.Time{}))

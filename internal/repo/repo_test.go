@@ -812,7 +812,7 @@ func TestProseKeepsWhatFollowsAClosingComment(t *testing.T) {
 	// the comment it followed.
 	d := repotest.New(t, map[string]string{
 		"rfc/0001-a.md": "---\nid: RFC-0001\ntitle: A\n---\n\n# RFC-0001: A\n\n" +
-			"<!--\nhidden [[RFC-0002]]\n--> but [[RFC-0003]] is not.\n",
+			"Text <!--\nhidden [[RFC-0002]]\n--> but [[RFC-0003]] is not.\n",
 	}).ByPath("rfc/0001-a.md")
 
 	var names []string
@@ -911,6 +911,8 @@ func FuzzProseNeverMovesAByte(f *testing.F) {
 		"A `<!--` marker, then [[X]].\n",
 		"<!-- one line --> and [[X]]\n",
 		"<!--\nacross\n--> after\n",
+		"<!-- c --> [y](n.md)\nnext\n",
+		"> <!-- a\n> b --> [y](n.md)\r\n",
 		"```\n<!--\n```\ntext\n",
 		"<!-->empty\n",
 		"`a` <!-- `b` --> `c`\n",

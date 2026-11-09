@@ -633,6 +633,9 @@ func scanBody(text string) (masked []string, literal []block, quoted, continues,
 				}
 				return closes(i, marker+len(commentOpen))
 			})
+			if block && holdsText(masked[i]) {
+				literal[i] = blockHTML
+			}
 			w.paragraph = !block
 			continues[i] = before && w.paragraph
 			continue
@@ -682,6 +685,9 @@ func scanBody(text string) (masked []string, literal []block, quoted, continues,
 			// A comment block holds the rest of its first line, and ends
 			// there if it closes there, so it leaves no paragraph open.
 			w.paragraph = false
+			if holdsText(masked[i]) {
+				literal[i] = blockHTML
+			}
 		} else {
 			w.prose(line[at:], col)
 			if header && w.paragraph {
@@ -694,6 +700,18 @@ func scanBody(text string) (masked []string, literal []block, quoted, continues,
 	// end of the text. Either way the walk masked everything from there on,
 	// so the parse that follows is a prefix of what the author wrote.
 	return masked, literal, quoted, continues, rows, open || w.unclosed()
+}
+
+// holdsText reports whether a comment block's masked line holds anything but
+// the comment: the markers of its containers, or text after its close. Such a
+// line is literal, so nothing reads a link or a heading in that text, which is
+// the block's raw HTML, and what follows it starts a block. The text stays in
+// the masked line because it is still content. CommonMark ends a line at a lone
+// carriage return, which the walk does not, so what follows one is left to be
+// read.
+func holdsText(masked string) bool {
+	rest := strings.TrimSuffix(masked, "\r")
+	return strings.TrimSpace(rest) != "" && !strings.Contains(rest, "\r")
 }
 
 // paragraphEnd is the index of the line that ends the paragraph holding line
