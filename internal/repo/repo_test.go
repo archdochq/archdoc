@@ -1976,6 +1976,17 @@ func TestATermDefinitionIsOneParagraphAndNothingElse(t *testing.T) {
 		// definition is published.
 		{"a blank line ended by a lone carriage return", "# Widget\n\nThe definition.\n\rMore.\n", 2, 0, 0, "The definition."},
 		{"a list item after a lone carriage return", "# Widget\n\nThe definition.\r- an item\n", 1, 1, 0, "The definition."},
+		{"a blockquote after a lone carriage return", "# Widget\n\nThe definition.\r> quoted\n", 1, 1, 0, "The definition."},
+		{"a blockquote after lines ended by lone carriage returns", "# Widget\n\nAlpha\rbeta\r> quoted\n", 1, 1, 0, "Alpha\nbeta"},
+		{"a blockquote continued lazily after a lone carriage return", "# Widget\n\nThe definition.\r> quoted\rcontinued\n", 1, 1, 0, "The definition."},
+		{"a paragraph after a blockquote between lone carriage returns", "# Widget\n\nThe definition.\r> quoted\r\rMore.\n", 2, 1, 0, "The definition."},
+		{"a blockquote indented as a block may be after a lone carriage return", "# Widget\n\nThe definition.\r   > quoted\n", 1, 1, 0, "The definition."},
+		{"a marker indented four columns after a lone carriage return", "# Widget\n\nThe definition.\r    > quoted\n", 1, 0, 0, "The definition.\n    > quoted"},
+		{"a marker after a tab after a lone carriage return", "# Widget\n\nThe definition.\r\t> quoted\n", 1, 0, 0, "The definition.\n\t> quoted"},
+		// A blockquote marker opens a block even inside a comment the
+		// paragraph left open, as cmark-gfm reads it. The masking reads the
+		// line whole, so the paragraph loses the text cmark-gfm prints there.
+		{"a blockquote inside a comment after a lone carriage return", "# Widget\n\nAlpha <!-- x\r> y --> z\n", 1, 1, 0, "Alpha"},
 		// A comment marker inside a fence is code, and opens nothing.
 		{"a comment marker inside a fence", "# Widget\n\nThe definition.\n```\n<!--\n```\nAfter.\n", 2, 1, 0, "The definition."},
 		// A comment beginning a line opens an HTML block, which holds the rest

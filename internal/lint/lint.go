@@ -419,6 +419,7 @@ var Rules = []Rule{
 		Since:   "v0.1.0-alpha.1",
 		Changes: []Change{
 			{Release: "v0.6.0", Summary: "Reads the definition as blocks to the end of the file, and reports any block that is not a paragraph and prose above the H1"},
+			{Release: "v0.6.0", Summary: "Reads a lone carriage return as a line ending, so a list or blockquote after one is reported rather than read as part of the paragraph before it"},
 		},
 	},
 	{

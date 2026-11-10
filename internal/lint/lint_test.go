@@ -443,7 +443,7 @@ func TestTheRegistryRecordsEachRuleV060Changed(t *testing.T) {
 		"L12": {"stale page at the `includes` line", "each obsolete document once"},
 		"L13": {"stale ref at the `verified` line", "ref carrying `as_of`", "`as_of` did not parse"},
 		"L14": {"unclosed `<!--`", "CRLF"},
-		"L15": {"blocks to the end of the file"},
+		"L15": {"blocks to the end of the file", "lone carriage return"},
 		"L16": {"heading, in a frozen document", "indented code block", "unclosed `<!--`", "closing a comment block", "on the heading's line"},
 		"L17": {"holding `root`", "URI scheme", "exact case", "as GitHub does", "link reference definition", "wraps across lines", "footnote", "holding a space", "CRLF", "HTML block", "unclosed `<!--`", "closing a comment block", "on the heading's line"},
 		"L18": {"at the `depends` line"},

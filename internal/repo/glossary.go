@@ -173,6 +173,11 @@ func (d *Document) entryBlocks(from int) (paragraphs []string, other int) {
 		}
 		html := comment
 		comment = comment && !strings.Contains(raw, commentClose)
+		// The walk reads a line whole, so a blockquote opened after a lone
+		// carriage return is found from the piece itself, as a list is. It is
+		// read as written: a comment a paragraph left open does not hide the
+		// marker, which opens the block first.
+		_, _, quote := quoteMarker(raw, 0)
 		switch {
 		case d.literal[i] != blockProse:
 			if current != leaf || kind != d.literal[i] {
@@ -187,7 +192,7 @@ func (d *Document) entryBlocks(from int) (paragraphs []string, other int) {
 		case html || readsAsBlock(raw):
 			end()
 			other++
-		case d.quoted[i] || p+1 < len(pieces) && outside.tableStarts(raw, pieces[p+1].raw) || interruptsWithList(m, current == paragraph):
+		case d.quoted[i] || quote || p+1 < len(pieces) && outside.tableStarts(raw, pieces[p+1].raw) || interruptsWithList(m, current == paragraph):
 			if current != container {
 				end()
 				current = container
