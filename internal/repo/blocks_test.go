@@ -397,7 +397,7 @@ func TestTextOnACommentBlocksLastLineIsContent(t *testing.T) {
 			t.Errorf("the section is not empty, holding only:\n%s", body)
 		}
 	}
-	for _, body := range []string{"<!-- c --> <a id=\"x\"></a>\n", "<!-- a\nb --> <a id=\"x\"></a>\n", "<!-- c --> <a id=\"x\"></a>\rtext\n", "> <!-- a\n> b --> <a name=\"x\">\r> text\n"} {
+	for _, body := range []string{"<!-- c --> <a id=\"x\"></a>\n", "<!-- a\nb --> <a id=\"x\"></a>\n", "<!-- c --> <a id=\"x\"></a>\rtext\n", "> <!-- a\n> b --> <a name=\"x\">\r> text\n", "<!-- c --> <a id=\"x\"></a>\r<a id=\"y\"></a>\n", "<!-- c --> <a id=\"x\"> <a name=\"y\">\rtext\n"} {
 		if got := page(t, body).Anchors(); !slices.Contains(got, "x") {
 			t.Errorf("anchors = %q, want x in:\n%s", got, body)
 		}

@@ -751,7 +751,9 @@ func commentBlockEnd(masked string) (string, block) {
 		for ; at < keep[0]; at++ {
 			out[at] = ' '
 		}
-		at = keep[1]
+		// The tag is kept through its closing ">", where one follows, so
+		// the next anchor is read on its own.
+		at = keep[1] + strings.IndexByte(masked[keep[1]:cr], '>') + 1
 	}
 	for ; at < cr; at++ {
 		out[at] = ' '
