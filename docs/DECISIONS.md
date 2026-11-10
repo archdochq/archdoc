@@ -259,6 +259,18 @@ would have to round-trip everything it parsed.
   open on the line is found for the first marker to ask, after `closes` has answered, and not sooner:
   `ends` reads the walk's state when it is first asked and the answer is kept for later lines, so
   asking it on a line that never asked before would move where a paragraph ends.
+- **A heading's brackets are matched once for the heading.** Each `[` in a heading walked towards the
+  end of the text for its `]`, so a heading of 40,000 left open took three seconds; and each link
+  closed marked every bracket still open inactive one at a time, and each character asked the whole
+  stack whether one was still active, so a heading of 40,000 nested links took twenty. One walk from
+  the start of the text matches every `[` it reads, as a walk from any of them reads the rest as it
+  does. A `]` it matched before where a caller stops is the one a walk stopping there finds, and a `[`
+  it left open is open when the caller reads to the end of the text. Any other `[` is walked from on
+  its own: one inside a tag holding a backtick, which the walk read as opening a code span, or one it
+  did not match before where a caller stops short of the end, as a code span crossing that point is
+  text to that caller.
+  Inactivity is one bound on the stack, as in the scanner for prose, beside a count of the images
+  open.
 - **A line is a link reference definition only if that is all it is.** The pattern is anchored at both
   ends, requires a non-empty label, allows a title and does not count a line that interrupts a
   paragraph. Without the end anchor a footnote, a numbered citation or any sentence beginning with a

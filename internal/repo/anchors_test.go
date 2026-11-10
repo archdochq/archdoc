@@ -206,6 +206,28 @@ func TestALinkInAHeadingIsReadAsALinkIsRead(t *testing.T) {
 	}
 }
 
+// TestAHeadingsBracketsAreMatchedOnceAsEachWasOnItsOwn: one walk of a
+// heading's text matches its brackets, and reads a backtick inside a tag as
+// opening a code span where the renderer reads the tag first. A [ the walk
+// passed over, or did not close before the end of the link text holding it,
+// is matched on its own. A bracket once closed, an image's as a link's, no
+// longer keeps a bare address from being linked. Each anchor is the one read
+// when each bracket was matched on its own; the third reads a link inside a
+// link, as holdsLink reads the tag's backtick as the walk does.
+func TestAHeadingsBracketsAreMatchedOnceAsEachWasOnItsOwn(t *testing.T) {
+	for heading, want := range map[string]string{
+		"<i title=\"`\">[a](x.md) b `":                            "a-b-",
+		"<i title=\"`\">[a <i title=\"`\">[b `](x.md)":            "a-b-",
+		"<i title=\"`\">[a <i title=\"`\">[b ``](c.md)`](d.md)``": "a-b-",
+		"![a] https://b.com/_c_ d":                                "a-httpsbcom_c_-d",
+		"[x [a](b) ] [ https://c.com/_d_ e":                       "x-a---httpsccomd-e",
+	} {
+		if got := repo.Anchor(heading); got != want {
+			t.Errorf("Anchor(%q) = %q, want %q", heading, got, want)
+		}
+	}
+}
+
 // TestAHeadingsAnchorIsRenderedInItsDocument: a reference link renders as a
 // link only where the document defines its label, and a comment renders as
 // nothing, the space after it staying. Each anchor is GitHub's.
