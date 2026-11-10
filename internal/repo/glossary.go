@@ -174,10 +174,10 @@ func (d *Document) entryBlocks(from int) (paragraphs []string, other int) {
 		}
 		html := comment
 		comment = comment && !strings.Contains(raw, commentClose)
-		// The walk reads a line whole, so a blockquote or a list opened after
-		// a lone carriage return is found from the piece itself. Both are read
-		// as written: a comment a paragraph left open does not hide the
-		// marker, which opens the block first.
+		// scanBody's block walk reads a line whole, across its lone carriage
+		// returns, so a blockquote or a list is found from the piece itself.
+		// Both are read as written: a comment a paragraph left open does not
+		// hide the marker, which opens the block first.
 		_, _, quote := quoteMarker(raw, 0)
 		_, _, _, item := outside.listItem(raw, 0)
 		switch {
@@ -194,7 +194,7 @@ func (d *Document) entryBlocks(from int) (paragraphs []string, other int) {
 		case html || readsAsBlock(raw):
 			end()
 			other++
-		case d.quoted[i] || quote || p+1 < len(pieces) && outside.tableStarts(raw, pieces[p+1].raw) || item:
+		case quote || p+1 < len(pieces) && outside.tableStarts(raw, pieces[p+1].raw) || item:
 			if current != container {
 				end()
 				current = container

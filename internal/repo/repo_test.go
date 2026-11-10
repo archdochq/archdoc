@@ -1991,6 +1991,14 @@ func TestATermDefinitionIsOneParagraphAndNothingElse(t *testing.T) {
 		{"a blockquote after lines ended by lone carriage returns", "# Widget\n\nAlpha\rbeta\r> quoted\n", 1, 1, 0, "Alpha\nbeta"},
 		{"a blockquote continued lazily after a lone carriage return", "# Widget\n\nThe definition.\r> quoted\rcontinued\n", 1, 1, 0, "The definition."},
 		{"a paragraph after a blockquote between lone carriage returns", "# Widget\n\nThe definition.\r> quoted\r\rMore.\n", 2, 1, 0, "The definition."},
+		// A blockquote is read from each part of a line, so one part quoted
+		// does not quote the rest.
+		{"a paragraph after a quoted line's lone carriage returns", "# Widget\n\nThe definition.\n> quoted\r\rMore.\n", 2, 1, 0, "The definition."},
+		{"a blockquote after a quoted line's lone carriage returns", "# Widget\n\nThe definition.\n> quoted\r\r> again\n", 1, 2, 0, "The definition."},
+		{"a quoted line continued lazily after a lone carriage return", "# Widget\n\nThe definition.\n> quoted\rlazy\n", 1, 1, 0, "The definition."},
+		{"a marker indented four columns after a quoted line", "# Widget\n\nThe definition.\n> quoted\r    > text\n", 1, 1, 0, "The definition."},
+		{"a blockquote continued lazily", "# Widget\n\nThe definition.\n> quoted\nlazy\n\nMore.\n", 2, 1, 0, "The definition."},
+		{"a blockquote in a list item", "# Widget\n\nThe definition.\n\n- item\n  > quoted\n  lazy\n", 1, 1, 0, "The definition."},
 		{"a blockquote indented as a block may be after a lone carriage return", "# Widget\n\nThe definition.\r   > quoted\n", 1, 1, 0, "The definition."},
 		{"a marker indented four columns after a lone carriage return", "# Widget\n\nThe definition.\r    > quoted\n", 1, 0, 0, "The definition.\n    > quoted"},
 		{"a marker after a tab after a lone carriage return", "# Widget\n\nThe definition.\r\t> quoted\n", 1, 0, 0, "The definition.\n\t> quoted"},
