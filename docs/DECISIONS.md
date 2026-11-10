@@ -266,8 +266,8 @@ would have to round-trip everything it parsed.
   first `[` asked about matches every `[` it reads, as a walk from any of them reads the rest as it
   does, and the matches are kept for the heading. A `[` the walk passed over, such as one after a tag
   holding a backtick, which the walk reads as opening a code span where the renderer reads the tag, is
-  walked from when asked, passing over each `[` already matched to its `]` and stopping at one left
-  open. The walk does not read tags itself, as a `]` inside one closes a bracket for the walk as it
+  walked from when asked, and the `[` it reads that an earlier walk matched are matched again to the
+  same `]`, as a match depends only on the text after the `[`. The walk does not read tags itself, as a `]` inside one closes a bracket for the walk as it
   did for each `[` on its own. A `]` matched before where a caller stops is the one a walk stopping
   there finds, and a `[` left open is open when the caller reads to the end of the text. Otherwise the
   `[` is walked from on its own, as a code span crossing where a caller stops is text to that caller.
