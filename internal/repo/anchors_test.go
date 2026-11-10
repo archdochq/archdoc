@@ -219,6 +219,7 @@ func TestAHeadingsBracketsAreMatchedOnceAsEachWasOnItsOwn(t *testing.T) {
 		"<i title=\"`\">[a <i title=\"`\">[b <i title=\"``\">](c.md)`]()<i title=\"``\">": "a-b-",
 		"![a] https://b.com/_c_ d":                                                        "a-httpsbcom_c_-d",
 		"[x [a](b) ] [ https://c.com/_d_ e":                                               "x-a---httpsccomd-e",
+		"[x [y] https://a.com/_b_ c":                                                      "x-y-httpsacomb-c",
 	} {
 		if got := repo.Anchor(heading); got != want {
 			t.Errorf("Anchor(%q) = %q, want %q", heading, got, want)
@@ -232,7 +233,7 @@ func TestAHeadingsBracketsAreMatchedOnceAsEachWasOnItsOwn(t *testing.T) {
 // to one and a character to its lower case, which may be shorter. Each
 // anchor is GitHub's.
 func TestALabelIsMeasuredAsItIsNormalised(t *testing.T) {
-	d := page(t, "## [t][a  b] x\n\n## [u][KK] y\n\n[a b]: x.md\n[kk]: k.md\n")
+	d := page(t, "## [t][a      b] x\n\n## [u][\u212a\u212a] y\n\n[a b]: x.md\n[kk]: k.md\n")
 	want := []string{"page", "t-x", "u-y"}
 	if got := d.Anchors(); !slices.Equal(got, want) {
 		t.Errorf("Anchors() = %q, want %q", got, want)
