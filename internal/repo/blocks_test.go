@@ -321,34 +321,38 @@ func TestACommentBlockHoldsTheRestOfTheLineItClosesOn(t *testing.T) {
 		body string
 		want []string
 	}{
-		"a link after the marker":                      {"<!-- c --> [y](n.md)\n", nil},
-		"a heading after the marker":                   {"<!-- c --> # x [y](n.md)\n", nil},
-		"in a list item":                               {"- <!-- c --> [y](n.md)\n", nil},
-		"interrupting a paragraph":                     {"p\n<!-- c --> [y](n.md)\n", nil},
-		"in a blockquote":                              {"> <!-- c --> [y](n.md)\n", nil},
-		"in a CRLF file":                               {"<!-- c --> [y](n.md)\r\n", nil},
-		"spanning lines":                               {"<!-- a\nb --> [y](n.md)\n", nil},
-		"spanning lines in a blockquote":               {"> <!-- a\n> b --> [y](n.md)\n", nil},
-		"spanning lines in a list item":                {"- <!-- a\n  b --> [y](n.md)\n", nil},
-		"spanning lines in a CRLF file":                {"<!-- a\r\nb --> [y](n.md)\r\n", nil},
-		"three spaces in":                              {"   <!-- c --> [y](n.md)\n", nil},
-		"a second comment after the marker":            {"<!-- a --> <!-- b --> [y](n.md)\n", nil},
-		"a code span after the marker":                 {"<!-- a --> `b` [y](n.md)\n", nil},
-		"the next line":                                {"<!-- c --> [y](n.md)\nnext [z](m.md)\n", []string{"m.md"}},
-		"the next line in a blockquote":                {"> <!-- c --> [y](n.md)\n> next [z](m.md)\n", []string{"m.md"}},
-		"the next line in a list item":                 {"- <!-- c --> [y](n.md)\n  next [z](m.md)\n", []string{"m.md"}},
-		"the next line in a CRLF file":                 {"<!-- c --> [y](n.md)\r\nnext [z](m.md)\r\n", []string{"m.md"}},
-		"the next line after spanning lines":           {"<!-- a\nb --> [y](n.md)\nnext [z](m.md)\n", []string{"m.md"}},
-		"the next line after a bare comment":           {"<!-- c -->\nnext [z](m.md)\n", []string{"m.md"}},
-		"four spaces in, as code":                      {"    <!-- c --> [y](n.md)\n", nil},
-		"a tab in, as code":                            {"\t<!-- c --> [y](n.md)\n", nil},
-		"after text, in a paragraph":                   {"text <!-- c --> [y](n.md)\n", []string{"n.md"}},
-		"after text, spanning lines":                   {"text <!-- a\nb --> [y](n.md)\n", []string{"n.md"}},
-		"four spaces into a paragraph":                 {"p\n    <!-- c --> [y](n.md)\n", []string{"n.md"}},
-		"a lone carriage return ends the line":         {"<!-- c -->\r[y](n.md)\n", []string{"n.md"}},
-		"a lone carriage return after text":            {"<!-- c --> x\r[y](n.md)\n", []string{"n.md"}},
-		"a definition after a bare comment in an item": {"- <!-- c -->\n  [r]: n.md\n", []string{"n.md"}},
-		"a definition after text in an item":           {"- <!-- c --> x\n  [r]: n.md\n", []string{"n.md"}},
+		"a link after the marker":                              {"<!-- c --> [y](n.md)\n", nil},
+		"a heading after the marker":                           {"<!-- c --> # x [y](n.md)\n", nil},
+		"in a list item":                                       {"- <!-- c --> [y](n.md)\n", nil},
+		"interrupting a paragraph":                             {"p\n<!-- c --> [y](n.md)\n", nil},
+		"in a blockquote":                                      {"> <!-- c --> [y](n.md)\n", nil},
+		"in a CRLF file":                                       {"<!-- c --> [y](n.md)\r\n", nil},
+		"spanning lines":                                       {"<!-- a\nb --> [y](n.md)\n", nil},
+		"spanning lines in a blockquote":                       {"> <!-- a\n> b --> [y](n.md)\n", nil},
+		"spanning lines in a list item":                        {"- <!-- a\n  b --> [y](n.md)\n", nil},
+		"spanning lines in a CRLF file":                        {"<!-- a\r\nb --> [y](n.md)\r\n", nil},
+		"three spaces in":                                      {"   <!-- c --> [y](n.md)\n", nil},
+		"a second comment after the marker":                    {"<!-- a --> <!-- b --> [y](n.md)\n", nil},
+		"a code span after the marker":                         {"<!-- a --> `b` [y](n.md)\n", nil},
+		"the next line":                                        {"<!-- c --> [y](n.md)\nnext [z](m.md)\n", []string{"m.md"}},
+		"the next line in a blockquote":                        {"> <!-- c --> [y](n.md)\n> next [z](m.md)\n", []string{"m.md"}},
+		"the next line in a list item":                         {"- <!-- c --> [y](n.md)\n  next [z](m.md)\n", []string{"m.md"}},
+		"the next line in a CRLF file":                         {"<!-- c --> [y](n.md)\r\nnext [z](m.md)\r\n", []string{"m.md"}},
+		"the next line after spanning lines":                   {"<!-- a\nb --> [y](n.md)\nnext [z](m.md)\n", []string{"m.md"}},
+		"the next line after a bare comment":                   {"<!-- c -->\nnext [z](m.md)\n", []string{"m.md"}},
+		"four spaces in, as code":                              {"    <!-- c --> [y](n.md)\n", nil},
+		"a tab in, as code":                                    {"\t<!-- c --> [y](n.md)\n", nil},
+		"after text, in a paragraph":                           {"text <!-- c --> [y](n.md)\n", []string{"n.md"}},
+		"after text, spanning lines":                           {"text <!-- a\nb --> [y](n.md)\n", []string{"n.md"}},
+		"four spaces into a paragraph":                         {"p\n    <!-- c --> [y](n.md)\n", []string{"n.md"}},
+		"a lone carriage return ends the line":                 {"<!-- c -->\r[y](n.md)\n", []string{"n.md"}},
+		"a lone carriage return after text":                    {"<!-- c --> x\r[y](n.md)\n", []string{"n.md"}},
+		"a link before a lone carriage return":                 {"<!-- c --> [a](b.md)\r[y](n.md)\n", []string{"n.md"}},
+		"a link before a lone carriage return, spanning lines": {"<!--\n--> [a](b.md)\r[y](n.md)\n", []string{"n.md"}},
+		"a link before a lone carriage return, quoted":         {"> <!-- c --> [a](b.md)\r> [y](n.md)\n", []string{"n.md"}},
+		"a link before a lone carriage return ending the line": {"<!-- c --> [a](b.md)\r \n", nil},
+		"a definition after a bare comment in an item":         {"- <!-- c -->\n  [r]: n.md\n", []string{"n.md"}},
+		"a definition after text in an item":                   {"- <!-- c --> x\n  [r]: n.md\n", []string{"n.md"}},
 	} {
 		t.Run(name, func(t *testing.T) {
 			if got := linkTargets(page(t, c.body)); !slices.Equal(got, c.want) {
@@ -379,7 +383,7 @@ func TestTextOnACommentBlocksLastLineIsNotAHeading(t *testing.T) {
 // TestTextOnACommentBlocksLastLineIsContent: it renders, as raw HTML, so the
 // line is literal rather than blanked, and an anchor on it is still a target.
 func TestTextOnACommentBlocksLastLineIsContent(t *testing.T) {
-	for _, body := range []string{"<!-- c --> text\n", "<!-- a\nb --> text\n"} {
+	for _, body := range []string{"<!-- c --> text\n", "<!-- a\nb --> text\n", "<!-- c --> text\r \n"} {
 		if page(t, "## A\n\n"+body).Sections("A")[0].Empty() {
 			t.Errorf("the section is empty, holding:\n%s", body)
 		}

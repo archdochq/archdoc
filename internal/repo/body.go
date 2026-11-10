@@ -633,8 +633,8 @@ func scanBody(text string) (masked []string, literal []block, quoted, continues,
 				}
 				return closes(i, marker+len(commentOpen))
 			})
-			if block && holdsText(masked[i]) {
-				literal[i] = blockHTML
+			if block {
+				masked[i], literal[i] = commentBlockEnd(masked[i])
 			}
 			w.paragraph = !block
 			continues[i] = before && w.paragraph
@@ -685,9 +685,7 @@ func scanBody(text string) (masked []string, literal []block, quoted, continues,
 			// A comment block holds the rest of its first line, and ends
 			// there if it closes there, so it leaves no paragraph open.
 			w.paragraph = false
-			if holdsText(masked[i]) {
-				literal[i] = blockHTML
-			}
+			masked[i], literal[i] = commentBlockEnd(masked[i])
 		} else {
 			w.prose(line[at:], col)
 			if header && w.paragraph {
@@ -702,16 +700,23 @@ func scanBody(text string) (masked []string, literal []block, quoted, continues,
 	return masked, literal, quoted, continues, rows, open || w.unclosed()
 }
 
-// holdsText reports whether a comment block's masked line holds anything but
-// the comment: the markers of its containers, or text after its close. Such a
-// line is literal, so nothing reads a link or a heading in that text, which is
-// the block's raw HTML, and what follows it starts a block. The text stays in
-// the masked line because it is still content. CommonMark ends a line at a lone
-// carriage return, which the walk does not, so what follows one is left to be
-// read.
-func holdsText(masked string) bool {
-	rest := strings.TrimSuffix(masked, "\r")
-	return strings.TrimSpace(rest) != "" && !strings.Contains(rest, "\r")
+// commentBlockEnd reads a masked line a comment block holds. Anything on it
+// but the comment, the markers of its containers or text after its close, is
+// the block's raw HTML, so the line is literal: nothing reads a link or a
+// heading in that text, and what follows it starts a block. The text stays in
+// the masked line because it is still content. CommonMark also ends a line at
+// a lone carriage return, which the walk does not, so where something follows
+// one, only what is before it is the block's, and that is blanked instead,
+// leaving the rest to be read.
+func commentBlockEnd(masked string) (string, block) {
+	if strings.TrimSpace(masked) == "" {
+		return masked, blockProse
+	}
+	cr := strings.IndexByte(masked, '\r')
+	if cr < 0 || strings.TrimSpace(masked[cr:]) == "" {
+		return masked, blockHTML
+	}
+	return strings.Repeat(" ", cr) + masked[cr:], blockProse
 }
 
 // paragraphEnd is the index of the line that ends the paragraph holding line
