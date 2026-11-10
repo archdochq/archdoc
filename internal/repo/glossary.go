@@ -30,8 +30,8 @@ type GlossaryEntry struct {
 	Other      int
 	Above      int
 	// Definition is what is published: every line from the H1 to the end of
-	// the file as written, comments cut out, with LF line endings. It holds
-	// the blocks L15 reports too, rather than dropping them unseen.
+	// the file as written, with LF line endings. It holds the blocks L15
+	// reports too, rather than dropping them unseen.
 	Definition string
 	// Formerly is the term file's `formerly`: its previous names, oldest
 	// first.
@@ -168,7 +168,7 @@ func (d *Document) entryBlocks(from int) (paragraphs []string, other int) {
 		// A comment beginning a line opens an HTML block, as CommonMark
 		// has it, and the text after the marker closing it is the
 		// block's. Inside a code block the marker is code.
-		if t := strings.TrimLeft(raw, " "); d.literal[i] == blockProse && len(raw)-len(t) <= 3 && strings.HasPrefix(t, commentOpen) {
+		if d.literal[i] == blockProse && opensCommentBlock(raw) {
 			comment = true
 		}
 		html := comment
@@ -182,10 +182,9 @@ func (d *Document) entryBlocks(from int) (paragraphs []string, other int) {
 			}
 		// A line is blank or a break as written, so one a comment holds whole
 		// inside a paragraph continues it, unless the comment opens a block.
-		// A heading is the section parse's.
 		case strings.TrimSpace(raw) == "" || strings.TrimSpace(m) == "" && (html || current != paragraph):
 			end()
-		case html || IsHeading(m) || thematicPattern.MatchString(raw) || setextPattern.MatchString(raw):
+		case html || readsAsBlock(raw):
 			end()
 			other++
 		case d.quoted[i] || p+1 < len(pieces) && outside.tableStarts(raw, pieces[p+1].raw) || interruptsWithList(m, current == paragraph):
@@ -229,26 +228,46 @@ func crLines(raw, masked string) iter.Seq2[string, string] {
 	}
 }
 
-// definition is the body from line from to its end as written, with the
-// comments cut out. A line left blank is written empty, and a lone carriage
-// return, which CommonMark reads as a line ending, as a line feed.
+// readsAsBlock reports whether a line as written is a heading, a thematic
+// break or a setext underline.
+func readsAsBlock(line string) bool {
+	return IsHeading(line) || thematicPattern.MatchString(line) || setextPattern.MatchString(line)
+}
+
+// definition is the body from line from to its end as written, comments
+// included, except a comment block left open at the end, which on the generated
+// page would run on over the terms after it. A line left blank is written
+// empty, and a lone carriage return, which CommonMark reads as a line ending,
+// ends a line.
 func (d *Document) definition(from int) string {
 	lines, masked := d.bodyLines(), d.maskedLines()
 	out := make([]string, 0, len(lines)-from)
+	open := -1
 	for i := from; i < len(lines); i++ {
-		line := withoutComments(strings.TrimSuffix(lines[i], "\r"), masked[i])
-		if strings.TrimSpace(line) == "" {
-			// A line a comment holds whole inside a paragraph leaves no gap
-			// in it, as a blank line would. A lone carriage return still ends
-			// the line it is on.
-			if d.continues[i] && !strings.Contains(line, "\r") {
-				continue
+		for line, m := range crLines(strings.TrimSuffix(lines[i], "\r"), strings.TrimSuffix(masked[i], "\r")) {
+			if open < 0 && opensCommentBlock(line) {
+				open = len(out)
 			}
-			line = ""
+			if strings.Contains(line, commentClose) || strings.TrimSpace(m) != "" {
+				open = -1
+			}
+			if strings.TrimSpace(line) == "" {
+				line = ""
+			}
+			out = append(out, line)
 		}
-		out = append(out, strings.ReplaceAll(line, "\r", "\n"))
+	}
+	if open >= 0 {
+		out = out[:open]
 	}
 	return strings.Trim(strings.Join(out, "\n"), "\n")
+}
+
+// opensCommentBlock reports whether a line, read outside any container, begins
+// with a comment at most three spaces in.
+func opensCommentBlock(line string) bool {
+	t := strings.TrimLeft(line, " ")
+	return len(line)-len(t) <= 3 && strings.HasPrefix(t, commentOpen)
 }
 
 // interruptsWithList reports whether a line opens a list item. Within a

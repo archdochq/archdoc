@@ -300,13 +300,13 @@ func TestAddRefusesADefinitionHoldingAnotherBlock(t *testing.T) {
 	}
 }
 
-func TestGenerateWritesTheDefinitionAsWrittenWithoutComments(t *testing.T) {
+func TestGenerateWritesTheDefinitionAsWritten(t *testing.T) {
 	r := repotest.New(t, map[string]string{
 		"term/widget.md": "---\r\ntitle: Widget\r\nformerly: []\r\nnamed_by:\r\n---\r\n\r\n# Widget\r\n\r\n" +
 			"Use `foo` here<!-- note --> and\r\nthere.\r\n",
 	})
 	got := string(glossary.Generate(r))
-	if want := "## Widget\n\nUse `foo` here and\nthere.\n"; !strings.Contains(got, want) {
+	if want := "## Widget\n\nUse `foo` here<!-- note --> and\nthere.\n"; !strings.Contains(got, want) {
 		t.Errorf("the generated glossary lacks %q:\n%q", want, got)
 	}
 	if strings.Contains(got, "\r") {

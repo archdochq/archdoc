@@ -352,7 +352,7 @@ func (d *Document) bodyLines() []string {
 // what a comment is without being the single walk over the document.
 func (d *Document) maskedLines() []string {
 	if d.masked == nil {
-		d.masked, d.literal, d.quoted, d.continues, _, d.unclosed = scanBody(d.Body)
+		d.masked, d.literal, d.quoted, _, _, d.unclosed = scanBody(d.Body)
 	}
 	return d.masked
 }
@@ -439,7 +439,7 @@ func maskParagraphCode(masked []string, continues, rows []bool) []string {
 			end++
 		}
 		if rows[start] {
-			out[start] = maskCells(masked[start])
+			out[start] = maskCells(masked[start], maskCode)
 		} else {
 			copy(out[start:], strings.Split(maskCode(strings.Join(masked[start:end], "\n")), "\n"))
 		}
@@ -448,15 +448,24 @@ func maskParagraphCode(masked []string, continues, rows []bool) []string {
 	return out
 }
 
-// maskCells blanks the code spans in each cell of a table row.
-func maskCells(row string) string {
+// maskCells applies mask, which keeps the length of what it is given, to each
+// cell of a table row on its own, as GFM parts the cells first.
+func maskCells(row string, mask func(cell string) string) string {
 	out := []byte(row)
 	from := 0
 	for _, at := range append(cellPipes(row), len(row)) {
-		copy(out[from:at], maskCode(row[from:at]))
+		copy(out[from:at], mask(row[from:at]))
 		from = at + 1
 	}
 	return string(out)
+}
+
+// maskCellComments blanks the comments a table cell holds whole. Nothing a
+// cell opens runs past it, so whether a marker is in a code span is read
+// within the cell too.
+func maskCellComments(cell string) string {
+	masked, _ := maskCommentsIn(cell, false, func(marker int) bool { return closedIn(cell, marker) })
+	return masked
 }
 
 // Prose is the same over one document's body.
@@ -591,9 +600,8 @@ func scanBody(text string) (masked []string, literal []block, quoted, continues,
 	}
 	// end is where the paragraph holding the first comment or code span
 	// asked about ends, found once rather than once for each. A line at or
-	// past it is in another paragraph, whose end is found afresh, and so is
-	// the end after a line leaving no paragraph open, as a comment in a heading
-	// asks for one where there is none. A line before it keeps it.
+	// past it is in another paragraph, whose end is found afresh. A line
+	// before it keeps it.
 	end := 0
 	ends := func(i int) int {
 		if end <= i {
@@ -601,14 +609,11 @@ func scanBody(text string) (masked []string, literal []block, quoted, continues,
 		}
 		return end
 	}
-	closes := func(i, from int) bool {
-		return strings.Contains(lines[i][from:], commentClose) || closing[i+1] < ends(i)
+	closes := func(i, marker int) bool {
+		return closedIn(lines[i], marker) || closing[i+1] < ends(i)
 	}
 	for i, line := range lines {
 		before := w.paragraph
-		if !before {
-			end = 0
-		}
 		if open && block {
 			if n, _, _ := w.continued(strings.TrimSuffix(line, "\r")); n < depth {
 				open = false
@@ -631,7 +636,7 @@ func scanBody(text string) (masked []string, literal []block, quoted, continues,
 				if block {
 					return false
 				}
-				return closes(i, marker+len(commentOpen))
+				return closes(i, marker)
 			})
 			if block {
 				masked[i], literal[i] = commentBlockEnd(masked[i])
@@ -650,37 +655,37 @@ func scanBody(text string) (masked []string, literal []block, quoted, continues,
 			masked[i], literal[i] = line, kind
 			continue
 		}
-		// A table's header row, if the line is paragraph text once read. A
+		// A heading is one line, so a comment in it closes on it or is text.
+		// A table's header row, if the line is paragraph text once read, is
+		// no header once a heading or a comment block has taken the line. A
 		// row is its own text, so a comment in it, or in any later row,
 		// closes on it or not at all.
+		t := lead(pad(line[at:], col, w.spare))
+		heading := IsHeading(t)
 		header := i+1 < len(lines) && w.tableStarts(line[at:], lines[i+1])
-		row := header || w.leaf == leafTable
-		var pipes []int
-		if row {
-			pipes = append(cellPipes(line), len(line))
-		}
+		row := !heading && !strings.HasPrefix(t, commentOpen) && (header || w.leaf == leafTable)
 		opened := false // a comment block opened on this line holds the rest of it
-		masked[i], open = maskCommentsIn(line, false, func(marker int) bool {
-			if opened {
-				return false
-			}
-			// A comment starting a block runs until it closes, however far
-			// that is. One opened inside a paragraph is raw HTML only where
-			// it closes before the paragraph ends, and text otherwise.
-			if strings.TrimSpace(line[at:marker]) == "" && w.spare+indentColumns(line[at:marker], col) <= 3 {
-				block, depth, opened = true, len(w.stack), true
-				return true
-			}
-			block = false
-			if row {
-				// Within its cell, as GFM parts the cells first.
-				for pipes[0] < marker {
-					pipes = pipes[1:]
+		if row {
+			masked[i] = maskCells(line, maskCellComments)
+		} else {
+			masked[i], open = maskCommentsIn(line, false, func(marker int) bool {
+				if opened {
+					return false
 				}
-				return strings.Contains(line[marker+len(commentOpen):pipes[0]], commentClose)
-			}
-			return closes(i, marker+len(commentOpen)) && !inCodeAcrossLines(lines, i, marker, ends(i))
-		})
+				// A comment starting a block runs until it closes, however far
+				// that is. One opened inside a paragraph is raw HTML only where
+				// it closes before the paragraph ends, and text otherwise.
+				if strings.TrimSpace(line[at:marker]) == "" && w.spare+indentColumns(line[at:marker], col) <= 3 {
+					block, depth, opened = true, len(w.stack), true
+					return true
+				}
+				block = false
+				if heading {
+					return closedIn(line, marker)
+				}
+				return closes(i, marker) && !inCodeAcrossLines(lines, i, marker, ends(i))
+			})
+		}
 		if opened {
 			// A comment block holds the rest of its first line, and ends
 			// there if it closes there, so it leaves no paragraph open.
@@ -855,7 +860,7 @@ var (
 	// comment masker reads: those closing on a marker, then those closing on a
 	// blank line. The last, a lone tag, cannot interrupt a paragraph.
 	htmlRawPattern   = regexp.MustCompile(`(?i)^<(script|pre|style|textarea)(?:[ \t>]|$)`)
-	htmlOtherPattern = regexp.MustCompile(`^<(?:\?|!\[CDATA\[|![A-Za-z])`)
+	htmlOtherPattern = regexp.MustCompile(`^<(?:\?|!\[CDATA\[|![A-Z])`)
 	htmlBlockPattern = regexp.MustCompile(`(?i)^</?(?:address|article|aside|base|basefont|blockquote|body|caption|center|col|colgroup|dd|details|dialog|dir|div|dl|dt|fieldset|figcaption|figure|footer|form|frame|frameset|h[1-6]|head|header|hr|html|iframe|legend|li|link|main|menu|menuitem|nav|noframes|ol|optgroup|option|p|param|search|section|summary|table|tbody|td|tfoot|th|thead|title|tr|track|ul)(?:[ \t]|/?>|$)`)
 	htmlTagPattern   = regexp.MustCompile(`^(?:` + openTag + `|</[A-Za-z][A-Za-z0-9-]*[ \t]*>)[ \t]*$`)
 )
@@ -1310,6 +1315,8 @@ func closesFence(line string, char byte, length int) bool {
 const (
 	commentOpen  = "<!--"
 	commentClose = "-->"
+	// commentPattern is a comment read whole, <!--> and <!---> among them.
+	commentPattern = `<!--(?:-?>|.*?-->)`
 )
 
 // maskCommentsIn blanks the parts of one line that lie inside an HTML comment,
@@ -1366,6 +1373,13 @@ func maskCommentsIn(line string, open bool, opens func(marker int) bool) (string
 		i, open = i+start, true
 	}
 	return string(out), open
+}
+
+// closedIn reports whether the comment whose marker is at s[at] closes in s.
+// The closing marker may share the opening one's dashes, as <!--> and <!--->
+// are complete comments.
+func closedIn(s string, at int) bool {
+	return strings.Contains(s[at+len("<!"):], commentClose)
 }
 
 // escaped reports an odd run of backslashes before s[at].
@@ -1711,7 +1725,7 @@ func isASCIIAlpha(c byte) bool { return 'a' <= c|0x20 && c|0x20 <= 'z' }
 
 var (
 	entityPattern    = regexp.MustCompile(`^&(?:#[0-9]{1,7}|#[xX][0-9a-fA-F]{1,6}|[A-Za-z][A-Za-z0-9]{1,31});`)
-	inlineTagPattern = regexp.MustCompile(`^(?:` + openTag + `|</[A-Za-z][A-Za-z0-9-]*[ \t]*>|<!--.*?-->)`)
+	inlineTagPattern = regexp.MustCompile(`^(?:` + openTag + `|</[A-Za-z][A-Za-z0-9-]*[ \t]*>|` + commentPattern + `)`)
 	autolinkPattern  = regexp.MustCompile(`^<([A-Za-z][A-Za-z0-9+.-]{1,31}:[^ \t<>]*|[^ \t<>@]+@[^ \t<>]+)>`)
 )
 
@@ -2411,7 +2425,7 @@ func explicitAnchors(body string) []string {
 	return anchors
 }
 
-var htmlComment = regexp.MustCompile(`(?s)<!--.*?-->`)
+var htmlComment = regexp.MustCompile(`(?s)` + commentPattern)
 
 // explicitAnchor matches an HTML anchor carrying an id or a name, which is how
 // a Markdown document names a target that is not a heading.
