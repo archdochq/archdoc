@@ -206,6 +206,40 @@ func TestALinkInAHeadingIsReadAsALinkIsRead(t *testing.T) {
 	}
 }
 
+// TestAHeadingsBracketsAreMatchedOnceAsEachWasOnItsOwn: one walk of a
+// heading's text matches its brackets, and reads a backtick inside a tag as
+// opening a code span where the renderer reads the tag first. A [ the walk
+// passed over, or did not close before the end of the link text holding it,
+// is matched on its own. A bracket once closed, an image's as a link's, no
+// longer keeps a bare address from being linked. Each anchor is GitHub's.
+func TestAHeadingsBracketsAreMatchedOnceAsEachWasOnItsOwn(t *testing.T) {
+	for heading, want := range map[string]string{
+		"<i title=\"`\">[a](x.md) b `":                                                    "a-b-",
+		"<i title=\"`\">[a <i title=\"`\">[b `](x.md)":                                    "a-b-",
+		"<i title=\"`\">[a <i title=\"`\">[b <i title=\"``\">](c.md)`]()<i title=\"``\">": "a-b-",
+		"![a] https://b.com/_c_ d":                                                        "a-httpsbcom_c_-d",
+		"[x [a](b) ] [ https://c.com/_d_ e":                                               "x-a---httpsccomd-e",
+		"[x [y] https://a.com/_b_ c":                                                      "x-y-httpsacomb-c",
+	} {
+		if got := repo.Anchor(heading); got != want {
+			t.Errorf("Anchor(%q) = %q, want %q", heading, got, want)
+		}
+	}
+}
+
+// TestALabelIsMeasuredAsItIsNormalised: a heading's label is compared with
+// the labels defined only where it could normalise to one of them, and a
+// label normalises to its characters that are not spaces, a run of spaces
+// to one and a character to its lower case, which may be shorter. Each
+// anchor is GitHub's.
+func TestALabelIsMeasuredAsItIsNormalised(t *testing.T) {
+	d := page(t, "## [t][a      b] x\n\n## [u][\u212a\u212a] y\n\n[a b]: x.md\n[kk]: k.md\n")
+	want := []string{"page", "t-x", "u-y"}
+	if got := d.Anchors(); !slices.Equal(got, want) {
+		t.Errorf("Anchors() = %q, want %q", got, want)
+	}
+}
+
 // TestAHeadingsAnchorIsRenderedInItsDocument: a reference link renders as a
 // link only where the document defines its label, and a comment renders as
 // nothing, the space after it staying. Each anchor is GitHub's.

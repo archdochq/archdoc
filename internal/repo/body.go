@@ -1538,7 +1538,20 @@ func anchor(text string, taken map[string]int, labels map[string]bool) string {
 // labels are the document's link reference definitions,
 // normalised: a reference to a label it does not define is text.
 func renderedText(s string, labels map[string]bool) string {
-	return inline{s: s, labels: labels}.render(0, len(s), false)
+	in := inline{s: s, labels: labels, textCloses: make([]int, len(s)), labelCloses: make([]int, len(s))}
+	for label := range labels {
+		in.longest = max(in.longest, len(label))
+	}
+	in.unspaced = make([]int, len(s)+1)
+	for i := 0; i < len(s); {
+		r, n := utf8.DecodeRuneInString(s[i:])
+		in.unspaced[i+n] = in.unspaced[i]
+		if !unicode.IsSpace(r) {
+			in.unspaced[i+n]++
+		}
+		i += n
+	}
+	return in.render(0, len(s), false)
 }
 
 // inline renders a heading's content. Positions are into the whole of it, as
@@ -1547,6 +1560,15 @@ func renderedText(s string, labels map[string]bool) string {
 type inline struct {
 	s      string
 	labels map[string]bool
+	// textCloses and labelCloses are, at each [ close has read, the index of
+	// the ] matching it, or -1, and 0 elsewhere: with code spans passed over
+	// and without.
+	textCloses, labelCloses []int
+	// longest is the length in bytes of the longest of labels, and
+	// unspaced[i] how many characters before s[i] are not spaces, each of
+	// which normalLabel keeps as at least one byte.
+	longest  int
+	unspaced []int
 }
 
 // render renders s[from:to] as one scope for emphasis: a link's text is
@@ -1562,15 +1584,20 @@ func (in inline) render(from, to int, bracketed bool) string {
 		b.Reset()
 	}
 	// brackets are the brackets opened as text and not yet closed, as
-	// cmark-gfm stacks them: [ and ! for a link's and an image's, and a space
-	// for a link's once a link after it has closed. While a link's or an
-	// image's is open, a bare address is not linked.
+	// cmark-gfm stacks them: [ and ! for a link's and an image's. While a
+	// link's or an image's is open, a bare address is not linked, though a
+	// link's is inactive once a link after it has closed. inactiveBelow is how
+	// many of brackets, from the outermost, a link has closed after, and images
+	// how many are an image's. A space marked each inactive bracket, and each
+	// address asked whether any was not one, so a heading of nested links was
+	// quadratic in their number.
 	var brackets []byte
+	inactiveBelow, images := 0, 0
 	// A comment after the last close closes nowhere, and the pattern would
 	// read to the end of the text to learn that, for each one.
 	last := strings.LastIndex(s[from:], commentClose) + from
 	for i := from; i < to; {
-		if !bracketed && !slices.ContainsFunc(brackets, func(c byte) bool { return c != ' ' }) {
+		if !bracketed && images == 0 && len(brackets) == inactiveBelow {
 			if end := in.autolink(i); end > 0 {
 				b.WriteString(s[i:end])
 				i = end
@@ -1625,25 +1652,26 @@ func (in inline) render(from, to int, bracketed bool) string {
 			}
 			b.WriteString("![")
 			brackets = append(brackets, '!')
+			images++
 			i += 2
 		case c == '[':
 			// A link holding another is text around that one.
 			if close, end, ok := in.link(i, to); ok && !in.holdsLink(i+1, close) {
 				piece(in.render(i+1, close, true))
 				i = end
-				for k, open := range brackets {
-					if open == '[' {
-						brackets[k] = ' '
-					}
-				}
+				inactiveBelow = len(brackets)
 				continue
 			}
 			b.WriteByte(c)
 			brackets = append(brackets, '[')
 			i++
 		case c == ']':
-			if len(brackets) > 0 {
-				brackets = brackets[:len(brackets)-1]
+			if n := len(brackets); n > 0 {
+				if brackets[n-1] == '!' {
+					images--
+				}
+				brackets = brackets[:n-1]
+				inactiveBelow = min(inactiveBelow, n-1)
 			}
 			b.WriteByte(c)
 			i++
@@ -1774,7 +1802,7 @@ var (
 // text: a destination holding a space, a title left open.
 func (in inline) link(i, to int) (close, end int, ok bool) {
 	s := in.s[:to]
-	at := balanced(s[i:], true)
+	at := in.balanced(i, to, true)
 	if at < 0 {
 		return 0, 0, false
 	}
@@ -1783,16 +1811,28 @@ func (in inline) link(i, to int) (close, end int, ok bool) {
 	if at := tail(rest, true); at != nil {
 		return close, close + 1 + at[1], true
 	}
-	label, end := s[i+1:close], close+1
+	from, until, end := i+1, close, close+1
 	if strings.HasPrefix(rest, "[") {
-		if at := balanced(rest, false); at >= 0 {
+		if at := in.balanced(close+1, to, false); at >= 0 {
 			if at > 1 {
-				label = rest[1:at]
+				from, until = close+2, close+1+at
 			}
 			end += at + 1
 		}
 	}
-	return close, end, in.labels[normalLabel(label)]
+	return close, end, in.defines(from, until)
+}
+
+// defines reports whether in.s[from:until] is a label the document defines.
+// Normalising a label keeps each character that is not a space, so one with
+// more of them than the longest label has is none of them and is not
+// normalised: each [ of a heading of many normalised the text to its ], so
+// one of 20,000 nested brackets took four seconds.
+func (in inline) defines(from, until int) bool {
+	if in.unspaced[until]-in.unspaced[from] > in.longest {
+		return false
+	}
+	return in.labels[normalLabel(in.s[from:until])]
 }
 
 // holdsLink reports whether s[from:to] holds a link. An image's brackets are
@@ -1817,20 +1857,59 @@ func (in inline) holdsLink(from, to int) bool {
 	return false
 }
 
-// balanced is the index of the ] matching the [ at s[0], with backslash
-// escapes passed over, and code spans too where spans is set, or -1. A link's
-// text holds code spans, which bind more tightly than its brackets; a label
-// does not.
+// balanced is balanced(in.s[i:to], spans), read from the text's closes where
+// they answer it, walking from i to fill them where they do not yet. A ] they
+// hold before to is the answer, as the walk from i to it reads what a walk
+// stopping at to would, and so is their -1 when to is the end of the text.
+// Otherwise in.s[i:to] is walked on its own, as a code span crossing to is
+// text to a walk stopping there.
+func (in inline) balanced(i, to int, spans bool) int {
+	closes := in.labelCloses
+	if spans {
+		closes = in.textCloses
+	}
+	if closes[i] == 0 {
+		in.close(closes, i, spans)
+	}
+	switch at := closes[i]; {
+	case at > 0 && at < to:
+		return at - i
+	case to == len(in.s):
+		return -1
+	}
+	return balanced(in.s[i:to], spans)
+}
+
+// close fills closes at each [ the walk from in.s[from] reaches, as balanced
+// reads the text: the index of the ] matching it, or -1. Reading from a [
+// the walk reaches reads the rest as the walk does, so one walk answers
+// every [ on it. Asking balanced of each [ walked to the end of the text for
+// each one left open, so a heading of 40,000 took three seconds. Each walk
+// runs to the end of the text, so a heading holding many [ that each hide
+// behind a code span every earlier walk read takes a walk for each.
+func (in inline) close(closes []int, from int, spans bool) {
+	var open []int
+	for i := from; i < len(in.s); i = next(in.s, i, spans) {
+		switch in.s[i] {
+		case '[':
+			open = append(open, i)
+		case ']':
+			if n := len(open); n > 0 {
+				closes[open[n-1]] = i
+				open = open[:n-1]
+			}
+		}
+	}
+	for _, i := range open {
+		closes[i] = -1
+	}
+}
+
+// balanced is the index of the ] matching the [ at s[0], or -1.
 func balanced(s string, spans bool) int {
 	depth := 0
-	for i := 0; i < len(s); i++ {
+	for i := 0; i < len(s); i = next(s, i, spans) {
 		switch s[i] {
-		case '\\':
-			i++
-		case '`':
-			if spans {
-				i = spanEnd(s, i)
-			}
 		case '[':
 			depth++
 		case ']':
@@ -1840,6 +1919,20 @@ func balanced(s string, spans bool) int {
 		}
 	}
 	return -1
+}
+
+// next is where the token after the one at s[i] begins, as a link's brackets
+// are read: a backslash escape is two bytes, and a code span is one token
+// where spans is set. A link's text holds code spans, which bind more tightly
+// than its brackets; a label does not.
+func next(s string, i int, spans bool) int {
+	switch {
+	case s[i] == '\\':
+		return i + 2
+	case s[i] == '`' && spans:
+		return spanEnd(s, i) + 1
+	}
+	return i + 1
 }
 
 // spanEnd is the index of the last byte of the code span at s[i], or of the

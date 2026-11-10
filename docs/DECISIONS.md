@@ -263,6 +263,28 @@ would have to round-trip everything it parsed.
   open on the line is found for the first marker to ask, after `closes` has answered, and not sooner:
   `ends` reads the walk's state when it is first asked and the answer is kept for later lines, so
   asking it on a line that never asked before would move where a paragraph ends.
+- **A heading's brackets are matched once for the heading.** Each `[` in a heading walked towards the
+  end of the text for its `]`, so a heading of 40,000 left open took three seconds; and each link
+  closed marked every bracket still open inactive one at a time, and each character asked the whole
+  stack whether one was still active, so a heading of 40,000 nested links took twenty. A walk from the
+  first `[` asked about matches every `[` it reads, as a walk from any of them reads the rest as it
+  does, and the matches are kept for the heading. A `[` the walk passed over, such as one after a tag
+  holding a backtick, which the walk reads as opening a code span where the renderer reads the tag, is
+  walked from when asked, and the `[` it reads that an earlier walk matched are matched again to the
+  same `]`, as a match depends only on the text after the `[`. The walk does not read tags itself, as a `]` inside one closes a bracket for the walk as it
+  did for each `[` on its own. A `]` matched before where a caller stops is the one a walk stopping
+  there finds, and a `[` left open is open when the caller reads to the end of the text. Otherwise the
+  `[` is walked from on its own, as a code span crossing where a caller stops is text to that caller.
+  Each walk runs to the end of the text, and finds the close of each backtick run on its way as the
+  walk on each `[` did. A heading holding many `[`, each behind a run of backticks no earlier walk
+  closes before it, takes a walk for each, which finding each run's close makes superlinear: 400 such
+  brackets before 40,000 left open take about ten seconds, as before.
+  Inactivity is one bound on the stack, as in the scanner for prose, beside a count of the images
+  open. A bracket closing as no link normalised its text as a label to look it up, so 20,000 nested
+  took four seconds. Normalising keeps every character that is not a space, so a label holding more
+  of them than the longest label defined is not normalised. The bound is that length rather than
+  CommonMark's 999 bytes, which the heading's reader has never applied: a definition's label may be
+  longer, and applying it would change which headings link.
 - **A line is a link reference definition only if that is all it is.** The pattern is anchored at both
   ends, requires a non-empty label, allows a title and does not count a line that interrupts a
   paragraph. Without the end anchor a footnote, a numbered citation or any sentence beginning with a
