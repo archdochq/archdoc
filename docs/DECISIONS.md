@@ -141,7 +141,10 @@ would have to round-trip everything it parsed.
 - **A fence closes on a run at least as long as the one that opened it, carrying no info string.** An
   info string is permitted on the opening fence only, so a line reading ```` ``` inside ```` within a
   ```` ```text ```` block is content. One pattern serving both ends ended the block early and let the
-  real closing fence open a second one.
+  real closing fence open a second one. The closing run is at most three columns past the containers
+  holding it, read in columns as the opening run is (#74): matched against a pattern of at most three
+  spaces, a closing fence indented with a tab inside a blockquote or list item left the block open, and
+  the links and headings after it in that container were read as code.
 - **Blockquotes and list items are read only where a section gives them a meaning.** A blockquote is an
   answer in a question section and a list item is an entry in a `Changelog`; anywhere else each stays
   text, so nothing about a document that carries neither section changes. ~~Their markers and
