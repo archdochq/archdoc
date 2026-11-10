@@ -1537,6 +1537,18 @@ func anchor(text string, taken map[string]int, labels map[string]bool) string {
 // normalised: a reference to a label it does not define is text.
 func renderedText(s string, labels map[string]bool) string {
 	in := inline{s: s, labels: labels, textCloses: closesOf(s, true), labelCloses: closesOf(s, false)}
+	for label := range labels {
+		in.longest = max(in.longest, len(label))
+	}
+	in.unspaced = make([]int, len(s)+1)
+	for i := 0; i < len(s); {
+		r, n := utf8.DecodeRuneInString(s[i:])
+		in.unspaced[i+n] = in.unspaced[i]
+		if !unicode.IsSpace(r) {
+			in.unspaced[i+n]++
+		}
+		i += n
+	}
 	return in.render(0, len(s), false)
 }
 
@@ -1549,6 +1561,11 @@ type inline struct {
 	// textCloses and labelCloses are closesOf the text, with code spans
 	// passed over and without.
 	textCloses, labelCloses []int
+	// longest is the length of the longest of labels, and unspaced[i] how
+	// many characters before s[i] are not spaces, both as normalLabel reads
+	// them.
+	longest  int
+	unspaced []int
 }
 
 // render renders s[from:to] as one scope for emphasis: a link's text is
@@ -1791,16 +1808,28 @@ func (in inline) link(i, to int) (close, end int, ok bool) {
 	if at := tail(rest, true); at != nil {
 		return close, close + 1 + at[1], true
 	}
-	label, end := s[i+1:close], close+1
+	from, until, end := i+1, close, close+1
 	if strings.HasPrefix(rest, "[") {
 		if at := in.balanced(close+1, to, false); at >= 0 {
 			if at > 1 {
-				label = rest[1:at]
+				from, until = close+2, close+1+at
 			}
 			end += at + 1
 		}
 	}
-	return close, end, in.labels[normalLabel(label)]
+	return close, end, in.defines(from, until)
+}
+
+// defines reports whether in.s[from:until] is a label the document defines.
+// Normalising a label keeps each character that is not a space, so one with
+// more of them than the longest label has is none of them and is not
+// normalised: each [ of a heading of many normalised the text to its ], so
+// one of 20,000 nested brackets took four seconds.
+func (in inline) defines(from, until int) bool {
+	if in.unspaced[until]-in.unspaced[from] > in.longest {
+		return false
+	}
+	return in.labels[normalLabel(in.s[from:until])]
 }
 
 // holdsLink reports whether s[from:to] holds a link. An image's brackets are

@@ -270,7 +270,11 @@ would have to round-trip everything it parsed.
   did not match before where a caller stops short of the end, as a code span crossing that point is
   text to that caller.
   Inactivity is one bound on the stack, as in the scanner for prose, beside a count of the images
-  open.
+  open. A bracket closing as no link normalised its text as a label to look it up, so 20,000 nested
+  took four seconds. Normalising keeps every character that is not a space, so a label holding more
+  of them than the longest label defined is not normalised. The bound is that length rather than
+  CommonMark's 999 bytes, which the heading's reader has never applied: a definition's label may be
+  longer, and applying it would change which headings link.
 - **A line is a link reference definition only if that is all it is.** The pattern is anchored at both
   ends, requires a non-empty label, allows a title and does not count a line that interrupts a
   paragraph. Without the end anchor a footnote, a numbered citation or any sentence beginning with a

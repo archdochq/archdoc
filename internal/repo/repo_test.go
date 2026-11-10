@@ -1647,16 +1647,18 @@ func TestALineOfManyCommentMarkersIsReadInLinearTime(t *testing.T) {
 // TestAHeadingOfManyBracketsIsReadInLinearTime: each [ in a heading walked
 // towards the end of the text for its ], so a heading of 40,000 left open
 // took three seconds, and one of 40,000 nested, each closing as a link,
-// twenty.
+// twenty. Each closing as no link normalised the text to its ] as a label,
+// so 20,000 took four seconds.
 func TestAHeadingOfManyBracketsIsReadInLinearTime(t *testing.T) {
 	const n = 40000
 	for _, shape := range []struct{ name, heading string }{
 		{"never closed", strings.Repeat("[a ", n)},
 		{"nested", strings.Repeat("[a ", n) + strings.Repeat("](x.md)", n)},
+		{"nested, none a link", strings.Repeat("[a ", n) + strings.Repeat("]", n)},
 	} {
 		t.Run(shape.name, func(t *testing.T) {
 			started := time.Now()
-			linksOf(t, "## "+shape.heading+"\n\ntext\n")
+			linksOf(t, "## "+shape.heading+"\n\ntext\n\n[a]: x.md\n")
 			if took := time.Since(started); took > 2*time.Second {
 				t.Errorf("reading the heading took %v", took)
 			}

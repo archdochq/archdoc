@@ -226,6 +226,19 @@ func TestAHeadingsBracketsAreMatchedOnceAsEachWasOnItsOwn(t *testing.T) {
 	}
 }
 
+// TestALabelIsMeasuredAsItIsNormalised: a heading's label is compared with
+// the labels defined only where it could normalise to one of them, and a
+// label normalises to its characters that are not spaces, a run of spaces
+// to one and a character to its lower case, which may be shorter. Each
+// anchor is GitHub's.
+func TestALabelIsMeasuredAsItIsNormalised(t *testing.T) {
+	d := page(t, "## [t][a  b] x\n\n## [u][KK] y\n\n[a b]: x.md\n[kk]: k.md\n")
+	want := []string{"page", "t-x", "u-y"}
+	if got := d.Anchors(); !slices.Equal(got, want) {
+		t.Errorf("Anchors() = %q, want %q", got, want)
+	}
+}
+
 // TestAHeadingsAnchorIsRenderedInItsDocument: a reference link renders as a
 // link only where the document defines its label, and a comment renders as
 // nothing, the space after it staying. Each anchor is GitHub's.
