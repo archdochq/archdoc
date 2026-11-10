@@ -438,7 +438,7 @@ func TestTheRegistryRecordsEachRuleV060Changed(t *testing.T) {
 		"L07": {"fault in `decided` at the `decided` line", "`as_of` after its `verified`", "frozen document", "against an empty one"},
 		"L08": {"`Open questions` or `Changelog`", "frozen document", "unclosed `<!--`", "CRLF", "closing a comment block"},
 		"L09": {"frozen document"},
-		"L10": {"group's H1", "frozen document", "title or `id` that did not parse"},
+		"L10": {"group's H1", "frozen document", "title or `id` that did not parse", "closing a comment block"},
 		"L11": {"merge base", "tag of the same name", "its own root", "where git fails", "`GIT_LITERAL_PATHSPECS`"},
 		"L12": {"stale page at the `includes` line", "each obsolete document once"},
 		"L13": {"stale ref at the `verified` line", "ref carrying `as_of`", "`as_of` did not parse"},

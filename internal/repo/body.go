@@ -712,7 +712,8 @@ func scanBody(text string) (masked []string, literal []block, quoted, continues,
 // the masked line because it is still content. CommonMark also ends a line at
 // a lone carriage return, which the walk does not, so where something follows
 // one, only what is before it is the block's, and that is blanked instead,
-// leaving the rest to be read.
+// leaving the rest to be read, but for an explicit anchor, which is still a
+// target.
 func commentBlockEnd(masked string) (string, block) {
 	if strings.TrimSpace(masked) == "" {
 		return masked, blockProse
@@ -721,7 +722,18 @@ func commentBlockEnd(masked string) (string, block) {
 	if cr < 0 || strings.TrimSpace(masked[cr:]) == "" {
 		return masked, blockHTML
 	}
-	return strings.Repeat(" ", cr) + masked[cr:], blockProse
+	out := []byte(masked)
+	at := 0
+	for _, keep := range explicitAnchor.FindAllStringIndex(masked[:cr], -1) {
+		for ; at < keep[0]; at++ {
+			out[at] = ' '
+		}
+		at = keep[1]
+	}
+	for ; at < cr; at++ {
+		out[at] = ' '
+	}
+	return string(out), blockProse
 }
 
 // paragraphEnd is the index of the line that ends the paragraph holding line
