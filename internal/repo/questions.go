@@ -338,7 +338,7 @@ func (w *questionWalk) checkQuotes(s span) {
 			content := unquote(strings.TrimSuffix(w.raw[i], "\r"))
 			switch {
 			case fenceLen > 0:
-				if closesFence(content, 0, fenceChar, fenceLen) {
+				if closesFence(content, fenceChar, fenceLen) {
 					fenceLen = 0
 				}
 			case IsHeading(content):
