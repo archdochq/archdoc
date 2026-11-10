@@ -354,6 +354,7 @@ var Rules = []Rule{
 			{Release: "v0.6.0", Summary: "Checks a group's H1 against its title"},
 			{Release: "v0.6.0", Summary: "Reports a warning rather than an error in a frozen document"},
 			{Release: "v0.6.0", Summary: "Does not compare a title or `id` that did not parse, or is missing or empty"},
+			{Release: "v0.6.0", Summary: "Does not read an H1 written after the `-->` closing a comment block on the same line, which GitHub renders as part of the block"},
 		},
 	},
 	{
