@@ -1987,6 +1987,14 @@ func TestATermDefinitionIsOneParagraphAndNothingElse(t *testing.T) {
 		// paragraph left open, as cmark-gfm reads it. The masking reads the
 		// line whole, so the paragraph loses the text cmark-gfm prints there.
 		{"a blockquote inside a comment after a lone carriage return", "# Widget\n\nAlpha <!-- x\r> y --> z\n", 1, 1, 0, "Alpha"},
+		// A list marker does the same, where it may interrupt a paragraph.
+		{"a list item inside a comment after a line feed", "# Widget\n\nAlpha <!-- x\n- y --> z\n", 1, 1, 0, "Alpha <!-- x"},
+		{"a list item inside a comment after a lone carriage return", "# Widget\n\nAlpha <!-- x\r- y --> z\n", 1, 1, 0, "Alpha"},
+		{"a list item inside a comment after a lone carriage return in a CRLF file", "# Widget\r\n\r\nAlpha <!-- x\r- y --> z\r\n", 1, 1, 0, "Alpha"},
+		{"an item numbered 1 inside a comment after a lone carriage return", "# Widget\n\nAlpha <!-- x\r1. y --> z\n", 1, 1, 0, "Alpha"},
+		{"an item numbered 2 inside a comment after a lone carriage return", "# Widget\n\nAlpha <!-- x\r2. y --> z\n", 1, 0, 0, "Alpha \n z"},
+		{"a dash with no space inside a comment after a lone carriage return", "# Widget\n\nAlpha <!-- x\r-y --> z\n", 1, 0, 0, "Alpha \n z"},
+		{"a marker indented four columns inside a comment after a lone carriage return", "# Widget\n\nAlpha <!-- x\r    - y --> z\n", 1, 0, 0, "Alpha \n     z"},
 		// A comment marker inside a fence is code, and opens nothing.
 		{"a comment marker inside a fence", "# Widget\n\nThe definition.\n```\n<!--\n```\nAfter.\n", 2, 1, 0, "The definition."},
 		// A comment beginning a line opens an HTML block, which holds the rest

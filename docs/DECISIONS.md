@@ -394,8 +394,10 @@ the result can delete content it never read.
   alone, so it marks nothing quoted on a line holding `a` and `> b` with a carriage return between
   them, and L15 passed what GitHub renders as a paragraph and a blockquote. A blockquote opened after
   a lone carriage return is found from that part of the line itself, as a list is, rather than
-  splitting the walk at lone carriage returns, which every reader of the walk would see. It is read
-  as written, since a `>` opens a block before a comment the paragraph left open can hide it. A comment marker inside a code block is
+  splitting the walk at lone carriage returns, which every reader of the walk would see. Both are
+  read from that part as written, since a `>` or a list marker opens a block before a comment the
+  paragraph left open can hide it: read from the masked text, `Alpha <!-- x` and `- y --> z` with a
+  carriage return between them passed L15 as one paragraph. A comment marker inside a code block is
   code, and taking it as an open comment miscounted every block after the fence. Prose above the H1
   is reported rather than dropped, since nothing publishes it. What is published is every line from
   the H1 to the end of the file as written, ~~with its comments cut out,~~ comments included, rather
