@@ -13,7 +13,7 @@ obsoletes: []
 
 ## Abstract
 
-`archdoc.json` gains an optional `acknowledged` key naming frozen documents and, for each, the rules whose warnings on it have been seen and accepted. Lint leaves those warnings out of its output and out of `--strict-warnings`. A new rule, L22, reports an acknowledgement once the rule it names reports no warning on its document.
+`archdoc.json` gains an optional `acknowledged` key naming frozen documents and, for each, the rules whose warnings on it have been seen and accepted. Lint leaves those warnings out of its output and out of `--strict-warnings`. A new rule, L22, reports an acknowledgement matching no warning from its rule on its document, or naming anything other than a frozen document or an L rule.
 
 ## Motivation
 
@@ -38,7 +38,7 @@ A repository running `lint --strict-warnings` fails on such a warning for good. 
 | `internal/config` | The `acknowledged` key: decoding, its default, and its shape |
 | `internal/lint` | Leaving acknowledged warnings out of a run's findings, and L22 |
 | `internal/reference` | `object` among the types the reference schema permits for a configuration key |
-| `internal/export` | `acknowledged` in the exported configuration, which publishes every setting `archdoc.json` holds, and in the export schema |
+| `internal/export` | `acknowledged` in the exported configuration and the export schema. `config` publishes every setting `archdoc.json` holds, so it gains a sixth beside the five [RFC-0006](0006-the-export-publishes-what-it-parsed.md) names |
 | `testdata/lint` | A fixture for L22 |
 | Spec pages | `layout.md` for the key; `lint.md` for acknowledged warnings, their effect on `--strict-warnings`, and L22 |
 | `agents/triage.md` | Acknowledging a warning on a frozen document as its remedy, and the L22 row generated from the registry |
@@ -105,9 +105,10 @@ No other alternatives were weighed.
 
 ## Backwards compatibility
 
-A repository without the key gains two additions to what the tool prints: the exported configuration always holds `acknowledged`, empty where `archdoc.json` names nothing, and `archdoc reference` lists the key. Export schema v3 is unreleased, so neither breaks a released consumer. A repository using the key fails to load under an earlier release, whose `archdoc.json` decoder refuses an unknown key, so a CI pin older than the release adding it fails with a configuration error.
+The exported configuration always holds `acknowledged`, empty where `archdoc.json` names nothing. `archdoc reference` lists the key, L22, and `object` among the types a configuration key can have. Export schema v3 and `archdoc reference` both postdate v0.5.1, so neither addition reaches a released consumer. A repository using the key fails to load under an earlier release, whose `archdoc.json` decoder refuses an unknown key, so a CI pin older than the release adding it fails with a configuration error.
 
 ## Changelog
 
 - 2026-11-08: `internal/reference`, `internal/export` and `PROCESS.md` are named in Components. The reference publishes each configuration key's type, the export publishes every setting `archdoc.json` holds, and `PROCESS.md` lists what lint enforces. Step 5 of the effect on lint says L22 reads the findings before any is left out, where it said after step 2. The examples name their documents by path, since [ADR-0003](../adr/0003-reverse-relationships-are-derived.md) and [RFC-0012](0012-rejection-rationale.md) are documents in this repository.
-- 2026-11-09: L22 is stated as reporting an acknowledgement once its rule reports no warning on the document, since matching is on path and rule. A warning's rule is taken from `lint --json`, which the printed output does not carry. The claim that an acknowledgement cannot hide a fault that can be cleared is removed. L22's path is stated as relative to `root`. Backwards compatibility names the exported `acknowledged` and `archdoc reference`. `updates` names [RFC-0006](0006-the-export-publishes-what-it-parsed.md), whose `config` is the file's five settings. The previous entry's date is corrected from 2026-11-04 to 2026-11-08, and the documents it mentions are linked.
+- 2026-11-09: L22 is stated as reporting an acknowledgement once its rule reports no warning on the document, since matching is on path and rule. A warning's rule is taken from `lint --json`, which the printed output does not carry. The claim that an acknowledgement cannot hide a fault that can be cleared is removed, and with it the Abstract's claim that none outlives the fault it accepted. L22's path is stated as relative to `root`. The statement in Backwards compatibility that nothing changes for a repository without the key is removed, since the exported configuration always holds `acknowledged` and `archdoc reference` lists the key. `updates` names [RFC-0006](0006-the-export-publishes-what-it-parsed.md), whose `config` is the file's five settings. The previous entry's date is corrected from 2026-11-04 to 2026-11-08, and the documents it mentions are linked.
+- 2026-11-10: The Abstract names each case L22 reports. The `internal/export` component names `acknowledged` as a sixth setting beside the five [RFC-0006](0006-the-export-publishes-what-it-parsed.md) names. Backwards compatibility states that `archdoc reference` also lists L22 and the `object` type, and that it and export schema v3 both postdate v0.5.1.
