@@ -329,6 +329,7 @@ var Rules = []Rule{
 			{Release: "v0.6.0", Summary: "Reports a warning rather than an error in a frozen document"},
 			{Release: "v0.6.0", Summary: "Finds a heading after a paragraph holding a code span opened by three backticks or an unclosed `<!--`, which hid the headings after it"},
 			{Release: "v0.6.0", Summary: "Finds a heading closed by `#` characters in a CRLF file, which it reported as missing"},
+			{Release: "v0.6.0", Summary: "Does not read a heading written after the `-->` closing a comment block on the same line, which GitHub renders as part of the block"},
 		},
 	},
 	{
@@ -353,6 +354,7 @@ var Rules = []Rule{
 			{Release: "v0.6.0", Summary: "Checks a group's H1 against its title"},
 			{Release: "v0.6.0", Summary: "Reports a warning rather than an error in a frozen document"},
 			{Release: "v0.6.0", Summary: "Does not compare a title or `id` that did not parse, or is missing or empty"},
+			{Release: "v0.6.0", Summary: "Does not read an H1 written after the `-->` closing a comment block on the same line, which GitHub renders as part of the block"},
 		},
 	},
 	{
@@ -429,6 +431,7 @@ var Rules = []Rule{
 			{Release: "v0.6.0", Summary: "Names the edit that clears a link in a heading, in a frozen document, and in a terminal document outside a git repository"},
 			{Release: "v0.6.0", Summary: "Does not report a `[[...]]` in an indented code block or an HTML block"},
 			{Release: "v0.6.0", Summary: "Reports a `[[...]]` after a code span opened by three backticks or an unclosed `<!--` in a paragraph"},
+			{Release: "v0.6.0", Summary: "Does not report a `[[...]]` after the `-->` closing a comment block on the same line"},
 		},
 	},
 	{
@@ -450,6 +453,7 @@ var Rules = []Rule{
 			{Release: "v0.6.0", Summary: "Reads a link reference definition in a CRLF file"},
 			{Release: "v0.6.0", Summary: "Does not check a link in an HTML block"},
 			{Release: "v0.6.0", Summary: "Checks a link after a code span opened by three backticks or an unclosed `<!--` in a paragraph"},
+			{Release: "v0.6.0", Summary: "Does not check a link after the `-->` closing a comment block on the same line, or take a heading written there as an anchor"},
 		},
 	},
 	{
