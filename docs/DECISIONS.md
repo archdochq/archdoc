@@ -98,11 +98,13 @@ would have to round-trip everything it parsed.
 - **A comment is nothing, wherever it is.** `Section.Empty`, the glossary's paragraph split, heading
   parsing and link scanning all read the same masked text, so a comment on one line behaves like a
   comment spanning several. Comments are blanked in place rather than dropped, which keeps every byte
-  offset valid and ~~lets prose sharing a line with a comment survive~~ lets prose sharing a line with a
-  comment inside a paragraph survive. The last line of a comment opening a block is the block's, as
+  offset valid and ~~lets prose sharing a line with a comment survive~~ (narrowed by #73) lets prose
+  sharing a line with a comment inside a paragraph survive. The last line of a comment opening a block is the block's, as
   GitHub reads it: text after its `-->`, read as prose, had links checked and rewritten that nothing
   renders. The line is literal, as an HTML block's are, with that text kept in the masked line because
-  it is still content, so a section holding it is not empty. ~~An unterminated comment runs to
+  it is still content, so a section holding it is not empty. Where text follows a lone carriage
+  return on that line, which CommonMark reads as a line ending, only what is before it is the
+  block's, and that is blanked instead, so the rest is read. ~~An unterminated comment runs to
   the end of the body, as a browser reads one.~~ Superseded by the next entry: only a comment opening
   a block does.
 - **A comment is read where CommonMark reads one.** A `<!--` opening a block, ~~at most three spaces in,~~
