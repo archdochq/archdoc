@@ -153,8 +153,9 @@ func (d *Document) entryBlocks(from int) (paragraphs []string, other int) {
 			pieces = append(pieces, piece{raw, m, i})
 		}
 	}
-	// A table's header row is read as one outside any container, as the
-	// definition is, in the paragraph the line continues if any.
+	// A table's header row and a list item are read as the block walk reads
+	// them outside any container, as the definition is, in the paragraph the
+	// line continues if any.
 	var outside blockWalk
 	end := func() {
 		if current == paragraph {
@@ -178,6 +179,7 @@ func (d *Document) entryBlocks(from int) (paragraphs []string, other int) {
 		// as written: a comment a paragraph left open does not hide the
 		// marker, which opens the block first.
 		_, _, quote := quoteMarker(raw, 0)
+		_, _, _, item := outside.listItem(raw, 0)
 		switch {
 		case d.literal[i] != blockProse:
 			if current != leaf || kind != d.literal[i] {
@@ -192,7 +194,7 @@ func (d *Document) entryBlocks(from int) (paragraphs []string, other int) {
 		case html || readsAsBlock(raw):
 			end()
 			other++
-		case d.quoted[i] || quote || p+1 < len(pieces) && outside.tableStarts(raw, pieces[p+1].raw) || interruptsWithList(raw, current == paragraph):
+		case d.quoted[i] || quote || p+1 < len(pieces) && outside.tableStarts(raw, pieces[p+1].raw) || item:
 			if current != container {
 				end()
 				current = container
@@ -273,17 +275,6 @@ func (d *Document) definition(from int) string {
 func opensCommentBlock(line string) bool {
 	t := strings.TrimLeft(line, " ")
 	return len(line)-len(t) <= 3 && strings.HasPrefix(t, commentOpen)
-}
-
-// interruptsWithList reports whether a line opens a list item. Within a
-// paragraph only a bullet or an ordered item numbered 1 does, as CommonMark
-// has it, so a line beginning "2025. " continues the sentence before it.
-func interruptsWithList(line string, inParagraph bool) bool {
-	m := listMarkerPattern.FindStringSubmatch(line)
-	if m == nil {
-		return false
-	}
-	return !inParagraph || m[3] == "" || m[3] == "1"
 }
 
 // withoutComments is a line as written with the comments its masked twin
