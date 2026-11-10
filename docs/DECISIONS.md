@@ -141,7 +141,11 @@ would have to round-trip everything it parsed.
 - **A fence closes on a run at least as long as the one that opened it, carrying no info string.** An
   info string is permitted on the opening fence only, so a line reading ```` ``` inside ```` within a
   ```` ```text ```` block is content. One pattern serving both ends ended the block early and let the
-  real closing fence open a second one.
+  real closing fence open a second one. The closing run is at most three columns past the containers
+  holding it, read in columns as the opening run is: matched against a pattern of at most three
+  spaces, a closing fence indented with a tab inside a blockquote or list item left the block open, so
+  the links and `[[...]]` links after it in that container, and in a list item its headings, were read
+  as code.
 - **Blockquotes and list items are read only where a section gives them a meaning.** A blockquote is an
   answer in a question section and a list item is an entry in a `Changelog`; anywhere else each stays
   text, so nothing about a document that carries neither section changes. ~~Their markers and
@@ -412,7 +416,18 @@ the result can delete content it never read.
   `|` line with no delimiter row beneath it is text in GFM, and L15 reported it. A lone carriage
   return ends a line there, as it does in CommonMark and in what is published:
   read as part of its line, `Def.` and `More.` with a line feed and a carriage return between them
-  passed L15 as one paragraph and were published as two. A comment marker inside a code block is
+  passed L15 as one paragraph and were published as two. The block walk splits a body on line feeds
+  alone, so it marks nothing quoted on a line holding `a` and `> b` with a carriage return between
+  them, and L15 passed what GitHub renders as a paragraph and a blockquote. A blockquote is found
+  from each part of a line split at its lone carriage returns, as a list is, rather than by
+  splitting the walk at lone carriage returns, which every reader of the walk would see. The walk's
+  marking covers the whole line, and taking it as well read `More.` after `> quoted` and two
+  carriage returns as part of the quote. Both markers are read as written. A `>` or a list marker
+  opens a block before a comment the paragraph left open can hide it, and read from the masked
+  text, `Alpha <!-- x` and `- y --> z` with a carriage return between them passed L15 as one
+  paragraph. Whether a list item interrupts the paragraph is the block walk's own test rather than a
+  copy of it: the copy had drifted, and reported an empty item, which does not interrupt a
+  paragraph, and passed one numbered `01`, which does. A comment marker inside a code block is
   code, and taking it as an open comment miscounted every block after the fence. Prose above the H1
   is reported rather than dropped, since nothing publishes it. What is published is every line from
   the H1 to the end of the file as written, ~~with its comments cut out,~~ comments included, rather

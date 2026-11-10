@@ -331,6 +331,7 @@ var Rules = []Rule{
 			{Release: "v0.6.0", Summary: "Finds a heading closed by `#` characters in a CRLF file, which it reported as missing"},
 			{Release: "v0.6.0", Summary: "Does not read a heading written after the `-->` closing a comment block on the same line, which GitHub renders as part of the block"},
 			{Release: "v0.6.0", Summary: "Reads a `<!--` in a heading as part of the heading's text where no `-->` closes it on the heading's line"},
+			{Release: "v0.6.0", Summary: "Finds a heading after a fenced code block in a list item whose closing fence is indented with a tab, which hid the headings after it"},
 		},
 	},
 	{
@@ -408,6 +409,7 @@ var Rules = []Rule{
 		Changes: []Change{
 			{Release: "v0.6.0", Summary: "Reports an empty section after a paragraph holding an unclosed `<!--`, which hid it"},
 			{Release: "v0.6.0", Summary: "Reports an empty section whose heading is closed by `#` characters in a CRLF file"},
+			{Release: "v0.6.0", Summary: "Reports an empty section after a fenced code block in a list item whose closing fence is indented with a tab, which hid it"},
 		},
 	},
 	{
@@ -419,6 +421,7 @@ var Rules = []Rule{
 		Since:   "v0.1.0-alpha.1",
 		Changes: []Change{
 			{Release: "v0.6.0", Summary: "Reads the definition as blocks to the end of the file, and reports any block that is not a paragraph and prose above the H1"},
+			{Release: "v0.6.0", Summary: "Reports a blockquote after a lone carriage return, and a list or blockquote whose marker a comment left open in the paragraph would hide, rather than reading either as part of the paragraph before it"},
 		},
 	},
 	{
@@ -434,6 +437,7 @@ var Rules = []Rule{
 			{Release: "v0.6.0", Summary: "Reports a `[[...]]` after a code span opened by three backticks or an unclosed `<!--` in a paragraph"},
 			{Release: "v0.6.0", Summary: "Does not report a `[[...]]` after the `-->` closing a comment block on the same line"},
 			{Release: "v0.6.0", Summary: "Reports a `[[...]]` on the lines after a heading holding a `<!--` that no `-->` closes on the heading's line"},
+			{Release: "v0.6.0", Summary: "Reports a `[[...]]` after a fenced code block in a list item whose closing fence is indented with a tab"},
 		},
 	},
 	{
@@ -457,6 +461,7 @@ var Rules = []Rule{
 			{Release: "v0.6.0", Summary: "Checks a link after a code span opened by three backticks or an unclosed `<!--` in a paragraph"},
 			{Release: "v0.6.0", Summary: "Does not check a link after the `-->` closing a comment block on the same line, or take a heading written there as an anchor"},
 			{Release: "v0.6.0", Summary: "Checks a link on the lines after a heading holding a `<!--` that no `-->` closes on the heading's line"},
+			{Release: "v0.6.0", Summary: "Checks a link after a fenced code block in a list item whose closing fence is indented with a tab"},
 		},
 	},
 	{
