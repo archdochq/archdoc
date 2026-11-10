@@ -250,6 +250,15 @@ would have to round-trip everything it parsed.
   the end of a paragraph that is not there~~. A comment in a heading no longer asks: it closes on its
   line or is text. The first line from each line on holding a `-->` is found once for the body, so asking
   whether a comment closes does not reread the lines of its paragraph.
+- **A line's markers share one reading of the line.** Each `<!--` on a line asked whether the rest of
+  the line closed it, where the next code span began and which spans before it were left open, each
+  read from the line's start or to its end, so a line of 40,000 markers took twenty seconds, and three
+  minutes in a heading, whose anchor ran a pattern to the end of the text for each marker to find no
+  close. The line's last `-->` and its backtick runs, each with the end of the run closing it, are
+  found once; the next marker and the next span are positions kept until passed. The first span left
+  open on the line is found for the first marker to ask, after `closes` has answered, and not sooner:
+  `ends` reads the walk's state when it is first asked and the answer is kept for later lines, so
+  asking it on a line that never asked before would move where a paragraph ends.
 - **A line is a link reference definition only if that is all it is.** The pattern is anchored at both
   ends, requires a non-empty label, allows a title and does not count a line that interrupts a
   paragraph. Without the end anchor a footnote, a numbered citation or any sentence beginning with a

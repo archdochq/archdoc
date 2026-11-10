@@ -18,6 +18,7 @@ func TestHeadingAnchorsAreGitHubs(t *testing.T) {
 		"Foo <span>bar</span>":             "foo-bar",
 		"[undef][nolabel] ref":             "undefnolabel-ref",
 		"x [a [b](c) d](e)":                "x-a-b-de",
+		"far along [<!-- b --> c](y.md)":   "far-along--c",
 		"[![i](s)](l) y":                   "-y",
 		"x [a \\![t](u) b](e)":             "x-a-t-be",
 		"x [![a [t](u)](s) b](e)":          "x--be",
