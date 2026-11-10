@@ -421,6 +421,7 @@ var Rules = []Rule{
 		Since:   "v0.1.0-alpha.1",
 		Changes: []Change{
 			{Release: "v0.6.0", Summary: "Reads the definition as blocks to the end of the file, and reports any block that is not a paragraph and prose above the H1"},
+			{Release: "v0.6.0", Summary: "Reports a blockquote after a lone carriage return, and a list or blockquote whose marker a comment left open in the paragraph would hide, rather than reading either as part of the paragraph before it"},
 		},
 	},
 	{

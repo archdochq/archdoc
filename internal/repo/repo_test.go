@@ -1927,6 +1927,17 @@ func TestATermDefinitionIsOneParagraphAndNothingElse(t *testing.T) {
 		{"a bullet", "# Widget\n\nThe definition.\n- a list\n", 1, 1, 0, "The definition."},
 		{"an item numbered 1", "# Widget\n\nThe definition.\n1. first\n", 1, 1, 0, "The definition."},
 		{"a number continuing a sentence", "# Widget\n\nIn use from\n2025. onwards.\n", 1, 0, 0, "In use from\n2025. onwards."},
+		// An item interrupts a paragraph as the block walk has it: not empty,
+		// and numbered from 1 however many zeros lead the number.
+		{"an empty bullet", "# Widget\n\nDef.\n* \n", 1, 0, 0, "Def.\n*"},
+		{"a bullet alone", "# Widget\n\nDef.\n+\n", 1, 0, 0, "Def.\n+"},
+		{"an empty bullet after a lone carriage return", "# Widget\n\nDef.\r* \n", 1, 0, 0, "Def.\n*"},
+		{"an empty item numbered 1", "# Widget\n\nDef.\n1. \n", 1, 0, 0, "Def.\n1."},
+		{"an empty bullet after a blank line", "# Widget\n\nDef.\n\n* \n", 1, 1, 0, "Def."},
+		{"an item numbered 01", "# Widget\n\nDef.\n01. b\n", 1, 1, 0, "Def."},
+		{"an item numbered 001 with a parenthesis", "# Widget\n\nDef.\n001) b\n", 1, 1, 0, "Def."},
+		{"an item numbered 02", "# Widget\n\nDef.\n02. b\n", 1, 0, 0, "Def.\n02. b"},
+		{"an item numbered 0", "# Widget\n\nDef.\n0. b\n", 1, 0, 0, "Def.\n0. b"},
 		{"a list continued lazily", "# Widget\n\nThe definition.\n\n- an item\ncontinued\n", 1, 1, 0, "The definition."},
 		{"a fence", "# Widget\n\nThe definition.\n```\ncode\n\nmore code\n```\n", 1, 1, 0, "The definition."},
 		{"a blockquote", "# Widget\n\nThe definition.\n> quoted\n", 1, 1, 0, "The definition."},
@@ -1976,6 +1987,33 @@ func TestATermDefinitionIsOneParagraphAndNothingElse(t *testing.T) {
 		// definition is published.
 		{"a blank line ended by a lone carriage return", "# Widget\n\nThe definition.\n\rMore.\n", 2, 0, 0, "The definition."},
 		{"a list item after a lone carriage return", "# Widget\n\nThe definition.\r- an item\n", 1, 1, 0, "The definition."},
+		{"a blockquote after a lone carriage return", "# Widget\n\nThe definition.\r> quoted\n", 1, 1, 0, "The definition."},
+		{"a blockquote after lines ended by lone carriage returns", "# Widget\n\nAlpha\rbeta\r> quoted\n", 1, 1, 0, "Alpha\nbeta"},
+		{"a blockquote continued lazily after a lone carriage return", "# Widget\n\nThe definition.\r> quoted\rcontinued\n", 1, 1, 0, "The definition."},
+		{"a paragraph after a blockquote between lone carriage returns", "# Widget\n\nThe definition.\r> quoted\r\rMore.\n", 2, 1, 0, "The definition."},
+		// A blockquote is read from each part of a line, so one part quoted
+		// does not quote the rest.
+		{"a paragraph after a quoted line's lone carriage returns", "# Widget\n\nThe definition.\n> quoted\r\rMore.\n", 2, 1, 0, "The definition."},
+		{"a blockquote after a quoted line's lone carriage returns", "# Widget\n\nThe definition.\n> quoted\r\r> again\n", 1, 2, 0, "The definition."},
+		{"a quoted line continued lazily after a lone carriage return", "# Widget\n\nThe definition.\n> quoted\rlazy\n", 1, 1, 0, "The definition."},
+		{"a marker indented four columns after a quoted line", "# Widget\n\nThe definition.\n> quoted\r    > text\n", 1, 1, 0, "The definition."},
+		{"a blockquote continued lazily", "# Widget\n\nThe definition.\n> quoted\nlazy\n\nMore.\n", 2, 1, 0, "The definition."},
+		{"a blockquote in a list item", "# Widget\n\nThe definition.\n\n- item\n  > quoted\n  lazy\n", 1, 1, 0, "The definition."},
+		{"a blockquote indented as a block may be after a lone carriage return", "# Widget\n\nThe definition.\r   > quoted\n", 1, 1, 0, "The definition."},
+		{"a marker indented four columns after a lone carriage return", "# Widget\n\nThe definition.\r    > quoted\n", 1, 0, 0, "The definition.\n    > quoted"},
+		{"a marker after a tab after a lone carriage return", "# Widget\n\nThe definition.\r\t> quoted\n", 1, 0, 0, "The definition.\n\t> quoted"},
+		// A blockquote marker opens a block even inside a comment the
+		// paragraph left open, as cmark-gfm reads it. The masking reads the
+		// line whole, so the paragraph loses the text cmark-gfm prints there.
+		{"a blockquote inside a comment after a lone carriage return", "# Widget\n\nAlpha <!-- x\r> y --> z\n", 1, 1, 0, "Alpha"},
+		// A list marker does the same, where it may interrupt a paragraph.
+		{"a list item inside a comment after a line feed", "# Widget\n\nAlpha <!-- x\n- y --> z\n", 1, 1, 0, "Alpha <!-- x"},
+		{"a list item inside a comment after a lone carriage return", "# Widget\n\nAlpha <!-- x\r- y --> z\n", 1, 1, 0, "Alpha"},
+		{"a list item inside a comment after a lone carriage return in a CRLF file", "# Widget\r\n\r\nAlpha <!-- x\r- y --> z\r\n", 1, 1, 0, "Alpha"},
+		{"an item numbered 1 inside a comment after a lone carriage return", "# Widget\n\nAlpha <!-- x\r1. y --> z\n", 1, 1, 0, "Alpha"},
+		{"an item numbered 2 inside a comment after a lone carriage return", "# Widget\n\nAlpha <!-- x\r2. y --> z\n", 1, 0, 0, "Alpha \n z"},
+		{"a dash with no space inside a comment after a lone carriage return", "# Widget\n\nAlpha <!-- x\r-y --> z\n", 1, 0, 0, "Alpha \n z"},
+		{"a marker indented four columns inside a comment after a lone carriage return", "# Widget\n\nAlpha <!-- x\r    - y --> z\n", 1, 0, 0, "Alpha \n     z"},
 		// A comment marker inside a fence is code, and opens nothing.
 		{"a comment marker inside a fence", "# Widget\n\nThe definition.\n```\n<!--\n```\nAfter.\n", 2, 1, 0, "The definition."},
 		// A comment beginning a line opens an HTML block, which holds the rest
