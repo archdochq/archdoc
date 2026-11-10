@@ -915,7 +915,9 @@ func (w *blockWalk) line(s string) (at int, kind block) {
 	rest, from := pad(s[at:], col, spare)
 	switch w.leaf {
 	case leafFence:
-		if closesFence(rest, w.fenceChar, w.fenceLen) {
+		// Read past its indentation in columns, as an opening fence is, so a
+		// tab after a container's marker can leave it under four columns in.
+		if closesFence(lead(rest, from), w.fenceChar, w.fenceLen) {
 			w.leaf = leafNone
 		}
 		return at, blockCode
