@@ -7,12 +7,13 @@ import (
 )
 
 // acknowledge leaves out each warning archdoc.json accepts, and returns what is
-// left and L22's findings on the acknowledgements matching none, so none
-// outlives the fault it accepted.
+// left and L22's findings on the acknowledgements matching none. An
+// acknowledgement matches on path and rule, so it accepts every warning that
+// rule reports on the document.
 //
 // A finding is acknowledged only as a warning on a frozen document. An error
-// can be cleared, and so can a warning on a document still open to editing, so
-// accepting either would hide a fault someone can fix.
+// is always a fault someone can clear, and a warning on a document still open
+// to editing is cleared by editing it.
 func acknowledge(ctx Context, findings []Finding) (kept, stale []Finding) {
 	r := ctx.Repo()
 	cfg := r.Config()
