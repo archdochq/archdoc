@@ -269,6 +269,20 @@ func TestLinksAreReadWhereCommonMarkReadsThem(t *testing.T) {
 		"a raw block closed in capitals":                       {"<pre>\n[x](a.md)\n</PRE>\n\n[y](b.md)\n", []string{"b.md"}},
 		"a tab continuing a list item":                         {"- a\n\n\t[x](a.md)\n", []string{"a.md"}},
 		"a tilde line in a backtick fence":                     {"```\n~~~\n[x](a.md)\n```\n", nil},
+		// A closing fence is read in columns past its containers, as an opening
+		// one is, so a tab after a container's marker can leave it under four.
+		"a tab before a closing fence in a quote":               {"> ```\n> \t```\n> [b](n.md)\n", []string{"n.md"}},
+		"a tab before a closing fence in a quote, CRLF":         {"> ```\r\n> \t```\r\n> [b](n.md)\r\n", []string{"n.md"}},
+		"a tab before a closing tilde fence in a quote":         {"> ~~~\n> \t~~~\n> [b](n.md)\n", []string{"n.md"}},
+		"a tab before a closing fence in a list item":           {"- ```\n  \t```\n  [b](n.md)\n", []string{"n.md"}},
+		"a tab before a closing fence in a list item, CRLF":     {"- ```\r\n  \t```\r\n  [b](n.md)\r\n", []string{"n.md"}},
+		"a tab before a closing fence under a list item":        {"- a\n\n  ```\n  \t```\n  [b](n.md)\n", []string{"n.md"}},
+		"a tab taking an item's indent before a closing fence":  {"- a\n\n  ```\n \t```\n  [b](n.md)\n", []string{"n.md"}},
+		"a closing fence four columns into a quote":             {"> ```\n> \t  ```\n> [b](n.md)\n", nil},
+		"a closing fence four spaces into a quote":              {"> ```\n>     ```\n> [b](n.md)\n", nil},
+		"a closing fence four columns into a list item":         {"- ```\n  \t  ```\n  [b](n.md)\n", nil},
+		"a closing fence four columns into a quoted item":       {"> - ```\n>   \t```\n>   [b](n.md)\n", nil},
+		"a closing fence four columns into a quoted item, CRLF": {"> - ```\r\n>   \t```\r\n>   [b](n.md)\r\n", nil},
 		// Code spans and comment markers within a paragraph.
 		"a code span into an HTML block":              {"A `x [a](a.md)\n<div>\nb`\n</div>\n", []string{"a.md"}},
 		"a code span across a blank line":             {"A `x\n\n[a](a.md) b`\n", []string{"a.md"}},
@@ -371,6 +385,24 @@ func TestACommentBlocksLastLineHoldsNoWikiLink(t *testing.T) {
 	for _, body := range []string{"<!-- c --> [[RFC-0001]]\n", "<!-- a\nb --> [[RFC-0001]]\n"} {
 		if got := page(t, body).WikiLinks(); len(got) != 0 {
 			t.Errorf("wiki links = %v in:\n%s", got, body)
+		}
+	}
+}
+
+// TestWhatFollowsAFenceClosedPastATabIsRead: each reading is cmark-gfm's. A
+// heading is read in a list item and not in a blockquote.
+func TestWhatFollowsAFenceClosedPastATabIsRead(t *testing.T) {
+	for body, headings := range map[string][]string{
+		"> ```\n> \t```\n> [[RFC-0001]]\n":                                nil,
+		"- a\n\n  ```\n  \t```\n  ## H\n\n  [[RFC-0001]]\n":               {"H"},
+		"- a\r\n\r\n  ```\r\n  \t```\r\n  ## H\r\n\r\n  [[RFC-0001]]\r\n": {"H"},
+	} {
+		d := page(t, body)
+		if got := d.WikiLinks(); len(got) != 1 {
+			t.Errorf("wiki links = %v, want one in:\n%s", got, body)
+		}
+		if got := headingTexts(d); !slices.Equal(got, headings) {
+			t.Errorf("headings = %q, want %q in:\n%s", got, headings, body)
 		}
 	}
 }

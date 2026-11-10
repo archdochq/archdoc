@@ -915,7 +915,7 @@ func (w *blockWalk) line(s string) (at int, kind block) {
 	rest, from := pad(s[at:], col, spare)
 	switch w.leaf {
 	case leafFence:
-		if closesFence(rest, w.fenceChar, w.fenceLen) {
+		if closesFence(rest, from, w.fenceChar, w.fenceLen) {
 			w.leaf = leafNone
 		}
 		return at, blockCode
@@ -1310,14 +1310,17 @@ func consumeIndent(s string, want, from int) (n, over int, ok bool) {
 
 // closesFence reports whether a line closes an open fence: a run of the same
 // character, at least as long as the run that opened it, followed by nothing
-// but whitespace.
+// but whitespace. The line starts at column from, and its indentation is read
+// in columns, as an opening fence's is: a tab after a container's marker can
+// leave the run under four columns in.
 //
 // An info string is permitted on the opening fence only, so a line reading
 // "``` inside" within a ```text block is content. One pattern was serving both
 // ends, and because it is unanchored it accepted the trailing text: the block
 // ended early and its real closing fence then opened a second one, which ran to
 // the end of the document.
-func closesFence(line string, char byte, length int) bool {
+func closesFence(line string, from int, char byte, length int) bool {
+	line = lead(line, from)
 	loc := fencePattern.FindStringSubmatchIndex(line)
 	if loc == nil {
 		return false
