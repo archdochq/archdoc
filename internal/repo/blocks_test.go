@@ -350,6 +350,7 @@ func TestACommentBlockHoldsTheRestOfTheLineItClosesOn(t *testing.T) {
 		"a link before a lone carriage return":                 {"<!-- c --> [a](b.md)\r[y](n.md)\n", []string{"n.md"}},
 		"a link before a lone carriage return, spanning lines": {"<!--\n--> [a](b.md)\r[y](n.md)\n", []string{"n.md"}},
 		"a link before a lone carriage return, quoted":         {"> <!-- c --> [a](b.md)\r> [y](n.md)\n", []string{"n.md"}},
+		"a link before an anchor and a lone carriage return":   {"<!-- c --> [a](b.md) <a id=\"x\"></a>\r[y](n.md)\n", []string{"n.md"}},
 		"a link before a lone carriage return ending the line": {"<!-- c --> [a](b.md)\r \n", nil},
 		"a definition after a bare comment in an item":         {"- <!-- c -->\n  [r]: n.md\n", []string{"n.md"}},
 		"a definition after text in an item":                   {"- <!-- c --> x\n  [r]: n.md\n", []string{"n.md"}},
@@ -393,7 +394,7 @@ func TestTextOnACommentBlocksLastLineIsContent(t *testing.T) {
 			t.Errorf("the section is not empty, holding only:\n%s", body)
 		}
 	}
-	for _, body := range []string{"<!-- c --> <a id=\"x\"></a>\n", "<!-- a\nb --> <a id=\"x\"></a>\n"} {
+	for _, body := range []string{"<!-- c --> <a id=\"x\"></a>\n", "<!-- a\nb --> <a id=\"x\"></a>\n", "<!-- c --> <a id=\"x\"></a>\rtext\n", "> <!-- a\n> b --> <a name=\"x\">\r> text\n"} {
 		if got := page(t, body).Anchors(); !slices.Contains(got, "x") {
 			t.Errorf("anchors = %q, want x in:\n%s", got, body)
 		}
