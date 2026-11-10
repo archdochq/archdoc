@@ -262,13 +262,19 @@ would have to round-trip everything it parsed.
 - **A heading's brackets are matched once for the heading.** Each `[` in a heading walked towards the
   end of the text for its `]`, so a heading of 40,000 left open took three seconds; and each link
   closed marked every bracket still open inactive one at a time, and each character asked the whole
-  stack whether one was still active, so a heading of 40,000 nested links took twenty. One walk from
-  the start of the text matches every `[` it reads, as a walk from any of them reads the rest as it
-  does. A `]` it matched before where a caller stops is the one a walk stopping there finds, and a `[`
-  it left open is open when the caller reads to the end of the text. Any other `[` is walked from on
-  its own: one inside a tag holding a backtick, which the walk read as opening a code span, or one it
-  did not match before where a caller stops short of the end, as a code span crossing that point is
-  text to that caller.
+  stack whether one was still active, so a heading of 40,000 nested links took twenty. A walk from the
+  first `[` asked about matches every `[` it reads, as a walk from any of them reads the rest as it
+  does, and the matches are kept for the heading. A `[` the walk passed over, such as one after a tag
+  holding a backtick, which the walk reads as opening a code span where the renderer reads the tag, is
+  walked from when asked, passing over each `[` already matched to its `]` and stopping at one left
+  open. The walk does not read tags itself, as a `]` inside one closes a bracket for the walk as it
+  did for each `[` on its own. A `]` matched before where a caller stops is the one a walk stopping
+  there finds, and a `[` left open is open when the caller reads to the end of the text. Otherwise the
+  `[` is walked from on its own, as a code span crossing where a caller stops is text to that caller.
+  Each walk runs to the end of the text, and finds the close of each backtick run on its way as the
+  walk on each `[` did. A heading holding many `[`, each behind a run of backticks no earlier walk
+  closes before it, takes a walk for each, which finding each run's close makes superlinear: 400 such
+  brackets before 40,000 left open take about ten seconds, as before.
   Inactivity is one bound on the stack, as in the scanner for prose, beside a count of the images
   open. A bracket closing as no link normalised its text as a label to look it up, so 20,000 nested
   took four seconds. Normalising keeps every character that is not a space, so a label holding more

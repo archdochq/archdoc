@@ -1536,7 +1536,7 @@ func anchor(text string, taken map[string]int, labels map[string]bool) string {
 // labels are the document's link reference definitions,
 // normalised: a reference to a label it does not define is text.
 func renderedText(s string, labels map[string]bool) string {
-	in := inline{s: s, labels: labels, textCloses: closesOf(s, true), labelCloses: closesOf(s, false)}
+	in := inline{s: s, labels: labels, textCloses: make([]int, len(s)), labelCloses: make([]int, len(s))}
 	for label := range labels {
 		in.longest = max(in.longest, len(label))
 	}
@@ -1558,12 +1558,13 @@ func renderedText(s string, labels map[string]bool) string {
 type inline struct {
 	s      string
 	labels map[string]bool
-	// textCloses and labelCloses are closesOf the text, with code spans
-	// passed over and without.
+	// textCloses and labelCloses are, at each [ close has read, the index of
+	// the ] matching it, or -1, and 0 elsewhere: with code spans passed over
+	// and without.
 	textCloses, labelCloses []int
-	// longest is the length of the longest of labels, and unspaced[i] how
-	// many characters before s[i] are not spaces, both as normalLabel reads
-	// them.
+	// longest is the length in bytes of the longest of labels, and
+	// unspaced[i] how many characters before s[i] are not spaces, each of
+	// which normalLabel keeps as at least one byte.
 	longest  int
 	unspaced []int
 }
@@ -1855,71 +1856,58 @@ func (in inline) holdsLink(from, to int) bool {
 }
 
 // balanced is balanced(in.s[i:to], spans), read from the text's closes where
-// they answer it. A ] they hold before to is the answer, as the walk from i
-// to it reads what a walk stopping at to would, and so is their -1 when to is
-// the end of the text. Otherwise, as for a [ inside a tag holding a
-// backtick, which the walk of the text read as opening a code span,
-// in.s[i:to] is walked on its own.
+// they answer it, walking from i to fill them where they do not yet. A ] they
+// hold before to is the answer, as the walk from i to it reads what a walk
+// stopping at to would, and so is their -1 when to is the end of the text.
+// Otherwise in.s[i:to] is walked on its own, as a code span crossing to is
+// text to a walk stopping there.
 func (in inline) balanced(i, to int, spans bool) int {
 	closes := in.labelCloses
 	if spans {
 		closes = in.textCloses
 	}
+	if closes[i] == 0 {
+		in.close(closes, i, spans)
+	}
 	switch at := closes[i]; {
 	case at > 0 && at < to:
 		return at - i
-	case at < 0 && to == len(in.s):
+	case to == len(in.s):
 		return -1
 	}
 	return balanced(in.s[i:to], spans)
 }
 
-// closesOf is, at each [ that s read from its start as balanced reads it
-// holds, the index of the ] matching it, or -1, and 0 at every other byte.
-// Reading from a [ the walk reaches reads the rest as the walk does, so one
-// walk answers every [ in it. Asking balanced of each [ walked to the end of
-// the text for each one left open, so a heading of 40,000 took three
-// seconds.
-func closesOf(s string, spans bool) []int {
-	at := make([]int, len(s))
+// close fills closes at each [ the walk from in.s[from] reaches, as balanced
+// reads the text: the index of the ] matching it, or -1. Reading from a [
+// the walk reaches reads the rest as the walk does, so one walk answers
+// every [ on it. Asking balanced of each [ walked to the end of the text for
+// each one left open, so a heading of 40,000 took three seconds. Each walk
+// runs to the end of the text, so a heading holding many [ that each hide
+// behind a code span every earlier walk read takes a walk for each.
+func (in inline) close(closes []int, from int, spans bool) {
 	var open []int
-	for i := 0; i < len(s); i++ {
-		switch s[i] {
-		case '\\':
-			i++
-		case '`':
-			if spans {
-				i = spanEnd(s, i)
-			}
+	for i := from; i < len(in.s); i = next(in.s, i, spans) {
+		switch in.s[i] {
 		case '[':
 			open = append(open, i)
 		case ']':
 			if n := len(open); n > 0 {
-				at[open[n-1]] = i
+				closes[open[n-1]] = i
 				open = open[:n-1]
 			}
 		}
 	}
 	for _, i := range open {
-		at[i] = -1
+		closes[i] = -1
 	}
-	return at
 }
 
-// balanced is the index of the ] matching the [ at s[0], with backslash
-// escapes passed over, and code spans too where spans is set, or -1. A link's
-// text holds code spans, which bind more tightly than its brackets; a label
-// does not.
+// balanced is the index of the ] matching the [ at s[0], or -1.
 func balanced(s string, spans bool) int {
 	depth := 0
-	for i := 0; i < len(s); i++ {
+	for i := 0; i < len(s); i = next(s, i, spans) {
 		switch s[i] {
-		case '\\':
-			i++
-		case '`':
-			if spans {
-				i = spanEnd(s, i)
-			}
 		case '[':
 			depth++
 		case ']':
@@ -1929,6 +1917,20 @@ func balanced(s string, spans bool) int {
 		}
 	}
 	return -1
+}
+
+// next is where the token after the one at s[i] begins, as a link's brackets
+// are read: a backslash escape is two bytes, and a code span is one token
+// where spans is set. A link's text holds code spans, which bind more tightly
+// than its brackets; a label does not.
+func next(s string, i int, spans bool) int {
+	switch {
+	case s[i] == '\\':
+		return i + 2
+	case s[i] == '`' && spans:
+		return spanEnd(s, i) + 1
+	}
+	return i + 1
 }
 
 // spanEnd is the index of the last byte of the code span at s[i], or of the
