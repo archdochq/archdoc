@@ -40,6 +40,8 @@ Of the 73 generated bodies whose links differ, 46 differ in where an address is 
 
 Of the 728 examples, 16 differ in their HTML: 5 only in that goldmark, without its task list extension, leaves a task's box as text; 3 in where an address is found, among them `<http://foo.bar/baz bim>`, in which cmark-gfm finds one; 2 in a `<meta>` tag, which goldmark lists among the tags that open an HTML block able to interrupt a paragraph and CommonMark does not; and one each in closing tags such as `</script>` alone on a line, which goldmark reads as a paragraph, a lone `|` over a delimiter row, which goldmark reads as a table, emphasis and strikethrough inside two footnote labels, strikethrough of unequal runs, and a footnote definition's indentation. goldmark's task list extension reads `- [x](a.md)` as a completed task and loses the link, where GFM requires whitespace after a task's box, and with it the generated bodies whose links differ rise to 142. v1.8.7 differs on 105 of the generated bodies' links, and on one example's.
 
+One difference no measured body holds was found on 2026-11-17: goldmark starts an HTML block at `<!` followed by any ASCII letter, as CommonMark 0.31.2 does, where GFM 0.29 and cmark-gfm start one only before an uppercase letter, so in `[a`, `<!x>`, `](n.md)` cmark-gfm reads a link and goldmark reads none.
+
 Where each places what it reads, in the generated bodies:
 
 | Construct | goldmark v2 | cmark-gfm |
@@ -91,7 +93,7 @@ Easier:
 
 Harder:
 
-- Readings on which goldmark and cmark-gfm differ, among them tables, footnote definitions, `<?>` and where an address is found, will stay misreadings until each is corrected.
+- Readings on which goldmark and cmark-gfm differ, among them tables, footnote definitions, `<?>`, `<!` before a lowercase letter and where an address is found, will stay misreadings until each is corrected.
 - The three shapes under Context that goldmark v2 reads in time growing faster than their length will take that time until goldmark reads them in linear time.
 - A release of goldmark v2, which its README describes as early in its release and which has been released often, will change what the tool reads where it changes goldmark's parse, and a release of cmark-gfm what the tool should read. The tool will take a new goldmark only once the recorded parses are read again.
 - A repository adopting the tool will audit eight names rather than the seven of [ADR-0025](0025-the-dependency-list-adds-pflag-and-x-text.md).
