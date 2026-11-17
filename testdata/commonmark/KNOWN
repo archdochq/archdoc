@@ -62,6 +62,12 @@ archdoc/setext-underline-after-table document/heading[0] goldmark takes a paragr
 archdoc/setext-equals-after-table document/table[0] goldmark takes a paragraph's last line as a table's header and a later line of = as the rest's setext underline, which the outline reads as the paragraph it was, leaving the line of = in no block, where the reference reads it as a row
 archdoc/footnote-reference-after-bang-and-any-character document/paragraph[0]/text[0] goldmark reads ! and any character before ^1] as a footnote reference, which the reference reads as text
 archdoc/list-item-ends-after-empty-nested-item document/list[0] goldmark ends a list item at a blank line after an empty item nested in it, where the reference and commonmark.js continue the item
+archdoc/definition-then-thematic-break document/paragraph[0] goldmark reads --- after a link reference definition as a thematic break, where the reference reads it as the paragraph the definition is taken from
+archdoc/footnote-label-case document/paragraph[0]/text[0] goldmark matches a footnote reference to a definition only where their labels' case agrees, where the reference ignores case
+archdoc/footnote-label-with-space document/paragraph[0]/link[0] goldmark reads a footnote label holding a space, where the reference reads a link to a link reference definition
+archdoc/footnote-label-with-escaped-bracket document/paragraph[0]/link[0] goldmark reads a footnote label holding an escaped ], where the reference reads a link to a link reference definition
+archdoc/footnote-reference-after-bang-before-parentheses document/paragraph[0]/link[0] goldmark reads [^1] after ! and before a destination as a footnote reference, where the reference reads a link
+archdoc/html-block-opening-footnote-definition document/footnote_definition[0]/html_block[0] goldmark keeps the space after a footnote definition's colon in an HTML block that opens the definition
 
 # Bodies the readers' tests read, which the outline replaces them in reading.
 archdoc/a-link-destination-is-read-as-git-hub-reads-it-11 document/paragraph[0]/text[0] goldmark reads a title written directly after a destination within < and >, where the reference and commonmark.js read no link

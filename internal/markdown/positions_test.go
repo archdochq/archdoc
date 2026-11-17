@@ -36,6 +36,19 @@ func placementProblems(src []byte, doc *Node) []string {
 		if p := startProblem(src, n); p != "" {
 			out = append(out, describe(src, n, p))
 		}
+		// An HTML block's content keeps the indentation before its <.
+		if len(n.Lines) > 0 && n.Lines[0].Start < n.Start && n.Type != HTMLBlock {
+			out = append(out, describe(src, n, "starts after the start of its content"))
+		}
+		if len(n.Lines) > 0 && (n.Type == Paragraph || n.Type == Heading && n.Setext) {
+			first := n.Lines[0].Start
+			for first < len(src) && (src[first] == ' ' || src[first] == '\t') {
+				first++
+			}
+			if n.Start != first {
+				out = append(out, describe(src, n, "does not start at its first line's text"))
+			}
+		}
 		if p := endProblem(src, n); p != "" {
 			out = append(out, describe(src, n, p))
 		}

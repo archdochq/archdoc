@@ -49,6 +49,43 @@ func withLoneCarriageReturnsAsLineFeeds(body []byte) []byte {
 
 type builder struct {
 	src []byte
+	// lines are the lines of the leaf block whose pieces are being built.
+	lines []Line
+}
+
+// written is a label as written, which the parser matches labels by: escapes
+// and entities kept, and carriage returns dropped as from all content.
+func (b *builder) written(label []byte) string {
+	return withoutCarriageReturns(string(label))
+}
+
+// writtenWithin is the bytes of s as written, without what lies outside the
+// leaf block's lines, such as a container's markers.
+func (b *builder) writtenWithin(s Span) string {
+	if len(b.lines) == 0 {
+		return b.written(b.src[s.Start:s.End])
+	}
+	var out []byte
+	for _, l := range b.lines {
+		if lo, hi := max(l.Start, s.Start), min(l.End, s.End); lo < hi {
+			out = append(out, b.src[lo:hi]...)
+		}
+	}
+	return b.written(out)
+}
+
+// closingBracket is the index of the first ] at or after i that no backslash
+// escapes, or len(src) where none is.
+func (b *builder) closingBracket(i int) int {
+	for ; i < len(b.src); i++ {
+		switch b.src[i] {
+		case '\\':
+			i++
+		case ']':
+			return i
+		}
+	}
+	return len(b.src)
 }
 
 func (b *builder) block(n ast.Node) *Node {
@@ -70,8 +107,8 @@ func (b *builder) block(n ast.Node) *Node {
 		o.Type = ListItem
 		o.End = b.markerEnd(o.Start)
 	case *east.FootnoteDefinition:
-		o.Type, o.Label, o.HasLabel = FootnoteDefinition, v.Label.Value(b.src), true
-		o.End = o.Start + bytes.Index(b.src[o.Start:], []byte("]:")) + 2
+		o.Type, o.Label, o.HasLabel = FootnoteDefinition, b.written(v.Label.Bytes(b.src)), true
+		o.End = b.closingBracket(o.Start+2) + 2
 		o.LabelSpan = Span{o.Start + 2, o.End - 2}
 	case *ast.Paragraph:
 		o.Type = Paragraph
@@ -210,6 +247,8 @@ func (b *builder) codeBlock(o *Node, v *ast.CodeBlock) {
 	_, _ = v.Value.WriteTo(&buf, b.src)
 	o.Text = withoutCarriageReturns(buf.String())
 	if !o.Fenced {
+		// Spaces past the four columns that open the block are content.
+		o.Start = segs[0].Start
 		o.End = trimRight(b.src, o.Start, segs[len(segs)-1].Stop)
 		return
 	}
@@ -314,10 +353,9 @@ func (b *builder) htmlBlock(o *Node, v *ast.HTMLBlock) {
 	o.Text = withoutCarriageReturns(buf.String())
 	o.End = trimRight(b.src, o.Start, segs[len(segs)-1].Stop)
 	if v.HTMLBlockKind <= ast.HTMLBlockKind5 {
+		// The parser looks for the end marker in the whole of the first
+		// line, start marker included, so <!--> closes.
 		last := b.src[min(segs[len(segs)-1].Start, o.End):o.End]
-		if len(segs) == 1 {
-			last = last[min(len(last), htmlOpenLength[v.HTMLBlockKind]):]
-		}
 		for _, end := range htmlEndMarkers[v.HTMLBlockKind] {
 			o.Closed = o.Closed || bytes.Contains(bytes.ToLower(last), []byte(end))
 		}
@@ -325,20 +363,15 @@ func (b *builder) htmlBlock(o *Node, v *ast.HTMLBlock) {
 }
 
 // htmlEndMarkers are what close an HTML block of each type that only its end
-// marker closes, and htmlOpenLength the bytes of the start marker that end
-// cannot overlap.
+// marker closes.
 var htmlEndMarkers = map[ast.HTMLBlockKind][]string{
 	ast.HTMLBlockKind1: {"</script>", "</pre>", "</style>", "</textarea>"},
 	ast.HTMLBlockKind2: {"-->"}, ast.HTMLBlockKind3: {"?>"}, ast.HTMLBlockKind4: {">"}, ast.HTMLBlockKind5: {"]]>"},
 }
 
-var htmlOpenLength = map[ast.HTMLBlockKind]int{
-	ast.HTMLBlockKind1: 1, ast.HTMLBlockKind2: 4, ast.HTMLBlockKind3: 2, ast.HTMLBlockKind4: 2, ast.HTMLBlockKind5: 9,
-}
-
 func (b *builder) definition(o *Node, v *ast.LinkReferenceDefinition) {
 	o.Type = LinkReferenceDefinition
-	o.Label, o.LabelSpan, o.HasLabel = v.Label.Value(b.src), multiSpan(v.Label), true
+	o.Label, o.LabelSpan, o.HasLabel = b.written(v.Label.Bytes(b.src)), multiSpan(v.Label), true
 	o.Destination, o.HasDestination = v.Destination.Value(b.src), true
 	o.Title = v.Title.Value(b.src)
 	o.HasTitle = !v.Title.IsEmpty()

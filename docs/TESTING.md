@@ -77,9 +77,11 @@ than with readings written by hand, which hold only the cases someone thought of
 - **Positions are checked by rule, not against the reference.** cmark-gfm's positions are not exact:
   it places a code span at its content, an address it finds a column early, and pieces after a link
   reference definition on the wrong line. `TestEveryCaseIsPlacedByTheRules` asserts of every case that
-  each block and piece starts at the first byte of its construct, lies within its parent, follows its
-  siblings without overlapping them, that a text's bytes are its text where it holds no escape or
-  entity, and that a destination's bytes, resolved, are its destination.
+  each block and piece written with a marker starts and ends at it, a paragraph and a setext heading at
+  their first line's text, and no block other than an HTML block after its content's start; that each
+  lies within its parent and follows its siblings without overlapping them; that a text's bytes are its
+  text where it holds no escape or entity; and that a destination's bytes, resolved, are its
+  destination.
 - **The fuzz test needs cmark-gfm.** `FuzzOutlineMatchesTheReference` compares the outline with the
   reference's parse of generated input where the reference is on the path, and asserts the position
   rules either way. Variants of the known differences in tables and addresses are common in generated

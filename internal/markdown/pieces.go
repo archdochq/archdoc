@@ -14,6 +14,7 @@ import (
 // before it, or from the start of the block's content.
 func (b *builder) pieces(n ast.Node, o *Node) []*Node {
 	cur := o.Start
+	b.lines = o.Lines
 	if len(o.Lines) > 0 {
 		cur = o.Lines[0].Start
 	}
@@ -92,14 +93,14 @@ func (b *builder) piece(n ast.Node, cur *int) []*Node {
 		*cur = o.End
 		return []*Node{o}
 	case *east.FootnoteReference:
-		o := &Node{Type: FootnoteReference, Label: v.Label.Value(b.src), HasLabel: true}
+		o := &Node{Type: FootnoteReference, Label: b.written(v.Label.Bytes(b.src)), HasLabel: true}
 		// The parser places a reference written ![^1] at its !, and reads
 		// ! and any character before ^1] as one.
 		o.Start = n.Pos()
 		if b.src[o.Start] == '!' {
 			o.Start++
 		}
-		o.End = o.Start + bytes.IndexByte(b.src[o.Start:], ']') + 1
+		o.End = b.closingBracket(o.Start+2) + 1
 		o.LabelSpan = Span{o.Start + 2, o.End - 1}
 		*cur = o.End
 		return []*Node{o}
@@ -271,7 +272,7 @@ func (b *builder) link(t Type, n ast.Node, dest text.SingleLineValue, title text
 	o.TextSpan = Span{o.Start + k, rb}
 	if ref != nil {
 		o.Reference, o.HasLabel = true, true
-		o.Label = ref.Value.Value(b.src)
+		o.Label = b.written(ref.Value.Bytes(b.src))
 		switch ref.ReferenceLinkKind {
 		case ast.ReferenceLinkKindFull:
 			o.LabelSpan = multiSpan(ref.Value)
@@ -282,10 +283,11 @@ func (b *builder) link(t Type, n ast.Node, dest text.SingleLineValue, title text
 		case ast.ReferenceLinkKindCollapsed:
 			o.LabelSpan = Span{o.Start + k, rb}
 			o.End = rb + 1 + bytes.IndexByte(b.src[rb+1:], ']') + 1
-			o.Label = string(b.src[o.LabelSpan.Start:o.LabelSpan.End])
+			// The parser keeps no label for a collapsed reference; it is the
+			// link's text.
+			o.Label = b.writtenWithin(o.LabelSpan)
 		default:
 			o.LabelSpan, o.End = Span{o.Start + k, rb}, rb+1
-			o.Label = string(b.src[o.LabelSpan.Start:o.LabelSpan.End])
 		}
 		*cur = o.End
 		return o

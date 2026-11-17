@@ -106,9 +106,10 @@ type Node struct {
 	Align     string // a table cell: "left", "center", "right" or ""
 	Hard      bool   // a line break
 
-	// Destination, Title and Label are a link's, an image's or a link
-	// reference definition's, resolved, and a footnote reference's or
-	// definition's label. Each part's span is its bytes as written, and a
+	// Destination and Title are a link's, an image's or a link reference
+	// definition's, resolved. Label is a reference's or a definition's label
+	// as written, which the parser matches labels by, ignoring case and runs
+	// of spaces for a link and neither for a footnote. Each part's span is its bytes as written, and a
 	// link's or an image's TextSpan the bytes between its brackets. A link
 	// or image by reference has its definition's destination and title, and
 	// no span for either.

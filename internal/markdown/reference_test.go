@@ -111,6 +111,9 @@ func known(t testing.TB) map[string]string {
 		if len(f) < 3 {
 			t.Fatalf("KNOWN line %q wants a case, a node and a reason", line)
 		}
+		if _, ok := out[f[0]]; ok {
+			t.Fatalf("KNOWN lists %s twice", f[0])
+		}
 		out[f[0]] = f[1]
 	}
 	return out

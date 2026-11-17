@@ -282,3 +282,31 @@ func TestADestinationsEscapedAmpersandBeginsNoEntity(t *testing.T) {
 		t.Errorf("resolve = %q, want %q", got, "&quot;")
 	}
 }
+
+func TestALabelIsAsWritten(t *testing.T) {
+	body := "[a\\*b] [a\\*b][] [x][a&amp;b]\n\n> [a\\*\n> b][]\n\n[a\\*b]: u\n[a&amp;b]: v\n[a\\* b]: w\n[^a\\]b]: y\n\nx[^a\\]b]\n"
+	var labels []string
+	for _, typ := range []Type{Link, LinkReferenceDefinition, FootnoteDefinition, FootnoteReference} {
+		for _, n := range nodes(body, typ) {
+			labels = append(labels, n.Label)
+		}
+	}
+	if got, want := strings.Join(labels, "|"), "a\\*b|a\\*b|a&amp;b|a\\*\nb|a\\*b|a&amp;b|a\\* b|a\\]b|a\\]b"; got != want {
+		t.Errorf("labels %q, want %q", got, want)
+	}
+	wantSpans(t, body, FootnoteReference, "[^a\\]b]")
+	wantSpans(t, body, FootnoteDefinition, "[^a\\]b]: y")
+}
+
+func TestAnHTMLBlocksEndMarkerMayOverlapItsStartMarker(t *testing.T) {
+	for _, body := range []string{"<!-->\nfoo\n", "<!--->\n", "   <!-->\n", "<?>\nx\n"} {
+		if n := nodes(body, HTMLBlock)[0]; !n.Closed {
+			t.Errorf("%q: not closed, want closed", body)
+		}
+	}
+}
+
+func TestAnIndentedCodeBlockStartsAtItsContent(t *testing.T) {
+	wantSpans(t, "        foo\n    bar\n", CodeBlock, "    foo\n    bar")
+	wantSpans(t, "\t\tfoo\n", CodeBlock, "\tfoo")
+}
