@@ -1,0 +1,113 @@
+# Known differences between the outline and the reference's parse.
+# Each line: the case, the path of the first node that differs, and why.
+# A case listed here fails its test once it stops differing, so the line is
+# removed when a release of goldmark reads it as the reference does.
+
+# The specification's, extensions' and regression tests' examples.
+spec/0610 document/paragraph[0]/text[0] the reference's autolink extension finds an address inside <...> holding a space
+spec/0614 document/paragraph[0]/text[0] the reference's autolink extension finds an email address inside <...> that is no autolink
+extensions/0018 document/paragraph[5]/text[0] goldmark reads strikethrough of unequal runs of tildes
+extensions/0019 document/paragraph[6]/text[0] the reference finds an email address directly after a /
+extensions/0023 document/footnote_definition[2]/paragraph[0] goldmark reads a footnote definition's indented first line as a code block
+regression/0009 document/paragraph[0] goldmark counts meta among the tags opening an HTML block of the sixth type, which CommonMark does not
+regression/0014 document/paragraph[0] goldmark counts meta among the tags opening an HTML block of the sixth type, which CommonMark does not
+regression/0017 document/html_block[0] goldmark reads a closing </script> tag alone on a line as a paragraph
+regression/0019 document/paragraph[0] goldmark reads a lone | over a delimiter row as a table of one column
+regression/0023 document/paragraph[0]/text[0] goldmark reads emphasis inside a footnote label, which the reference reads as text
+regression/0024 document/paragraph[0]/text[0] goldmark reads strikethrough inside a footnote label, which the reference reads as text
+
+# Addresses written without < and >, which the reference's autolink
+# extension and goldmark's linkify extension find in different places.
+archdoc/address-after-bracket document/paragraph[0]/text[0] the reference finds an address after a ], where GFM allows none, and reads the link after it as part of it
+archdoc/address-after-paren document/paragraph[0]/text[0] goldmark finds an address after a ), where GFM allows none, and reads the link after it as part of it
+archdoc/address-after-punctuation document/paragraph[0]/text[0] the reference finds an address with a scheme after punctuation GFM allows none after
+archdoc/address-after-tab document/paragraph[0]/text[0] the reference finds an address after a tab, where goldmark finds none
+archdoc/address-after-unclosed-angle document/paragraph[0]/text[0] the reference finds an address after a < that opens no autolink
+archdoc/address-after-tag document/paragraph[0]/text[0] goldmark finds an address directly after a tag
+archdoc/address-after-backtick document/paragraph[0]/text[0] goldmark finds an address directly after a backtick that opens no code span
+archdoc/address-past-backslash document/paragraph[0]/link[0] the reference ends an address past a backslash, where goldmark ends it at the backslash
+archdoc/address-ending-in-backslash document/paragraph[0]/link[0] the reference keeps a backslash ending an address in it
+archdoc/address-ending-in-delimiters document/paragraph[0]/text[0] goldmark finds an address ending in _ and ~, which the reference finds none in
+archdoc/address-www-then-punctuation document/paragraph[0]/link[0] the reference finds www. followed by punctuation as an address
+archdoc/email-empty-domain-label document/paragraph[0]/link[0] the reference finds an email address whose domain begins with a .
+archdoc/email-followed-by-at document/paragraph[0]/text[0] goldmark finds an email address followed by a second @
+
+# Tables, which goldmark begins and ends on lines where the reference does not.
+archdoc/table-after-lone-pipe document/paragraph[0] goldmark reads a lone | over a delimiter row as a table of one column
+archdoc/table-in-list-item document/list[0]/item[0]/paragraph[0] goldmark begins a table inside a list item where the reference reads a paragraph
+archdoc/table-in-blockquote document/block_quote[0]/paragraph[0] goldmark begins a table inside a blockquote where the reference reads a paragraph
+archdoc/table-in-footnote-definition document/footnote_definition[0]/paragraph[0] goldmark begins a table inside a footnote definition where the reference reads a paragraph
+archdoc/table-after-definition document the reference reads [1]: over a delimiter row as a table, where goldmark reads a link reference definition whose destination is on the next line
+archdoc/table-row-after-list-marker document/table[0] goldmark reads a line holding a list marker alone as a row of the table
+archdoc/table-row-indented document/table[0] goldmark reads an indented line after a row as another row
+
+# Raw HTML.
+archdoc/lowercase-declaration-block document/paragraph[0]/link[0] goldmark reads <! before a lowercase letter as a declaration opening an HTML block, as CommonMark 0.31.2 does, where GFM 0.29 requires an uppercase letter
+archdoc/lowercase-declaration-inline document/paragraph[0]/text[0] goldmark reads <! before a lowercase letter as a declaration within a line, as CommonMark 0.31.2 does, where GFM 0.29 requires an uppercase letter
+archdoc/processing-instruction-empty document/paragraph[0]/html_inline[0] goldmark reads <?> as a whole processing instruction, where the reference reads on to the next ?>
+
+# Lists, emphasis, definitions and footnotes.
+archdoc/list-tight-after-open-fence document/list[0] goldmark reads a list as loose where blank lines fall inside an item's unclosed fence
+archdoc/list-tight-definition-in-item document/list[0] goldmark reads a list as loose where an item opens with a link reference definition followed by a lazy line
+archdoc/emphasis-across-strikethrough document/paragraph[0]/text[0] goldmark reads emphasis whose text begins with a lone ~, as commonmark.js does, where the reference's strikethrough extension leaves it text
+archdoc/strikethrough-of-escaped-tilde document/paragraph[0]/strikethrough[0] goldmark reads strikethrough of unequal runs of tildes around an escaped one
+archdoc/definition-then-dash document/paragraph[0] goldmark reads a - after a link reference definition as an empty list item, where the reference and commonmark.js read it as the paragraph the definition is taken from
+archdoc/lazy-line-after-definition document/block_quote[0]/paragraph[0]/text[0] the reference keeps the leading spaces of a paragraph's first line after a link reference definition, which commonmark.js removes
+archdoc/footnote-reference-before-parentheses document the reference reads [^1]() as a link, so the definition holding it is referenced by nothing
+archdoc/fence-info-of-one-character-at-end document/code_block[0] goldmark drops an info string of one character where the body ends on the opening fence's line
+archdoc/table-delimiter-row-indented document/paragraph[0] goldmark reads a delimiter row indented by four spaces under a paragraph as beginning a table
+archdoc/fence-indented-space-only-line document/code_block[0] goldmark keeps the spaces of a line holding only spaces in an indented fence, which the reference and commonmark.js remove as indentation
+archdoc/tab-after-nested-list-markers document/list[0]/item[0]/list[0]/item[0]/code_block[0] goldmark reads a paragraph after a space and a tab following two list markers on one line, where the reference and commonmark.js read an indented code block
+archdoc/setext-underline-after-table document/heading[0] goldmark takes a paragraph's last line as a table's header and the - after the table as the rest's setext underline, which the outline reads as the paragraph it was, where the reference reads one heading
+archdoc/setext-equals-after-table document/table[0] goldmark takes a paragraph's last line as a table's header and a later line of = as the rest's setext underline, which the outline reads as the paragraph it was, leaving the line of = in no block, where the reference reads it as a row
+archdoc/footnote-reference-after-bang-and-any-character document/paragraph[0]/text[0] goldmark reads ! and any character before ^1] as a footnote reference, which the reference reads as text
+archdoc/list-item-ends-after-empty-nested-item document/list[0] goldmark ends a list item at a blank line after an empty item nested in it, where the reference and commonmark.js continue the item
+
+# Bodies the readers' tests read, which the outline replaces them in reading.
+archdoc/a-link-destination-is-read-as-git-hub-reads-it-11 document/paragraph[0]/text[0] goldmark reads a title written directly after a destination within < and >, where the reference and commonmark.js read no link
+archdoc/a-term-definition-is-one-paragraph-and-nothing-else-36 document/table[0]/table_header[0]/table_cell[0]/text[0] goldmark keeps the backslash of an escaped backslash before a pipe in a table cell
+archdoc/a-term-definition-is-one-paragraph-and-nothing-else-37 document/paragraph[0] goldmark begins or ends a table on a line where the reference does not
+archdoc/a-term-definition-is-one-paragraph-and-nothing-else-38 document/paragraph[0] goldmark begins or ends a table on a line where the reference does not
+archdoc/a-term-definition-is-one-paragraph-and-nothing-else-40 document/paragraph[0] goldmark reads a lone | over a delimiter row as a table of one column
+archdoc/a-term-definition-is-one-paragraph-and-nothing-else-47 document/block_quote[0]/paragraph[0] goldmark begins or ends a table on a line where the reference does not
+archdoc/a-term-definition-is-one-paragraph-and-nothing-else-54 document/paragraph[0] goldmark reads <! before a lowercase letter as a declaration, as CommonMark 0.31.2 does, where GFM 0.29 requires an uppercase letter
+archdoc/link-text-ends-with-every-block-21 document/table[0] goldmark begins or ends a table on a line where the reference does not
+archdoc/link-text-ends-with-every-block-23 document/table[0]/table_header[0]/table_cell[0]/text[0] goldmark keeps the backslash of an escaped backslash before a pipe in a table cell
+archdoc/link-text-ends-with-every-block-24 document/table[0] goldmark begins or ends a table on a line where the reference does not
+archdoc/link-text-ends-with-every-block-32 document/block_quote[0]/heading[0] goldmark reads a tab after a container's marker, or indenting a line inside a container, otherwise than the reference
+archdoc/link-text-ends-with-every-block-33 document/block_quote[0]/paragraph[0]/text[0] the reference ends a quoted or listed paragraph at a line that would open an HTML block of the seventh type, where goldmark and commonmark.js read the line as a lazy continuation
+archdoc/link-text-ends-with-every-block-34 document/list[0]/item[0]/paragraph[0]/text[0] the reference ends a quoted or listed paragraph at a line that would open an HTML block of the seventh type, where goldmark and commonmark.js read the line as a lazy continuation
+archdoc/link-text-ends-with-every-block-35 document/block_quote[0]/paragraph[0]/text[0] the reference ends a quoted or listed paragraph at a line that would open an HTML block of the seventh type, where goldmark and commonmark.js read the line as a lazy continuation
+archdoc/link-text-ends-with-every-block-36 document/block_quote[0]/heading[0] goldmark reads a tab after a container's marker, or indenting a line inside a container, otherwise than the reference
+archdoc/link-text-ends-with-every-block-38 document/paragraph[0] goldmark begins or ends a table on a line where the reference does not
+archdoc/link-text-ends-with-every-block-41 document/paragraph[0] goldmark begins or ends a table on a line where the reference does not
+archdoc/link-text-ends-with-every-block-42 document/block_quote[0]/paragraph[0]/text[0] the reference ends a quoted or listed paragraph at a line that would open an HTML block of the seventh type, where goldmark and commonmark.js read the line as a lazy continuation
+archdoc/link-text-ends-with-every-block-43 document/list[0]/item[0]/block_quote[0]/paragraph[0]/text[0] goldmark reads a tab after a container's marker, or indenting a line inside a container, otherwise than the reference
+archdoc/link-text-ends-with-every-block-44 document/block_quote[0]/paragraph[0]/text[0] goldmark reads a tab after a container's marker, or indenting a line inside a container, otherwise than the reference
+archdoc/link-text-runs-on-where-the-paragraph-does-11 document/paragraph[0]/link[0] goldmark begins or ends a table on a line where the reference does not
+archdoc/link-text-runs-on-where-the-paragraph-does-13 document/list[0]/item[0]/paragraph[0]/link[0] goldmark begins or ends a table on a line where the reference does not
+archdoc/link-text-runs-on-where-the-paragraph-does-24 document/paragraph[0]/link[0] goldmark begins or ends a table on a line where the reference does not
+archdoc/link-text-runs-on-where-the-paragraph-does-27 document/paragraph[0] goldmark begins or ends a table on a line where the reference does not
+archdoc/link-text-runs-on-where-the-paragraph-does-28 document/paragraph[0]/link[0] goldmark begins or ends a table on a line where the reference does not
+archdoc/link-text-runs-on-where-the-paragraph-does-30 document/table[0] goldmark begins or ends a table on a line where the reference does not
+archdoc/link-text-runs-on-where-the-paragraph-does-31 document/table[0] goldmark begins or ends a table on a line where the reference does not
+archdoc/link-text-runs-on-where-the-paragraph-does-33 document/paragraph[0] goldmark begins or ends a table on a line where the reference does not
+archdoc/link-text-runs-on-where-the-paragraph-does-34 document/block_quote[0]/heading[0] goldmark reads a tab after a container's marker, or indenting a line inside a container, otherwise than the reference
+archdoc/link-text-runs-on-where-the-paragraph-does-42 document/list[0]/item[0]/paragraph[0] goldmark reads a tab after a container's marker, or indenting a line inside a container, otherwise than the reference
+archdoc/link-text-runs-on-where-the-paragraph-does-43 document/block_quote[0]/list[0] goldmark reads a tab after a container's marker, or indenting a line inside a container, otherwise than the reference
+archdoc/link-text-runs-on-where-the-paragraph-does-44 document/list[0]/item[0]/heading[0] goldmark reads a tab after a container's marker, or indenting a line inside a container, otherwise than the reference
+archdoc/link-text-runs-on-where-the-paragraph-does-9 document/paragraph[0]/link[0] goldmark begins or ends a table on a line where the reference does not
+archdoc/links-are-read-where-common-mark-reads-them-107 document/block_quote[0]/list[0]/item[0]/code_block[0] goldmark reads a tab after a container's marker, or indenting a line inside a container, otherwise than the reference
+archdoc/links-are-read-where-common-mark-reads-them-12 document/list[0]/item[0]/paragraph[0]/text[0] goldmark reads a tab after a container's marker, or indenting a line inside a container, otherwise than the reference
+archdoc/links-are-read-where-common-mark-reads-them-15 document/block_quote[0]/block_quote[0]/paragraph[0] goldmark reads a tab after a container's marker, or indenting a line inside a container, otherwise than the reference
+archdoc/links-are-read-where-common-mark-reads-them-22 document/list[0] goldmark ends a list item at a blank line after an empty item nested in it, where the reference and commonmark.js continue the item
+archdoc/links-are-read-where-common-mark-reads-them-27 document/list[0]/item[0]/html_block[0] goldmark reads a tab after a container's marker, or indenting a line inside a container, otherwise than the reference
+archdoc/links-are-read-where-common-mark-reads-them-33 document/html_block[0] goldmark reads a closing </pre> tag at the start of a line as text, where the reference opens an HTML block
+archdoc/links-are-read-where-common-mark-reads-them-83 document/list[0]/item[0]/block_quote[0]/paragraph[0] goldmark reads a tab after a container's marker, or indenting a line inside a container, otherwise than the reference
+archdoc/links-around-declarations-and-comments-are-read-as-gi-10 document/list[0]/item[0]/paragraph[0]/link[0] goldmark reads <! before a lowercase letter as a declaration, as CommonMark 0.31.2 does, where GFM 0.29 requires an uppercase letter
+archdoc/links-around-declarations-and-comments-are-read-as-gi-11 document/paragraph[0]/link[0] goldmark reads <! before a lowercase letter as a declaration, as CommonMark 0.31.2 does, where GFM 0.29 requires an uppercase letter
+archdoc/links-around-declarations-and-comments-are-read-as-gi-21 document/paragraph[0]/link[0] goldmark reads <! before a lowercase letter as a declaration, as CommonMark 0.31.2 does, where GFM 0.29 requires an uppercase letter
+archdoc/links-around-declarations-and-comments-are-read-as-gi-29 document/block_quote[0]/paragraph[0]/link[0] goldmark reads <! before a lowercase letter as a declaration, as CommonMark 0.31.2 does, where GFM 0.29 requires an uppercase letter
+archdoc/links-around-declarations-and-comments-are-read-as-git-5 document/paragraph[0] goldmark reads <! before a lowercase letter as a declaration, as CommonMark 0.31.2 does, where GFM 0.29 requires an uppercase letter
+archdoc/prose-never-moves-a-byte-11 document/paragraph[0] goldmark reads <! before a lowercase letter as a declaration, as CommonMark 0.31.2 does, where GFM 0.29 requires an uppercase letter
+archdoc/text-longer-than-a-label-is-not-a-reference-1 document/paragraph[0]/text[0] goldmark reads a link reference whose label is longer than the 999 characters CommonMark allows

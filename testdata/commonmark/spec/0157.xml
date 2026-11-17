@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE document SYSTEM "CommonMark.dtd">
+<document sourcepos="1:1-5:6" xmlns="http://commonmark.org/xml/1.0">
+  <html_block sourcepos="1:1-1:5" xml:space="preserve">&lt;div&gt;
+</html_block>
+  <paragraph sourcepos="3:1-3:18">
+    <emph sourcepos="3:1-3:12">
+      <text sourcepos="3:2-3:11" xml:space="preserve">Emphasized</text>
+    </emph>
+    <text sourcepos="3:13-3:18" xml:space="preserve"> text.</text>
+  </paragraph>
+  <html_block sourcepos="5:1-5:6" xml:space="preserve">&lt;/div&gt;
+</html_block>
+</document>

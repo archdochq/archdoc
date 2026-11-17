@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE document SYSTEM "CommonMark.dtd">
+<document sourcepos="1:1-7:3" xmlns="http://commonmark.org/xml/1.0">
+  <heading sourcepos="1:1-1:8" level="1">
+    <text sourcepos="1:3-1:8" xml:space="preserve">Widget</text>
+  </heading>
+  <paragraph sourcepos="3:1-4:3">
+    <text sourcepos="3:1-3:15" xml:space="preserve">The definition.</text>
+    <softbreak />
+    <text sourcepos="4:1-4:3" xml:space="preserve">-|-</text>
+  </paragraph>
+  <table sourcepos="6:1-7:3">
+    <table_header sourcepos="6:1-6:3">
+      <table_cell sourcepos="6:1-6:1">
+        <text sourcepos="6:1-6:1" xml:space="preserve">a</text>
+      </table_cell>
+      <table_cell sourcepos="6:3-6:3">
+        <text sourcepos="6:3-6:3" xml:space="preserve">b</text>
+      </table_cell>
+    </table_header>
+  </table>
+</document>

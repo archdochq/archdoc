@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE document SYSTEM "CommonMark.dtd">
+<document sourcepos="1:1-5:67" xmlns="http://commonmark.org/xml/1.0">
+  <paragraph sourcepos="1:1-1:50">
+    <text sourcepos="1:1-1:36" xml:space="preserve">This is some text. It has a footnote</text>
+    <<unknown> sourcepos="1:37-1:49" />
+    <text sourcepos="1:50-1:50" xml:space="preserve">.</text>
+  </paragraph>
+  <paragraph sourcepos="3:1-3:98">
+    <text sourcepos="3:1-3:27" xml:space="preserve">This footnote is referenced</text>
+    <<unknown> sourcepos="3:28-3:40" />
+    <text sourcepos="3:41-3:85" xml:space="preserve"> multiple times, in lots of different places.</text>
+    <<unknown> sourcepos="3:86-3:98" />
+  </paragraph>
+  <<unknown> sourcepos="5:16-5:67">
+    <paragraph sourcepos="5:16-5:67">
+      <text sourcepos="5:16-5:67" xml:space="preserve">This footnote definition should have three backrefs.</text>
+    </paragraph>
+  </<unknown>>
+</document>

@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE document SYSTEM "CommonMark.dtd">
+<document sourcepos="1:1-23:10" xmlns="http://commonmark.org/xml/1.0">
+  <heading sourcepos="2:1-2:6" level="1">
+    <text sourcepos="2:3-2:6" xml:space="preserve">Page</text>
+  </heading>
+  <heading sourcepos="4:1-4:24" level="2">
+    <text sourcepos="4:4-4:7" xml:space="preserve">See </text>
+    <link sourcepos="4:8-4:20" destination="x.md" title="">
+      <text sourcepos="4:9-4:16" xml:space="preserve">RFC-0001</text>
+    </link>
+    <text sourcepos="4:21-4:24" xml:space="preserve"> now</text>
+  </heading>
+  <heading sourcepos="6:1-6:23" level="2">
+    <text sourcepos="6:4-6:23" xml:space="preserve">[undef][nolabel] ref</text>
+  </heading>
+  <heading sourcepos="8:1-8:19" level="2">
+    <html_inline sourcepos="8:4-8:13" xml:space="preserve">&lt;!-- c --&gt;</html_inline>
+    <text sourcepos="8:14-8:19" xml:space="preserve"> after</text>
+  </heading>
+  <heading sourcepos="10:1-10:12" level="2">
+    <image sourcepos="10:4-10:10" destination="l.png" title="">
+      <text sourcepos="10:6-10:9" xml:space="preserve">logo</text>
+    </image>
+    <text sourcepos="10:11-10:12" xml:space="preserve"> x</text>
+  </heading>
+  <heading sourcepos="12:1-12:12" level="2">
+    <link sourcepos="12:4-12:10" destination="f.md" title="">
+      <text sourcepos="12:5-12:7" xml:space="preserve">Foo</text>
+    </link>
+    <text sourcepos="12:11-12:12" xml:space="preserve"> z</text>
+  </heading>
+  <heading sourcepos="14:1-14:14" level="2">
+    <image sourcepos="14:4-14:12" destination="l.png" title="">
+      <text sourcepos="14:6-14:9" xml:space="preserve">logo</text>
+    </image>
+    <text sourcepos="14:13-14:14" xml:space="preserve"> y</text>
+  </heading>
+  <heading sourcepos="16:1-16:10" level="2">
+    <text sourcepos="16:4-16:10" xml:space="preserve">Closing</text>
+  </heading>
+  <heading sourcepos="18:1-18:14" level="2">
+    <link sourcepos="18:4-18:10" destination="u.md" title="">
+      <text sourcepos="18:5-18:5" xml:space="preserve">x</text>
+    </link>
+    <text sourcepos="18:12-18:14" xml:space="preserve">`] y</text>
+  </heading>
+</document>

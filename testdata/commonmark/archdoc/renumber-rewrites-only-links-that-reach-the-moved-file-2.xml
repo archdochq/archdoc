@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE document SYSTEM "CommonMark.dtd">
+<document sourcepos="1:1-24:21" xmlns="http://commonmark.org/xml/1.0">
+  <heading sourcepos="2:1-2:17" level="1">
+    <text sourcepos="2:3-2:17" xml:space="preserve">ADR-0002: Other</text>
+  </heading>
+  <heading sourcepos="4:1-4:11" level="2">
+    <text sourcepos="4:4-4:11" xml:space="preserve">Abstract</text>
+  </heading>
+  <paragraph sourcepos="6:1-6:6">
+    <text sourcepos="6:1-6:6" xml:space="preserve">Words.</text>
+  </paragraph>
+  <paragraph sourcepos="8:1-8:83">
+    <text sourcepos="8:1-8:4" xml:space="preserve">See </text>
+    <link sourcepos="8:5-8:30" destination="0001-storage.md" title="">
+      <text sourcepos="8:6-8:12" xml:space="preserve">the ADR</text>
+    </link>
+    <text sourcepos="8:31-8:32" xml:space="preserve">, </text>
+    <link sourcepos="8:33-8:74" destination="../rfc/0001-storage.md#proposal" title="">
+      <text sourcepos="8:34-8:40" xml:space="preserve">the RFC</text>
+    </link>
+    <text sourcepos="8:75-8:79" xml:space="preserve"> and </text>
+    <link sourcepos="8:80-8:82" destination="../rfc/0001-storage.md" title="">
+      <text sourcepos="8:81-8:81" xml:space="preserve">d</text>
+    </link>
+    <text sourcepos="8:83-8:83" xml:space="preserve">.</text>
+  </paragraph>
+  <paragraph sourcepos="10:1-10:61">
+    <link sourcepos="10:1-10:60" destination="https://example.com/../../../rfc/0001-storage.md" title="">
+      <text sourcepos="10:2-10:9" xml:space="preserve">A mirror</text>
+    </link>
+    <text sourcepos="10:61-10:61" xml:space="preserve">.</text>
+  </paragraph>
+  <paragraph sourcepos="12:1-12:43">
+    <link sourcepos="12:1-12:42" destination="mailto:x/../../rfc/0001-storage.md" title="">
+      <text sourcepos="12:2-12:5" xml:space="preserve">Mail</text>
+    </link>
+    <text sourcepos="12:43-12:43" xml:space="preserve">.</text>
+  </paragraph>
+  <paragraph sourcepos="14:1-14:68">
+    <link sourcepos="14:1-14:35" destination="../rfc/0001%2Dstorage.md" title="">
+      <text sourcepos="14:2-14:8" xml:space="preserve">Encoded</text>
+    </link>
+    <text sourcepos="14:36-14:36" xml:space="preserve"> </text>
+    <link sourcepos="14:37-14:67" destination="../rfc/0001-storage.md" title="">
+      <text sourcepos="14:38-14:42" xml:space="preserve">plain</text>
+    </link>
+    <text sourcepos="14:68-14:68" xml:space="preserve">.</text>
+  </paragraph>
+  <paragraph sourcepos="18:1-18:80">
+    <text sourcepos="18:1-18:50" xml:space="preserve">The draft was first saved as 0001-storage.md, and </text>
+    <code sourcepos="18:52-18:66" xml:space="preserve">0001-storage.md</code>
+    <text sourcepos="18:68-18:80" xml:space="preserve"> is its name.</text>
+  </paragraph>
+  <code_block sourcepos="20:1-22:3" xml:space="preserve">cp notes.txt ../rfc/0001-storage.md [[RFC-0001]]
+</code_block>
+  <html_block sourcepos="24:1-23:0" xml:space="preserve">&lt;!-- [[RFC-0001]] --&gt;
+</html_block>
+</document>

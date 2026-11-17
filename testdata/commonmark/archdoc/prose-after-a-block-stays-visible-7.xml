@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE document SYSTEM "CommonMark.dtd">
+<document sourcepos="1:1-8:17" xmlns="http://commonmark.org/xml/1.0">
+  <heading sourcepos="2:1-2:6" level="1">
+    <text sourcepos="2:3-2:6" xml:space="preserve">Page</text>
+  </heading>
+  <paragraph sourcepos="4:1-4:30">
+    <text sourcepos="4:1-4:30" xml:space="preserve">Write &lt;!-- to open a comment.</text>
+  </paragraph>
+  <heading sourcepos="6:1-6:8" level="2">
+    <text sourcepos="6:4-6:8" xml:space="preserve">Later</text>
+  </heading>
+  <paragraph sourcepos="8:1-8:17">
+    <link sourcepos="8:1-8:17" destination="nope.md" title="">
+      <text sourcepos="8:2-8:7" xml:space="preserve">broken</text>
+    </link>
+  </paragraph>
+</document>

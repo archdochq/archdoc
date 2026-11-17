@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE document SYSTEM "CommonMark.dtd">
+<document sourcepos="1:1-4:24" xmlns="http://commonmark.org/xml/1.0">
+  <paragraph sourcepos="1:1-4:24">
+    <text sourcepos="1:1-1:18" xml:space="preserve">&amp;nbsp &amp;x; &amp;#; &amp;#x;</text>
+    <softbreak />
+    <text sourcepos="2:1-2:12" xml:space="preserve">&amp;#987654321;</text>
+    <softbreak />
+    <text sourcepos="3:1-3:10" xml:space="preserve">&amp;#abcdef0;</text>
+    <softbreak />
+    <text sourcepos="4:1-4:24" xml:space="preserve">&amp;ThisIsNotDefined; &amp;hi?;</text>
+  </paragraph>
+</document>

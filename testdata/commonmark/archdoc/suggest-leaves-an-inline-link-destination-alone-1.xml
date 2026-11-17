@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE document SYSTEM "CommonMark.dtd">
+<document sourcepos="1:1-4:50" xmlns="http://commonmark.org/xml/1.0">
+  <heading sourcepos="2:1-2:6" level="1">
+    <text sourcepos="2:3-2:6" xml:space="preserve">Page</text>
+  </heading>
+  <paragraph sourcepos="4:1-4:50">
+    <text sourcepos="4:1-4:4" xml:space="preserve">See </text>
+    <link sourcepos="4:5-4:40" destination="../spec/widget-notes.md" title="">
+      <text sourcepos="4:6-4:14" xml:space="preserve">the guide</text>
+    </link>
+    <text sourcepos="4:41-4:50" xml:space="preserve"> for more.</text>
+  </paragraph>
+</document>

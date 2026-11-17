@@ -1,0 +1,4 @@
+
+# Binding
+
+A registered resolution.

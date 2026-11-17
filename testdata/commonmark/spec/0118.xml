@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE document SYSTEM "CommonMark.dtd">
+<document sourcepos="1:1-7:18" xmlns="http://commonmark.org/xml/1.0">
+  <html_block sourcepos="1:1-3:10" xml:space="preserve">&lt;table&gt;&lt;tr&gt;&lt;td&gt;
+&lt;pre&gt;
+**Hello**,
+</html_block>
+  <paragraph sourcepos="5:1-6:6">
+    <emph sourcepos="5:1-5:7">
+      <text sourcepos="5:2-5:6" xml:space="preserve">world</text>
+    </emph>
+    <text sourcepos="5:8-5:8" xml:space="preserve">.</text>
+    <softbreak />
+    <html_inline sourcepos="6:1-6:6" xml:space="preserve">&lt;/pre&gt;</html_inline>
+  </paragraph>
+  <html_block sourcepos="7:1-7:18" xml:space="preserve">&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+</html_block>
+</document>

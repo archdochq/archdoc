@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE document SYSTEM "CommonMark.dtd">
+<document sourcepos="1:1-6:24" xmlns="http://commonmark.org/xml/1.0">
+  <heading sourcepos="2:1-2:6" level="1">
+    <text sourcepos="2:3-2:6" xml:space="preserve">Page</text>
+  </heading>
+  <paragraph sourcepos="4:1-6:24">
+    <text sourcepos="4:1-4:4" xml:space="preserve">See </text>
+    <link sourcepos="5:5-5:28" destination="../rfc/0001-storage.md" title="">
+      <text sourcepos="4:6-4:16" xml:space="preserve">the storage</text>
+      <softbreak />
+      <text sourcepos="5:1-5:3" xml:space="preserve">RFC</text>
+    </link>
+    <text sourcepos="5:29-5:30" xml:space="preserve">, </text>
+    <link sourcepos="5:31-5:60" destination="0002-x.md#y" title="">
+      <image sourcepos="5:32-5:46" destination="b.png" title="">
+        <text sourcepos="5:34-5:38" xml:space="preserve">badge</text>
+      </image>
+    </link>
+    <softbreak />
+    <text sourcepos="6:1-6:3" xml:space="preserve">or </text>
+    <link sourcepos="6:4-6:23" destination="0003-z.md" title="">
+      <text sourcepos="6:5-6:11" xml:space="preserve">RFC [1]</text>
+    </link>
+    <text sourcepos="6:24-6:24" xml:space="preserve">.</text>
+  </paragraph>
+</document>

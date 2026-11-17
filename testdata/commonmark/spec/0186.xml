@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE document SYSTEM "CommonMark.dtd">
+<document sourcepos="1:1-8:5" xmlns="http://commonmark.org/xml/1.0">
+  <paragraph sourcepos="6:1-8:5">
+    <link sourcepos="6:1-6:5" destination="/foo-url" title="foo">
+      <text sourcepos="6:2-6:4" xml:space="preserve">foo</text>
+    </link>
+    <text sourcepos="6:6-6:6" xml:space="preserve">,</text>
+    <softbreak />
+    <link sourcepos="7:1-7:5" destination="/bar-url" title="bar">
+      <text sourcepos="7:2-7:4" xml:space="preserve">bar</text>
+    </link>
+    <text sourcepos="7:6-7:6" xml:space="preserve">,</text>
+    <softbreak />
+    <link sourcepos="8:1-8:5" destination="/baz-url" title="">
+      <text sourcepos="8:2-8:4" xml:space="preserve">baz</text>
+    </link>
+  </paragraph>
+</document>

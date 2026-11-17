@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE document SYSTEM "CommonMark.dtd">
+<document sourcepos="1:1-1:11" xmlns="http://commonmark.org/xml/1.0">
+  <paragraph sourcepos="1:1-1:11">
+    <text sourcepos="1:1-1:11" xml:space="preserve">[a](te\ st)</text>
+  </paragraph>
+</document>

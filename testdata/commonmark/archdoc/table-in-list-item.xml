@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE document SYSTEM "CommonMark.dtd">
+<document sourcepos="1:1-2:2" xmlns="http://commonmark.org/xml/1.0">
+  <list sourcepos="1:1-2:2" type="bullet" tight="true">
+    <item sourcepos="1:1-2:2">
+      <paragraph sourcepos="1:3-2:2">
+        <text sourcepos="1:3-1:3" xml:space="preserve">;</text>
+        <softbreak />
+        <text sourcepos="2:3-2:4" xml:space="preserve">-|</text>
+      </paragraph>
+    </item>
+  </list>
+</document>

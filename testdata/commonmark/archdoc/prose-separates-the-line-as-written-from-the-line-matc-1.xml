@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE document SYSTEM "CommonMark.dtd">
+<document sourcepos="1:1-8:8" xmlns="http://commonmark.org/xml/1.0">
+  <paragraph sourcepos="1:1-1:43">
+    <text sourcepos="1:1-1:22" xml:space="preserve">Read [[RFC-0001]] and </text>
+    <code sourcepos="1:24-1:35" xml:space="preserve">[[RFC-0002]]</code>
+    <text sourcepos="1:37-1:43" xml:space="preserve"> today.</text>
+  </paragraph>
+  <code_block sourcepos="2:1-4:3" xml:space="preserve">[[RFC-0003]]
+</code_block>
+  <html_block sourcepos="5:1-6:16" xml:space="preserve">&lt;!--
+## Commented out
+--&gt;
+</html_block>
+  <paragraph sourcepos="8:1-8:8">
+    <text sourcepos="8:1-8:8" xml:space="preserve">The end.</text>
+  </paragraph>
+</document>

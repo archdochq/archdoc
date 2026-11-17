@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE document SYSTEM "CommonMark.dtd">
+<document sourcepos="1:1-6:23" xmlns="http://commonmark.org/xml/1.0">
+  <list sourcepos="1:4-6:23" type="ordered" start="1" delim="period" tight="false">
+    <item sourcepos="1:4-6:23">
+      <paragraph sourcepos="1:8-2:22">
+        <text sourcepos="1:8-1:18" xml:space="preserve">A paragraph</text>
+        <softbreak />
+        <text sourcepos="2:8-2:22" xml:space="preserve">with two lines.</text>
+      </paragraph>
+      <code_block sourcepos="4:12-5:0" xml:space="preserve">indented code
+</code_block>
+      <block_quote sourcepos="6:8-6:23">
+        <paragraph sourcepos="6:10-6:23">
+          <text sourcepos="6:10-6:23" xml:space="preserve">A block quote.</text>
+        </paragraph>
+      </block_quote>
+    </item>
+  </list>
+</document>

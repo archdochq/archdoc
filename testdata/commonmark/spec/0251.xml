@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE document SYSTEM "CommonMark.dtd">
+<document sourcepos="1:1-5:16" xmlns="http://commonmark.org/xml/1.0">
+  <list sourcepos="1:1-5:16" type="ordered" start="1" delim="period" tight="false">
+    <item sourcepos="1:1-5:16">
+      <code_block sourcepos="1:8-2:0" xml:space="preserve">indented code
+</code_block>
+      <paragraph sourcepos="3:4-3:12">
+        <text sourcepos="3:4-3:12" xml:space="preserve">paragraph</text>
+      </paragraph>
+      <code_block sourcepos="5:8-5:16" xml:space="preserve">more code
+</code_block>
+    </item>
+  </list>
+</document>

@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE document SYSTEM "CommonMark.dtd">
+<document sourcepos="1:1-1:23" xmlns="http://commonmark.org/xml/1.0">
+  <paragraph sourcepos="1:1-1:23">
+    <text sourcepos="1:1-1:23" xml:space="preserve">&lt;</text>
+    <link destination="mailto:foo+@bar.example.com" title="">
+      <text xml:space="preserve">foo+@bar.example.com</text>
+    </link>
+    <text xml:space="preserve">&gt;</text>
+  </paragraph>
+</document>

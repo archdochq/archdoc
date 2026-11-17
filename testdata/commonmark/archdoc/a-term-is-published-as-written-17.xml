@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE document SYSTEM "CommonMark.dtd">
+<document sourcepos="1:1-4:6" xmlns="http://commonmark.org/xml/1.0">
+  <heading sourcepos="1:1-1:8" level="1">
+    <text sourcepos="1:3-1:8" xml:space="preserve">Widget</text>
+  </heading>
+  <code_block sourcepos="3:1-4:6" xml:space="preserve">&lt;!-- x
+</code_block>
+</document>

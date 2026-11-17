@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE document SYSTEM "CommonMark.dtd">
+<document sourcepos="1:1-6:28" xmlns="http://commonmark.org/xml/1.0">
+  <heading sourcepos="2:1-2:13" level="1">
+    <text sourcepos="2:3-2:13" xml:space="preserve">RFC-0001: A</text>
+  </heading>
+  <paragraph sourcepos="4:1-6:28">
+    <text sourcepos="4:1-4:5" xml:space="preserve">Text </text>
+    <html_inline sourcepos="4:6-6:2" xml:space="preserve">&lt;!--
+hidden [[RFC-0002]]
+--&gt;</html_inline>
+    <text sourcepos="6:4-6:28" xml:space="preserve"> but [[RFC-0003]] is not.</text>
+  </paragraph>
+</document>

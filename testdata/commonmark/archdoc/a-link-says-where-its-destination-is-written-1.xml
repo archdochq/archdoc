@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE document SYSTEM "CommonMark.dtd">
+<document sourcepos="1:1-13:21" xmlns="http://commonmark.org/xml/1.0">
+  <heading sourcepos="1:1-1:13" level="1">
+    <text sourcepos="1:3-1:13" xml:space="preserve">RFC-0001: T</text>
+  </heading>
+  <heading sourcepos="2:1-2:21" level="2">
+    <text sourcepos="2:4-2:21" xml:space="preserve">Resolved questions</text>
+  </heading>
+  <heading sourcepos="3:1-3:6" level="3">
+    <text sourcepos="3:5-3:6" xml:space="preserve">Q?</text>
+  </heading>
+  <block_quote sourcepos="4:1-4:22" />
+  <heading sourcepos="6:1-6:6" level="3">
+    <text sourcepos="6:5-6:6" xml:space="preserve">R?</text>
+  </heading>
+  <block_quote sourcepos="7:1-7:16" />
+  <heading sourcepos="9:1-9:11" level="2">
+    <text sourcepos="9:4-9:11" xml:space="preserve">Abstract</text>
+  </heading>
+  <paragraph sourcepos="11:1-11:45">
+    <text sourcepos="11:1-11:4" xml:space="preserve">See </text>
+    <link sourcepos="11:5-11:20" destination="0003-a.md#x" title="">
+      <text sourcepos="11:6-11:6" xml:space="preserve">a</text>
+    </link>
+    <text sourcepos="11:21-11:25" xml:space="preserve"> and </text>
+    <image sourcepos="11:26-11:44" destination="img/b.png" title="B">
+      <text sourcepos="11:28-11:28" xml:space="preserve">b</text>
+    </image>
+    <text sourcepos="11:45-11:45" xml:space="preserve">.</text>
+  </paragraph>
+</document>

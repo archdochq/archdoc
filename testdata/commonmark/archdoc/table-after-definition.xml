@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE document SYSTEM "CommonMark.dtd">
+<document sourcepos="1:1-2:2" xmlns="http://commonmark.org/xml/1.0">
+  <table sourcepos="1:1-2:2">
+    <table_header sourcepos="1:1-1:4">
+      <table_cell sourcepos="1:1-1:4">
+        <text sourcepos="1:1-1:4" xml:space="preserve">[1]:</text>
+      </table_cell>
+    </table_header>
+  </table>
+</document>

@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE document SYSTEM "CommonMark.dtd">
+<document sourcepos="1:1-4:88" xmlns="http://commonmark.org/xml/1.0">
+  <heading sourcepos="2:1-2:8" level="1">
+    <text sourcepos="2:3-2:8" xml:space="preserve">Queues</text>
+  </heading>
+  <paragraph sourcepos="4:1-4:88">
+    <text sourcepos="4:1-4:88" xml:space="preserve">Work runs out of band, as [[RFC-0001]] describes. A [[Nothing At All]] node consumes it.</text>
+  </paragraph>
+</document>

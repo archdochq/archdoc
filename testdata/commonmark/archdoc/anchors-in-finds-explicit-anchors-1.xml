@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE document SYSTEM "CommonMark.dtd">
+<document sourcepos="1:1-7:6" xmlns="http://commonmark.org/xml/1.0">
+  <heading sourcepos="2:1-2:10" level="1">
+    <text sourcepos="2:3-2:10" xml:space="preserve">Glossary</text>
+  </heading>
+  <paragraph sourcepos="4:1-4:21">
+    <html_inline sourcepos="4:1-4:17" xml:space="preserve">&lt;a id=&quot;editable&quot;&gt;</html_inline>
+    <html_inline sourcepos="4:18-4:21" xml:space="preserve">&lt;/a&gt;</html_inline>
+  </paragraph>
+  <heading sourcepos="5:1-5:7" level="2">
+    <text sourcepos="5:4-5:7" xml:space="preserve">open</text>
+  </heading>
+  <paragraph sourcepos="7:1-7:6">
+    <text sourcepos="7:1-7:6" xml:space="preserve">Words.</text>
+  </paragraph>
+</document>

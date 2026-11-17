@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE document SYSTEM "CommonMark.dtd">
+<document sourcepos="1:1-1:14" xmlns="http://commonmark.org/xml/1.0">
+  <paragraph sourcepos="1:1-1:14">
+    <code sourcepos="1:2-1:10" xml:space="preserve">&lt;a href=&quot;</code>
+    <text sourcepos="1:12-1:15" xml:space="preserve">&quot;&gt;`</text>
+  </paragraph>
+</document>

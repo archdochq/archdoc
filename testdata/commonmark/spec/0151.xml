@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE document SYSTEM "CommonMark.dtd">
+<document sourcepos="1:1-13:4" xmlns="http://commonmark.org/xml/1.0">
+  <html_block sourcepos="1:1-11:1" xml:space="preserve">&lt;![CDATA[
+function matchwo(a,b)
+{
+  if (a &lt; b &amp;&amp; a &lt; 0) then {
+    return 1;
+
+  } else {
+
+    return 0;
+  }
+}
+]]&gt;
+</html_block>
+  <paragraph sourcepos="13:1-13:4">
+    <text sourcepos="13:1-13:4" xml:space="preserve">okay</text>
+  </paragraph>
+</document>

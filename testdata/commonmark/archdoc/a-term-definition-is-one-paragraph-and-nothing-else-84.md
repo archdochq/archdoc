@@ -1,0 +1,5 @@
+<!-- c -->
+
+# Widget
+
+The definition.

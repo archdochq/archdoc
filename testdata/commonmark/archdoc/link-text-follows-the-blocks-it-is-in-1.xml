@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE document SYSTEM "CommonMark.dtd">
+<document sourcepos="1:1-18:20" xmlns="http://commonmark.org/xml/1.0">
+  <heading sourcepos="2:1-2:6" level="1">
+    <text sourcepos="2:3-2:6" xml:space="preserve">Page</text>
+  </heading>
+  <paragraph sourcepos="4:1-4:7">
+    <text sourcepos="4:1-4:7" xml:space="preserve">[before</text>
+  </paragraph>
+  <code_block sourcepos="5:1-7:3" xml:space="preserve">code
+</code_block>
+  <paragraph sourcepos="8:1-8:13">
+    <text sourcepos="8:1-8:13" xml:space="preserve">after](n1.md)</text>
+  </paragraph>
+  <paragraph sourcepos="10:1-10:5">
+    <text sourcepos="10:1-10:5" xml:space="preserve">[open</text>
+  </paragraph>
+  <heading sourcepos="11:1-11:17" level="1">
+    <text sourcepos="11:3-11:17" xml:space="preserve">heading](n2.md)</text>
+  </heading>
+  <block_quote sourcepos="13:1-14:14">
+    <paragraph sourcepos="13:3-14:14">
+      <link sourcepos="14:3-14:14" destination="q.md" title="">
+        <text sourcepos="13:4-13:9" xml:space="preserve">quoted</text>
+        <softbreak />
+        <text sourcepos="14:3-14:7" xml:space="preserve">twice</text>
+      </link>
+    </paragraph>
+  </block_quote>
+  <paragraph sourcepos="16:1-16:30">
+    <image sourcepos="16:1-16:30" destination="d.png" title="">
+      <text sourcepos="16:3-16:5" xml:space="preserve">an </text>
+      <link sourcepos="16:6-16:18" destination="c.md" title="">
+        <text sourcepos="16:7-16:11" xml:space="preserve">inner</text>
+      </link>
+      <text sourcepos="16:19-16:22" xml:space="preserve"> one</text>
+    </image>
+  </paragraph>
+  <paragraph sourcepos="18:1-18:20">
+    <link sourcepos="18:1-18:10" destination="x[y" title="">
+      <text sourcepos="18:2-18:2" xml:space="preserve">a</text>
+    </link>
+    <text sourcepos="18:11-18:20" xml:space="preserve"> z](n3.md)</text>
+  </paragraph>
+</document>

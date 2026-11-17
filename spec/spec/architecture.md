@@ -13,6 +13,7 @@ archdoc/
 ├── internal/
 │   ├── config/          archdoc.json loading and defaults
 │   ├── repo/            discovery, parsing, identifiers, derivation, writers, the transition graph
+│   ├── markdown/        a body's outline, as goldmark parses it
 │   ├── lint/            rules, each a function returning findings
 │   ├── changes/         the record on the configured branch, and what the working tree changes in it
 │   ├── lifecycle/       the transition gate
@@ -35,6 +36,8 @@ archdoc/
 
 `internal/repo` opens a repository without failing on a malformed document: faults are recorded on the document as problems carrying a line and a message, and `lint` decides their severity. A document's body is walked once, and every reader of it, sections, headings, links and the glossary, reads the same masked text. A `Changelog`'s entries and a resolved question's answer are taken from the lines as written, within sections found in the masked text.
 
+`internal/markdown` parses a body with goldmark into an outline of its blocks and inline pieces, each holding its position in the body as written, and is the only package that imports goldmark. No other package reads the outline. Its tests compare the outline with cmark-gfm's parse of the cases under `testdata/commonmark`.
+
 `internal/git` is an interface exposing `FilesAt`, `Changed`, `Differs`, `HasCommits`, `BranchExists`, `ListFiles`, `MergeBase`, `CurrentBranch`, `Prefix` and `RepoRoot`. It returns a sentinel error when git reports the directory is not inside a repository, and any other failure as an error. `FilesAt` reads many blobs through one `cat-file --batch`; `Changed` asks one `diff`, run from the repository root, which paths differ. Requests to `cat-file` are NUL-separated, and a missing path's answer is matched against the whole request. git runs with `LC_ALL=C` and without `GIT_DIR`, `GIT_WORK_TREE`, `GIT_COMMON_DIR` or `GIT_INDEX_FILE`, so the repository is found from the directory it runs in, and with `GIT_LITERAL_PATHSPECS=1` in place of any inherited pathspec setting, so a path is always a name. `ListFiles` lists a revision's whole tree by paths from the repository root, whichever directory git runs in. The repository root, existence and file listing are memoised per process. `Differs` compares files that moved by the object ids git computes for them. `PathOf` turns a path relative to the directory git was opened in into one from the repository root, as those operations take paths, asking git how it spells the directory, and joining it to `Prefix` where git cannot be run from it.
 
 `internal/changes` reads every document at the merge base of HEAD and the configured branch in one `FilesAt` batch, and its `archdoc.json` in another, for the merge rules and `archdoc changes`. `internal/lint` imports it.
@@ -51,6 +54,7 @@ archdoc/
 - `github.com/charmbracelet/huh`
 - `github.com/charmbracelet/x/term`
 - `golang.org/x/text`, which `internal/changes` imports for Unicode normalisation
+- `github.com/yuin/goldmark/v2`, which `internal/markdown` imports to parse a body
 - `github.com/goreleaser/goreleaser`, at build time only
 
-Nothing else. Markdown is handled with the standard library.
+Nothing else. `internal/repo` reads a body with the standard library.

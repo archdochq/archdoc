@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE document SYSTEM "CommonMark.dtd">
+<document sourcepos="1:1-9:5" xmlns="http://commonmark.org/xml/1.0">
+  <html_block sourcepos="1:1-7:8" xml:space="preserve">&lt;table&gt;
+  &lt;tr&gt;
+    &lt;td&gt;
+           hi
+    &lt;/td&gt;
+  &lt;/tr&gt;
+&lt;/table&gt;
+</html_block>
+  <paragraph sourcepos="9:1-9:5">
+    <text sourcepos="9:1-9:5" xml:space="preserve">okay.</text>
+  </paragraph>
+</document>

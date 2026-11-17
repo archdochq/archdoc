@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE document SYSTEM "CommonMark.dtd">
+<document sourcepos="1:1-2:26" xmlns="http://commonmark.org/xml/1.0">
+  <paragraph sourcepos="1:1-2:26">
+    <text sourcepos="1:1-1:4" xml:space="preserve">foo </text>
+    <html_inline sourcepos="1:5-2:25" xml:space="preserve">&lt;!-- this is a --
+comment - with hyphens --&gt;</html_inline>
+  </paragraph>
+</document>

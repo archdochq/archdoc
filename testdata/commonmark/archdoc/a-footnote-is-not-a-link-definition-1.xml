@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE document SYSTEM "CommonMark.dtd">
+<document sourcepos="1:1-6:10" xmlns="http://commonmark.org/xml/1.0">
+  <heading sourcepos="2:1-2:6" level="1">
+    <text sourcepos="2:3-2:6" xml:space="preserve">Page</text>
+  </heading>
+  <paragraph sourcepos="4:1-4:12">
+    <text sourcepos="4:1-4:8" xml:space="preserve">A claim.</text>
+    <<unknown> sourcepos="4:9-4:12" />
+  </paragraph>
+  <<unknown> sourcepos="6:7-6:10">
+    <paragraph sourcepos="6:7-6:10">
+      <text sourcepos="6:7-6:10" xml:space="preserve">note</text>
+    </paragraph>
+  </<unknown>>
+</document>

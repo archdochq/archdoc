@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE document SYSTEM "CommonMark.dtd">
+<document sourcepos="1:1-5:13" xmlns="http://commonmark.org/xml/1.0">
+  <paragraph sourcepos="1:1-1:29">
+    <html_inline sourcepos="1:1-1:8" xml:space="preserve">&lt;strong&gt;</html_inline>
+    <text sourcepos="1:9-1:9" xml:space="preserve"> </text>
+    <html_inline sourcepos="1:10-1:16" xml:space="preserve">&lt;title&gt;</html_inline>
+    <text sourcepos="1:17-1:17" xml:space="preserve"> </text>
+    <html_inline sourcepos="1:18-1:24" xml:space="preserve">&lt;style&gt;</html_inline>
+    <text sourcepos="1:25-1:25" xml:space="preserve"> </text>
+    <html_inline sourcepos="1:26-1:29" xml:space="preserve">&lt;em&gt;</html_inline>
+  </paragraph>
+  <html_block sourcepos="3:1-5:13" xml:space="preserve">&lt;blockquote&gt;
+  &lt;xmp&gt; is disallowed.  &lt;XMP&gt; is also disallowed.
+&lt;/blockquote&gt;
+</html_block>
+</document>

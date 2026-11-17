@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE document SYSTEM "CommonMark.dtd">
+<document sourcepos="1:1-5:3" xmlns="http://commonmark.org/xml/1.0">
+  <code_block sourcepos="1:1-5:3" info="ruby" xml:space="preserve">def foo(x)
+  return 3
+end
+</code_block>
+</document>

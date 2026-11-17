@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE document SYSTEM "CommonMark.dtd">
+<document sourcepos="1:1-5:17" xmlns="http://commonmark.org/xml/1.0">
+  <heading sourcepos="2:1-2:6" level="1">
+    <text sourcepos="2:3-2:6" xml:space="preserve">Page</text>
+  </heading>
+  <list sourcepos="4:1-5:17" type="bullet" tight="true">
+    <item sourcepos="4:1-5:17">
+      <paragraph sourcepos="4:3-5:17">
+        <text sourcepos="4:3-4:4" xml:space="preserve">a </text>
+        <code sourcepos="4:6-5:14" xml:space="preserve">x 2) [a](a.md) b</code>
+      </paragraph>
+    </item>
+  </list>
+</document>

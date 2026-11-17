@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE document SYSTEM "CommonMark.dtd">
+<document sourcepos="1:1-15:7" xmlns="http://commonmark.org/xml/1.0">
+  <paragraph sourcepos="1:1-1:45">
+    <text sourcepos="1:1-1:45" xml:space="preserve">| Not enough table | to be considered table |</text>
+  </paragraph>
+  <paragraph sourcepos="3:1-4:45">
+    <text sourcepos="3:1-3:45" xml:space="preserve">| Not enough table | to be considered table |</text>
+    <softbreak />
+    <text sourcepos="4:1-4:45" xml:space="preserve">| Not enough table | to be considered table |</text>
+  </paragraph>
+  <table sourcepos="6:1-7:46">
+    <table_header sourcepos="6:1-6:46">
+      <table_cell sourcepos="6:2-6:20">
+        <text sourcepos="6:3-6:19" xml:space="preserve">Just enough table</text>
+      </table_cell>
+      <table_cell sourcepos="6:22-6:45">
+        <text sourcepos="6:23-6:44" xml:space="preserve">to be considered table</text>
+      </table_cell>
+    </table_header>
+  </table>
+  <paragraph sourcepos="9:1-9:14">
+    <text sourcepos="9:1-9:14" xml:space="preserve">| ---- | --- |</text>
+  </paragraph>
+  <table sourcepos="11:1-12:3">
+    <table_header sourcepos="11:1-11:3">
+      <table_cell sourcepos="11:2-11:2">
+        <text sourcepos="11:2-11:2" xml:space="preserve">x</text>
+      </table_cell>
+    </table_header>
+  </table>
+  <table sourcepos="14:1-15:7">
+    <table_header sourcepos="14:1-14:7">
+      <table_cell sourcepos="14:2-14:6">
+        <text sourcepos="14:3-14:5" xml:space="preserve">xyz</text>
+      </table_cell>
+    </table_header>
+  </table>
+</document>

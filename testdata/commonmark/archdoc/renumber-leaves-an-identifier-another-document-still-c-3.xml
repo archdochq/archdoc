@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE document SYSTEM "CommonMark.dtd">
+<document sourcepos="1:1-8:94" xmlns="http://commonmark.org/xml/1.0">
+  <heading sourcepos="2:1-2:17" level="1">
+    <text sourcepos="2:3-2:17" xml:space="preserve">RFC-0002: Cache</text>
+  </heading>
+  <heading sourcepos="4:1-4:11" level="2">
+    <text sourcepos="4:4-4:11" xml:space="preserve">Abstract</text>
+  </heading>
+  <paragraph sourcepos="6:1-6:6">
+    <text sourcepos="6:1-6:6" xml:space="preserve">Words.</text>
+  </paragraph>
+  <paragraph sourcepos="8:1-8:94">
+    <text sourcepos="8:1-8:18" xml:space="preserve">See [[RFC-0001]], </text>
+    <link sourcepos="8:19-8:55" destination="0001-storage.md" title="">
+      <text sourcepos="8:20-8:37" xml:space="preserve">the storage design</text>
+    </link>
+    <text sourcepos="8:56-8:60" xml:space="preserve"> and </text>
+    <link sourcepos="8:61-8:93" destination="0001-newthing.md" title="">
+      <text sourcepos="8:62-8:74" xml:space="preserve">the new thing</text>
+    </link>
+    <text sourcepos="8:94-8:94" xml:space="preserve">.</text>
+  </paragraph>
+</document>

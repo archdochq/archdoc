@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE document SYSTEM "CommonMark.dtd">
+<document sourcepos="1:1-26:26" xmlns="http://commonmark.org/xml/1.0">
+  <paragraph sourcepos="1:1-1:47">
+    <text sourcepos="1:1-1:18" xml:space="preserve">This is some text!</text>
+    <<unknown> sourcepos="1:19-1:22" />
+    <text sourcepos="1:23-1:35" xml:space="preserve">. Other text.</text>
+    <<unknown> sourcepos="1:36-1:46" />
+    <text sourcepos="1:47-1:47" xml:space="preserve">.</text>
+  </paragraph>
+  <paragraph sourcepos="3:1-3:28">
+    <text sourcepos="3:1-3:14" xml:space="preserve">Here's a thing</text>
+    <<unknown> sourcepos="3:15-3:27" />
+    <text sourcepos="3:28-3:28" xml:space="preserve">.</text>
+  </paragraph>
+  <paragraph sourcepos="5:1-5:35">
+    <text sourcepos="5:1-5:17" xml:space="preserve">And another thing</text>
+    <<unknown> sourcepos="5:18-5:34" />
+    <text sourcepos="5:35-5:35" xml:space="preserve">.</text>
+  </paragraph>
+  <paragraph sourcepos="7:1-7:36">
+    <text sourcepos="7:1-7:36" xml:space="preserve">This doesn't have a referent[^nope].</text>
+  </paragraph>
+  <paragraph sourcepos="17:1-17:3">
+    <text sourcepos="17:1-17:3" xml:space="preserve">Hi!</text>
+  </paragraph>
+  <<unknown> sourcepos="15:7-16:0">
+    <paragraph sourcepos="15:7-15:40">
+      <text sourcepos="15:7-15:11" xml:space="preserve">Some </text>
+      <emph sourcepos="15:12-15:19">
+        <text sourcepos="15:13-15:18" xml:space="preserve">bolded</text>
+      </emph>
+      <text sourcepos="15:20-15:40" xml:space="preserve"> footnote definition.</text>
+    </paragraph>
+  </<unknown>>
+  <<unknown> sourcepos="19:13-25:0">
+    <block_quote sourcepos="20:5-20:39">
+      <paragraph sourcepos="20:7-20:39">
+        <text sourcepos="20:7-20:39" xml:space="preserve">Blockquotes can be in a footnote.</text>
+      </paragraph>
+    </block_quote>
+    <code_block sourcepos="22:9-23:0" xml:space="preserve">as well as code blocks
+</code_block>
+    <paragraph sourcepos="24:5-24:37">
+      <text sourcepos="24:5-24:37" xml:space="preserve">or, naturally, simple paragraphs.</text>
+    </paragraph>
+  </<unknown>>
+  <<unknown> sourcepos="10:22-11:0">
+    <paragraph sourcepos="10:22-10:66">
+      <text sourcepos="10:22-10:66" xml:space="preserve">no code block here (spaces are stripped away)</text>
+    </paragraph>
+  </<unknown>>
+  <<unknown> sourcepos="12:19-14:0">
+    <code_block sourcepos="13:9-14:0" xml:space="preserve">this is now a code block (8 spaces indentation)
+</code_block>
+  </<unknown>>
+</document>

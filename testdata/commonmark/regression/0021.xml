@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE document SYSTEM "CommonMark.dtd">
+<document sourcepos="1:1-5:22" xmlns="http://commonmark.org/xml/1.0">
+  <paragraph sourcepos="1:1-1:150">
+    <text sourcepos="1:1-1:84" xml:space="preserve">This is some text. It has two footnotes references, side-by-side without any spaces,</text>
+    <<unknown> sourcepos="1:85-1:96" />
+    <<unknown> sourcepos="1:97-1:108" />
+    <text sourcepos="1:109-1:150" xml:space="preserve"> which are definitely not link references.</text>
+  </paragraph>
+  <<unknown> sourcepos="3:15-4:0">
+    <paragraph sourcepos="3:15-3:20">
+      <text sourcepos="3:15-3:20" xml:space="preserve">Hello.</text>
+    </paragraph>
+  </<unknown>>
+  <<unknown> sourcepos="5:15-5:22">
+    <paragraph sourcepos="5:15-5:22">
+      <text sourcepos="5:15-5:22" xml:space="preserve">Goodbye.</text>
+    </paragraph>
+  </<unknown>>
+</document>

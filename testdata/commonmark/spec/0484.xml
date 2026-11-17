@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE document SYSTEM "CommonMark.dtd">
+<document sourcepos="1:1-1:27" xmlns="http://commonmark.org/xml/1.0">
+  <paragraph sourcepos="1:1-1:27">
+    <text sourcepos="1:1-1:1" xml:space="preserve">*</text>
+    <html_inline sourcepos="1:2-1:27" xml:space="preserve">&lt;img src=&quot;foo&quot; title=&quot;*&quot;/&gt;</html_inline>
+  </paragraph>
+</document>

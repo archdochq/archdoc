@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE document SYSTEM "CommonMark.dtd">
+<document sourcepos="1:1-3:27" xmlns="http://commonmark.org/xml/1.0">
+  <table sourcepos="1:1-3:27">
+    <table_header sourcepos="1:1-1:27">
+      <table_cell sourcepos="1:1-1:4" align="left">
+        <text sourcepos="1:1-1:3" xml:space="preserve">aaa</text>
+      </table_cell>
+      <table_cell sourcepos="1:6-1:10">
+        <text sourcepos="1:7-1:9" xml:space="preserve">bbb</text>
+      </table_cell>
+      <table_cell sourcepos="1:12-1:16" align="center">
+        <text sourcepos="1:13-1:15" xml:space="preserve">ccc</text>
+      </table_cell>
+      <table_cell sourcepos="1:18-1:22">
+        <text sourcepos="1:19-1:21" xml:space="preserve">ddd</text>
+      </table_cell>
+      <table_cell sourcepos="1:24-1:27" align="right">
+        <text sourcepos="1:25-1:27" xml:space="preserve">eee</text>
+      </table_cell>
+    </table_header>
+    <table_row sourcepos="3:1-3:27">
+      <table_cell sourcepos="3:1-3:4">
+        <text sourcepos="3:1-3:3" xml:space="preserve">fff</text>
+      </table_cell>
+      <table_cell sourcepos="3:6-3:10">
+        <text sourcepos="3:7-3:9" xml:space="preserve">ggg</text>
+      </table_cell>
+      <table_cell sourcepos="3:12-3:16">
+        <text sourcepos="3:13-3:15" xml:space="preserve">hhh</text>
+      </table_cell>
+      <table_cell sourcepos="3:18-3:22">
+        <text sourcepos="3:19-3:21" xml:space="preserve">iii</text>
+      </table_cell>
+      <table_cell sourcepos="3:24-3:27">
+        <text sourcepos="3:25-3:27" xml:space="preserve">jjj</text>
+      </table_cell>
+    </table_row>
+  </table>
+</document>

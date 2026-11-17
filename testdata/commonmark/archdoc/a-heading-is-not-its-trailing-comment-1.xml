@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE document SYSTEM "CommonMark.dtd">
+<document sourcepos="1:1-4:36" xmlns="http://commonmark.org/xml/1.0">
+  <heading sourcepos="2:1-2:13" level="1">
+    <text sourcepos="2:3-2:13" xml:space="preserve">RFC-0001: A</text>
+  </heading>
+  <heading sourcepos="4:1-4:36" level="2">
+    <text sourcepos="4:4-4:18" xml:space="preserve">Open questions </text>
+    <html_inline sourcepos="4:19-4:36" xml:space="preserve">&lt;!-- none left --&gt;</html_inline>
+  </heading>
+</document>

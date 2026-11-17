@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE document SYSTEM "CommonMark.dtd">
+<document sourcepos="1:1-6:18" xmlns="http://commonmark.org/xml/1.0">
+  <heading sourcepos="1:1-1:13" level="1">
+    <text sourcepos="1:3-1:13" xml:space="preserve">RFC-0001: T</text>
+  </heading>
+  <heading sourcepos="2:1-2:11" level="2">
+    <text sourcepos="2:4-2:11" xml:space="preserve">Abstract</text>
+  </heading>
+  <list sourcepos="4:1-6:18" type="bullet" tight="true">
+    <item sourcepos="4:1-5:14">
+      <paragraph sourcepos="4:3-4:8">
+        <text sourcepos="4:3-4:8" xml:space="preserve">a list</text>
+      </paragraph>
+      <heading sourcepos="5:3-5:14" level="2">
+        <text sourcepos="5:6-5:14" xml:space="preserve">Changelog</text>
+      </heading>
+    </item>
+    <item sourcepos="6:1-6:18">
+      <paragraph sourcepos="6:3-6:18">
+        <text sourcepos="6:3-6:18" xml:space="preserve">2026-09-02: One.</text>
+      </paragraph>
+    </item>
+  </list>
+</document>

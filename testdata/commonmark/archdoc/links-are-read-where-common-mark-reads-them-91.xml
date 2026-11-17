@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE document SYSTEM "CommonMark.dtd">
+<document sourcepos="1:1-8:9" xmlns="http://commonmark.org/xml/1.0">
+  <heading sourcepos="2:1-2:6" level="1">
+    <text sourcepos="2:3-2:6" xml:space="preserve">Page</text>
+  </heading>
+  <block_quote sourcepos="4:1-4:11">
+    <html_block sourcepos="4:3-4:11" xml:space="preserve">&lt;!-- note
+</html_block>
+  </block_quote>
+  <heading sourcepos="6:1-6:8" level="2">
+    <text sourcepos="6:4-6:8" xml:space="preserve">Later</text>
+  </heading>
+  <paragraph sourcepos="8:1-8:9">
+    <link sourcepos="8:1-8:9" destination="a.md" title="">
+      <text sourcepos="8:2-8:2" xml:space="preserve">x</text>
+    </link>
+  </paragraph>
+</document>

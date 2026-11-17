@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE document SYSTEM "CommonMark.dtd">
+<document sourcepos="1:1-6:22" xmlns="http://commonmark.org/xml/1.0">
+  <heading sourcepos="2:1-2:8" level="1">
+    <text sourcepos="2:3-2:8" xml:space="preserve">Widget</text>
+  </heading>
+  <paragraph sourcepos="4:1-4:14">
+    <text sourcepos="4:1-4:14" xml:space="preserve">A small thing.</text>
+  </paragraph>
+  <html_block sourcepos="6:1-6:22" xml:space="preserve">&lt;!-- TODO: expand this
+</html_block>
+</document>

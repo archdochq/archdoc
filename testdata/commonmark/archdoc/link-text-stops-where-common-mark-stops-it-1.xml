@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE document SYSTEM "CommonMark.dtd">
+<document sourcepos="1:1-23:16" xmlns="http://commonmark.org/xml/1.0">
+  <heading sourcepos="2:1-2:6" level="1">
+    <text sourcepos="2:3-2:6" xml:space="preserve">Page</text>
+  </heading>
+  <paragraph sourcepos="4:1-4:7">
+    <text sourcepos="4:1-4:7" xml:space="preserve">[across</text>
+  </paragraph>
+  <paragraph sourcepos="6:1-6:19">
+    <text sourcepos="6:1-6:19" xml:space="preserve">a paragraph](n1.md)</text>
+  </paragraph>
+  <list sourcepos="8:1-10:0" type="bullet" tight="true">
+    <item sourcepos="8:1-8:11">
+      <paragraph sourcepos="8:3-8:11">
+        <text sourcepos="8:3-8:11" xml:space="preserve">[one item</text>
+      </paragraph>
+    </item>
+    <item sourcepos="9:1-10:0">
+      <paragraph sourcepos="9:3-9:17">
+        <text sourcepos="9:3-9:17" xml:space="preserve">another](n2.md)</text>
+      </paragraph>
+    </item>
+  </list>
+  <list sourcepos="11:1-13:0" type="ordered" start="1" delim="period" tight="true">
+    <item sourcepos="11:1-11:9">
+      <paragraph sourcepos="11:4-11:9">
+        <text sourcepos="11:4-11:9" xml:space="preserve">[first</text>
+      </paragraph>
+    </item>
+    <item sourcepos="12:1-13:0">
+      <paragraph sourcepos="12:4-12:17">
+        <text sourcepos="12:4-12:17" xml:space="preserve">second](n8.md)</text>
+      </paragraph>
+    </item>
+  </list>
+  <heading sourcepos="14:1-14:13" level="2">
+    <text sourcepos="14:4-14:13" xml:space="preserve">A [heading</text>
+  </heading>
+  <paragraph sourcepos="15:1-15:12">
+    <text sourcepos="15:1-15:12" xml:space="preserve">then](n3.md)</text>
+  </paragraph>
+  <paragraph sourcepos="17:1-17:24">
+    <text sourcepos="17:1-17:3" xml:space="preserve">[a </text>
+    <link sourcepos="17:4-17:16" destination="inner.md" title="">
+      <text sourcepos="17:5-17:5" xml:space="preserve">b</text>
+    </link>
+    <text sourcepos="17:17-17:24" xml:space="preserve">](n4.md)</text>
+  </paragraph>
+  <paragraph sourcepos="19:1-19:18">
+    <text sourcepos="19:1-19:18" xml:space="preserve">[escaped](n5.md).</text>
+  </paragraph>
+  <paragraph sourcepos="21:1-21:12">
+    <text sourcepos="21:1-21:12" xml:space="preserve">[x](n6.md).</text>
+  </paragraph>
+  <paragraph sourcepos="23:1-23:16">
+    <code sourcepos="23:2-23:2" xml:space="preserve">[</code>
+    <text sourcepos="23:4-23:16" xml:space="preserve">code](n7.md).</text>
+  </paragraph>
+</document>

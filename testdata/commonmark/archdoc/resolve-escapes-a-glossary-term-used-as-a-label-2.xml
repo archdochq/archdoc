@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE document SYSTEM "CommonMark.dtd">
+<document sourcepos="1:1-4:12" xmlns="http://commonmark.org/xml/1.0">
+  <heading sourcepos="2:1-2:7" level="1">
+    <text sourcepos="2:3-2:7" xml:space="preserve">Zed|x</text>
+  </heading>
+  <paragraph sourcepos="4:1-4:12">
+    <text sourcepos="4:1-4:12" xml:space="preserve">The odd one.</text>
+  </paragraph>
+</document>
