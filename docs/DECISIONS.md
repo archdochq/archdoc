@@ -220,7 +220,7 @@ nothing is round-tripped. Headings are read from the outline; what is not yet is
   is a title in `"..."`, `'...'` or `(...)` or nothing, and an empty destination is one, as cmark-gfm
   reads them: anything up to a `)` was taken as a title, so `[a](x y.md)`, which GitHub renders as
   text, was a link to `x`.
-- **Link text is read across a paragraph by a scanner, not a pattern.** A pattern matched one line at a
+- ~~**Link text is read across a paragraph by a scanner, not a pattern.** A pattern matched one line at a
   time with `[^\]]*` for the text, so link text wrapped across lines, a linked image and brackets in the
   text were not links, and L17, `export`, `term remove` and `renumber` all passed over them. The scanner
   keeps the brackets left open across a paragraph's lines, as CommonMark's bracket stack does, and reads
@@ -246,12 +246,12 @@ nothing is round-tripped. Headings are read from the outline; what is not yet is
   The scanner and the code span masker read the walk's answer rather than a rule of their own.
   Section boundaries do not: a heading is read from the masked line there, so `#<!-- c --> x` opens a
   section while the scanner reads it as text, and L21 reports the difference at a `Changelog` section.
-  L15 reads such a line as written, as the scanner does, so it is text in a definition.
-- **Reading links is linear in the length of a line.** The first scanner ran the destination pattern
+  L15 reads such a line as written, as the scanner does, so it is text in a definition.~~ Superseded by reading links from the outline, below.
+- ~~**Reading links is linear in the length of a line.** The first scanner ran the destination pattern
   from every `]` to the end of the line when no `)` followed, and made every open bracket inactive one
   at a time when a link closed, so a 60 KB line took ten seconds. The pattern is not tried after a
   line's last `)`, inactivity is one bound on the stack rather than a flag on each bracket, and a
-  label's length is measured only as far as the longest label can run.
+  label's length is measured only as far as the longest label can run.~~ Superseded by reading links from the outline, below.
 - **A paragraph's end is found once for the paragraph.** Each comment opened inside a paragraph walked
   to the paragraph's end to learn whether it closed, and each code span left open before such a comment
   walked there again, so a paragraph of lines each opening a comment was quadratic in its length.
@@ -292,13 +292,13 @@ nothing is round-tripped. Headings are read from the outline; what is not yet is
   CommonMark's 999 bytes, which the heading's reader has never applied: a definition's label may be
   longer, and applying it would change which headings link.~~ Removed with the renderer: a heading's
   anchor is rendered from the outline, which goldmark reads, below.
-- **A line is a link reference definition only if that is all it is.** The pattern is anchored at both
+- ~~**A line is a link reference definition only if that is all it is.** The pattern is anchored at both
   ends, requires a non-empty label, allows a title and does not count a line that interrupts a
   paragraph. Without the end anchor a footnote, a numbered citation or any sentence beginning with a
   bracketed word was read as a link and reported as a broken one, and a citation list is exactly what a
   `Sources` section looks like. A heading and a code or HTML block end a paragraph as a blank line
   does, so a definition directly under `## Sources` is read; it was not, so L17 never checked it and
-  `renumber` never rewrote it.
+  `renumber` never rewrote it.~~ Superseded by reading links from the outline, below.
 - **L17 judges a path against the git repository, its case exactly.** A link from a specification
   beside the code it describes to that code leaves `root` and stays in the repository, and was
   reported as leaving it. A path differing only in case was found on a case-insensitive filesystem and
@@ -339,6 +339,16 @@ nothing is round-tripped. Headings are read from the outline; what is not yet is
   rules that read a body pass the document over rather than report what an unread body lacks, and
   `accept`, `reject`, `term rename`, `renumber` and `term remove`, which need a body or every body's
   links, refuse.
+- **Links, `[[...]]` links, explicit anchors and prose are read from the outline.** The link scanner,
+  the definition pattern and the inline maskers read each a subset of CommonMark, and each round of
+  fixes to them found readings the tests did not hold. A link, an image and a definition are goldmark's,
+  with the positions the outline gives; a `[[...]]` link is found in adjacent text pieces on one line,
+  as written, so an escaped bracket or a label the document defines ends it. A suggestion is offered
+  within prose text, which blanks everything that is not text outside a heading, a link, an `<a>`
+  element, an address with a scheme and a bracketed span, so a line holding raw HTML or an unmatched
+  bracket is no longer withheld whole. Questions, `Changelog` entries and term definitions, which stage
+  4 of RFC-0019 moves, still read the walk's masked lines, so section emptiness reads the outline's
+  comment-masked text while they do not.
 - **Spaces before a line break are the break's.** cmark-gfm's text before a soft line break, or a hard
   one made of spaces, holds no trailing spaces or tabs, where goldmark's does. The outline drops them
   from the text, except before a hard break made by a backslash, where cmark-gfm keeps them too.
@@ -651,13 +661,13 @@ the result can delete content it never read.
   `--suggest` settled only after as many runs as there were mentions. A reference link counts where
   it is used, since its definition renders nothing, and a link to a term's own file counts as one to
   the term.
-- **The masker is deliberately generous, and withholds a line it cannot read.** It blanks wiki links,
+- ~~**The masker is deliberately generous, and withholds a line it cannot read.** It blanks wiki links,
   inline and reference links, link reference definitions, any bracketed span, bare URLs, autolinks and
   raw HTML; and it withholds the whole line when a raw HTML tag is present or the brackets are
   unbalanced after masking, because both mean a construct whose extent a line-at-a-time masker cannot
   see. Over-masking costs one missed suggestion; getting it wrong splices a link inside a link, which
   CommonMark forbids, and demotes the author's link to literal text with nothing able to see it
-  afterwards.
+  afterwards.~~ Superseded by suggesting within prose text, which the outline gives, so a line holding raw HTML or an unmatched bracket is offered outside them.
 - **A term reaching a link label is escaped**, as a title is, so a term carrying a bracket or a pipe
   cannot put live markup into a document its author never touched.
 - ~~**A glossary entry ends where the walk that found it says.** Deriving the extent from the next entry~~

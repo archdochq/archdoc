@@ -450,6 +450,7 @@ var Rules = []Rule{
 			{Release: "v0.6.0", Summary: "Reports a `[[...]]` after a fenced code block in a list item whose closing fence is indented with a tab"},
 			{Release: "v0.6.0", Summary: "Names the edit for a `[[...]]` in a setext heading as for one in an ATX heading"},
 			{Release: "v0.6.0", Summary: "Reports nothing in a body longer than 131,072 bytes, which L23 reports"},
+			{Release: "v0.6.0", Summary: "Reads a `[[...]]` from text as goldmark reads it, so not one with an escaped bracket, one in a link's text, or one whose label the document defines"},
 		},
 	},
 	{
@@ -476,6 +477,7 @@ var Rules = []Rule{
 			{Release: "v0.6.0", Summary: "Checks a link after a fenced code block in a list item whose closing fence is indented with a tab"},
 			{Release: "v0.6.0", Summary: "Gives a heading inside a blockquote, a list item or a referenced footnote definition an anchor, in the order GitHub renders the headings, and renders a heading's anchor from its pieces as goldmark reads them"},
 			{Release: "v0.6.0", Summary: "Checks a link into a document whose body is longer than 131,072 bytes without its fragment, and passes over the links in one"},
+			{Release: "v0.6.0", Summary: "Reads links, images and link reference definitions as goldmark reads them, a definition behind a blockquote's marker anywhere included"},
 		},
 	},
 	{

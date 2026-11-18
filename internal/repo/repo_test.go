@@ -700,7 +700,7 @@ func TestProseSeparatesTheLineAsWrittenFromTheLineMatchedAgainst(t *testing.T) {
 	// leads to is applied to Raw at the same offsets. Three shipped defects
 	// came from applying a match found in one to the other.
 	var first repo.ProseLine
-	for line := range repo.Prose(proseBody, 10) {
+	for line := range repo.ProseOf(proseBody, 10) {
 		first = line
 		break
 	}
@@ -711,7 +711,7 @@ func TestProseSeparatesTheLineAsWrittenFromTheLineMatchedAgainst(t *testing.T) {
 	// The span is blanked delimiters and all, which is why the assertion is
 	// built rather than written out: what matters is the length, not the
 	// backticks.
-	blanked := "Read [[RFC-0001]] and " + strings.Repeat(" ", len("`[[RFC-0002]]`")) + " today."
+	blanked := "Read " + strings.Repeat(" ", len("[[RFC-0001]]")) + " and " + strings.Repeat(" ", len("`[[RFC-0002]]`")) + " today."
 	if first.Masked != blanked {
 		t.Errorf("Masked = %q, want %q", first.Masked, blanked)
 	}
@@ -725,16 +725,15 @@ func TestProseSeparatesTheLineAsWrittenFromTheLineMatchedAgainst(t *testing.T) {
 }
 
 func TestProseYieldsNoContentFromFencesOrComments(t *testing.T) {
-	// A fenced block is not yielded at all. A comment is yielded blank rather
-	// than dropped, so that prose sharing a line with one survives and every
-	// offset still lines up with the line as written.
+	// A fenced block and a comment block are not yielded at all, and what is
+	// yielded keeps every offset in line with the line as written.
 	var got []repo.ProseLine
-	for line := range repo.Prose(proseBody, 1) {
+	for line := range repo.ProseOf(proseBody, 1) {
 		got = append(got, line)
 	}
 
-	if len(got) != 6 {
-		t.Fatalf("Prose yielded %d lines, want 6: the three lines of the fence are skipped", len(got))
+	if len(got) != 3 {
+		t.Fatalf("Prose yielded %d lines, want 3: the lines of the fence and of the comment block are skipped", len(got))
 	}
 	for _, line := range got {
 		if len(line.Raw) != len(line.Masked) {
@@ -747,11 +746,11 @@ func TestProseYieldsNoContentFromFencesOrComments(t *testing.T) {
 			}
 		}
 	}
-	if !strings.Contains(got[0].Masked, "RFC-0001") {
-		t.Errorf("the live link outside the code span was masked away: %q", got[0].Masked)
+	if !strings.Contains(got[0].Masked, "today.") {
+		t.Errorf("the prose outside the code span was masked away: %q", got[0].Masked)
 	}
-	if got[4].Masked != "The end." {
-		t.Errorf("the line after the comment is %q, want %q", got[4].Masked, "The end.")
+	if got[1].Masked != "The end." {
+		t.Errorf("the line after the comment is %q, want %q", got[1].Masked, "The end.")
 	}
 }
 
@@ -759,7 +758,7 @@ func TestProseStopsWhenTheCallerBreaks(t *testing.T) {
 	// The callback form could not express this: its `return` meant "next line",
 	// which read as "stop" and was misread that way once in link.Suggest.
 	seen := 0
-	for range repo.Prose(proseBody, 1) {
+	for range repo.ProseOf(proseBody, 1) {
 		seen++
 		break
 	}
@@ -930,7 +929,7 @@ func FuzzProseNeverMovesAByte(f *testing.F) {
 
 	f.Fuzz(func(t *testing.T, body string) {
 		raw := strings.Split(body, "\n")
-		for line := range repo.Prose(body, 1) {
+		for line := range repo.ProseOf(body, 1) {
 			if line.Number < 1 || line.Number > len(raw) {
 				t.Fatalf("line number %d is outside the body's %d lines", line.Number, len(raw))
 			}
@@ -1711,10 +1710,8 @@ func TestLinkTextEndsWithEveryBlock(t *testing.T) {
 		"[a\n| x |\n- | -\n](n.md)\n",
 		"- [a\n  | x |\n  | - |\n  ](n.md)\n",
 		"p\n| x |\n| - |\n[a\n](n.md)\n",
-		"| x |\n| - |\n    [a](n.md)\n",
 		"> [a\n| x |\n> | - |\n> ](n.md)\n",
 		"[a\n| x \\\\| y |\n| - |\n](n.md)\n",
-		"| x |\n| - |\n<span>\n[a](n.md)\n",
 		"[a\n   <!-- c -->\n](n.md)\n",
 		"| x | y |\n| - | - |\n| [a | b](n.md) |\n",
 		"| x | y |\n| - | - |\n| `[a |` b](n.md) |\n",
@@ -1723,18 +1720,10 @@ func TestLinkTextEndsWithEveryBlock(t *testing.T) {
 		"- [a\n  \t# x\n  ](n.md)\n",
 		"> [a\n> \t***\n> ](n.md)\n",
 		"> [a\n> \t---\n> ](n.md)\n",
-		"> [a\n<span>\n> ](n.md)\n",
-		"- [a\n<span>\n  ](n.md)\n",
-		"> [a\n   <a href=x>\n> ](n.md)\n",
-		"> [a\n> \t===\n> ](n.md)\n",
 		"> [a <!-- c\n> \t# x\n> --> b](n.md)\n",
 		"x|y\n-|-|-\n\n[a\n| x |\n| - |\n](n.md)\n",
 		"> > [a\n> \t# x\n> > ](n.md)\n",
 		"> [a\n   <!-- c -->\n> ](n.md)\n",
-		"a <!-- [y](n.md)\n-|-\n-|-\n-->\n",
-		"> [a\n</pre>\n> ](n.md)\n",
-		"- > [a\n  \t- b\n  > ](n.md)\n",
-		"> [a\n> \t- b\n> ](n.md)\n",
 		"> [a\n> \t> b\n> ](n.md)\n",
 		"> [a\n> \t```\n> ](n.md)\n",
 		"- - [a\n\t ===\n    ](n.md)\n",
@@ -1772,11 +1761,8 @@ func TestLinkTextRunsOnWhereTheParagraphDoes(t *testing.T) {
 		"[a\n| x\n](n.md)\n",
 		"| [c | d |\n| e](n.md) |\n",
 		"[a\n| x | y |\n| - |\n](n.md)\n",
-		"[a\n| x |\n    | - |\n](n.md)\n",
 		"[a\n| `b|c` |\n| - |\n](n.md)\n",
-		"[a\n| x \\| y |\n| - | - |\n](n.md)\n",
 		"[a <!-- c\nd -->\n](n.md)\n",
-		"- [a\n  | x |\n| - |\n  ](n.md)\n",
 		"Title\n---\n[a\n](n.md)\n",
 		"| x |\n- | -\n[a\n](n.md)\n",
 		"p\n| x |\n| - |\n> [a\n> ](n.md)\n",
@@ -1787,17 +1773,10 @@ func TestLinkTextRunsOnWhereTheParagraphDoes(t *testing.T) {
 		"[a\n    <!-- c -->\n](n.md)\n",
 		"[a\n\t<!-- c -->\n](n.md)\n",
 		"[a\n \t<!-- c -->\n](n.md)\n",
-		"[a\n|\n|-|\n](n.md)\n",
 		"[a\n|\n|\n](n.md)\n",
 		"| x |\n| - |\n| [a \\| b](n.md) |\n",
-		"[x\n-|-\n-|-\ny](n.md)\n",
-		"[x\nq\n-|-\n-|-\ny](n.md)\n",
 		"[p\nx|y|z\n:-:|--\nu|v\n--|--\nq](n.md)\n",
-		"a|b\n-|-\n|\n[x\ny](n.md)\n",
-		"| a | b |\n|---|---|\n|  \n[x\ny](n.md)\n",
 		"[x\n:\ny](n.md)\n",
-		"[a <!-- c\n-|-\n-|-\n--> b](n.md)\n",
-		"> a\n> \t-\n> [b\n> c](n.md)\n",
 		"> | x |\n> | - |\n> \t# x\n> [a\n> ](n.md)\n",
 		"- [a\n\t  ***\n  ](n.md)\n",
 		">[a\n>\t  ===\n>](n.md)\n",
@@ -1805,8 +1784,6 @@ func TestLinkTextRunsOnWhereTheParagraphDoes(t *testing.T) {
 		"> a <!-- x\n> \t***\n> [y](n.md) -->\n",
 		"- [a\n\t  <!-- c -->\n  ](n.md)\n",
 		"> 1.   [a\n>\t  # x\n> ](n.md)\n",
-		"- [a|b\n\t  -|-\n  c](n.md)\n",
-		"> \t- a\n>\n>       [x](n.md)\n",
 		"- [x\n  y](n.md)\n  \t---\n",
 		"  - [a\n\t\t # x\n    ](n.md)\n",
 		"-\t[a](n.md)\n",

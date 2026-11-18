@@ -75,16 +75,18 @@ func TestAnAcceptedDocumentsOpenQuestionsAreLeftToL09(t *testing.T) {
 	}
 }
 
-func TestADefinitionBehindAQuoteInAQuestionSectionIsALink(t *testing.T) {
+// TestADefinitionBehindAQuoteIsALink: a blockquote holds a link reference
+// definition wherever it stands, as GitHub reads it.
+func TestADefinitionBehindAQuoteIsALink(t *testing.T) {
 	d := changelogDoc(t, "", "## Resolved questions\n### Q?\nDetail.\n> Yes, see [the RFC][r].\n>\n> [r]: 0002-other.md\n\n"+
 		"### R?\nDetail.\n> [t]: 0003-other.md\n\n"+
-		"## Abstract\n\n> [s]: not-read.md\n")
+		"## Abstract\n\n> [s]: 0004-other.md\n")
 	var targets []string
 	for _, l := range d.Links() {
 		targets = append(targets, l.Target)
 	}
-	if strings.Join(targets, " ") != "0002-other.md 0003-other.md" {
-		t.Errorf("links read: %q, want the definitions inside the answers alone", targets)
+	if strings.Join(targets, " ") != "0002-other.md 0003-other.md 0004-other.md" {
+		t.Errorf("links read: %q, want every definition behind a quote", targets)
 	}
 }
 
