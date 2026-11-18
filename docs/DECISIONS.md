@@ -130,8 +130,10 @@ nothing is round-tripped. Headings are read from the outline; what is not yet is
   sharing the `<!--`'s dashes, in the masker and in the patterns that read a comment whole for anchors.
   `<!` opens an HTML block only before an uppercase letter, as cmark-gfm has it, so `<!x>` is text in
   its paragraph.~~ Superseded by RFC-0019: goldmark reads the blocks, and the walk is removed.
-- ~~**A tab runs to the next multiple of four columns.** Counted as four wherever it fell, a tab after
-  `- ` or `> ` read the item's text as an indented code block and hid its links.~~ Superseded by RFC-0019: goldmark reads the blocks, and the walk is removed.
+- **A tab runs to the next multiple of four columns.** Counted as four wherever it fell, a tab after
+  `- ` or `> ` read the item's text as an indented code block and hid its links. goldmark now reads the
+  blocks, and the rule still holds where the tool reads columns itself, removing a `Changelog` entry's
+  content indentation and an answer's `>`.
 - ~~**Code wins over comments; whichever of a comment and a fence opens first wins over the other.** A
   `<!--` inside a code span or a fenced block is literal text, which is what lets a document describe
   the placeholders the templates ship with. A fence marker inside a comment is likewise literal. Both
@@ -159,7 +161,7 @@ nothing is round-tripped. Headings are read from the outline; what is not yet is
   now follows containers by their markers and indentation, with lazy continuation, and treats indented
   code, the seven HTML block types other than a comment, and fences as literal: content, never prose.
   A backtick fence's info string cannot hold a backtick, so ```` ```go``` ```` opening a line is a code
-  span. This is still not a parser: no inline structure is built~~, and setext headings are not read~~.
+  span. This is still not a parser: no inline structure is built, ~~and setext headings are not read~~.
   Setext headings are read from the outline, below.~~ Superseded by RFC-0019: goldmark reads the blocks, and the walk is removed.
 - ~~**A blockquote in a question section may not hold a heading, a fence or a comment.** The walk finds
   each of those before it knows a line is quoted, ~~and does not see a fence inside a blockquote at all, so
@@ -256,7 +258,7 @@ nothing is round-tripped. Headings are read from the outline; what is not yet is
   to the paragraph's end to learn whether it closed, and each code span left open before such a comment
   walked there again, so a paragraph of lines each opening a comment was quadratic in its length.
   `scanBody` finds the end once and every line before it reuses it; a line at or past it is in another
-  paragraph~~, and a line leaving no paragraph open discards it, since a comment in a heading asks for
+  paragraph, ~~and a line leaving no paragraph open discards it, since a comment in a heading asks for
   the end of a paragraph that is not there~~. A comment in a heading no longer asks: it closes on its
   line or is text. The first line from each line on holding a `-->` is found once for the body, so asking
   whether a comment closes does not reread the lines of its paragraph.~~ Superseded by RFC-0019: goldmark reads the blocks, and the walk is removed.

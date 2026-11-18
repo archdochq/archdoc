@@ -312,8 +312,10 @@ type ProseLine struct {
 	Number int
 }
 
-// Unclosed reports whether the body ends inside a fenced code block or an
-// HTML block only its end marker closes, a comment block among them.
+// Unclosed reports whether the body ends inside a top-level fenced code block
+// or HTML block only its end marker closes, a comment block among them. One
+// inside a container is not: the blank line and unindented heading a writer
+// appends end the container, and the block with it.
 //
 // A writer splicing at the end of such a body writes inside the block: the
 // rejection rationale appended to it would be code, or hidden, and the
@@ -323,15 +325,13 @@ func (d *Document) Unclosed() bool {
 		return false
 	}
 	end := len(strings.TrimRight(d.Body, " \t\r\n"))
-	unclosed := false
-	markdown.Walk(d.outline, func(n *markdown.Node) bool {
+	for _, n := range d.outline.Children {
 		open := n.Type == markdown.CodeBlock && n.Fenced || n.Type == markdown.HTMLBlock && closedByMarker(n.Text)
 		if open && !n.Closed && n.End >= end {
-			unclosed = true
+			return true
 		}
-		return n.Type.IsBlock()
-	})
-	return unclosed
+	}
+	return false
 }
 
 // closedByMarker reports whether an HTML block is of a type only its end
@@ -341,7 +341,7 @@ func closedByMarker(html string) bool {
 	return markerClosed.MatchString(strings.TrimLeft(html, " \t"))
 }
 
-var markerClosed = regexp.MustCompile(`(?i)^(?:<(?:script|pre|style|textarea)(?:[ \t>]|$)|<!--|<\?|<![A-Za-z]|<!\[CDATA\[)`)
+var markerClosed = regexp.MustCompile(`(?i)^(?:<(?:script|pre|style|textarea)(?:[ \t\r\n>]|$)|<!--|<\?|<![A-Za-z]|<!\[CDATA\[)`)
 
 // advance is the column after b, a tab running to the next multiple of four.
 func advance(col int, b byte) int {

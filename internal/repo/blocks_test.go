@@ -608,14 +608,19 @@ func TestAnHTMLBlockAtTheEndIsClosed(t *testing.T) {
 	}
 }
 
-// TestABlockLeftOpenIsOneOnlyItsMarkerCloses: a fence, a comment block or a
-// raw HTML block running to the end of the body is left open; a block a
-// blank line closes, or one its container ends before more text, is not.
+// TestABlockLeftOpenIsOneOnlyItsMarkerCloses: a top-level fence, comment
+// block or raw HTML block running to the end of the body is left open; a
+// block a blank line closes, or one inside a container, which a heading
+// written after it ends, is not.
 func TestABlockLeftOpenIsOneOnlyItsMarkerCloses(t *testing.T) {
 	for body, want := range map[string]bool{
 		"```\ncode\n":               true,
 		"<!-- note\n\nmore\n":       true,
 		"<pre>\ntext\n":             true,
+		"<pre\ntext\n":              true,
+		"<pre\r\ntext\r\n":          true,
+		"> ```\n> code\n":           false,
+		"- ```\n  code\n":           false,
 		"<?php\n":                   true,
 		"<div>\ntext\n":             false,
 		"- ```\n  code\n\nAfter.\n": false,
