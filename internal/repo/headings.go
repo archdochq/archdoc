@@ -2,7 +2,6 @@ package repo
 
 import (
 	"fmt"
-	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -16,10 +15,14 @@ import (
 // this length the slowest of them takes about half a second.
 const MaxBody = 131072
 
+// maxBody is MaxBody, which a test of a current reader's time raises to read
+// the body it times.
+var maxBody = MaxBody
+
 // readHeadings reads the body's outline for its headings and their anchors,
 // or marks the body unread where it is longer than MaxBody.
 func (d *Document) readHeadings() {
-	if len(d.Body) > MaxBody {
+	if len(d.Body) > maxBody {
 		d.unread = true
 		return
 	}
@@ -34,12 +37,11 @@ func (d *Document) Read() bool { return !d.unread }
 // heading, a setext heading's underline included. An edit inside one changes
 // the text the section rules compare.
 func (d *Document) InHeading(number int) bool {
-	for _, h := range d.headings {
-		if i := number - d.BodyLine; i >= h.index && i <= h.last {
-			return true
-		}
-	}
-	return false
+	i := number - d.BodyLine
+	// The headings are in document order, so the one that could hold the line
+	// is the last starting at or before it.
+	at := sort.Search(len(d.headings), func(j int) bool { return d.headings[j].index > i }) - 1
+	return at >= 0 && i <= d.headings[at].last
 }
 
 // Unread lists the paths of the documents whose body is not read, which a
@@ -77,13 +79,17 @@ func headingsOf(body string, bodyLine int) (top []Heading, anchors []string) {
 	lineOf := func(at int) int { return sort.SearchInts(starts, at+1) }
 
 	numbers := footnoteNumbers(doc)
+	topLevel := map[*markdown.Node]bool{}
+	for _, n := range doc.Children {
+		topLevel[n] = true
+	}
 	taken := map[string]int{}
 	for _, n := range anchorOrder(doc, numbers) {
 		var rendered strings.Builder
 		render(&rendered, n, numbers)
 		a := anchor(rendered.String(), taken)
 		anchors = append(anchors, a)
-		if !slices.Contains(doc.Children, n) {
+		if !topLevel[n] {
 			continue
 		}
 		top = append(top, Heading{
