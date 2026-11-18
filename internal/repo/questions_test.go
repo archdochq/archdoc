@@ -230,3 +230,28 @@ func TestAnAnswerIsTheBlockquoteAsTheParserReadsIt(t *testing.T) {
 		t.Errorf("question = %+v, answer %+v", q, q.Answer)
 	}
 }
+
+// TestAQuestionsLinesAreTheParsersLines: a lone carriage return ends a line,
+// a CRLF answer holds no carriage return, a lazy line indented four columns
+// stays as written, and two questions on one line are two headings.
+func TestAQuestionsLinesAreTheParsersLines(t *testing.T) {
+	for body, want := range map[string][2]string{
+		"### Q?\nD.\r> A\r":        {"D.", "A"},
+		"### Q?\r> A\n":            {"", "A"},
+		"### Q?\r\n> A\r\n> B\r\n": {"", "A\nB"},
+		"### Q?\n> A\n    > B\n":   {"", "A\n    > B"},
+	} {
+		d := changelogDoc(t, "", "## Resolved questions\n"+body)
+		if got := d.QuestionProblems(false); len(got) != 0 {
+			t.Errorf("%q: reported %q", body, problemLines(got))
+		}
+		q := d.Questions().Resolved
+		if len(q) != 1 || q[0].Detail != want[0] || q[0].Answer == nil || q[0].Answer.Text != want[1] {
+			t.Errorf("%q: questions %+v, want detail %q and answer %q", body, q, want[0], want[1])
+		}
+	}
+	d := changelogDoc(t, "", "## Open questions\n### Q?\r### Q?\n")
+	if got := problemLines(d.QuestionProblems(false)); len(got) != 1 || !strings.Contains(got[0], "same anchor") {
+		t.Errorf("two questions on one line: reported %q, want the later one", got)
+	}
+}

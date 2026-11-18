@@ -51,19 +51,7 @@ func (d *Document) ChangelogProblems(decided time.Time) []Problem {
 // clBlank is a line holding nothing but spaces and tabs.
 func clBlank(line string) bool { return strings.Trim(line, " \t") == "" }
 
-// clLines is the body's lines with each carriage return before a line feed
-// removed, which belongs to the line ending.
-func (d *Document) clLines() []string {
-	raw := d.bodyLines()
-	lines := make([]string, len(raw))
-	for i, line := range raw {
-		lines[i] = strings.TrimSuffix(line, "\r")
-	}
-	return lines
-}
-
 func (d *Document) readChangelog(decided time.Time) ([]ChangelogEntry, []Problem) {
-	lines := d.clLines()
 	var entries []ChangelogEntry
 	var problems []Problem
 	report := func(index int, format string, args ...any) {
@@ -86,12 +74,12 @@ func (d *Document) readChangelog(decided time.Time) ([]ChangelogEntry, []Problem
 		}
 		seen = true
 
-		for _, block := range d.blocksIn(h.last+1, d.sectionEnd(i)) {
+		for _, block := range d.blocksBetween(h.span.End, d.sectionTo(i)) {
 			switch {
 			case block.Type == markdown.List:
 				for _, item := range block.Children {
 					at := d.lineAt(item.Start)
-					entry, faults := d.readEntry(lines, item)
+					entry, faults := d.readEntry(item)
 					entry.Line = d.BodyLine + at
 					entries = append(entries, entry)
 					for _, fault := range faults {
@@ -134,13 +122,10 @@ func (d *Document) readChangelog(decided time.Time) ([]ChangelogEntry, []Problem
 
 // readEntry reads one list item as an entry, returning the faults in how it
 // begins.
-func (d *Document) readEntry(lines []string, item *markdown.Node) (ChangelogEntry, []string) {
-	first, last := d.lineAt(item.Start), d.lineAt(item.End-1)
-	line := lines[first]
-	at := item.Start
-	if first > 0 {
-		at -= d.starts[first-1]
-	}
+func (d *Document) readEntry(item *markdown.Node) (ChangelogEntry, []string) {
+	from := lineFrom(d.Body, item.Start)
+	lines := linesOf(d.Body[from:lineTo(d.Body, item.End-1)])
+	line, at := lines[0], item.Start-from
 	// The marker, then the spaces or tabs after it, and the column the
 	// content starts at, which later lines are indented to.
 	marker := at + 1
@@ -152,12 +137,15 @@ func (d *Document) readEntry(lines []string, item *markdown.Node) (ChangelogEntr
 	}
 	rest := strings.TrimLeft(line[min(marker, len(line)):], " \t")
 	indent := columnAt(line, len(line)-len(rest))
-	if rest == "" {
+	// Content five or more columns past the marker is an indented code
+	// block in the item, which starts one column after the marker.
+	if rest == "" || indent-columnAt(line, marker) > 4 {
 		indent = columnAt(line, marker) + 1
+		rest = outdent(line[min(marker, len(line)):], 1)
 	}
 
 	text := []string{rest}
-	for _, l := range lines[first+1 : last+1] {
+	for _, l := range lines[1:] {
 		text = append(text, outdent(l, indent))
 	}
 	for len(text) > 0 && clBlank(text[0]) {
@@ -171,8 +159,11 @@ func (d *Document) readEntry(lines []string, item *markdown.Node) (ChangelogEntr
 	// on the line after its marker.
 	var entry ChangelogEntry
 	var faults []string
+	// Only a paragraph opening the item holds a date: content indented
+	// into a code block, or another block, does not.
 	start := ""
-	if len(text) > 0 {
+	if len(text) > 0 && len(item.Children) > 0 && item.Children[0].Type == markdown.Paragraph {
+		text[0] = strings.TrimLeft(text[0], " \t")
 		start = text[0]
 	}
 	switch shape := dateShape.FindString(start); {
@@ -209,19 +200,19 @@ func columnAt(line string, at int) int {
 	return column
 }
 
-// outdent removes indent columns of leading whitespace from line, a tab
-// spanning past them leaving the rest as spaces, or returns a line indented
-// less, a lazy line among them, as written.
+// outdent removes indent columns of leading whitespace from line, the rest of
+// it written as the spaces it spans so a tab keeps its width, or returns a
+// line indented less, a lazy line among them, as written.
 func outdent(line string, indent int) string {
+	if clBlank(line) {
+		return ""
+	}
 	column, i := 0, 0
-	for i < len(line) && column < indent && (line[i] == ' ' || line[i] == '\t') {
+	for i < len(line) && (line[i] == ' ' || line[i] == '\t') {
 		column = advance(column, line[i])
 		i++
 	}
 	if column < indent {
-		if clBlank(line) {
-			return ""
-		}
 		return line
 	}
 	return strings.Repeat(" ", column-indent) + line[i:]

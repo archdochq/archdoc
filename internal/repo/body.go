@@ -5,6 +5,8 @@ import (
 	"regexp"
 	"slices"
 	"strings"
+
+	"archdoc.dev/internal/markdown"
 )
 
 // Heading is one markdown heading in a document body.
@@ -23,6 +25,8 @@ type Heading struct {
 	// base is the anchor before any suffix, which a question's is compared
 	// with.
 	base string
+	// span is the heading's bytes in the body.
+	span markdown.Span
 }
 
 // Section is a heading and everything under it, up to the next heading of equal

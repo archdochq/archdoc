@@ -469,13 +469,13 @@ the result can delete content it never read.
   as nothing, and a former name holding a comma became two, so its anchor vanished from GLOSSARY.md.
 - **A term's definition is read as blocks, to the end of the file.** Splitting on blank lines read a
   heading, list or fence written straight after the definition as part of it, and GLOSSARY.md printed
-  the heading as a second term. ~~The blocks come from the document's own walk,~~ The blocks come from the outline, below, and ~~a paragraph ends
+  the heading as a second term. ~~The blocks come from the document's own walk,~~ The blocks come from the outline, above, and ~~a paragraph ends
   where the link scanner's blockStartPattern ends one, at a setext underline and a table row as well,
   so the two agree on where a paragraph stops.~~ Superseded, as the two did not agree: the link
   scanner ~~takes~~ took a heading or a table row at any indentation, since it ~~does~~ did not know
   the indentation of the list item holding a line, so `    | x` after a definition's line ended the
-  paragraph for links and continued it for L15, which is what CommonMark does. A paragraph ends at a
-  setext underline ~~and a table row as well,~~ indented at most three spaces as a block start at the
+  paragraph for links and continued it for L15, which is what CommonMark does. ~~A paragraph ends at a
+  setext underline and a table row as well, indented at most three spaces as a block start at the
   top level is, and at a table's header row, by the block walk's own test. The table row is struck because a
   `|` line with no delimiter row beneath it is text in GFM, and L15 reported it. A lone carriage
   return ends a line there, as it does in CommonMark and in what is published:
@@ -492,7 +492,8 @@ the result can delete content it never read.
   paragraph. Whether a list item interrupts the paragraph is the block walk's own test rather than a
   copy of it: the copy had drifted, and reported an empty item, which does not interrupt a
   paragraph, and passed one numbered `01`, which does. A comment marker inside a code block is
-  code, and taking it as an open comment miscounted every block after the fence. Prose above the H1
+  code, and taking it as an open comment miscounted every block after the fence.~~ goldmark's blocks
+  decide where a paragraph ends, at a lone carriage return too, and what interrupts it. Prose above the H1
   is reported rather than dropped, since nothing publishes it. What is published is every line from
   the H1 to the end of the file as written, ~~with its comments cut out,~~ comments included, rather
   than the paragraphs alone: L15 reports a block that is not a paragraph, but export never fails on it, and publishing

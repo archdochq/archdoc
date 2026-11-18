@@ -59,9 +59,6 @@ func (d *Document) QuestionProblems(skipOpen bool) []Problem {
 	return problems
 }
 
-// span is a half-open run of body line indexes.
-type span struct{ start, end int }
-
 // readQuestions reads every question section from the outline: a question
 // is a top-level level three heading in one, its detail runs to the next
 // top-level heading, and it ends with a blockquote when its last top-level
@@ -73,14 +70,17 @@ func (d *Document) readQuestions(skipOpen bool) (Questions, []Problem) {
 		problems = append(problems, Problem{Line: d.BodyLine + index, Message: fmt.Sprintf(format, args...)})
 	}
 
-	hasOpen := false
-	questionAt := map[int]bool{}
-	for j, h := range d.headings {
-		if h.Level == 2 && h.Text == OpenQuestions {
-			hasOpen = true
-		}
-		if d.isQuestion(j) {
-			questionAt[h.Line] = true
+	// One pass marks the questions: the level three headings under the
+	// level two heading of a question section.
+	hasOpen, inSection := false, false
+	question := map[markdown.Span]bool{}
+	for _, h := range d.headings {
+		switch {
+		case h.Level <= 2:
+			inSection = h.Level == 2 && (h.Text == OpenQuestions || h.Text == ResolvedQuestions)
+			hasOpen = hasOpen || h.Level == 2 && h.Text == OpenQuestions
+		case h.Level == 3 && inSection:
+			question[h.span] = true
 		}
 	}
 
@@ -90,7 +90,7 @@ func (d *Document) readQuestions(skipOpen bool) (Questions, []Problem) {
 			continue
 		}
 		open := h.Text == OpenQuestions
-		section := span{h.last + 1, d.sectionEnd(i)}
+		from, to := h.span.End, d.sectionTo(i)
 
 		// The rows about a Resolved questions section itself apply to the
 		// first alone; a later one is reported once, at its heading, and its
@@ -109,13 +109,13 @@ func (d *Document) readQuestions(skipOpen bool) (Questions, []Problem) {
 		}
 
 		var questions []int
-		for j, q := range d.headings {
-			if q.index >= section.start && q.index < section.end && q.Level == 3 {
+		for j := i + 1; j < len(d.headings) && d.headings[j].span.Start < to; j++ {
+			if d.headings[j].Level == 3 {
 				questions = append(questions, j)
 			}
 		}
 		var held []*markdown.Node
-		for _, b := range d.blocksIn(section.start, section.end) {
+		for _, b := range d.blocksBetween(from, to) {
 			if !isCommentBlock(b) {
 				held = append(held, b)
 			}
@@ -123,11 +123,11 @@ func (d *Document) readQuestions(skipOpen bool) (Questions, []Problem) {
 		if first && !open && len(held) == 0 {
 			report(h.index, "the %q section is empty; delete it, or move an answered question into it", ResolvedQuestions)
 		} else if first && check {
-			before := section.end
+			before := to
 			if len(questions) > 0 {
-				before = d.headings[questions[0]].index
+				before = d.headings[questions[0]].span.Start
 			}
-			if len(held) > 0 && d.lineAt(held[0].Start) < before {
+			if len(held) > 0 && held[0].Start < before {
 				if len(questions) == 0 {
 					report(d.lineAt(held[0].Start), "the %q section holds something and no question; each question is a level three heading", h.Text)
 				} else {
@@ -139,13 +139,13 @@ func (d *Document) readQuestions(skipOpen bool) (Questions, []Problem) {
 		for n, qi := range questions {
 			q := d.readQuestion(qi, open, check, report)
 			// A heading beneath the question, reported where it stands.
-			stop := section.end
+			stop := to
 			if n+1 < len(questions) {
-				stop = d.headings[questions[n+1]].index
+				stop = d.headings[questions[n+1]].span.Start
 			}
 			beneath := false
 			for _, sub := range d.headings[qi+1:] {
-				if sub.index >= stop {
+				if sub.span.Start >= stop {
 					break
 				}
 				beneath = true
@@ -157,7 +157,7 @@ func (d *Document) readQuestions(skipOpen bool) (Questions, []Problem) {
 				report(q.Heading.index, "resolved question %q does not end with a blockquote holding its answer", q.Heading.Text)
 			}
 			if check {
-				d.checkAnchor(d.headings[qi], questionAt, report)
+				d.checkAnchor(d.headings[qi], question, report)
 			}
 			if open {
 				out.Open = append(out.Open, q)
@@ -185,14 +185,10 @@ func (d *Document) followsOpen(i int) bool {
 // it ends.
 func (d *Document) readQuestion(qi int, open, check bool, report func(int, string, ...any)) Question {
 	h := d.headings[qi]
-	lines := d.bodyLines()
-	end := len(lines)
-	if qi+1 < len(d.headings) {
-		end = max(d.headings[qi+1].index, h.last+1)
-	}
+	end := d.nextTo(qi)
 	q := Question{Heading: h}
 	var kept []*markdown.Node
-	for _, b := range d.blocksIn(h.last+1, end) {
+	for _, b := range d.blocksBetween(h.span.End, end) {
 		if !passedOver(b) {
 			kept = append(kept, b)
 		}
@@ -207,7 +203,7 @@ func (d *Document) readQuestion(qi int, open, check bool, report func(int, strin
 				report(at, "open question %q ends with a blockquote, which would read as its answer once it is resolved", h.Text)
 			}
 		default:
-			detailEnd = at
+			detailEnd = last.Start
 			q.Answer = d.answer(last)
 			if check {
 				if n > 1 && kept[n-2].Type == markdown.Blockquote {
@@ -219,20 +215,20 @@ func (d *Document) readQuestion(qi int, open, check bool, report func(int, strin
 			}
 		}
 	}
-	q.Detail = strings.Join(lines[h.last+1:max(detailEnd, h.last+1)], "\n")
+	if from := afterLine(d.Body, h.span.End-1); detailEnd > from {
+		q.Detail = strings.Join(linesBetween(d.Body, from, lineFrom(d.Body, detailEnd)), "\n")
+	}
 	return q
 }
 
 // answer is a blockquote's lines with any indentation before each >, the >
 // and one column after it removed, and a lazy line as written.
 func (d *Document) answer(quote *markdown.Node) *Answer {
-	raw := d.bodyLines()
-	first, last := d.lineAt(quote.Start), d.lineAt(quote.End-1)
-	lines := make([]string, 0, last-first+1)
-	for i := first; i <= last; i++ {
-		lines = append(lines, unquote(strings.TrimSuffix(raw[i], "\r")))
+	lines := linesOf(d.Body[lineFrom(d.Body, quote.Start):lineTo(d.Body, quote.End-1)])
+	for i, line := range lines {
+		lines[i] = unquote(line)
 	}
-	return &Answer{Line: d.BodyLine + first, Text: strings.Join(lines, "\n")}
+	return &Answer{Line: d.BodyLine + d.lineAt(quote.Start), Text: strings.Join(lines, "\n")}
 }
 
 // unquote removes a blockquote line's indentation, its > and one column of
@@ -269,7 +265,7 @@ func unquote(line string) string {
 // compared before any suffix is added, because a suffix is assigned in
 // document order and moves when a heading before it does. Between two
 // questions, the later one is reported.
-func (d *Document) checkAnchor(q Heading, questionAt map[int]bool, report func(int, string, ...any)) {
+func (d *Document) checkAnchor(q Heading, question map[markdown.Span]bool, report func(int, string, ...any)) {
 	if q.base == "" {
 		report(q.index, "question %q produces no anchor, so it cannot be linked to", q.Text)
 		return
@@ -281,27 +277,13 @@ func (d *Document) checkAnchor(q Heading, questionAt map[int]bool, report func(i
 		}
 	}
 	for _, other := range d.bases[q.base] {
-		if other.Line == q.Line && other.Text == q.Text {
+		if other.span == q.span {
 			continue
 		}
-		if questionAt[other.Line] && other.Line > q.Line {
+		if question[other.span] && other.span.Start > q.span.Start {
 			continue
 		}
 		report(q.index, "question %q produces the same anchor as the heading on line %d, so a link to either is unreliable", q.Text, other.Line)
 		return
 	}
-}
-
-// isQuestion reports whether heading j is a level three heading within a
-// question section.
-func (d *Document) isQuestion(j int) bool {
-	if d.headings[j].Level != 3 {
-		return false
-	}
-	for k := j - 1; k >= 0; k-- {
-		if h := d.headings[k]; h.Level <= 2 {
-			return h.Level == 2 && (h.Text == OpenQuestions || h.Text == ResolvedQuestions)
-		}
-	}
-	return false
 }

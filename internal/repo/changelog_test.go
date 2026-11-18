@@ -287,3 +287,31 @@ func TestAChangelogReadsEveryListPassingOverDefinitionsAndComments(t *testing.T)
 		t.Errorf("entries %q", got)
 	}
 }
+
+// TestFiveSpacesAfterAMarkerOpenACodeBlock: the content is an indented code
+// block in the item, so the entry has no date.
+func TestFiveSpacesAfterAMarkerOpenACodeBlock(t *testing.T) {
+	d := changelogDoc(t, "", "## Changelog\n1.     2026-09-02: One.\n")
+	got := problemLines(d.ChangelogProblems(time.Time{}))
+	if len(got) != 1 || !strings.HasPrefix(got[0], "13: entry has no date") {
+		t.Errorf("reported %q, want the undated entry", got)
+	}
+}
+
+// TestAnEntrysLinesAreTheParsersLines: a lone carriage return ends a line,
+// the date is read where the item's paragraph starts, a tab keeps its width
+// once the content indentation is removed, and a line of spaces is blank.
+func TestAnEntrysLinesAreTheParsersLines(t *testing.T) {
+	for body, want := range map[string]string{
+		"- 2026-09-02: A\r- 2026-09-03: B\r": "13 2026-09-02 A|13 2026-09-03 B",
+		"-\n   2026-09-02: A\n":              "13 2026-09-02 A",
+		"1.\n    2026-09-02: A\n":            "13 2026-09-02 A",
+		"- 2026-09-02: A\n\n\t\tcode\n":      "13 2026-09-02 A\n\n      code",
+		"- 2026-09-02: A\n  b\n    \n  c\n":  "13 2026-09-02 A\nb\n\nc",
+	} {
+		d := changelogDoc(t, "", "## Changelog\n"+body)
+		if got := strings.Join(texts(d.Changelog()), "|"); got != want {
+			t.Errorf("%q: entries %q, want %q", body, got, want)
+		}
+	}
+}

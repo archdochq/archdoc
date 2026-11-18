@@ -79,9 +79,9 @@ func (d *Document) TermEntry() GlossaryEntry {
 	for _, h := range d.headings {
 		if h.Level == 1 {
 			e.Line = h.Line
-			e.Paragraphs, e.Other = d.entryBlocks(h.last + 1)
-			e.Definition = d.definition(h.last + 1)
-			for _, b := range d.blocksIn(0, h.index) {
+			e.Paragraphs, e.Other = d.entryBlocks(h.span.End)
+			e.Definition = d.definition(afterLine(d.Body, h.span.End-1))
+			for _, b := range d.blocksBetween(0, h.span.Start) {
 				if !isCommentBlock(b) {
 					e.Above = d.BodyLine + d.lineAt(b.Start)
 					break
@@ -123,7 +123,7 @@ func (r *Repo) Term(name string) (GlossaryEntry, bool) {
 // comments removed, and a count of the other blocks, comment blocks and link
 // reference definitions passed over.
 func (d *Document) entryBlocks(from int) (paragraphs []string, other int) {
-	for _, b := range d.blocksIn(from, len(d.bodyLines())) {
+	for _, b := range d.blocksBetween(from, len(d.Body)) {
 		switch {
 		case b.Type == markdown.Paragraph:
 			paragraphs = append(paragraphs, paragraphText(d.Body, b))
@@ -186,56 +186,17 @@ func paragraphText(body string, p *markdown.Node) string {
 // written empty, and a lone carriage return, which CommonMark reads as a line
 // ending, ends a line.
 func (d *Document) definition(from int) string {
-	lines := d.bodyLines()
-	if from >= len(lines) {
-		return ""
-	}
-	start := 0
-	if from > 0 {
-		start = d.starts[from-1]
-	}
 	end := len(d.Body)
-	if blocks := d.blocksIn(from, len(lines)); len(blocks) > 0 {
+	if blocks := d.blocksBetween(from, len(d.Body)); len(blocks) > 0 {
 		if last := blocks[len(blocks)-1]; isCommentBlock(last) && !last.Closed {
 			end = last.Start
 		}
 	}
-	text := strings.ReplaceAll(d.Body[start:max(start, end)], "\r\n", "\n")
-	out := strings.Split(strings.ReplaceAll(text, "\r", "\n"), "\n")
+	out := linesOf(d.Body[min(from, end):end])
 	for i, line := range out {
 		if strings.TrimSpace(line) == "" {
 			out[i] = ""
 		}
 	}
 	return strings.Trim(strings.Join(out, "\n"), "\n")
-}
-
-// opensCommentBlock reports whether a line, read outside any container, begins
-// with a comment at most three spaces in.
-func opensCommentBlock(line string) bool {
-	t := strings.TrimLeft(line, " ")
-	return len(line)-len(t) <= 3 && strings.HasPrefix(t, commentOpen)
-}
-
-// withoutComments is a line as written with the comments its masked twin
-// blanks cut out. A comment starts and ends with a byte masking changed, so
-// each blanked run is cut from its first changed byte to its last, and the
-// spaces written around it are kept.
-func withoutComments(line, masked string) string {
-	var b strings.Builder
-	for i := 0; i < len(line); {
-		if line[i] == masked[i] {
-			b.WriteByte(line[i])
-			i++
-			continue
-		}
-		last := i
-		for j := i; j < len(line) && masked[j] == ' '; j++ {
-			if line[j] != ' ' {
-				last = j
-			}
-		}
-		i = last + 1
-	}
-	return b.String()
 }

@@ -90,7 +90,7 @@ date in the form `YYYY-MM-DD: `.
   questions, with its answer.
 ```
 
-Nothing else goes in the section but blank lines and comments. Dates are in order, and fall
+Nothing else goes in the section but blank lines, comments and link reference definitions. Dates are in order, and fall
 between the document's `created` and `decided`.
 
 ## Links between documents
