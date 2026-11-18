@@ -1120,29 +1120,6 @@ func TestADateWrittenAsAYAMLAliasIsRead(t *testing.T) {
 	}
 }
 
-func TestACommentClosingInsideASectionLeavesItEmpty(t *testing.T) {
-	// Section.Text was sliced from the raw body and then scanned from a clean
-	// state, so a comment opened before the section and closed inside it was
-	// invisible to the section-level check: the walk that had already masked
-	// it was thrown away and the stray "-->" left behind read as content.
-	// scanBody was the single definition of a comment but not the single walk.
-	// A comment can reach past a heading only where the line is a heading once
-	// masked: one written as a heading closes its comment on its line or holds
-	// none.
-	d := repotest.New(t, map[string]string{
-		"adr/0001-a.md": "---\nid: ADR-0001\ntitle: A\n---\n\n# ADR-0001: A\n\n" +
-			"##<!-- a --> Consequences <!-- I will\nfill this in later -->\n\n",
-	}).ByPath("adr/0001-a.md")
-
-	sections := d.Sections("Consequences")
-	if len(sections) != 1 {
-		t.Fatalf("want one Consequences section, got %d", len(sections))
-	}
-	if !sections[0].Empty() {
-		t.Errorf("the section holds only a comment but does not read as empty; its text is %q", sections[0].Text)
-	}
-}
-
 func TestACommentOpenInAHeadingWrittenAsOneDoesNotRunOn(t *testing.T) {
 	d := repotest.New(t, map[string]string{
 		"adr/0001-a.md": "---\nid: ADR-0001\ntitle: A\n---\n\n# ADR-0001: A\n\n" +
@@ -1526,6 +1503,9 @@ func linksOf(t *testing.T, body string) []string {
 	source := "---\ntitle: Page\nincludes: []\n---\n\n# Page\n\n" + body
 	r := repotest.New(t, map[string]string{"spec/page.md": source})
 	d := repotest.Document(t, r, "spec/page.md")
+	if !d.Read() {
+		t.Fatalf("the body of %d bytes is not read", len(d.Body))
+	}
 	lines := strings.Split(source, "\n")
 	var got []string
 	for _, l := range d.Links() {
@@ -1592,6 +1572,7 @@ func TestWrappedLinkTextLosesTheCarriageReturn(t *testing.T) {
 // bracket still open inactive one by one. Both made a long line quadratic: a
 // 60 KB line took ten seconds where it takes milliseconds.
 func TestALongLineIsReadInLinearTime(t *testing.T) {
+	repo.ReadEveryBody(t)
 	body := strings.Repeat("[a](b ", 10000) + "\n\n" + strings.Repeat("[", 20000) + strings.Repeat("[a](b)", 20000) + "\n"
 	started := time.Now()
 	linksOf(t, body)
@@ -1605,6 +1586,7 @@ func TestALongLineIsReadInLinearTime(t *testing.T) {
 // so a paragraph of lines each opening one was quadratic: 4,000 lines took
 // twenty seconds.
 func TestAParagraphOfUnclosedCommentsIsReadInLinearTime(t *testing.T) {
+	repo.ReadEveryBody(t)
 	body := strings.Repeat("x <!-- y\n", 20000)
 	started := time.Now()
 	linksOf(t, body)
@@ -1619,6 +1601,7 @@ func TestAParagraphOfUnclosedCommentsIsReadInLinearTime(t *testing.T) {
 // and one in a heading took minutes. A line of many spans and one marker is
 // longer, as finding the same marker again is quick but no less quadratic.
 func TestALineOfManyCommentMarkersIsReadInLinearTime(t *testing.T) {
+	repo.ReadEveryBody(t)
 	const n = 40000
 	unclosed := strings.Repeat("a <!--", n)
 	for _, shape := range []struct{ name, body string }{
@@ -1651,6 +1634,7 @@ func TestALineOfManyCommentMarkersIsReadInLinearTime(t *testing.T) {
 // so 20,000 took four seconds. After a tag holding a backtick, which the walk
 // reads as opening a code span, each [ was walked from on its own.
 func TestAHeadingOfManyBracketsIsReadInLinearTime(t *testing.T) {
+	repo.ReadEveryBody(t)
 	const n = 40000
 	for _, shape := range []struct{ name, heading string }{
 		{"never closed", strings.Repeat("[a ", n)},

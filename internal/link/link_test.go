@@ -810,3 +810,27 @@ func TestSuggestOffersAMentionOnALineBeforeTheLink(t *testing.T) {
 		t.Errorf("Suggest offered %v, want %v", got, want)
 	}
 }
+
+// TestASetextHeadingIsLeftAsWritten: a setext heading names its section as an
+// ATX one does, so neither a [[...]] in it nor a mention is rewritten.
+func TestASetextHeadingIsLeftAsWritten(t *testing.T) {
+	r := repotest.New(t, map[string]string{
+		"rfc/0001-a.md": "---\nid: RFC-0001\ntitle: Alpha\nstatus: draft\n---\n\n# RFC-0001: Alpha\n",
+		"spec/b.md":     "---\ntitle: B\nincludes: []\n---\n\n# B\n\nRFC-0001 and [[RFC-0001]]\n---\n\nText.\n",
+	})
+	changes, findings := link.Resolve(lint.NewContext(r, nil, now))
+	if _, rewritten := changes["spec/b.md"]; rewritten {
+		t.Errorf("the heading was rewritten:\n%s", changes["spec/b.md"])
+	}
+	if len(findings) != 1 || !strings.Contains(findings[0].Message, "is in a heading") {
+		t.Errorf("findings = %v, want the link in the heading reported", findings)
+	}
+	for _, s := range link.Suggest(r) {
+		if s.Path == "spec/b.md" {
+			t.Errorf("suggested %+v inside the heading", s)
+		}
+	}
+	if links := r.ByPath("spec/b.md").WikiLinks(); len(links) != 1 || !links[0].Heading {
+		t.Errorf("wiki links = %+v, want one marked as in a heading", links)
+	}
+}

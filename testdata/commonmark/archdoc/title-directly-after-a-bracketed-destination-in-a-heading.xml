@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE document SYSTEM "CommonMark.dtd">
+<document sourcepos="1:1-1:20" xmlns="http://commonmark.org/xml/1.0">
+  <heading sourcepos="1:1-1:20" level="1">
+    <text sourcepos="1:3-1:20" xml:space="preserve">See [t](&lt;x.md&gt;&quot;t&quot;)</text>
+  </heading>
+</document>

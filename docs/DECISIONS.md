@@ -87,16 +87,18 @@ only showed up on a real document, and the reasoning is kept so the shape is not
 ## Markdown
 
 The tool needs headings, comments, fenced blocks and links, and within two kinds of section,
-blockquotes and list items. A full parser would be a liability when rewriting files in place, because it
-would have to round-trip everything it parsed.
+blockquotes and list items. ~~A full parser would be a liability when rewriting files in place, because it
+would have to round-trip everything it parsed.~~ Superseded by RFC-0019: a body is parsed with goldmark
+into an outline of positions in the file as written, and writers still edit the file at an offset, so
+nothing is round-tripped. Headings are read from the outline; what is not yet is read as below.
 
 - **One walk per document.** The scanner that decides what is a comment, a fence or a code span is not
   only a shared *function* but a shared *traversal*: its masked output is cached on the document, and
   section text is a slice of it. Running the same function again on a fragment starts from a clean
   state and disagrees with the walk that decided the heading was a heading, which let a section
   containing only a comment read as full.
-- **A comment is nothing, wherever it is.** `Section.Empty`, the glossary's paragraph split, heading
-  parsing and link scanning all read the same masked text, so a comment on one line behaves like a
+- **A comment is nothing, wherever it is.** `Section.Empty`, the glossary's paragraph split, ~~heading
+  parsing~~ (headings are read from the outline, below) and link scanning all read the same masked text, so a comment on one line behaves like a
   comment spanning several. Comments are blanked in place rather than dropped, which keeps every byte
   offset valid and ~~lets prose sharing a line with a comment survive~~ (narrowed by #73) lets prose
   sharing a line with a comment inside a paragraph survive. The last line of a comment opening a block is the block's, as
@@ -157,7 +159,8 @@ would have to round-trip everything it parsed.
   now follows containers by their markers and indentation, with lazy continuation, and treats indented
   code, the seven HTML block types other than a comment, and fences as literal: content, never prose.
   A backtick fence's info string cannot hold a backtick, so ```` ```go``` ```` opening a line is a code
-  span. This is still not a parser: no inline structure is built, and setext headings are not read.
+  span. This is still not a parser: no inline structure is built~~, and setext headings are not read~~.
+  Setext headings are read from the outline, below.
 - **A blockquote in a question section may not hold a heading, a fence or a comment.** The walk finds
   each of those before it knows a line is quoted, ~~and does not see a fence inside a blockquote at all, so
   a comment marker inside one would hide the rest of the document~~ and an answer is read from its lines
@@ -170,8 +173,10 @@ would have to round-trip everything it parsed.
   first and read several shapes differently from how they render.
 - **Changelog lines are read as written, not masked.** Masking blanks a line holding only a comment, and
   a blank line continues a list item where a comment at column 0 ends it, so the masked text gave an
-  indented line after such a comment to the entry above it. Section boundaries still come from the masked
-  walk, and a heading that is one only once a comment on its line is masked is reported.
+  indented line after such a comment to the entry above it. ~~Section boundaries still come from the masked
+  walk, and a heading that is one only once a comment on its line is masked is reported.~~ Section
+  boundaries come from the outline's top-level headings, so such a line is a paragraph, and a heading
+  indented into the entry above it is part of the entry, as both render.
 - **A pattern anchored at the end of a line accepts a carriage return before it.** A body is split on
   `\n`, so a line of a CRLF file keeps its `\r`, and a pattern ending in `[ \t]*$` read a file checked
   out by Git for Windows differently from its LF copy: link definitions went unread, so L17 never
@@ -186,10 +191,10 @@ would have to round-trip everything it parsed.
   real `#configuration-1` and that is what a reader copying from their browser will write. Anchors are
   assigned by walking a document's headings in order against a seen-set, never computed from a heading
   in isolation, and are slugged from the heading's *rendered* text so link syntax is stripped first.
-  ~~Stripping inline links was all the rendering done.~~ Rendering now resolves escapes and entities,
+  ~~Stripping inline links was all the rendering done.~~ ~~Rendering now resolves escapes and entities,
   keeps a code span's content, drops tags, emphasis underscores and images, and reads reference links
-  and nested brackets, and the slug keeps the marks, letter numbers and connector punctuation
-  github-slugger keeps. Each was a heading whose link worked on GitHub and failed L17, or the reverse,
+  and nested brackets, and~~ The slug keeps the marks, letter numbers and connector punctuation
+  github-slugger keeps. ~~Each was a heading whose link worked on GitHub and failed L17, or the reverse,
   and `link` wrote the wrong anchor into a glossary link. An underscore run is emphasis only where it
   pairs, the runs of `*`, `_` and `~` paired as cmark-gfm pairs them: dropping every run that flanked a
   word gave `## The _id field` the anchor `the-id-field`, where GitHub's is `the-_id-field`. A bare
@@ -198,9 +203,10 @@ would have to round-trip everything it parsed.
   reference link is a link only where the document defines its label, and text otherwise. A link in a
   heading closes where one in prose does, its destination and title read alike and a bracket in a code
   span in its text not one of its own: closing the parentheses at their balancing `)` linked
-  `[a](x y.md)`, which GitHub renders as text, so L17 rejected GitHub's anchor. A heading is
-  rendered as written, so a comment in it leaves the space beside it. Of the numbers, the slug keeps
-  decimal digits and letter numbers and drops the rest, such as `²` and `½`, as github-slugger does.
+  `[a](x y.md)`, which GitHub renders as text, so L17 rejected GitHub's anchor.~~ Superseded by
+  rendering from the outline's pieces, below. A heading is rendered as written, so a comment in it
+  leaves the space beside it. Of the numbers, the slug keeps decimal digits and letter numbers and
+  drops the rest, such as `²` and `½`, as github-slugger does.
 - **A link names an anchor a document holds explicitly as well as its headings'.** L17 read `<a id>`
   only in files that are not documents, so a document's own explicit anchor was a target nowhere.
   Explicit anchors are read outside comments and code, and in HTML blocks, in single or double quotes.
@@ -263,7 +269,7 @@ would have to round-trip everything it parsed.
   open on the line is found for the first marker to ask, after `closes` has answered, and not sooner:
   `ends` reads the walk's state when it is first asked and the answer is kept for later lines, so
   asking it on a line that never asked before would move where a paragraph ends.
-- **A heading's brackets are matched once for the heading.** Each `[` in a heading walked towards the
+- ~~**A heading's brackets are matched once for the heading.** Each `[` in a heading walked towards the
   end of the text for its `]`, so a heading of 40,000 left open took three seconds; and each link
   closed marked every bracket still open inactive one at a time, and each character asked the whole
   stack whether one was still active, so a heading of 40,000 nested links took twenty. A walk from the
@@ -284,7 +290,8 @@ would have to round-trip everything it parsed.
   took four seconds. Normalising keeps every character that is not a space, so a label holding more
   of them than the longest label defined is not normalised. The bound is that length rather than
   CommonMark's 999 bytes, which the heading's reader has never applied: a definition's label may be
-  longer, and applying it would change which headings link.
+  longer, and applying it would change which headings link.~~ Removed with the renderer: a heading's
+  anchor is rendered from the outline, which goldmark reads, below.
 - **A line is a link reference definition only if that is all it is.** The pattern is anchored at both
   ends, requires a non-empty label, allows a title and does not count a line that interrupts a
   paragraph. Without the end anchor a footnote, a numbered citation or any sentence beginning with a
@@ -316,6 +323,22 @@ would have to round-trip everything it parsed.
 - **A lone carriage return is a line feed before parsing.** goldmark reads the text after one as the
   same line, so `# A`, a lone carriage return, `## B` was one heading where cmark-gfm reads two. The
   copy it parses differs from the body only at those bytes, so every position holds in both.
+- **Headings and their anchors are read from the outline.** A heading inside a blockquote, a list item
+  or a footnote definition has an anchor and bounds no section, as GitHub renders it inside its
+  container; a setext heading is a heading; a line that is a heading only once a comment on it is masked
+  is a paragraph. The anchor is slugged from the heading's pieces as goldmark reads them, so the
+  renderer's own reading of links, code spans, emphasis and addresses is gone, and where goldmark reads a
+  heading otherwise than cmark-gfm the anchor follows goldmark, the case recorded in `KNOWN`. Anchors are
+  assigned in the order GitHub renders headings: a footnote definition's after every other, in the
+  order the definitions are first referenced, and none for a definition nothing references. `link`
+  leaves a setext heading's lines as written, as an ATX heading's, since either names its section.
+- **A body longer than 131,072 bytes is not read.** goldmark reads five shapes in time growing with the
+  square of their length, 800 KB of the slowest in 19.3 seconds; at 128 KiB it takes about half a
+  second, and the longest body in this repository's specification is under 50 KB. A limit on time
+  would make whether a document is read depend on the machine reading it. L23 reports such a body; the
+  rules that read a body pass the document over rather than report what an unread body lacks, and
+  `accept`, `reject`, `term rename`, `renumber` and `term remove`, which need a body or every body's
+  links, refuse.
 - **Spaces before a line break are the break's.** cmark-gfm's text before a soft line break, or a hard
   one made of spaces, holds no trailing spaces or tabs, where goldmark's does. The outline drops them
   from the text, except before a hard break made by a backslash, where cmark-gfm keeps them too.
@@ -336,7 +359,7 @@ would have to round-trip everything it parsed.
   also in the wrong place is two findings for one fault, the second contradicting the first.
 - **Extra H2 sections are permitted** between or after the required ones. Forced anyway by the rejection
   rationale appending after `Changelog`, and by refs requiring `Sources` last.
-- **A section includes its own subsections**, ending at the next heading of the same level or higher, so
+- **A section includes its own subsections**, ending at the next ~~heading~~ top-level heading (RFC-0019) of the same level or higher, so
   a `Proposal` structured with `###` headings is not reported empty.
 - **A section is empty if it holds nothing but whitespace and comments.** That definition is the reason
   L14 checks emptiness rather than the absence of comments: a comment cannot be both the definition of

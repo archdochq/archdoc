@@ -78,8 +78,8 @@ func (d *Document) TermEntry() GlossaryEntry {
 	for _, h := range d.headings {
 		if h.Level == 1 {
 			e.Line = h.Line
-			e.Paragraphs, e.Other = d.entryBlocks(h.index + 1)
-			e.Definition = d.definition(h.index + 1)
+			e.Paragraphs, e.Other = d.entryBlocks(h.last + 1)
+			e.Definition = d.definition(h.last + 1)
 			masked := d.maskedLines()
 			for j := range h.index {
 				if strings.TrimSpace(masked[j]) != "" {

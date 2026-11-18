@@ -5,17 +5,17 @@ includes: [ADR-0006, ADR-0007, RFC-0008, RFC-0009, RFC-0011]
 
 # Markdown
 
-The body of a document is everything after the closing `---` of the front matter. The tool reads headings, HTML comments, code blocks, HTML blocks and links throughout it, blockquotes and list items as far as they hold those blocks, blockquotes within the question sections, and list items within a `Changelog` section. Everything else is text. A carriage return before a line feed is part of the line ending, and a construct is recognised in a CRLF file exactly as in an LF one.
+The body of a document is everything after the closing `---` of the front matter. The tool reads headings, HTML comments, code blocks, HTML blocks and links throughout it, blockquotes and list items as far as they hold those blocks, blockquotes within the question sections, and list items within a `Changelog` section. Everything else is text. A carriage return before a line feed is part of the line ending, and a construct is recognised in a CRLF file exactly as in an LF one. A body longer than 131,072 bytes is not read: the tool finds no heading, section, anchor, link, question, entry or definition in it.
 
 ## Headings
 
-Headings are `#` through `######`, at most three spaces in. A heading of nothing but a closing sequence, such as `## #`, is empty. A line inside a code block or an HTML block is not a heading. This holds wherever headings are read: section parsing, anchors and link scanning. Section parsing and anchors read a line with its comments masked, so `#<!-- c --> x` opens a section, which L21 reports where it bounds a `Changelog` section. Link scanning and the block count of a term's definition read the same line as written, as text. Setext headings are not read.
+Headings are read from the body's outline, as goldmark parses it: ATX headings, `#` through `######` at most three spaces in, and setext headings, the lines of a paragraph followed by a line of `=` or `-`. A heading of nothing but a closing sequence, such as `## #`, is empty. A heading's text is its content, without its markers, closing sequence or underline, a setext heading's lines joined by a line feed, with each HTML comment in it replaced by spaces and its ends trimmed. A line that is a heading only once a comment on it is masked, such as `##<!-- c --> Proposal`, is a paragraph. A top-level heading, one that no blockquote, list item or footnote definition holds, bounds a section and opens a `contents` entry; a heading inside one has an anchor and does neither. The body after a heading starts on the line after its last, a setext heading's underline. Link scanning and the block count of a term's definition read each line as written, an ATX heading by its marker.
 
-The first heading is an H1 of the form `<id>: <title>` for a numbered type, or `<title>` for a spec page, a term or a group.
+The first top-level heading is an H1 of the form `<id>: <title>` for a numbered type, or `<title>` for a spec page, a term or a group.
 
 ## Anchors
 
-Every heading has an anchor, computed as GitHub computes it, from the heading's content as written, comments included, rendered to text: backslash escapes and HTML entities resolved, a code span's content as written, HTML tags and comments removed, an inline link, or a reference link to a label the document defines, as its text, an image as nothing, an autolink as its address, and a bare `http://`, `https://`, `ftp://` or `www.` address that GitHub links, outside a link's text, as written. An underscore is removed only where it pairs as emphasis, the runs of `*`, `_` and `~` paired as cmark-gfm pairs them, so `## The _id field` keeps its underscore. The text is lowercased, everything that is not a letter, mark, decimal digit, letter number, connector punctuation, hyphen or space is removed, and each space becomes a hyphen: `Ⅻ` is kept, and `²` and `½` are removed. `## <!-- note --> Scope` anchors as `-scope`. A heading whose anchor is already taken within the document gains a `-1`, `-2` suffix. Anchors are assigned by walking a document's headings in order; a heading in isolation has no anchor. `## The [RFC-0007](path) approach` anchors as `the-rfc-0007-approach`.
+Every heading has an anchor, computed as GitHub computes it, from the heading's pieces as goldmark reads them, rendered to text: a text with its backslash escapes and HTML entities resolved, a code span's content, a link's text, an autolink's address as written, an address the linkify extension finds included, a footnote reference's number, and nothing for an image or raw HTML, a comment included. Emphasis, strong emphasis and strikethrough render as their text, and a delimiter goldmark pairs with nothing is text, so `## The _id field` keeps its underscore. The text is lowercased, everything that is not a letter, mark, decimal digit, letter number, connector punctuation, hyphen or space is removed, and each space becomes a hyphen: `Ⅻ` is kept, and `²` and `½` are removed. `## <!-- note --> Scope` anchors as `-scope`, and `## The [RFC-0007](path) approach` as `the-rfc-0007-approach`. Anchors are assigned in the order GitHub renders the headings: each heading outside a footnote definition, in document order, then the headings of each footnote definition in the order its label is first referenced, a footnote reference numbered in the same order. A definition that nothing references is not rendered, and its headings have no anchor. A heading whose anchor is already taken within the document gains a `-1`, `-2` suffix. A heading in isolation has no anchor. Where goldmark reads a heading otherwise than cmark-gfm, as for a known difference `testdata/commonmark/KNOWN` lists, the anchor is made from goldmark's reading.
 
 ## Links
 
@@ -27,7 +27,7 @@ An image may be the text of a link. A link within another link's text, inline or
 
 ## Sections
 
-A section is an H2 and everything under it, up to the next heading of equal or higher level. It includes its own subsections. A section is empty if it holds nothing but whitespace and HTML comments.
+A section is a top-level H2 and everything after it, up to the next top-level heading of equal or higher level. It includes its own subsections. A section is empty if it holds nothing but whitespace and HTML comments.
 
 Section presence is checked by exact H2 text. The required sections by type:
 
@@ -35,14 +35,14 @@ Section presence is checked by exact H2 text. The required sections by type:
 - ADR: `Context`, `Decision`, `Alternatives`, `Consequences`, in that order. `Rejection rationale` and `Sources` as for an RFC.
 - Ref: `Sources` is the last H2.
 - Spec: no requirements.
-- Term: no required sections. The definition is everything from the H1 to the end of the file, and L15 wants it to be exactly one paragraph.
+- Term: no required sections. The definition is everything after the H1 to the end of the file, and L15 wants it to be exactly one paragraph.
 - Group: no required sections. Its description is the body after the H1.
 
 Extra H2 sections are permitted between or after the required ones. `Open questions`, `Resolved questions` and `Changelog` are optional for every type, and are read as described below wherever they appear.
 
 ## Questions
 
-The question sections are H2s titled `Open questions` and `Resolved questions`. A question is an H3 within one, and its text is the question. Its detail is the lines after it, to its answer or to the next heading. A document carries at most one `Resolved questions` section, and where it has an `Open questions` section, `Resolved questions` is the next H2 or H1 after one.
+The question sections are H2s titled `Open questions` and `Resolved questions`. A question is an H3 within one, and its text is the question. Its detail is the lines after it, to its answer or to the next top-level heading. A document carries at most one `Resolved questions` section, and where it has an `Open questions` section, `Resolved questions` is the next H2 or H1 after one.
 
 Within a question section, a blockquote is a run of consecutive lines each beginning with `>` at the start of the line, outside an HTML comment and any code block or HTML block the blockquote does not hold. A question ends with a blockquote when its last one is followed by nothing but blank lines and comments before the next heading or the end of the document. In `Resolved questions`, that blockquote is the question's answer: its lines with the `>` and one column of the whitespace after it removed from each, a tab after the marker leaving two spaces. A link reference definition behind `>` in a question section is read as a link.
 
@@ -50,7 +50,7 @@ An `Open questions` section is empty or holds questions and nothing before the f
 
 ## Changelog entries
 
-A `Changelog` section runs from its H2 to the next H1 or H2. A carriage return before a line feed is removed before a line of it is read, and a blank line holds nothing but spaces and tabs.
+A `Changelog` section runs from the line after its H2 to the next top-level H1 or H2. A carriage return before a line feed is removed before a line of it is read, and a blank line holds nothing but spaces and tabs.
 
 An entry line begins `- ` at column 0 with a character other than a space or a tab after the space, and is not a line made only of three or more `-`, spaces and tabs. A block opener is a line beginning `#`, `>`, `<`, `-`, `*`, `+`, `_`, `=`, `|`, `[`, a backtick or `~`, or digits followed by `.` or `)`. After an entry line, each line in turn belongs to the entry while it is indented by two or more spaces with no tab before its first non-blank character; or blank, where a later line belongs to the entry; or a line at column 0 that is neither blank nor a block opener, directly after the entry line or another such line, where what follows the entry line's `- ` is not a block opener either. The first other line ends the entry.
 

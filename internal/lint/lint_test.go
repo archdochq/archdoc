@@ -436,16 +436,16 @@ func TestTheRegistryRecordsEachRuleV060Changed(t *testing.T) {
 		"L05": {"each finding at its field's line", "with its article", "warning rather than an error in a frozen document"},
 		"L06": {"at the `includes` line"},
 		"L07": {"fault in `decided` at the `decided` line", "`as_of` after its `verified`", "frozen document", "against an empty one"},
-		"L08": {"`Open questions` or `Changelog`", "frozen document", "unclosed `<!--`", "CRLF", "closing a comment block", "on the heading's line", "closing fence is indented with a tab"},
-		"L09": {"frozen document"},
-		"L10": {"group's H1", "frozen document", "title or `id` that did not parse", "closing a comment block"},
+		"L08": {"`Open questions` or `Changelog`", "frozen document", "unclosed `<!--`", "CRLF", "closing a comment block", "on the heading's line", "closing fence is indented with a tab", "setext heading as a section's heading", "longer than 131,072 bytes"},
+		"L09": {"frozen document", "top-level headings alone", "longer than 131,072 bytes"},
+		"L10": {"group's H1", "frozen document", "title or `id` that did not parse", "closing a comment block", "setext H1", "longer than 131,072 bytes"},
 		"L11": {"merge base", "tag of the same name", "its own root", "where git fails", "`GIT_LITERAL_PATHSPECS`"},
 		"L12": {"stale page at the `includes` line", "each obsolete document once"},
 		"L13": {"stale ref at the `verified` line", "ref carrying `as_of`", "`as_of` did not parse"},
-		"L14": {"unclosed `<!--`", "CRLF", "closing fence is indented with a tab"},
-		"L15": {"blocks to the end of the file", "blockquote after a lone carriage return"},
-		"L16": {"heading, in a frozen document", "indented code block", "unclosed `<!--`", "closing a comment block", "on the heading's line", "closing fence is indented with a tab"},
-		"L17": {"holding `root`", "URI scheme", "exact case", "as GitHub does", "link reference definition", "wraps across lines", "footnote", "holding a space", "CRLF", "HTML block", "unclosed `<!--`", "closing a comment block", "on the heading's line", "closing fence is indented with a tab"},
+		"L14": {"unclosed `<!--`", "CRLF", "closing fence is indented with a tab", "line after its underline", "longer than 131,072 bytes"},
+		"L15": {"blocks to the end of the file", "blockquote after a lone carriage return", "setext H1", "longer than 131,072 bytes"},
+		"L16": {"heading, in a frozen document", "indented code block", "unclosed `<!--`", "closing a comment block", "on the heading's line", "closing fence is indented with a tab", "setext heading", "longer than 131,072 bytes"},
+		"L17": {"holding `root`", "URI scheme", "exact case", "as GitHub does", "link reference definition", "wraps across lines", "footnote", "holding a space", "CRLF", "HTML block", "unclosed `<!--`", "closing a comment block", "on the heading's line", "closing fence is indented with a tab", "referenced footnote definition an anchor", "without its fragment"},
 		"L18": {"at the `depends` line"},
 	}
 	for _, r := range lint.Rules {
@@ -528,6 +528,34 @@ func TestTheCleanFixtureHasNoErrors(t *testing.T) {
 	}
 }
 
+// TestABodyTooLongToReadIsReportedAndPassedOver: L23 reports it at the
+// body's first line, the rules that read a body report nothing in it, and a
+// link into it is checked without its fragment.
+func TestABodyTooLongToReadIsReportedAndPassedOver(t *testing.T) {
+	reports(t, forRule(t, "lint", "L23"), "spec/too-long.md:5:", "longer than the 131072 bytes the tool reads")
+	for _, f := range runLint(t, "lint") {
+		if f.Path == "spec/too-long.md" && f.Rule != "L23" {
+			t.Errorf("%s reported %s:%d: %s", f.Rule, f.Path, f.Line, f.Message)
+		}
+	}
+
+	page := "---\ntitle: %s\nincludes: []\n---\n\n# %s\n\n"
+	filler := strings.Repeat("Filler.\n", 16400)
+	r := repotest.New(t, map[string]string{
+		"spec/long.md":  fmt.Sprintf(page, "Long", "Long") + filler,
+		"spec/short.md": fmt.Sprintf(page, "Short", "Short") + "[a](long.md#nowhere) and [b](long.md)\n",
+		// Missing every required section, and a term with no definition.
+		"rfc/0001-long.md": "---\nid: RFC-0001\ntitle: Long\nstatus: draft\ncreated: 2026-01-01\ndecided:\n" +
+			"depends: []\nupdates: []\nobsoletes: []\n---\n\n" + filler,
+		"term/long.md": "---\ntitle: Long\nformerly: []\nnamed_by:\n---\n\n" + filler,
+	})
+	for _, f := range lint.Run(lint.NewContext(r, nil, now)) {
+		if f.Rule != "L23" && f.Path != "." {
+			t.Errorf("%s reported %s:%d: %s", f.Rule, f.Path, f.Line, f.Message)
+		}
+	}
+}
+
 func TestEveryRuleHasAFixtureCase(t *testing.T) {
 	fired := map[string]bool{}
 	for _, fixture := range []string{"repo", "lint"} {
@@ -542,8 +570,8 @@ func TestEveryRuleHasAFixtureCase(t *testing.T) {
 			t.Errorf("no fixture document makes %s fire", rule.Code)
 		}
 	}
-	if len(lint.Rules) != 26 {
-		t.Errorf("registered %d rules, want 26", len(lint.Rules))
+	if len(lint.Rules) != 27 {
+		t.Errorf("registered %d rules, want 27", len(lint.Rules))
 	}
 }
 

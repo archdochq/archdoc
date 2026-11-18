@@ -445,3 +445,37 @@ func TestAddLeavesNamedByEmptyWithoutADocument(t *testing.T) {
 		t.Errorf("Add without named_by = %q, %v, want %q", source, err, want)
 	}
 }
+
+// TestRenameAndRemoveRefuseABodyThatIsNotRead: rename retitles the term's H1,
+// and remove reads every document's links, neither of which a body too long
+// to read shows.
+func TestRenameAndRemoveRefuseABodyThatIsNotRead(t *testing.T) {
+	long := strings.Repeat("Filler.\n", 16400)
+	r := repotest.New(t, map[string]string{
+		repotest.TermPath("Widget"): repotest.Term("Widget", "A small thing.\n"+long),
+	})
+	if _, _, _, err := glossary.Rename(r, "Widget", "Gadget"); err == nil || !strings.Contains(err.Error(), "longer than") {
+		t.Errorf("Rename: error = %v, want a refusal naming the unread body", err)
+	}
+	r = repotest.New(t, map[string]string{
+		repotest.TermPath("Widget"): repotest.Term("Widget", "A small thing."),
+		"spec/long.md":              "---\ntitle: Long\nincludes: []\n---\n\n# Long\n\n" + long,
+	})
+	if _, err := glossary.Remove(r, "Widget", nothingFrozen); err == nil || !strings.Contains(err.Error(), "spec/long.md") {
+		t.Errorf("Remove: error = %v, want a refusal naming spec/long.md", err)
+	}
+}
+
+// TestRenameRetitlesASetextH1: a term's H1 may be written over a line of =.
+func TestRenameRetitlesASetextH1(t *testing.T) {
+	r := repotest.New(t, map[string]string{
+		"term/widget.md": "---\ntitle: Widget\nformerly: []\nnamed_by:\n---\n\nWidget\n======\n\nA small thing.\n",
+	})
+	_, _, source, err := glossary.Rename(r, "Widget", "Gadget")
+	if err != nil {
+		t.Fatalf("Rename: %v", err)
+	}
+	if !strings.Contains(string(source), "\nGadget\n======\n") {
+		t.Errorf("the H1 was not retitled:\n%s", source)
+	}
+}

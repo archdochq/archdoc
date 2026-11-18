@@ -84,7 +84,7 @@ func TestLiteralBlocksHoldNoProse(t *testing.T) {
 		"code after a numbered line inside a paragraph": "Text\n2. continued\n\n    code [x](hidden.md)\n",
 		"code after a thematic break":                   "* * *\n\n    code [x](hidden.md)\n",
 		"code as a list item's content":                 "-      code [x](hidden.md)\n",
-		"an empty item inside a paragraph":              "Text\n-\n\n    code [x](hidden.md)\n",
+		"an empty item inside a paragraph":              "Text\n*\n\n    code [x](hidden.md)\n",
 		"a processing instruction":                      "<?php\n\n## Not heading [x](hidden.md)\n?>\n",
 		"a declaration":                                 "<!DOCTYPE\n\n## Not heading [x](hidden.md)\n>\n",
 		"a CDATA section":                               "<![CDATA[\n\n## Not heading [x](hidden.md)\n]]>\n",
@@ -398,11 +398,11 @@ func TestACommentBlocksLastLineHoldsNoWikiLink(t *testing.T) {
 func TestWhatFollowsAFenceClosedPastATabIsRead(t *testing.T) {
 	for body, want := range map[string]struct {
 		wikiLinks int
-		headings  []string
+		anchors   []string
 	}{
-		"> ## H\n> ```\n> \t```\n> [[RFC-0001]]\n":                        {1, nil},
-		"- a\n\n  ```\n  \t```\n  ## H\n\n  [[RFC-0001]]\n":               {1, []string{"H"}},
-		"- a\r\n\r\n  ```\r\n  \t```\r\n  ## H\r\n\r\n  [[RFC-0001]]\r\n": {1, []string{"H"}},
+		"> ## H\n> ```\n> \t```\n> [[RFC-0001]]\n":                        {1, []string{"h"}},
+		"- a\n\n  ```\n  \t```\n  ## H\n\n  [[RFC-0001]]\n":               {1, []string{"h"}},
+		"- a\r\n\r\n  ```\r\n  \t```\r\n  ## H\r\n\r\n  [[RFC-0001]]\r\n": {1, []string{"h"}},
 		"- a\n\n  ```\n \t  ```\n  [[RFC-0999]]\n":                        {0, nil},
 		">```\n>\t  ```\n> [[RFC-0999]]\n":                                {0, nil},
 	} {
@@ -410,8 +410,9 @@ func TestWhatFollowsAFenceClosedPastATabIsRead(t *testing.T) {
 		if got := d.WikiLinks(); len(got) != want.wikiLinks {
 			t.Errorf("wiki links = %v, want %d in:\n%s", got, want.wikiLinks, body)
 		}
-		if got := headingTexts(d); !slices.Equal(got, want.headings) {
-			t.Errorf("headings = %q, want %q in:\n%s", got, want.headings, body)
+		// The first is the page's own H1.
+		if got := d.Anchors()[1:]; !slices.Equal(got, want.anchors) {
+			t.Errorf("anchors = %q, want %q in:\n%s", got, want.anchors, body)
 		}
 	}
 }

@@ -71,6 +71,9 @@ func Renumber(r *Repo, from, to string, frozen func(*Document) bool) (changed, u
 	if frozen(d) {
 		return nil, nil, fmt.Errorf("%s is frozen; write a new document that updates it rather than renaming it", d.ID)
 	}
+	if unread := r.Unread(); len(unread) > 0 {
+		return nil, nil, fmt.Errorf("%s has a body longer than %d bytes, which is not read, so a reference to %s in it cannot be rewritten; shorten it first", unread[0], MaxBody, d.ID)
+	}
 
 	number, err := targetNumber(r, d, to)
 	if err != nil {

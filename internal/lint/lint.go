@@ -332,6 +332,8 @@ var Rules = []Rule{
 			{Release: "v0.6.0", Summary: "Does not read a heading written after the `-->` closing a comment block on the same line, which GitHub renders as part of the block"},
 			{Release: "v0.6.0", Summary: "Reads a `<!--` in a heading as part of the heading's text where no `-->` closes it on the heading's line"},
 			{Release: "v0.6.0", Summary: "Finds a heading after a fenced code block in a list item whose closing fence is indented with a tab, which hid the headings after it"},
+			{Release: "v0.6.0", Summary: "Reads a setext heading as a section's heading, and no heading inside a blockquote, a list item or a footnote definition, nor a line that is a heading only once a comment on it is masked"},
+			{Release: "v0.6.0", Summary: "Passes over a document whose body is longer than 131,072 bytes, which L23 reports"},
 		},
 	},
 	{
@@ -343,6 +345,8 @@ var Rules = []Rule{
 		Since:   "v0.1.0-alpha.1",
 		Changes: []Change{
 			{Release: "v0.6.0", Summary: "Reports a warning rather than an error in a frozen document"},
+			{Release: "v0.6.0", Summary: "Reads `Open questions` from top-level headings alone, a setext heading among them"},
+			{Release: "v0.6.0", Summary: "Reports nothing in a body longer than 131,072 bytes, which L23 reports"},
 		},
 	},
 	{
@@ -357,6 +361,8 @@ var Rules = []Rule{
 			{Release: "v0.6.0", Summary: "Reports a warning rather than an error in a frozen document"},
 			{Release: "v0.6.0", Summary: "Does not compare a title or `id` that did not parse, or is missing or empty"},
 			{Release: "v0.6.0", Summary: "Does not read an H1 written after the `-->` closing a comment block on the same line, which GitHub renders as part of the block"},
+			{Release: "v0.6.0", Summary: "Reads a setext H1, and takes the H1 from the top-level headings alone"},
+			{Release: "v0.6.0", Summary: "Passes over a document whose body is longer than 131,072 bytes, which L23 reports"},
 		},
 	},
 	{
@@ -410,6 +416,8 @@ var Rules = []Rule{
 			{Release: "v0.6.0", Summary: "Reports an empty section after a paragraph holding an unclosed `<!--`, which hid it"},
 			{Release: "v0.6.0", Summary: "Reports an empty section whose heading is closed by `#` characters in a CRLF file"},
 			{Release: "v0.6.0", Summary: "Reports an empty section after a fenced code block in a list item whose closing fence is indented with a tab, which hid it"},
+			{Release: "v0.6.0", Summary: "Reads a setext heading as a section's heading, and a section's text from the line after its underline"},
+			{Release: "v0.6.0", Summary: "Reports nothing in a body longer than 131,072 bytes, which L23 reports"},
 		},
 	},
 	{
@@ -422,6 +430,8 @@ var Rules = []Rule{
 		Changes: []Change{
 			{Release: "v0.6.0", Summary: "Reads the definition as blocks to the end of the file, and reports any block that is not a paragraph and prose above the H1"},
 			{Release: "v0.6.0", Summary: "Reports a blockquote after a lone carriage return, and a list or blockquote whose marker a comment left open in the paragraph would hide, rather than reading either as part of the paragraph before it"},
+			{Release: "v0.6.0", Summary: "Reads a setext H1, and the definition from the line after its underline"},
+			{Release: "v0.6.0", Summary: "Passes over a document whose body is longer than 131,072 bytes, which L23 reports"},
 		},
 	},
 	{
@@ -438,6 +448,8 @@ var Rules = []Rule{
 			{Release: "v0.6.0", Summary: "Does not report a `[[...]]` after the `-->` closing a comment block on the same line"},
 			{Release: "v0.6.0", Summary: "Reports a `[[...]]` on the lines after a heading holding a `<!--` that no `-->` closes on the heading's line"},
 			{Release: "v0.6.0", Summary: "Reports a `[[...]]` after a fenced code block in a list item whose closing fence is indented with a tab"},
+			{Release: "v0.6.0", Summary: "Names the edit for a `[[...]]` in a setext heading as for one in an ATX heading"},
+			{Release: "v0.6.0", Summary: "Reports nothing in a body longer than 131,072 bytes, which L23 reports"},
 		},
 	},
 	{
@@ -462,6 +474,8 @@ var Rules = []Rule{
 			{Release: "v0.6.0", Summary: "Does not check a link after the `-->` closing a comment block on the same line, or take a heading written there as an anchor"},
 			{Release: "v0.6.0", Summary: "Checks a link on the lines after a heading holding a `<!--` that no `-->` closes on the heading's line"},
 			{Release: "v0.6.0", Summary: "Checks a link after a fenced code block in a list item whose closing fence is indented with a tab"},
+			{Release: "v0.6.0", Summary: "Gives a heading inside a blockquote, a list item or a referenced footnote definition an anchor, in the order GitHub renders the headings, and renders a heading's anchor from its pieces as goldmark reads them"},
+			{Release: "v0.6.0", Summary: "Checks a link into a document whose body is longer than 131,072 bytes without its fragment, and passes over the links in one"},
 		},
 	},
 	{
@@ -495,8 +509,8 @@ var Rules = []Rule{
 		Code:    "L21",
 		Check:   L21,
 		Title:   "The Changelog has the shape the tool reads",
-		Summary: "A Changelog entry is undated, has a malformed or impossible date, has a date and no text, or is out of order or outside the document's dates; a line in the section is outside the list form the tool reads; the heading is indented, misspelt or repeated, or the heading after the section is indented",
-		Remedy:  "Date the entry, or rewrite the line as an entry or within one, and write the heading `## Changelog` at the start of its line. Guide: `authoring.md`, The Changelog",
+		Summary: "A Changelog entry is undated, has a malformed or impossible date, has a date and no text, or is out of order or outside the document's dates; a line in the section is outside the list form the tool reads; or the heading is misspelt or repeated",
+		Remedy:  "Date the entry, or rewrite the line as an entry or within one, and spell the heading `## Changelog`. Guide: `authoring.md`, The Changelog",
 		Since:   "v0.6.0",
 	},
 	{
@@ -505,6 +519,14 @@ var Rules = []Rule{
 		Title:   "Every acknowledgement names a warning",
 		Summary: "An entry in `acknowledged` names a path that is not a document, a document that is not frozen, a code that is not an L rule, or a rule that reports no warning on the document",
 		Remedy:  "Remove the entry from `acknowledged`",
+		Since:   "v0.6.0",
+	},
+	{
+		Code:    "L23",
+		Check:   L23,
+		Title:   "A body is short enough to read",
+		Summary: "A document's body is longer than 131,072 bytes, so the tool does not read it, and the rules that read a body pass it over",
+		Remedy:  "Split the document, or move what makes it long into a file it links to",
 		Since:   "v0.6.0",
 	},
 	{

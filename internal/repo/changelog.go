@@ -119,30 +119,9 @@ func (d *Document) readChangelog(decided time.Time) ([]ChangelogEntry, []Problem
 		seen = true
 
 		end := d.sectionEnd(i)
-		var closing *Heading
-		if next := d.nextSection(i); next >= 0 {
-			closing = &d.headings[next]
-		}
-		// A second Changelog section's heading is checked as the one opening
-		// it, rather than twice.
-		if closing != nil && closing.Level == 2 && closing.Text == Changelog {
-			closing = nil
-		}
-		for _, edge := range []*Heading{&h, closing} {
-			if edge == nil {
-				continue
-			}
-			written := lines[edge.index]
-			switch indent := len(written) - len(strings.TrimLeft(written, " ")); {
-			case !IsHeading(written):
-				report(edge.index, "%q is a heading only once a comment on its line is masked, and renders as something else", edge.Text)
-			case indent >= 2:
-				report(edge.index, "%q is indented by %d spaces, so it may render inside the list item before it", edge.Text, indent)
-			}
-		}
 
 		gapReported := false
-		for j := h.index + 1; j < end; {
+		for j := h.last + 1; j < end; {
 			line := lines[j]
 			switch {
 			case entryLine(line):

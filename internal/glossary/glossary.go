@@ -8,6 +8,7 @@ import (
 	"bytes"
 	"fmt"
 	"path"
+	"regexp"
 	"slices"
 	"strings"
 	"unicode/utf8"
@@ -73,6 +74,9 @@ func Rename(r *repo.Repo, from, to string) (oldPath, newPath string, source []by
 	entry, ok := r.Term(from)
 	if !ok {
 		return "", "", nil, fmt.Errorf("%q is not a term", from)
+	}
+	if d := r.ByPath(entry.Path); d != nil && !d.Read() {
+		return "", "", nil, fmt.Errorf("%s has a body longer than %d bytes, which is not read, so its H1 cannot be retitled; shorten it first", entry.Path, repo.MaxBody)
 	}
 	if to == entry.Term {
 		return "", "", nil, fmt.Errorf("%q is already the term's name", to)
@@ -166,6 +170,9 @@ func Remove(r *repo.Repo, term string, frozen func(*repo.Document) bool) (docPat
 	entry, ok := r.Term(term)
 	if !ok {
 		return "", fmt.Errorf("%q is not a term", term)
+	}
+	if unread := r.Unread(); len(unread) > 0 {
+		return "", fmt.Errorf("%s has a body longer than %d bytes, which is not read, so a link to %q in it cannot be seen; shorten it first", unread[0], repo.MaxBody, term)
 	}
 	anchors := []string{entry.Anchor}
 	for _, former := range entry.Formerly {
@@ -262,22 +269,33 @@ func marshal(n *yaml.Node) string {
 	return strings.TrimRight(string(out), "\n")
 }
 
-// retitleHeading replaces the H1 that carries the term. Only the first level
-// one heading is touched: the definition below it is the author's.
+// retitleHeading replaces the H1 that carries the term, written `# <term>` or
+// as `<term>` over a line of `=`. Only the first is touched: the definition
+// below it is the author's.
 func retitleHeading(source []byte, from, to string) []byte {
 	lines := bytes.Split(source, []byte("\n"))
-	want := []byte("# " + from)
 	for i, line := range lines {
-		if text, cr := bytes.CutSuffix(line, []byte("\r")); bytes.Equal(text, want) {
-			lines[i] = []byte("# " + to)
-			if cr {
-				lines[i] = append(lines[i], '\r')
-			}
-			break
+		text, cr := bytes.CutSuffix(line, []byte("\r"))
+		var title string
+		switch {
+		case bytes.Equal(text, []byte("# "+from)):
+			title = "# " + to
+		case bytes.Equal(text, []byte(from)) && i+1 < len(lines) && setextH1.Match(lines[i+1]):
+			title = to
+		default:
+			continue
 		}
+		lines[i] = []byte(title)
+		if cr {
+			lines[i] = append(lines[i], '\r')
+		}
+		break
 	}
 	return bytes.Join(lines, []byte("\n"))
 }
+
+// setextH1 is a level one setext underline.
+var setextH1 = regexp.MustCompile(`^ {0,3}=+[ \t]*\r?$`)
 
 // count is n and noun, with an s where n is not 1.
 func count(n int, noun string) string {

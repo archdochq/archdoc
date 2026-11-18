@@ -39,8 +39,8 @@ A repository with no `term/` directory has no glossary, which is valid: L15 and 
 `archdoc term` manages the files:
 
 - `add <term> <definition> [--named-by <id>]`: writes `term/<slug>.md`. Refuses a slug already taken, which covers a name differing only in case, a `--named-by` that is not a document in the repository, a definition that is not exactly one paragraph, and a file the index cannot see.
-- `rename <old> <new>`: renames the file, sets `title`, and appends the old name to `formerly`, leaving out any name whose anchor is the new name's. Refuses the term's current name. Links elsewhere are not rewritten and do not need to be: the old name keeps an anchor on the generated page.
-- `remove <term>`: deletes the file. Refuses when a frozen document links to the term, by its anchor or a former name's on the generated page, or to its file, since the link could never be corrected.
+- `rename <old> <new>`: renames the file, sets `title`, and appends the old name to `formerly`, leaving out any name whose anchor is the new name's. Refuses the term's current name, and a term whose body is longer than 131,072 bytes, which is not read. The H1 is retitled where it is `# <old>` or `<old>` over a line of `=`. Links elsewhere are not rewritten and do not need to be: the old name keeps an anchor on the generated page.
+- `remove <term>`: deletes the file. Refuses when a frozen document links to the term, by its anchor or a former name's on the generated page, or to its file, since the link could never be corrected, and while any document's body is longer than 131,072 bytes, as a link in it cannot be seen.
 - `list`: prints the terms, one per line.
 - `show <term>`: prints the term and its definition, as `GLOSSARY.md` writes it.
 
