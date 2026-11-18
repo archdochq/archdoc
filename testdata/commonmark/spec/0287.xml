@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE document SYSTEM "CommonMark.dtd">
+<document sourcepos="1:1-6:9" xmlns="http://commonmark.org/xml/1.0">
+  <list sourcepos="1:1-6:9" type="bullet" tight="true">
+    <item sourcepos="1:1-6:9">
+      <paragraph sourcepos="1:3-1:5">
+        <text sourcepos="1:3-1:5" xml:space="preserve">foo</text>
+      </paragraph>
+      <list sourcepos="2:3-6:9" type="bullet" tight="true">
+        <item sourcepos="2:3-6:9">
+          <paragraph sourcepos="2:5-2:7">
+            <text sourcepos="2:5-2:7" xml:space="preserve">bar</text>
+          </paragraph>
+          <list sourcepos="3:5-6:9" type="bullet" tight="false">
+            <item sourcepos="3:5-6:9">
+              <paragraph sourcepos="3:7-3:9">
+                <text sourcepos="3:7-3:9" xml:space="preserve">baz</text>
+              </paragraph>
+              <paragraph sourcepos="6:7-6:9">
+                <text sourcepos="6:7-6:9" xml:space="preserve">bim</text>
+              </paragraph>
+            </item>
+          </list>
+        </item>
+      </list>
+    </item>
+  </list>
+</document>

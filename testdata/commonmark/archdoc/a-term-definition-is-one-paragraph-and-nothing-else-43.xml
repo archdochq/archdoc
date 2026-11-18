@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE document SYSTEM "CommonMark.dtd">
+<document sourcepos="1:1-2:14" xmlns="http://commonmark.org/xml/1.0">
+  <paragraph sourcepos="1:1-2:14">
+    <text sourcepos="1:1-1:1" xml:space="preserve">#</text>
+    <html_inline sourcepos="1:2-1:11" xml:space="preserve">&lt;!-- c --&gt;</html_inline>
+    <text sourcepos="1:12-1:18" xml:space="preserve"> Widget</text>
+    <softbreak />
+    <html_inline sourcepos="2:1-2:10" xml:space="preserve">&lt;!-- c --&gt;</html_inline>
+  </paragraph>
+</document>

@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE document SYSTEM "CommonMark.dtd">
+<document sourcepos="1:1-1:41" xmlns="http://commonmark.org/xml/1.0">
+  <paragraph sourcepos="1:1-1:41">
+    <text sourcepos="1:1-1:34" xml:space="preserve">This shouldn't crash everything: (</text>
+    <emph sourcepos="1:35-1:37">
+      <text sourcepos="1:36-1:36" xml:space="preserve">A</text>
+    </emph>
+    <text sourcepos="1:38-1:41" xml:space="preserve">@_.A</text>
+  </paragraph>
+</document>

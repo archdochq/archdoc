@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE document SYSTEM "CommonMark.dtd">
+<document sourcepos="1:1-1:33" xmlns="http://commonmark.org/xml/1.0">
+  <paragraph sourcepos="1:1-1:33">
+    <html_inline sourcepos="1:1-1:25" xml:space="preserve">&lt;span title=&quot;[x](n2.md)&quot;&gt;</html_inline>
+    <text sourcepos="1:26-1:26" xml:space="preserve">a</text>
+    <html_inline sourcepos="1:27-1:33" xml:space="preserve">&lt;/span&gt;</html_inline>
+  </paragraph>
+</document>

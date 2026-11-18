@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE document SYSTEM "CommonMark.dtd">
+<document sourcepos="1:1-4:47" xmlns="http://commonmark.org/xml/1.0">
+  <heading sourcepos="2:1-2:6" level="1">
+    <text sourcepos="2:3-2:6" xml:space="preserve">File</text>
+  </heading>
+  <paragraph sourcepos="4:1-4:47">
+    <text sourcepos="4:1-4:4" xml:space="preserve">The </text>
+    <link sourcepos="4:5-4:31" destination="../term/widget.md" title="">
+      <text sourcepos="4:6-4:11" xml:space="preserve">widget</text>
+    </link>
+    <text sourcepos="4:32-4:47" xml:space="preserve"> and the widget.</text>
+  </paragraph>
+</document>

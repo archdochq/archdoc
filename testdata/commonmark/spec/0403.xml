@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE document SYSTEM "CommonMark.dtd">
+<document sourcepos="1:1-2:25" xmlns="http://commonmark.org/xml/1.0">
+  <paragraph sourcepos="1:1-2:25">
+    <strong sourcepos="1:1-2:25">
+      <text sourcepos="1:3-1:16" xml:space="preserve">Gomphocarpus (</text>
+      <emph sourcepos="1:17-1:42">
+        <text sourcepos="1:18-1:41" xml:space="preserve">Gomphocarpus physocarpus</text>
+      </emph>
+      <text sourcepos="1:43-1:48" xml:space="preserve">, syn.</text>
+      <softbreak />
+      <emph sourcepos="2:1-2:22">
+        <text sourcepos="2:2-2:21" xml:space="preserve">Asclepias physocarpa</text>
+      </emph>
+      <text sourcepos="2:23-2:23" xml:space="preserve">)</text>
+    </strong>
+  </paragraph>
+</document>

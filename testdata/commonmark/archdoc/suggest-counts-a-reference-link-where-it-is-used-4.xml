@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE document SYSTEM "CommonMark.dtd">
+<document sourcepos="1:1-6:14" xmlns="http://commonmark.org/xml/1.0">
+  <heading sourcepos="2:1-2:6" level="1">
+    <text sourcepos="2:3-2:6" xml:space="preserve">Page</text>
+  </heading>
+  <paragraph sourcepos="6:1-6:14">
+    <text sourcepos="6:1-6:14" xml:space="preserve">Then RFC-0001.</text>
+  </paragraph>
+</document>

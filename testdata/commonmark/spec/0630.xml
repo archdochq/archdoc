@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE document SYSTEM "CommonMark.dtd">
+<document sourcepos="1:1-1:66" xmlns="http://commonmark.org/xml/1.0">
+  <paragraph sourcepos="1:1-1:66">
+    <text sourcepos="1:1-1:66" xml:space="preserve">hello@mail+xyz.example isn't valid, but </text>
+    <link destination="mailto:hello+xyz@mail.example" title="">
+      <text xml:space="preserve">hello+xyz@mail.example</text>
+    </link>
+    <text xml:space="preserve"> is.</text>
+  </paragraph>
+</document>

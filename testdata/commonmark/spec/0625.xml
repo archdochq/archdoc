@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE document SYSTEM "CommonMark.dtd">
+<document sourcepos="1:1-1:38" xmlns="http://commonmark.org/xml/1.0">
+  <paragraph sourcepos="1:1-1:38">
+    <link sourcepos="1:0-1:38" destination="http://www.google.com/search?q=(business))+ok" title="">
+      <text sourcepos="1:0-1:38" xml:space="preserve">www.google.com/search?q=(business))+ok</text>
+    </link>
+  </paragraph>
+</document>

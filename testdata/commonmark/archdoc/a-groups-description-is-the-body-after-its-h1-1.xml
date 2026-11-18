@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE document SYSTEM "CommonMark.dtd">
+<document sourcepos="1:1-8:9" xmlns="http://commonmark.org/xml/1.0">
+  <heading sourcepos="2:1-2:3" level="1">
+    <text sourcepos="2:3-2:3" xml:space="preserve">A</text>
+  </heading>
+  <paragraph sourcepos="4:1-4:16">
+    <text sourcepos="4:1-4:16" xml:space="preserve">What they share.</text>
+  </paragraph>
+  <heading sourcepos="6:1-6:7" level="2">
+    <text sourcepos="6:4-6:7" xml:space="preserve">More</text>
+  </heading>
+  <paragraph sourcepos="8:1-8:9">
+    <text sourcepos="8:1-8:9" xml:space="preserve">Still it.</text>
+  </paragraph>
+</document>

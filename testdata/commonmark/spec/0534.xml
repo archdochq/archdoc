@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE document SYSTEM "CommonMark.dtd">
+<document sourcepos="1:1-1:39" xmlns="http://commonmark.org/xml/1.0">
+  <paragraph sourcepos="1:1-1:39">
+    <text sourcepos="1:1-1:4" xml:space="preserve">[foo</text>
+    <link sourcepos="1:5-1:39" destination="http://example.com/?search=](uri)" title="">
+      <text sourcepos="1:6-1:38" xml:space="preserve">http://example.com/?search=](uri)</text>
+    </link>
+  </paragraph>
+</document>

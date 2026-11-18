@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE document SYSTEM "CommonMark.dtd">
+<document sourcepos="1:1-4:26" xmlns="http://commonmark.org/xml/1.0">
+  <heading sourcepos="2:1-2:13" level="1">
+    <text sourcepos="2:3-2:13" xml:space="preserve">RFC-0001: A</text>
+  </heading>
+  <heading sourcepos="4:1-4:26" level="2">
+    <text sourcepos="4:4-4:7" xml:space="preserve">The </text>
+    <code sourcepos="4:10-4:17" xml:space="preserve">`&lt;!--`</code>
+    <text sourcepos="4:20-4:26" xml:space="preserve"> marker</text>
+  </heading>
+</document>

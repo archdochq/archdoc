@@ -13,8 +13,9 @@ go test ./internal/repo/ -run FuzzProseNeverMovesAByte -fuzz FuzzProseNeverMoves
 gofmt -l . && go vet ./...
 ```
 
-Fixtures live under `testdata/`: `repo` is a valid repository, `lint` holds a case per rule, and
-`crlf`, `links`, `empty`, `nofrontmatter` and `golden` each pin one situation.
+Fixtures live under `testdata/`: `repo` is a valid repository, `lint` holds a case per rule,
+`commonmark` holds the reference cases, and `crlf`, `links`, `empty`, `nofrontmatter` and `golden`
+each pin one situation.
 
 ## Approach
 
@@ -47,3 +48,46 @@ Fixtures live under `testdata/`: `repo` is a valid repository, `lint` holds a ca
   imports `testing`, as `httptest` and `iotest` do, and sits under `internal/` so it never reaches a
   binary. `internal/lint`'s git tests keep their own builder, because those need a real checkout rather
   than a directory.
+
+## The reference cases
+
+`internal/markdown`'s outline is compared with cmark-gfm's own parse, the reading GitHub gives, rather
+than with readings written by hand, which hold only the cases someone thought of.
+
+- **The cases.** `testdata/commonmark` holds the 672 examples of the GFM specification 0.29 and the 30
+  and 26 of cmark-gfm's extension and regression tests, at the tag `REFERENCE` names, attributed in
+  `ATTRIBUTION.md`, and ArchDoc's own under `archdoc/`: each misreading found, and each difference
+  between goldmark and the reference found, as a case. Each case's `.md` is the body and its `.xml` the
+  reference's parse, as `cmark-gfm -t xml --sourcepos` writes it with the extensions `REFERENCE` names.
+  A body is read as written, line endings included, so `.gitattributes` keeps git from changing them.
+- **Recording a parse.** `go test ./internal/markdown -update-commonmark` records every case's parse
+  again. It fails where `cmark-gfm` is not on the path or reports a version other than the one
+  `REFERENCE` names. Nothing else needs cmark-gfm: the comparison reads the recorded parses.
+- **What is compared.** The tree of blocks and pieces, their types, the attributes the parse carries,
+  and their text, with adjacent texts joined, as the two divide text at different places. The outline's
+  link reference definitions are passed over, as the parse keeps none. The reference writes footnote
+  references and definitions as `<unknown>` tags that are not well-formed XML, moves each referenced
+  definition to the end in the order first referenced and drops the rest, so the comparison reads the
+  empty tag inside a block as a reference and any other as a definition, and moves the outline's
+  definitions the same way. A task is compared as a list item beginning with its box.
+- **Known differences.** `KNOWN` lists each case on which goldmark reads otherwise than the reference,
+  the path of the first node that differs, and why. The test fails where a listed case differs at
+  another node, and where it no longer differs, so an entry goes when a release of goldmark reads the
+  case as the reference does.
+- **Positions are checked by rule, not against the reference.** cmark-gfm's positions are not exact:
+  it places a code span at its content, an address it finds a column early, and pieces after a link
+  reference definition on the wrong line. `TestEveryCaseIsPlacedByTheRules` asserts of every case that
+  each block and piece written with a marker starts and ends at it, a paragraph and a setext heading at
+  their first line's text, and no block other than an HTML block after its content's start; that each
+  lies within its parent and follows its siblings without overlapping them; that every byte but a
+  space, a line ending and a blockquote's marker lies in a block; that a text's bytes are its text where
+  it holds no escape or entity; and that a destination's bytes, resolved, are its destination.
+- **The fuzz test needs cmark-gfm.** `FuzzOutlineMatchesTheReference` compares the outline with the
+  reference's parse of generated input where the reference is on the path, and asserts the position
+  rules either way. Variants of the known differences in tables and addresses are common in generated
+  input, so a run stops at one quickly; a difference that is new becomes a case.
+- **Timing tests of reading.** Each shape cmark-gfm's pathological tests hold, the shapes added beside
+  them, and each shape the readers' own timing tests hold, is read under a limit. A shape goldmark reads
+  in more than linear time is skipped, naming it, until it does not. Building the outline from
+  goldmark's tree is timed on every shape at two sizes, and fails where its time grows more than twice
+  as fast as the body.

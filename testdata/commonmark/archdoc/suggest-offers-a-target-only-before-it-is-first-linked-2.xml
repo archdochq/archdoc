@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE document SYSTEM "CommonMark.dtd">
+<document sourcepos="1:1-4:50" xmlns="http://commonmark.org/xml/1.0">
+  <heading sourcepos="2:1-2:7" level="1">
+    <text sourcepos="2:3-2:7" xml:space="preserve">Later</text>
+  </heading>
+  <paragraph sourcepos="4:1-4:50">
+    <text sourcepos="4:1-4:21" xml:space="preserve">First RFC-0001, then </text>
+    <link sourcepos="4:22-4:49" destination="../rfc/0001-a.md" title="">
+      <text sourcepos="4:23-4:30" xml:space="preserve">RFC-0001</text>
+    </link>
+    <text sourcepos="4:50-4:50" xml:space="preserve">.</text>
+  </paragraph>
+</document>

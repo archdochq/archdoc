@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE document SYSTEM "CommonMark.dtd">
+<document sourcepos="1:1-4:31" xmlns="http://commonmark.org/xml/1.0">
+  <heading sourcepos="2:1-2:10" level="1">
+    <text sourcepos="2:3-2:10" xml:space="preserve">Glossary</text>
+  </heading>
+  <paragraph sourcepos="4:1-4:31">
+    <text sourcepos="4:1-4:31" xml:space="preserve">Every term the project defines.</text>
+  </paragraph>
+</document>

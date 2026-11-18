@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE document SYSTEM "CommonMark.dtd">
+<document sourcepos="1:1-2:30" xmlns="http://commonmark.org/xml/1.0">
+  <paragraph sourcepos="1:1-2:30">
+    <text sourcepos="1:1-1:36" xml:space="preserve">The number of windows in my house is</text>
+    <softbreak />
+    <text sourcepos="2:1-2:30" xml:space="preserve">14.  The number of doors is 6.</text>
+  </paragraph>
+</document>

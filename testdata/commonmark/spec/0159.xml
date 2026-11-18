@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE document SYSTEM "CommonMark.dtd">
+<document sourcepos="1:1-11:8" xmlns="http://commonmark.org/xml/1.0">
+  <html_block sourcepos="1:1-1:7" xml:space="preserve">&lt;table&gt;
+</html_block>
+  <html_block sourcepos="3:1-3:4" xml:space="preserve">&lt;tr&gt;
+</html_block>
+  <html_block sourcepos="5:1-7:5" xml:space="preserve">&lt;td&gt;
+Hi
+&lt;/td&gt;
+</html_block>
+  <html_block sourcepos="9:1-9:5" xml:space="preserve">&lt;/tr&gt;
+</html_block>
+  <html_block sourcepos="11:1-11:8" xml:space="preserve">&lt;/table&gt;
+</html_block>
+</document>

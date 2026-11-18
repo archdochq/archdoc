@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE document SYSTEM "CommonMark.dtd">
+<document sourcepos="1:1-5:96" xmlns="http://commonmark.org/xml/1.0">
+  <paragraph sourcepos="1:1-1:48">
+    <text sourcepos="1:1-1:37" xml:space="preserve">This is some text. It has a citation.</text>
+    <<unknown> sourcepos="1:38-1:48" />
+  </paragraph>
+  <<unknown> sourcepos="5:14-5:96">
+    <paragraph sourcepos="5:14-5:96">
+      <text sourcepos="5:14-5:77" xml:space="preserve">This is a long winded parapgraph that also has another citation.</text>
+      <<unknown> sourcepos="5:78-5:96" />
+    </paragraph>
+  </<unknown>>
+  <<unknown> sourcepos="3:22-4:0">
+    <paragraph sourcepos="3:22-3:40">
+      <text sourcepos="3:22-3:40" xml:space="preserve">My second citation.</text>
+    </paragraph>
+  </<unknown>>
+</document>

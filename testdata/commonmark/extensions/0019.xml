@@ -1,0 +1,234 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE document SYSTEM "CommonMark.dtd">
+<document sourcepos="1:1-63:32" xmlns="http://commonmark.org/xml/1.0">
+  <paragraph sourcepos="1:1-1:38">
+    <text sourcepos="1:1-1:6" xml:space="preserve">: </text>
+    <link sourcepos="1:2-1:19" destination="http://google.com" title="">
+      <text sourcepos="1:2-1:19" xml:space="preserve">http://google.com</text>
+    </link>
+    <text sourcepos="1:20-1:25" xml:space="preserve"> </text>
+    <link sourcepos="1:20-1:38" destination="https://google.com" title="">
+      <text sourcepos="1:20-1:38" xml:space="preserve">https://google.com</text>
+    </link>
+  </paragraph>
+  <paragraph sourcepos="3:1-3:43">
+    <link sourcepos="3:1-3:22" destination="http://google.com/å" title="">
+      <text sourcepos="3:2-3:21" xml:space="preserve">http://google.com/å</text>
+    </link>
+    <text sourcepos="3:23-3:27" xml:space="preserve"> </text>
+    <link sourcepos="3:23-3:43" destination="http://google.com/å" title="">
+      <text sourcepos="3:23-3:43" xml:space="preserve">http://google.com/å</text>
+    </link>
+  </paragraph>
+  <paragraph sourcepos="5:1-5:19">
+    <text sourcepos="5:1-5:19" xml:space="preserve"></text>
+    <link destination="mailto:scyther@pokemon.com" title="">
+      <text xml:space="preserve">scyther@pokemon.com</text>
+    </link>
+    <text xml:space="preserve"></text>
+  </paragraph>
+  <paragraph sourcepos="7:1-7:31">
+    <text sourcepos="7:1-7:31" xml:space="preserve"></text>
+    <link destination="mailto:scy.the_rbe-edr+ill@pokemon.com" title="">
+      <text xml:space="preserve">scy.the_rbe-edr+ill@pokemon.com</text>
+    </link>
+    <text xml:space="preserve"></text>
+  </paragraph>
+  <paragraph sourcepos="9:1-9:20">
+    <text sourcepos="9:1-9:20" xml:space="preserve"></text>
+    <link destination="mailto:scyther@pokemon.com" title="">
+      <text xml:space="preserve">scyther@pokemon.com</text>
+    </link>
+    <text xml:space="preserve">.</text>
+  </paragraph>
+  <paragraph sourcepos="11:1-11:20">
+    <text sourcepos="11:1-11:20" xml:space="preserve"></text>
+    <link destination="mailto:scyther@pokemon.com" title="">
+      <text xml:space="preserve">scyther@pokemon.com</text>
+    </link>
+    <text xml:space="preserve">/</text>
+  </paragraph>
+  <paragraph sourcepos="13:1-13:40">
+    <text sourcepos="13:1-13:40" xml:space="preserve"></text>
+    <link destination="mailto:scyther@pokemon.com" title="">
+      <text xml:space="preserve">scyther@pokemon.com</text>
+    </link>
+    <text xml:space="preserve">/</text>
+    <link destination="mailto:beedrill@pokemon.com" title="">
+      <text xml:space="preserve">beedrill@pokemon.com</text>
+    </link>
+    <text xml:space="preserve"></text>
+  </paragraph>
+  <paragraph sourcepos="15:1-15:26">
+    <text sourcepos="15:1-15:26" xml:space="preserve"></text>
+    <link destination="mailto:scyther@pokemon.com" title="">
+      <text xml:space="preserve">mailto:scyther@pokemon.com</text>
+    </link>
+    <text xml:space="preserve"></text>
+  </paragraph>
+  <paragraph sourcepos="17:1-17:36">
+    <text sourcepos="17:1-17:36" xml:space="preserve">This is a </text>
+    <link destination="mailto:scyther@pokemon.com" title="">
+      <text xml:space="preserve">mailto:scyther@pokemon.com</text>
+    </link>
+    <text xml:space="preserve"></text>
+  </paragraph>
+  <paragraph sourcepos="19:1-19:27">
+    <text sourcepos="19:1-19:27" xml:space="preserve"></text>
+    <link destination="mailto:scyther@pokemon.com" title="">
+      <text xml:space="preserve">mailto:scyther@pokemon.com</text>
+    </link>
+    <text xml:space="preserve">.</text>
+  </paragraph>
+  <paragraph sourcepos="21:1-21:29">
+    <text sourcepos="21:1-21:29" xml:space="preserve">mmmmailto:</text>
+    <link destination="mailto:scyther@pokemon.com" title="">
+      <text xml:space="preserve">scyther@pokemon.com</text>
+    </link>
+    <text xml:space="preserve"></text>
+  </paragraph>
+  <paragraph sourcepos="23:1-23:27">
+    <text sourcepos="23:1-23:27" xml:space="preserve"></text>
+    <link destination="mailto:scyther@pokemon.com" title="">
+      <text xml:space="preserve">mailto:scyther@pokemon.com</text>
+    </link>
+    <text xml:space="preserve">/</text>
+  </paragraph>
+  <paragraph sourcepos="25:1-25:34">
+    <text sourcepos="25:1-25:34" xml:space="preserve"></text>
+    <link destination="mailto:scyther@pokemon.com" title="">
+      <text xml:space="preserve">mailto:scyther@pokemon.com</text>
+    </link>
+    <text xml:space="preserve">/message</text>
+  </paragraph>
+  <paragraph sourcepos="27:1-27:54">
+    <text sourcepos="27:1-27:54" xml:space="preserve"></text>
+    <link destination="mailto:scyther@pokemon.com" title="">
+      <text xml:space="preserve">mailto:scyther@pokemon.com</text>
+    </link>
+    <text xml:space="preserve">/</text>
+    <link destination="mailto:beedrill@pokemon.com" title="">
+      <text xml:space="preserve">mailto:beedrill@pokemon.com</text>
+    </link>
+    <text xml:space="preserve"></text>
+  </paragraph>
+  <paragraph sourcepos="29:1-29:24">
+    <text sourcepos="29:1-29:24" xml:space="preserve"></text>
+    <link destination="xmpp:scyther@pokemon.com" title="">
+      <text xml:space="preserve">xmpp:scyther@pokemon.com</text>
+    </link>
+    <text xml:space="preserve"></text>
+  </paragraph>
+  <paragraph sourcepos="31:1-31:25">
+    <text sourcepos="31:1-31:25" xml:space="preserve"></text>
+    <link destination="xmpp:scyther@pokemon.com" title="">
+      <text xml:space="preserve">xmpp:scyther@pokemon.com</text>
+    </link>
+    <text xml:space="preserve">.</text>
+  </paragraph>
+  <paragraph sourcepos="33:1-33:32">
+    <text sourcepos="33:1-33:32" xml:space="preserve"></text>
+    <link destination="xmpp:scyther@pokemon.com/message" title="">
+      <text xml:space="preserve">xmpp:scyther@pokemon.com/message</text>
+    </link>
+    <text xml:space="preserve"></text>
+  </paragraph>
+  <paragraph sourcepos="35:1-35:33">
+    <text sourcepos="35:1-35:33" xml:space="preserve"></text>
+    <link destination="xmpp:scyther@pokemon.com/message" title="">
+      <text xml:space="preserve">xmpp:scyther@pokemon.com/message</text>
+    </link>
+    <text xml:space="preserve">.</text>
+  </paragraph>
+  <paragraph sourcepos="37:1-37:31">
+    <text sourcepos="37:1-37:31" xml:space="preserve">Email me at:</text>
+    <link destination="mailto:scyther@pokemon.com" title="">
+      <text xml:space="preserve">scyther@pokemon.com</text>
+    </link>
+    <text xml:space="preserve"></text>
+  </paragraph>
+  <paragraph sourcepos="39:1-39:32">
+    <link sourcepos="39:0-39:14" destination="http://www.github.com" title="">
+      <text sourcepos="39:0-39:14" xml:space="preserve">www.github.com</text>
+    </link>
+    <text sourcepos="39:15-39:15" xml:space="preserve"> </text>
+    <link sourcepos="39:15-39:32" destination="http://www.github.com/á" title="">
+      <text sourcepos="39:15-39:32" xml:space="preserve">www.github.com/á</text>
+    </link>
+  </paragraph>
+  <paragraph sourcepos="41:1-41:18">
+    <link sourcepos="41:0-41:18" destination="http://www.google.com/a_b" title="">
+      <text sourcepos="41:0-41:18" xml:space="preserve">www.google.com/a_b</text>
+    </link>
+  </paragraph>
+  <paragraph sourcepos="43:1-43:53">
+    <text sourcepos="43:1-43:53" xml:space="preserve">Underscores not allowed in host name www.xxx.yyy._zzz</text>
+  </paragraph>
+  <paragraph sourcepos="45:1-45:53">
+    <text sourcepos="45:1-45:53" xml:space="preserve">Underscores not allowed in host name www.xxx._yyy.zzz</text>
+  </paragraph>
+  <paragraph sourcepos="47:1-47:51">
+    <text sourcepos="47:1-47:35" xml:space="preserve">Underscores allowed in domain name </text>
+    <link sourcepos="47:35-47:51" destination="http://www._xxx.yyy.zzz" title="">
+      <text sourcepos="47:35-47:51" xml:space="preserve">www._xxx.yyy.zzz</text>
+    </link>
+  </paragraph>
+  <paragraph sourcepos="49:1-49:31">
+    <strong sourcepos="49:1-49:31">
+      <text sourcepos="49:3-49:19" xml:space="preserve">Autolink and </text>
+      <link sourcepos="49:15-49:29" destination="http://inlines" title="">
+        <text sourcepos="49:15-49:29" xml:space="preserve">http://inlines</text>
+      </link>
+    </strong>
+  </paragraph>
+  <paragraph sourcepos="51:1-51:51">
+    <image sourcepos="51:1-51:51" destination="http://inline.com/image" title="">
+      <text sourcepos="51:3-51:25" xml:space="preserve">http://inline.com/image</text>
+    </image>
+  </paragraph>
+  <paragraph sourcepos="53:1-53:7">
+    <text sourcepos="53:1-53:7" xml:space="preserve"></text>
+    <link destination="mailto:a.w@b.c" title="">
+      <text xml:space="preserve">a.w@b.c</text>
+    </link>
+    <text xml:space="preserve"></text>
+  </paragraph>
+  <paragraph sourcepos="55:1-55:68">
+    <text sourcepos="55:1-55:51" xml:space="preserve">Full stop outside parens shouldn't be included </text>
+    <link sourcepos="55:47-55:67" destination="http://google.com/ok" title="">
+      <text sourcepos="55:47-55:67" xml:space="preserve">http://google.com/ok</text>
+    </link>
+    <text sourcepos="55:68-55:68" xml:space="preserve">.</text>
+  </paragraph>
+  <paragraph sourcepos="57:1-57:69">
+    <text sourcepos="57:1-57:51" xml:space="preserve">(Full stop inside parens shouldn't be included </text>
+    <link sourcepos="57:47-57:67" destination="http://google.com/ok" title="">
+      <text sourcepos="57:47-57:67" xml:space="preserve">http://google.com/ok</text>
+    </link>
+    <text sourcepos="57:68-57:69" xml:space="preserve">.)</text>
+  </paragraph>
+  <paragraph sourcepos="59:1-59:19">
+    <text sourcepos="59:1-59:5" xml:space="preserve">&quot;</text>
+    <link sourcepos="59:1-59:18" destination="http://google.com" title="">
+      <text sourcepos="59:1-59:18" xml:space="preserve">http://google.com</text>
+    </link>
+    <text sourcepos="59:19-59:19" xml:space="preserve">&quot;</text>
+  </paragraph>
+  <paragraph sourcepos="61:1-61:19">
+    <text sourcepos="61:1-61:5" xml:space="preserve">'</text>
+    <link sourcepos="61:1-61:18" destination="http://google.com" title="">
+      <text sourcepos="61:1-61:18" xml:space="preserve">http://google.com</text>
+    </link>
+    <text sourcepos="61:19-61:19" xml:space="preserve">'</text>
+  </paragraph>
+  <paragraph sourcepos="63:1-63:32">
+    <text sourcepos="63:1-63:4" xml:space="preserve"></text>
+    <link sourcepos="63:0-63:15" destination="http://🍄.ga/" title="">
+      <text sourcepos="63:0-63:15" xml:space="preserve">http://🍄.ga/</text>
+    </link>
+    <text sourcepos="63:16-63:20" xml:space="preserve"> </text>
+    <link sourcepos="63:16-63:32" destination="http://x🍄.ga/" title="">
+      <text sourcepos="63:16-63:32" xml:space="preserve">http://x🍄.ga/</text>
+    </link>
+  </paragraph>
+</document>

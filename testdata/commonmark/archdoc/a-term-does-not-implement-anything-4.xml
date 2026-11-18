@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE document SYSTEM "CommonMark.dtd">
+<document sourcepos="1:1-4:24" xmlns="http://commonmark.org/xml/1.0">
+  <heading sourcepos="2:1-2:9" level="1">
+    <text sourcepos="2:3-2:9" xml:space="preserve">Binding</text>
+  </heading>
+  <paragraph sourcepos="4:1-4:24">
+    <text sourcepos="4:1-4:24" xml:space="preserve">A registered resolution.</text>
+  </paragraph>
+</document>

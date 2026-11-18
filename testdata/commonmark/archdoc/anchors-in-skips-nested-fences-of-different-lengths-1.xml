@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE document SYSTEM "CommonMark.dtd">
+<document sourcepos="1:1-10:7" xmlns="http://commonmark.org/xml/1.0">
+  <heading sourcepos="2:1-2:5" level="1">
+    <text sourcepos="2:3-2:5" xml:space="preserve">Doc</text>
+  </heading>
+  <code_block sourcepos="4:1-8:4" xml:space="preserve">```
+# Not a heading
+```
+</code_block>
+  <heading sourcepos="10:1-10:7" level="2">
+    <text sourcepos="10:4-10:7" xml:space="preserve">Real</text>
+  </heading>
+</document>

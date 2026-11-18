@@ -297,6 +297,28 @@ would have to round-trip everything it parsed.
   reported as leaving it. A path differing only in case was found on a case-insensitive filesystem and
   is missing on GitHub and in a Linux checkout, so each component is matched against its directory's
   listing. A destination with a URI scheme or a leading `/` is not relative and is not checked.
+- **The outline takes positions from goldmark and finds what it does not give.** goldmark places a
+  code span at its content, emphasis at the start of the run of delimiters it was taken from, the
+  delimiters left over from emphasis before the ones it used, a footnote reference written `![^1]` at
+  its `!`, and a table taking a paragraph's last line as its header at the paragraph's start. It gives
+  no position to a code span in a table cell where a backtick comes before an escaped `\|`, or to a
+  cell a row does not write. `internal/markdown` finds each in the bytes as written from the positions
+  goldmark does give, and a test asserts the position rules of every reference case, and of every input
+  the fuzz test generates, which caught each of these.
+- **The outline corrects goldmark's tree where it breaks document order.** Taking a paragraph's last
+  line as a table's header, goldmark places the table before the paragraph, can make what is left of
+  the paragraph a heading underlined by a line after the table, and leaves a hard line break flagged at
+  the paragraph's end with spaces on its last text. The outline keeps blocks in document order, reads
+  such a heading as the paragraph it was, and ends a block's content without a line break or trailing
+  spaces, as CommonMark does. Whether a fence closes is read from the line after its last line of
+  content, blank or not, and a fence opening a block after the first's container has closed it does not
+  close it.
+- **A lone carriage return is a line feed before parsing.** goldmark reads the text after one as the
+  same line, so `# A`, a lone carriage return, `## B` was one heading where cmark-gfm reads two. The
+  copy it parses differs from the body only at those bytes, so every position holds in both.
+- **Spaces before a line break are the break's.** cmark-gfm's text before a soft line break, or a hard
+  one made of spaces, holds no trailing spaces or tabs, where goldmark's does. The outline drops them
+  from the text, except before a hard break made by a backslash, where cmark-gfm keeps them too.
 
 ## Sections
 
@@ -906,9 +928,11 @@ the result can delete content it never read.
   `cobra/doc` brings `go-md2man` and writes Markdown, man pages, ReST and YAML rather than this shape.
   The walk does not filter `--help`: cobra adds it only to the command running, which is the hidden
   `reference`, and a test fails if it ever appears.
-- **Markdown is handled with the standard library.** ~~The dependency list is cobra, yaml.v3 and huh, with~~
+- ~~**Markdown is handled with the standard library.**~~ goldmark v2 parses a body's outline in
+  `internal/markdown`, under [ADR-0026](../spec/adr/0026-documents-are-read-with-goldmark.md), which
+  proposes it; `internal/repo` reads a body with the standard library. ~~The dependency list is cobra, yaml.v3 and huh, with~~
   ~~goreleaser at build time. Nothing else.~~ The list left out `x/term`, which
   [ADR-0005](../spec/adr/0005-the-dependency-list-is-closed.md) names, and the code has since imported
   pflag and x/text, which [ADR-0025](../spec/adr/0025-the-dependency-list-adds-pflag-and-x-text.md)
   proposes adding, which makes the list cobra, pflag, yaml.v3, huh, `x/term` and x/text, with
-  goreleaser at build time. Nothing else.
+  goreleaser at build time, and goldmark v2 joins it. Nothing else.

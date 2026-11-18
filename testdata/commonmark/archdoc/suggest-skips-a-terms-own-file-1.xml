@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE document SYSTEM "CommonMark.dtd">
+<document sourcepos="1:1-4:33" xmlns="http://commonmark.org/xml/1.0">
+  <heading sourcepos="2:1-2:8" level="1">
+    <text sourcepos="2:3-2:8" xml:space="preserve">Daemon</text>
+  </heading>
+  <paragraph sourcepos="4:1-4:33">
+    <text sourcepos="4:1-4:33" xml:space="preserve">The process a widget runs inside.</text>
+  </paragraph>
+</document>

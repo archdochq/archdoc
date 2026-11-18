@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE document SYSTEM "CommonMark.dtd">
+<document sourcepos="1:1-1:21" xmlns="http://commonmark.org/xml/1.0">
+  <paragraph sourcepos="1:1-1:21">
+    <text sourcepos="1:1-1:1" xml:space="preserve">(</text>
+    <link sourcepos="1:1-1:21" destination="http://www.y.io\![i](p.png)" title="">
+      <text sourcepos="1:1-1:21" xml:space="preserve">www.y.io\![i](p.png)</text>
+    </link>
+  </paragraph>
+</document>

@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE document SYSTEM "CommonMark.dtd">
+<document sourcepos="1:1-6:40" xmlns="http://commonmark.org/xml/1.0">
+  <heading sourcepos="2:1-2:6" level="1">
+    <text sourcepos="2:3-2:6" xml:space="preserve">Page</text>
+  </heading>
+  <paragraph sourcepos="4:1-4:33">
+    <text sourcepos="4:1-4:4" xml:space="preserve">The </text>
+    <link sourcepos="4:5-4:12" destination="https://example.com/discussion" title="">
+      <text sourcepos="4:6-4:11" xml:space="preserve">Widget</text>
+    </link>
+    <text sourcepos="4:13-4:33" xml:space="preserve"> thread settled this.</text>
+  </paragraph>
+</document>

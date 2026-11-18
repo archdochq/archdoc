@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE document SYSTEM "CommonMark.dtd">
+<document sourcepos="1:1-6:24" xmlns="http://commonmark.org/xml/1.0">
+  <code_block sourcepos="1:5-6:24" xml:space="preserve">1.  A paragraph
+    with two lines.
+
+        indented code
+
+    &gt; A block quote.
+</code_block>
+</document>

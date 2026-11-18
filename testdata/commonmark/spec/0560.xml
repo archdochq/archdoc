@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE document SYSTEM "CommonMark.dtd">
+<document sourcepos="1:1-5:8" xmlns="http://commonmark.org/xml/1.0">
+  <paragraph sourcepos="1:1-2:2">
+    <text sourcepos="1:1-1:1" xml:space="preserve">[</text>
+    <softbreak />
+    <text sourcepos="2:1-2:1" xml:space="preserve">]</text>
+  </paragraph>
+  <paragraph sourcepos="4:1-5:8">
+    <text sourcepos="4:1-4:1" xml:space="preserve">[</text>
+    <softbreak />
+    <text sourcepos="5:1-5:7" xml:space="preserve">]: /uri</text>
+  </paragraph>
+</document>

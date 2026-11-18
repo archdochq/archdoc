@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE document SYSTEM "CommonMark.dtd">
+<document sourcepos="1:1-7:16" xmlns="http://commonmark.org/xml/1.0">
+  <paragraph sourcepos="1:1-1:18">
+    <text sourcepos="1:1-1:18" xml:space="preserve">By taking it apart</text>
+  </paragraph>
+  <list sourcepos="3:1-4:1" type="bullet" tight="true">
+    <item sourcepos="3:1-4:1">
+      <paragraph sourcepos="3:3-3:23">
+        <text sourcepos="3:3-3:23" xml:space="preserve">alternative solutions</text>
+      </paragraph>
+    </item>
+  </list>
+  <paragraph sourcepos="5:1-5:18">
+    <text sourcepos="5:1-5:18" xml:space="preserve">Repeatedly solving</text>
+  </paragraph>
+  <list sourcepos="7:1-7:16" type="bullet" tight="true">
+    <item sourcepos="7:1-7:16">
+      <paragraph sourcepos="7:3-7:16">
+        <text sourcepos="7:3-7:16" xml:space="preserve">how techniques</text>
+      </paragraph>
+    </item>
+  </list>
+</document>

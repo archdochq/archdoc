@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE document SYSTEM "CommonMark.dtd">
+<document sourcepos="1:1-7:42" xmlns="http://commonmark.org/xml/1.0">
+  <paragraph sourcepos="1:1-1:41">
+    <link sourcepos="1:0-1:41" destination="http://www.google.com/search?q=Markup+(business)" title="">
+      <text sourcepos="1:0-1:41" xml:space="preserve">www.google.com/search?q=Markup+(business)</text>
+    </link>
+  </paragraph>
+  <paragraph sourcepos="3:1-3:43">
+    <link sourcepos="3:0-3:41" destination="http://www.google.com/search?q=Markup+(business)" title="">
+      <text sourcepos="3:0-3:41" xml:space="preserve">www.google.com/search?q=Markup+(business)</text>
+    </link>
+    <text sourcepos="3:42-3:43" xml:space="preserve">))</text>
+  </paragraph>
+  <paragraph sourcepos="5:1-5:43">
+    <text sourcepos="5:1-5:1" xml:space="preserve">(</text>
+    <link sourcepos="5:1-5:42" destination="http://www.google.com/search?q=Markup+(business)" title="">
+      <text sourcepos="5:1-5:42" xml:space="preserve">www.google.com/search?q=Markup+(business)</text>
+    </link>
+    <text sourcepos="5:43-5:43" xml:space="preserve">)</text>
+  </paragraph>
+  <paragraph sourcepos="7:1-7:42">
+    <text sourcepos="7:1-7:1" xml:space="preserve">(</text>
+    <link sourcepos="7:1-7:42" destination="http://www.google.com/search?q=Markup+(business)" title="">
+      <text sourcepos="7:1-7:42" xml:space="preserve">www.google.com/search?q=Markup+(business)</text>
+    </link>
+  </paragraph>
+</document>

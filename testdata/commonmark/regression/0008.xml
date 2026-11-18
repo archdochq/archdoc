@@ -1,0 +1,100 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE document SYSTEM "CommonMark.dtd">
+<document sourcepos="1:1-15:10" xmlns="http://commonmark.org/xml/1.0">
+  <paragraph sourcepos="1:1-3:16">
+    <strikethrough sourcepos="1:1-1:16">
+      <strong sourcepos="1:3-1:14">
+        <emph sourcepos="1:5-1:12">
+          <code sourcepos="1:7-1:10" xml:space="preserve">this</code>
+        </emph>
+      </strong>
+    </strikethrough>
+    <text sourcepos="1:17-1:18" xml:space="preserve"></text>
+    <linebreak />
+    <strikethrough sourcepos="2:1-2:16">
+      <emph sourcepos="2:3-2:14">
+        <strong sourcepos="2:3-2:14">
+          <code sourcepos="2:7-2:10" xml:space="preserve">this</code>
+        </strong>
+      </emph>
+    </strikethrough>
+    <text sourcepos="2:17-2:18" xml:space="preserve"></text>
+    <linebreak />
+    <strikethrough sourcepos="3:1-3:16">
+      <emph sourcepos="3:3-3:14">
+        <strong sourcepos="3:3-3:14">
+          <code sourcepos="3:7-3:10" xml:space="preserve">this</code>
+        </strong>
+      </emph>
+    </strikethrough>
+  </paragraph>
+  <paragraph sourcepos="5:1-7:12">
+    <strong sourcepos="5:1-5:12">
+      <emph sourcepos="5:3-5:10">
+        <code sourcepos="5:5-5:8" xml:space="preserve">this</code>
+      </emph>
+    </strong>
+    <text sourcepos="5:13-5:14" xml:space="preserve"></text>
+    <linebreak />
+    <emph sourcepos="6:1-6:12">
+      <strong sourcepos="6:1-6:12">
+        <code sourcepos="6:5-6:8" xml:space="preserve">this</code>
+      </strong>
+    </emph>
+    <text sourcepos="6:13-6:14" xml:space="preserve"></text>
+    <linebreak />
+    <emph sourcepos="7:1-7:12">
+      <strong sourcepos="7:1-7:12">
+        <code sourcepos="7:5-7:8" xml:space="preserve">this</code>
+      </strong>
+    </emph>
+  </paragraph>
+  <paragraph sourcepos="9:1-11:14">
+    <strikethrough sourcepos="9:1-9:14">
+      <strong sourcepos="9:3-9:12">
+        <emph sourcepos="9:5-9:10">
+          <text sourcepos="9:6-9:9" xml:space="preserve">this</text>
+        </emph>
+      </strong>
+    </strikethrough>
+    <text sourcepos="9:15-9:16" xml:space="preserve"></text>
+    <linebreak />
+    <strikethrough sourcepos="10:1-10:14">
+      <emph sourcepos="10:3-10:12">
+        <strong sourcepos="10:3-10:12">
+          <text sourcepos="10:6-10:9" xml:space="preserve">this</text>
+        </strong>
+      </emph>
+    </strikethrough>
+    <text sourcepos="10:15-10:16" xml:space="preserve"></text>
+    <linebreak />
+    <strikethrough sourcepos="11:1-11:14">
+      <emph sourcepos="11:3-11:12">
+        <strong sourcepos="11:3-11:12">
+          <text sourcepos="11:6-11:9" xml:space="preserve">this</text>
+        </strong>
+      </emph>
+    </strikethrough>
+  </paragraph>
+  <paragraph sourcepos="13:1-15:10">
+    <strong sourcepos="13:1-13:10">
+      <emph sourcepos="13:3-13:8">
+        <text sourcepos="13:4-13:7" xml:space="preserve">this</text>
+      </emph>
+    </strong>
+    <text sourcepos="13:11-13:12" xml:space="preserve"></text>
+    <linebreak />
+    <emph sourcepos="14:1-14:10">
+      <strong sourcepos="14:1-14:10">
+        <text sourcepos="14:4-14:7" xml:space="preserve">this</text>
+      </strong>
+    </emph>
+    <text sourcepos="14:11-14:12" xml:space="preserve"></text>
+    <linebreak />
+    <emph sourcepos="15:1-15:10">
+      <strong sourcepos="15:1-15:10">
+        <text sourcepos="15:4-15:7" xml:space="preserve">this</text>
+      </strong>
+    </emph>
+  </paragraph>
+</document>

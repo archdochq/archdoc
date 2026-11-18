@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE document SYSTEM "CommonMark.dtd">
+<document sourcepos="1:1-6:45" xmlns="http://commonmark.org/xml/1.0">
+  <heading sourcepos="2:1-2:13" level="1">
+    <text sourcepos="2:3-2:13" xml:space="preserve">ADR-0001: A</text>
+  </heading>
+  <heading sourcepos="4:1-4:15" level="2">
+    <text sourcepos="4:4-4:15" xml:space="preserve">Consequences</text>
+  </heading>
+  <html_block sourcepos="6:1-6:45" xml:space="preserve">&lt;!-- What becomes easier, what becomes harder
+</html_block>
+</document>

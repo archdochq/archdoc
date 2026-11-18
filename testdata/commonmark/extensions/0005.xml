@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE document SYSTEM "CommonMark.dtd">
+<document sourcepos="1:1-8:3" xmlns="http://commonmark.org/xml/1.0">
+  <paragraph sourcepos="1:1-1:6">
+    <text sourcepos="1:1-1:6" xml:space="preserve">Hello!</text>
+  </paragraph>
+  <table sourcepos="3:1-6:37">
+    <table_header sourcepos="3:1-3:18">
+      <table_cell sourcepos="3:2-3:8">
+        <emph sourcepos="3:3-3:7">
+          <text sourcepos="3:4-3:6" xml:space="preserve">abc</text>
+        </emph>
+      </table_cell>
+      <table_cell sourcepos="3:10-3:17">
+        <text sourcepos="3:11-3:16" xml:space="preserve">セン</text>
+      </table_cell>
+    </table_header>
+    <table_row sourcepos="5:1-5:38">
+      <table_cell sourcepos="5:2-5:34">
+        <text sourcepos="5:3-5:33" xml:space="preserve">this row has a space at the end</text>
+      </table_cell>
+      <table_cell sourcepos="5:36-5:36" />
+    </table_row>
+    <table_row sourcepos="6:1-6:37">
+      <table_cell sourcepos="6:2-6:32">
+        <text sourcepos="6:3-6:6" xml:space="preserve">But </text>
+        <emph sourcepos="6:7-6:30">
+          <strong sourcepos="6:8-6:29">
+            <text sourcepos="6:10-6:27" xml:space="preserve">inline elements do</text>
+          </strong>
+        </emph>
+        <text sourcepos="6:31-6:31" xml:space="preserve">.</text>
+      </table_cell>
+      <table_cell sourcepos="6:34-6:36">
+        <text sourcepos="6:35-6:35" xml:space="preserve">x</text>
+      </table_cell>
+    </table_row>
+  </table>
+  <paragraph sourcepos="8:1-8:3">
+    <text sourcepos="8:1-8:3" xml:space="preserve">Hi!</text>
+  </paragraph>
+</document>

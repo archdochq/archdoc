@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE document SYSTEM "CommonMark.dtd">
+<document sourcepos="1:1-1:28" xmlns="http://commonmark.org/xml/1.0">
+  <paragraph sourcepos="1:1-1:28">
+    <text sourcepos="1:1-1:2" xml:space="preserve">A </text>
+    <code sourcepos="1:4-1:7" xml:space="preserve">&lt;!--</code>
+    <text sourcepos="1:9-1:28" xml:space="preserve"> marker, then [[X]].</text>
+  </paragraph>
+</document>

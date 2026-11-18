@@ -1,3 +1,6 @@
 # A shell script with CRLF endings does not run under sh, and docs/build.go
 # looks for its release line exactly.
 install.sh text eol=lf
+
+# The reference cases' bodies are read as written, line endings included.
+testdata/commonmark/** -text

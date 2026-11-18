@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE document SYSTEM "CommonMark.dtd">
+<document sourcepos="1:1-5:7" xmlns="http://commonmark.org/xml/1.0">
+  <heading sourcepos="2:1-2:6" level="1">
+    <text sourcepos="2:3-2:6" xml:space="preserve">Page</text>
+  </heading>
+  <paragraph sourcepos="4:1-5:7">
+    <text sourcepos="4:1-4:2" xml:space="preserve">a </text>
+    <html_inline sourcepos="4:3-4:7" xml:space="preserve">&lt;!--&gt;</html_inline>
+    <text sourcepos="4:8-4:8" xml:space="preserve"> </text>
+    <html_inline sourcepos="4:9-5:4" xml:space="preserve">&lt;!-- [y](n.md)
+b --&gt;</html_inline>
+    <text sourcepos="5:6-5:7" xml:space="preserve"> c</text>
+  </paragraph>
+</document>

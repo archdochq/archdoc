@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE document SYSTEM "CommonMark.dtd">
+<document sourcepos="1:1-1:32" xmlns="http://commonmark.org/xml/1.0">
+  <paragraph sourcepos="1:1-1:32">
+    <text sourcepos="1:1-1:32" xml:space="preserve">[link](/url &quot;title &quot;and&quot; title&quot;)</text>
+  </paragraph>
+</document>

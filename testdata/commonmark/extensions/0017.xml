@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE document SYSTEM "CommonMark.dtd">
+<document sourcepos="1:1-1:25" xmlns="http://commonmark.org/xml/1.0">
+  <paragraph sourcepos="1:1-1:25">
+    <text sourcepos="1:1-1:9" xml:space="preserve">A proper </text>
+    <strikethrough sourcepos="1:10-1:24">
+      <text sourcepos="1:11-1:23" xml:space="preserve">strikethrough</text>
+    </strikethrough>
+    <text sourcepos="1:25-1:25" xml:space="preserve">.</text>
+  </paragraph>
+</document>

@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE document SYSTEM "CommonMark.dtd">
+<document sourcepos="1:1-9:10" xmlns="http://commonmark.org/xml/1.0">
+  <heading sourcepos="2:1-2:6" level="1">
+    <text sourcepos="2:3-2:6" xml:space="preserve">Page</text>
+  </heading>
+  <html_block sourcepos="4:1-5:39" xml:space="preserve">&lt;details&gt;
+&lt;summary&gt;Widget configuration&lt;/summary&gt;
+</html_block>
+  <paragraph sourcepos="7:1-7:5">
+    <text sourcepos="7:1-7:5" xml:space="preserve">Body.</text>
+  </paragraph>
+  <html_block sourcepos="9:1-9:10" xml:space="preserve">&lt;/details&gt;
+</html_block>
+</document>

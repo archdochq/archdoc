@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE document SYSTEM "CommonMark.dtd">
+<document sourcepos="1:1-7:23" xmlns="http://commonmark.org/xml/1.0">
+  <heading sourcepos="2:1-2:6" level="1">
+    <text sourcepos="2:3-2:6" xml:space="preserve">Page</text>
+  </heading>
+  <paragraph sourcepos="4:1-5:12">
+    <text sourcepos="4:1-4:4" xml:space="preserve">Text</text>
+    <softbreak />
+    <text sourcepos="5:1-5:12" xml:space="preserve">2. continued</text>
+  </paragraph>
+  <code_block sourcepos="7:5-7:23" xml:space="preserve">code [x](hidden.md)
+</code_block>
+</document>

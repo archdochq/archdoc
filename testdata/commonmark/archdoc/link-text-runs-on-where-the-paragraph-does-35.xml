@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE document SYSTEM "CommonMark.dtd">
+<document sourcepos="1:1-8:9" xmlns="http://commonmark.org/xml/1.0">
+  <heading sourcepos="2:1-2:6" level="1">
+    <text sourcepos="2:3-2:6" xml:space="preserve">Page</text>
+  </heading>
+  <block_quote sourcepos="4:1-8:9">
+    <table sourcepos="4:3-5:7">
+      <table_header sourcepos="4:3-4:7">
+        <table_cell sourcepos="4:4-4:6">
+          <text sourcepos="4:5-4:5" xml:space="preserve">x</text>
+        </table_cell>
+      </table_header>
+    </table>
+    <heading sourcepos="6:4-6:6" level="1">
+      <text sourcepos="6:6-6:6" xml:space="preserve">x</text>
+    </heading>
+    <paragraph sourcepos="7:3-8:9">
+      <link sourcepos="8:3-8:9" destination="n.md" title="">
+        <text sourcepos="7:4-7:4" xml:space="preserve">a</text>
+        <softbreak />
+      </link>
+    </paragraph>
+  </block_quote>
+</document>

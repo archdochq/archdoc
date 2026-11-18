@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE document SYSTEM "CommonMark.dtd">
+<document sourcepos="1:1-1:7" xmlns="http://commonmark.org/xml/1.0">
+  <list sourcepos="1:1-1:7" type="ordered" start="3" delim="period" tight="true">
+    <item sourcepos="1:1-1:7">
+      <paragraph sourcepos="1:6-1:7">
+        <text sourcepos="1:6-1:7" xml:space="preserve">ok</text>
+      </paragraph>
+    </item>
+  </list>
+</document>

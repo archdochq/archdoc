@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE document SYSTEM "CommonMark.dtd">
+<document sourcepos="1:1-6:6" xmlns="http://commonmark.org/xml/1.0">
+  <heading sourcepos="2:1-2:16" level="1">
+    <text sourcepos="2:3-2:16" xml:space="preserve">RFC-0002: Mine</text>
+  </heading>
+  <heading sourcepos="4:1-4:11" level="2">
+    <text sourcepos="4:4-4:11" xml:space="preserve">Abstract</text>
+  </heading>
+  <paragraph sourcepos="6:1-6:6">
+    <text sourcepos="6:1-6:6" xml:space="preserve">Words.</text>
+  </paragraph>
+</document>
