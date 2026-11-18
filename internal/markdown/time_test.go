@@ -95,8 +95,15 @@ func shapes(k int) []shape {
 // it does not; and asserts of every shape that building the outline from
 // goldmark's tree takes time growing no faster than the body's length.
 func TestEachShapeIsReadInLinearTime(t *testing.T) {
-	small := shapes(1)
+	// The outline's growth is measured from size 4 to 16, where both sizes
+	// are past a machine's caches, but from 1 to 4 for a shape goldmark reads
+	// in more than linear time, which it would take minutes to read at 16.
+	small, large := shapes(1), shapes(16)
 	for i, s := range shapes(4) {
+		from, to := small[i], s
+		if s.slower == "" {
+			from, to = s, large[i]
+		}
 		t.Run(s.name, func(t *testing.T) {
 			if s.slower == "" {
 				started := time.Now()
@@ -111,15 +118,15 @@ func TestEachShapeIsReadInLinearTime(t *testing.T) {
 			// measuring again before failing, as a shared machine can slow
 			// one measurement where growth with the square of the body's
 			// length slows every one.
-			longer := float64(len(s.body)) / float64(len(small[i].body))
-			var from, to time.Duration
+			longer := float64(len(to.body)) / float64(len(from.body))
+			var before, after time.Duration
 			for range 3 {
-				from, to = outlineTime(small[i].body), outlineTime(s.body)
-				if to <= 20*time.Millisecond || float64(to)/float64(from) <= 2*longer {
+				before, after = outlineTime(from.body), outlineTime(to.body)
+				if after <= 20*time.Millisecond || float64(after)/float64(before) <= 2*longer {
 					return
 				}
 			}
-			t.Errorf("building the outline took %v for %d bytes and %v for %d", from, len(small[i].body), to, len(s.body))
+			t.Errorf("building the outline took %v for %d bytes and %v for %d", before, len(from.body), after, len(to.body))
 		})
 	}
 }
