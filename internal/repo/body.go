@@ -1344,7 +1344,10 @@ func (d *Document) Anchors() []string {
 	if d.unread {
 		return nil
 	}
-	anchors := append(make([]string, 0, len(d.anchors)), d.anchors...)
+	anchors := make([]string, 0, len(d.allHeadings))
+	for _, h := range d.allHeadings {
+		anchors = append(anchors, h.Anchor)
+	}
 	return append(anchors, explicitAnchors(d.outline)...)
 }
 

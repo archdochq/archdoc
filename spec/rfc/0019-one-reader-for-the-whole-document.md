@@ -51,7 +51,7 @@ The last two are restrictions that exist only because the tool cannot read those
 | Comment block | An HTML block that holds nothing but HTML comments, spaces, tabs and line endings. `<!-- c --> x` is an HTML block that is not one |
 | Text | The text pieces of a leaf block, read together where they are adjacent on one line |
 | Comment-masked text | Each line as written with every byte of an HTML comment replaced by a space |
-| Masked text | Comment-masked text with every byte of a code span, its backticks included, replaced by a space too |
+| ~~Masked text~~ | ~~Comment-masked text with every byte of a code span, its backticks included, replaced by a space too~~ No reader reads it once questions, entries and term definitions read the outline, so it is not made |
 | Prose text | Each line as written with every byte replaced by a space but those of text that are prose, under the rules below |
 
 ### Components
@@ -60,7 +60,7 @@ The last two are restrictions that exist only because the tool cannot read those
 |---|---|
 | `go.mod` | Requires `github.com/yuin/goldmark/v2` at a fixed version |
 | `internal/markdown` | New. Parses a body with the parser and builds its outline: the blocks, the link reference and footnote definitions, and the inline pieces of each leaf block, with the positions the parser gives and those found from them. Knows nothing of documents, sections or rules, and imports goldmark and the standard library alone. No other package imports goldmark |
-| `internal/repo` | Reads each document's outline once and answers every question about the body from it: headings, sections, anchors, explicit anchors, links, references, `[[...]]` links, the three masked texts, questions, `Changelog` entries, a term's definition, whether a block is left open, whether a title survives as a heading, and whether the body was read at all. `renumber`'s search for `[[...]]` links reads it too, and `renumber` refuses while any body is not read. The block walk, the maskers, the link scanner and the anchor renderer's own reading of links and code spans are removed |
+| `internal/repo` | Reads each document's outline once and answers every question about the body from it: headings, sections, anchors, explicit anchors, links, references, `[[...]]` links, comment-masked text and prose text, questions, `Changelog` entries, a term's definition, whether a block is left open, whether a title survives as a heading, and whether the body was read at all. `renumber`'s search for `[[...]]` links reads it too, and `renumber` refuses while any body is not read. The block walk, the maskers, the link scanner and the anchor renderer's own reading of links and code spans are removed |
 | `internal/link` | `Resolve` reads `[[...]]` links and headings from the outline in place of its own pattern. Suggestions are offered within prose text, and `maskLinks` and its patterns are removed |
 | `internal/lifecycle` | Reads sections, their emptiness and whether a block is left open from the outline, through `internal/repo`. `accept` and `reject` refuse a document whose body is not read |
 | `internal/glossary` | `term rename` retitles a term's H1 written as either an ATX or a setext heading, and refuses a term whose body is not read. `term remove` refuses while any body is not read |
@@ -187,7 +187,7 @@ A term's definition is the top-level blocks after its H1, subsections included. 
 
 ### Masked texts and prose text
 
-Comment-masked text, masked text and prose text are derived from the outline and hold to [ADR-0007](../adr/0007-masking-never-moves-a-byte.md): each line is the same length as written and differs from it only where a byte became a space. The lines of code blocks and HTML blocks are not prose lines, as now.
+Comment-masked text and prose text are derived from the outline and hold to [ADR-0007](../adr/0007-masking-never-moves-a-byte.md): each line is the same length as written and differs from it only where a byte became a space. The lines of code blocks and HTML blocks are not prose lines, as now.
 
 ### Time
 
@@ -246,7 +246,7 @@ The current readers are replaced in five stages. Each leaves `go test ./...`, `a
 
 1. goldmark in `go.mod`, `internal/markdown`, and the reference cases with their known differences, read by nothing else.
 2. Headings, sections and heading anchors read the outline: setext headings are read, a heading inside a container has an anchor, only top-level headings bound sections, and the anchor renderer's own reading of links and code spans is removed. A body longer than the limit is not read, by the outline or by any current reader not yet replaced, and L23, the rules passing it over and the commands refusing it follow. L21 stops reporting a heading opening or ending its section for its indentation or for a comment on its line, as neither line is any longer read as the section's heading.
-3. Links, references, `[[...]]` links, explicit anchors, comment-masked text and prose text read the outline, and suggestions read prose text. The link scanner, the inline maskers and `maskLinks` are removed. Masked text, which only the readers stage 4 replaces read, is made with them.
+3. Links, references, `[[...]]` links, explicit anchors, comment-masked text and prose text read the outline, and suggestions read prose text. The link scanner, the inline maskers and `maskLinks` are removed. ~~Masked text, which only the readers stage 4 replaces read, is made with them.~~ Those readers read the outline's blocks, so masked text is not made.
 4. Questions, `Changelog` entries and term definitions read the outline, and L15, L20 and L21 change as described above, with `PROCESS.md`, the guides and the export schema's descriptions.
 5. The block walk, and whatever else remains of the current readers, is removed.
 
@@ -326,3 +326,4 @@ goldmark v2.1.16 reads three of the shapes [ADR-0026](../adr/0026-documents-are-
 - 2026-11-18: Add emphasis beside a currency symbol to the differences `KNOWN` begins with, and deliver in stage 2 the end of L21's reports on a heading indented or masked into opening or ending its section.
 - 2026-11-18: Make masked text in stage 4 with the readers that read it, rather than in stage 3.
 - 2026-11-18: Count an address beginning `www.` with one carrying a scheme as not prose, as goldmark leaves some that cmark-gfm finds unlinked.
+- 2026-11-18: Make no masked text, which no reader reads once questions, entries and term definitions read the outline's blocks.

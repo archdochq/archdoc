@@ -147,8 +147,13 @@ type Document struct {
 
 	// headings are the body's top-level headings, which bound sections, and
 	// anchors the anchor of every heading, in the order GitHub assigns them.
-	headings []Heading
-	anchors  []string
+	headings    []Heading
+	allHeadings []Heading
+	// starts are the offsets at which each body line after the first starts.
+	starts []int
+	// bases lists every heading by its anchor before any suffix, made on
+	// first use.
+	bases map[string][]Heading
 	// outline is the body as goldmark reads it, nil where it is not read.
 	outline *markdown.Node
 	// commentMasked is the body's comment-masked text, made on first use.

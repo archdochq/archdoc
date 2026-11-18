@@ -432,6 +432,7 @@ var Rules = []Rule{
 			{Release: "v0.6.0", Summary: "Reports a blockquote after a lone carriage return, and a list or blockquote whose marker a comment left open in the paragraph would hide, rather than reading either as part of the paragraph before it"},
 			{Release: "v0.6.0", Summary: "Reads a setext H1, and the definition from the line after its underline"},
 			{Release: "v0.6.0", Summary: "Passes over a document whose body is longer than 131,072 bytes, which L23 reports"},
+			{Release: "v0.6.0", Summary: "Reads the definition's blocks as goldmark reads them, passing over comment blocks and link reference definitions"},
 		},
 	},
 	{
@@ -503,7 +504,7 @@ var Rules = []Rule{
 		Code:    "L20",
 		Check:   L20,
 		Title:   "Question sections are shaped as questions",
-		Summary: "A question section is not shaped as questions: something before the first question; a question with no anchor, or sharing one with another heading; a heading beneath a question; a blockquote holding a heading, fence or comment; an open question ending with a blockquote; a resolved question with no answer, an empty one, or another blockquote just before it; `Resolved questions` empty, misplaced or repeated",
+		Summary: "A question section is not shaped as questions: something before the first question; a question with no anchor, or sharing one with another heading; a heading beneath a question; an open question ending with a blockquote; a resolved question with no answer, an empty one, or another blockquote just before it; `Resolved questions` empty, misplaced or repeated",
 		Remedy:  "Rewrite it in that shape: reword a clashing question, join two blockquotes with a line holding only `>`. Guide: `authoring.md`, Questions",
 		Since:   "v0.6.0",
 	},
@@ -511,8 +512,8 @@ var Rules = []Rule{
 		Code:    "L21",
 		Check:   L21,
 		Title:   "The Changelog has the shape the tool reads",
-		Summary: "A Changelog entry is undated, has a malformed or impossible date, has a date and no text, or is out of order or outside the document's dates; a line in the section is outside the list form the tool reads; or the heading is misspelt or repeated",
-		Remedy:  "Date the entry, or rewrite the line as an entry or within one, and spell the heading `## Changelog`. Guide: `authoring.md`, The Changelog",
+		Summary: "A Changelog entry is undated, has a malformed or impossible date, has a date and no text, or is out of order or outside the document's dates; a block in the section is not a list, a comment or a link reference definition; or the heading is misspelt or repeated",
+		Remedy:  "Date the entry, or rewrite the block as an entry or within one, and spell the heading `## Changelog`. Guide: `authoring.md`, The Changelog",
 		Since:   "v0.6.0",
 	},
 	{

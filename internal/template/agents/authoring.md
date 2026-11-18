@@ -76,13 +76,12 @@ Raised in review.
 ```
 
 A question handed to a follow-up document is answered with a link to it. An open question
-never ends with a blockquote, and nothing in a blockquote there is a heading, a fence or a
-comment. (PROCESS.md, Document structure)
+never ends with a blockquote. (PROCESS.md, Document structure)
 
 ## The Changelog
 
-Each change made while the document is proposed gets an entry: a list item at the start of the
-line, dated, with any further lines indented by two spaces.
+Each change made while the document is proposed gets an entry: a list item, beginning with its
+date in the form `YYYY-MM-DD: `.
 
 ```markdown
 ## Changelog

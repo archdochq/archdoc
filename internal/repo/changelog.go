@@ -7,33 +7,31 @@ import (
 	"strings"
 	"time"
 	"unicode"
+
+	"archdoc.dev/internal/markdown"
 )
 
 // Changelog is the section recording the edits made to a document while it is
 // proposed, one list item per entry.
 const Changelog = "Changelog"
 
-// ChangelogEntry is one entry of a Changelog section: a list item beginning
-// "- " at column 0, and the lines CommonMark gives that item.
+// ChangelogEntry is one entry of a Changelog section: an item of a top-level
+// list in the section, whatever its marker.
 type ChangelogEntry struct {
 	// Line is 1-based within the file: the entry line.
 	Line int
 	// Date is zero where the entry is undated, including where what it begins
 	// with is shaped as a date but is not one.
 	Date time.Time
-	// Text is the entry without its marker and date, each later line with the
-	// two columns of the item's indentation removed, and blank lines at either
-	// end dropped.
+	// Text is the entry's lines as written, without its marker and date, each
+	// later line with the item's content indentation removed where it has it,
+	// a lazy line as written, and blank lines at either end dropped.
 	Text string
 }
 
-var (
-	// dateShape is four digits, two and two, the shape a date takes before
-	// anything asks whether it is a real one.
-	dateShape = regexp.MustCompile(`^[0-9]{4}-[0-9]{2}-[0-9]{2}`)
-	// orderedMarker begins an ordered list item, which a lazy line may not be.
-	orderedMarker = regexp.MustCompile(`^[0-9]+[.)]`)
-)
+// dateShape is four digits, two and two, the shape a date takes before
+// anything asks whether it is a real one.
+var dateShape = regexp.MustCompile(`^[0-9]{4}-[0-9]{2}-[0-9]{2}`)
 
 // Changelog reads the document's Changelog entries, from every Changelog
 // section in document order.
@@ -50,38 +48,8 @@ func (d *Document) ChangelogProblems(decided time.Time) []Problem {
 	return problems
 }
 
-// The reading below is a subset of CommonMark's list syntax in which the tool's
-// reading of an item and CommonMark's agree. Any line outside it belongs to no
-// entry and is reported, rather than read in a way that renders differently.
-
 // clBlank is a line holding nothing but spaces and tabs.
 func clBlank(line string) bool { return strings.Trim(line, " \t") == "" }
-
-// entryLine is "- " at column 0 with something other than whitespace after the
-// space, that is not a thematic break.
-func entryLine(line string) bool {
-	if !strings.HasPrefix(line, "- ") || len(line) < 3 || line[2] == ' ' || line[2] == '\t' {
-		return false
-	}
-	return strings.Trim(line, "- \t") != "" || strings.Count(line, "-") < 3
-}
-
-// blockOpener is a line that may begin a block other than a paragraph, so it
-// cannot be read as a lazy continuation. The set is wider than CommonMark's,
-// which only ever reports a line that would have been joined.
-func blockOpener(line string) bool {
-	return line != "" && (strings.ContainsRune("#><-*+_=|[`~", rune(line[0])) || orderedMarker.MatchString(line))
-}
-
-// indented is a line indented by two or more spaces, with no tab before its
-// first non-blank character, which puts it within the item.
-func indented(line string) bool {
-	if !strings.HasPrefix(line, "  ") || clBlank(line) {
-		return false
-	}
-	lead := line[:len(line)-len(strings.TrimLeft(line, " \t"))]
-	return !strings.Contains(lead, "\t")
-}
 
 // clLines is the body's lines with each carriage return before a line feed
 // removed, which belongs to the line ending.
@@ -118,35 +86,22 @@ func (d *Document) readChangelog(decided time.Time) ([]ChangelogEntry, []Problem
 		}
 		seen = true
 
-		end := d.sectionEnd(i)
-
-		gapReported := false
-		for j := h.last + 1; j < end; {
-			line := lines[j]
+		for _, block := range d.blocksIn(h.last+1, d.sectionEnd(i)) {
 			switch {
-			case entryLine(line):
-				entry, next, faults := readEntry(lines, j, end)
-				entry.Line = d.BodyLine + j
-				entries = append(entries, entry)
-				for _, fault := range faults {
-					report(j, "%s", fault)
+			case block.Type == markdown.List:
+				for _, item := range block.Children {
+					at := d.lineAt(item.Start)
+					entry, faults := d.readEntry(lines, item)
+					entry.Line = d.BodyLine + at
+					entries = append(entries, entry)
+					for _, fault := range faults {
+						report(at, "%s", fault)
+					}
 				}
-				j, gapReported = next, false
-				continue
-			case clBlank(line):
-				j++
-				continue
-			case strings.HasPrefix(line, commentOpen):
-				if last, ok := commentLines(lines, j, end); ok {
-					j = last + 1
-					continue
-				}
+			case passedOver(block):
+			default:
+				report(d.lineAt(block.Start), "this block belongs to no entry; an entry is an item of a list in the section, beginning with its date")
 			}
-			if !gapReported {
-				report(j, "this line belongs to no entry; an entry is a list item beginning \"- \" at column 0, continued on lines indented by two spaces")
-				gapReported = true
-			}
-			j++
 		}
 	}
 
@@ -177,58 +132,53 @@ func (d *Document) readChangelog(decided time.Time) ([]ChangelogEntry, []Problem
 	return entries, problems
 }
 
-// commentLines finds the end of a comment opening at column 0 outside every
-// entry: the first line, starting with the opening one, that holds "-->". ok is
-// false where there is none in the section, or where that line does not end
-// with it, because the text after it renders while the tool reads it as part
-// of nothing.
-func commentLines(lines []string, from, end int) (last int, ok bool) {
-	for i := from; i < end; i++ {
-		if strings.Contains(lines[i], commentClose) {
-			return i, strings.HasSuffix(lines[i], commentClose)
-		}
+// readEntry reads one list item as an entry, returning the faults in how it
+// begins.
+func (d *Document) readEntry(lines []string, item *markdown.Node) (ChangelogEntry, []string) {
+	first, last := d.lineAt(item.Start), d.lineAt(item.End-1)
+	line := lines[first]
+	at := item.Start
+	if first > 0 {
+		at -= d.starts[first-1]
 	}
-	return 0, false
-}
-
-// readEntry reads the entry whose entry line is at index from, returning it, the
-// index after its last line, and the faults in how it begins.
-func readEntry(lines []string, from, end int) (ChangelogEntry, int, []string) {
-	rest := lines[from][2:]
-	lazy := !blockOpener(rest)
-	afterText := true // the entry line, or a lazy continuation of it
-	last := from
-	for j := from + 1; j < end; {
-		line := lines[j]
-		switch {
-		case indented(line):
-			last, afterText = j, false
-			j++
-			continue
-		case clBlank(line):
-			k := j
-			for k < end && clBlank(lines[k]) {
-				k++
-			}
-			if k < end && indented(lines[k]) {
-				j = k
-				continue
-			}
-		case lazy && afterText && line[0] != ' ' && line[0] != '\t' && !blockOpener(line):
-			last = j
-			j++
-			continue
-		}
-		break
+	// The marker, then the spaces or tabs after it, and the column the
+	// content starts at, which later lines are indented to.
+	marker := at + 1
+	for marker < len(line) && line[at] >= '0' && line[at] <= '9' && line[marker] >= '0' && line[marker] <= '9' {
+		marker++
+	}
+	if line[at] >= '0' && line[at] <= '9' && marker < len(line) && (line[marker] == '.' || line[marker] == ')') {
+		marker++
+	}
+	rest := strings.TrimLeft(line[min(marker, len(line)):], " \t")
+	indent := columnAt(line, len(line)-len(rest))
+	if rest == "" {
+		indent = columnAt(line, marker) + 1
 	}
 
+	text := []string{rest}
+	for _, l := range lines[first+1 : last+1] {
+		text = append(text, outdent(l, indent))
+	}
+	for len(text) > 0 && clBlank(text[0]) {
+		text = text[1:]
+	}
+	for len(text) > 0 && clBlank(text[len(text)-1]) {
+		text = text[:len(text)-1]
+	}
+
+	// The date is read from the start of the entry's text, which may begin
+	// on the line after its marker.
 	var entry ChangelogEntry
 	var faults []string
-	first := rest
-	switch shape := dateShape.FindString(rest); {
+	start := ""
+	if len(text) > 0 {
+		start = text[0]
+	}
+	switch shape := dateShape.FindString(start); {
 	case shape == "":
 		faults = append(faults, "entry has no date; begin it with YYYY-MM-DD: ")
-	case !strings.HasPrefix(rest[len(shape):], ":") || (len(rest) > len(shape)+1 && rest[len(shape)+1] != ' '):
+	case !strings.HasPrefix(start[len(shape):], ":") || (len(start) > len(shape)+1 && start[len(shape)+1] != ' '):
 		faults = append(faults, fmt.Sprintf("entry begins with %s, which is not followed by a colon and a space", shape))
 	default:
 		date, err := time.Parse(DateLayout, shape)
@@ -237,24 +187,44 @@ func readEntry(lines []string, from, end int) (ChangelogEntry, int, []string) {
 			break
 		}
 		entry.Date = date
-		first = strings.TrimPrefix(rest[len(shape)+1:], " ")
-	}
-
-	text := []string{first}
-	for _, line := range lines[from+1 : last+1] {
-		text = append(text, strings.TrimPrefix(line, "  "))
-	}
-	for len(text) > 0 && clBlank(text[0]) {
-		text = text[1:]
-	}
-	for len(text) > 0 && clBlank(text[len(text)-1]) {
-		text = text[:len(text)-1]
+		text[0] = strings.TrimPrefix(start[len(shape)+1:], " ")
+		if clBlank(text[0]) {
+			text = text[1:]
+		}
 	}
 	entry.Text = strings.Join(text, "\n")
 	if !entry.Date.IsZero() && entry.Text == "" {
 		faults = append(faults, "entry has a date and no text")
 	}
-	return entry, last + 1, faults
+	return entry, faults
+}
+
+// columnAt is the column of byte at in line, a tab running to the next
+// multiple of four.
+func columnAt(line string, at int) int {
+	column := 0
+	for i := 0; i < at && i < len(line); i++ {
+		column = advance(column, line[i])
+	}
+	return column
+}
+
+// outdent removes indent columns of leading whitespace from line, a tab
+// spanning past them leaving the rest as spaces, or returns a line indented
+// less, a lazy line among them, as written.
+func outdent(line string, indent int) string {
+	column, i := 0, 0
+	for i < len(line) && column < indent && (line[i] == ' ' || line[i] == '\t') {
+		column = advance(column, line[i])
+		i++
+	}
+	if column < indent {
+		if clBlank(line) {
+			return ""
+		}
+		return line
+	}
+	return strings.Repeat(" ", column-indent) + line[i:]
 }
 
 // normalised is a heading reduced to its letters and digits, lowercased, which

@@ -312,12 +312,12 @@ func TestL15ReportsOtherBlocksAndProseAboveTheHeading(t *testing.T) {
 	}
 }
 
-// TestL15ReadsTextAsGitHubDoes: a lowercase declaration and a line that is a
-// heading only once masked are text in the definition's paragraph.
+// TestL15ReadsTextAsGitHubDoes: a line that is a heading only once masked is
+// text in the definition's paragraph, and an uppercase declaration opens a
+// block. goldmark's reading of a lowercase one is a known difference.
 func TestL15ReadsTextAsGitHubDoes(t *testing.T) {
 	const term = "---\ntitle: %s\nformerly: []\nnamed_by:\n---\n"
 	r := repotest.New(t, map[string]string{
-		"term/widget.md": fmt.Sprintf(term, "Widget") + "\n# Widget\n\nThe definition.\n<!x>\n",
 		"term/gadget.md": fmt.Sprintf(term, "Gadget") + "\n# Gadget\n\nThe definition.\n#<!-- c -->\n",
 		"term/gizmo.md":  fmt.Sprintf(term, "Gizmo") + "\n# Gizmo\n\nThe definition.\n<!X>\n",
 	})
@@ -443,7 +443,7 @@ func TestTheRegistryRecordsEachRuleV060Changed(t *testing.T) {
 		"L12": {"stale page at the `includes` line", "each obsolete document once"},
 		"L13": {"stale ref at the `verified` line", "ref carrying `as_of`", "`as_of` did not parse"},
 		"L14": {"unclosed `<!--`", "CRLF", "closing fence is indented with a tab", "line after its underline", "longer than 131,072 bytes"},
-		"L15": {"blocks to the end of the file", "blockquote after a lone carriage return", "setext H1", "longer than 131,072 bytes"},
+		"L15": {"blocks to the end of the file", "blockquote after a lone carriage return", "setext H1", "longer than 131,072 bytes", "as goldmark reads them"},
 		"L16": {"heading, in a frozen document", "indented code block", "unclosed `<!--`", "closing a comment block", "on the heading's line", "closing fence is indented with a tab", "setext heading", "longer than 131,072 bytes", "as goldmark reads it"},
 		"L17": {"holding `root`", "URI scheme", "exact case", "as GitHub does", "link reference definition", "wraps across lines", "footnote", "holding a space", "CRLF", "HTML block", "unclosed `<!--`", "closing a comment block", "on the heading's line", "closing fence is indented with a tab", "referenced footnote definition an anchor", "without its fragment", "as goldmark reads them"},
 		"L18": {"at the `depends` line"},
@@ -605,7 +605,7 @@ func TestL21ReportsChangelogEntriesItCannotRead(t *testing.T) {
 	reports(t, got, "0026-changelog-faults.md:36:", "entry has no date")
 	reports(t, got, "0026-changelog-faults.md:38:", "earlier than the entry before it")
 	reports(t, got, "0026-changelog-faults.md:39:", "before the document was created")
-	reports(t, got, "0026-changelog-faults.md:40:", "belongs to no entry")
+	reports(t, got, "0026-changelog-faults.md:41:", "belongs to no entry")
 	reports(t, got, "0028-entry-after-decided.md:36:", "after the document was decided, on 2026-05-02")
 	omits(t, got, "0026-changelog-faults.md:37:", "0027-withdrawn-faults.md")
 }

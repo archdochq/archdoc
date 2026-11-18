@@ -115,30 +115,18 @@ func TestChangelogReportsWhatItCannotReadAsCommonMarkDoes(t *testing.T) {
 		body string
 		want string
 	}{
-		{"prose before the first entry", "Edits:\n- 2026-09-02: One.\n", "13: this line belongs to no entry"},
-		{"a paragraph after a blank line", "- 2026-09-02: One.\n\nTwo.\n", "15: this line belongs to no entry"},
-		{"a lazy line after an indented one", "- 2026-09-02: One.\n  two\nthree\n", "15: this line belongs to no entry"},
-		{"a lazy line opening a block", "- 2026-09-02: One.\n> two\n", "14: this line belongs to no entry"},
-		{"a footnote definition", "- 2026-09-02: One.\n[^1]: note\n", "14: this line belongs to no entry"},
-		{"an ordered item", "- 2026-09-02: One.\n1. two\n", "14: this line belongs to no entry"},
-		{"another marker", "* 2026-09-02: One.\n", "13: this line belongs to no entry"},
-		{"a thematic break", "- - -\n", "13: this line belongs to no entry"},
-		{"a bare marker", "-\n  2026-09-02: One.\n", "13: this line belongs to no entry"},
-		{"two spaces after the marker", "-  2026-09-02: One.\n", "13: this line belongs to no entry"},
-		{"a tab after the marker", "- \t2026-09-02: One.\n", "13: this line belongs to no entry"},
-		{"a lazy + item", "- 2026-09-02: One.\n+ two\n", "14: this line belongs to no entry"},
-		{"a lazy _", "- 2026-09-02: One.\n_two_\n", "14: this line belongs to no entry"},
-		{"a lazy =", "- 2026-09-02: One.\n===\n", "14: this line belongs to no entry"},
-		{"a lazy table row", "- 2026-09-02: One.\n| a |\n", "14: this line belongs to no entry"},
-		{"a lazy backtick fence", "- 2026-09-02: One.\n```\n", "14: this line belongs to no entry"},
-		{"a lazy tilde fence", "- 2026-09-02: One.\n~~~\n", "14: this line belongs to no entry"},
-		{"a tab in the indentation", "- 2026-09-02: One.\n\ttwo\n", "14: this line belongs to no entry"},
-		{"a tab after two spaces", "- 2026-09-02: One.\n  \ttwo\n", "14: this line belongs to no entry"},
-		{"one space of indentation", "- 2026-09-02: One.\n two\n", "14: this line belongs to no entry"},
-		{"a fence at column 0", "```\ncode\n```\n", "13: this line belongs to no entry"},
-		{"a level three heading", "### 2026\n- 2026-09-02: One.\n", "13: this line belongs to no entry"},
-		{"a comment closing before other text", "<!-- note --> more\n", "13: this line belongs to no entry"},
-		{"a comment that never closes", "<!-- note\n- 2026-09-02: One.\n", "13: this line belongs to no entry"},
+		{"prose before the first entry", "Edits:\n- 2026-09-02: One.\n", "13: this block belongs to no entry"},
+		{"a paragraph after a blank line", "- 2026-09-02: One.\n\nTwo.\n", "15: this block belongs to no entry"},
+		{"a blockquote interrupting the entry", "- 2026-09-02: One.\n> two\n", "14: this block belongs to no entry"},
+		{"a footnote definition", "- 2026-09-02: One.\n[^1]: note\n", "14: this block belongs to no entry"},
+		{"an ordered item after a bullet list", "- 2026-09-02: One.\n1. two\n", "14: entry has no date"},
+		{"a + item after a - list", "- 2026-09-02: One.\n+ two\n", "14: entry has no date"},
+		{"a thematic break", "- - -\n", "13: this block belongs to no entry"},
+		{"a backtick fence after the entry", "- 2026-09-02: One.\n```\n", "14: this block belongs to no entry"},
+		{"a tilde fence after the entry", "- 2026-09-02: One.\n~~~\n", "14: this block belongs to no entry"},
+		{"a fence at column 0", "```\ncode\n```\n", "13: this block belongs to no entry"},
+		{"a level three heading", "### 2026\n- 2026-09-02: One.\n", "13: this block belongs to no entry"},
+		{"a comment closing before other text", "<!-- note --> more\n", "13: this block belongs to no entry"},
 		{"no date", "- Moved it.\n", "13: entry has no date"},
 		{"a date without its colon", "- 2026-09-02 Moved it.\n", "13: entry begins with 2026-09-02, which is not followed by a colon"},
 		{"a date with no space after its colon", "- 2026-09-02:Moved it.\n", "13: entry begins with 2026-09-02, which is not followed by a colon"},
@@ -159,13 +147,45 @@ func TestChangelogReportsWhatItCannotReadAsCommonMarkDoes(t *testing.T) {
 	}
 }
 
+// TestAnyListItemIsAnEntry: an item of any top-level list, whatever its
+// marker and the whitespace after it, is an entry, and a line the parser
+// reads as part of it, lazily or indented with a tab, is its text.
+func TestAnyListItemIsAnEntry(t *testing.T) {
+	for body, want := range map[string]string{
+		"* 2026-09-02: One.\n":                 "One.",
+		"1. 2026-09-02: One.\n":                "One.",
+		"-\n  2026-09-02: One.\n":              "One.",
+		"-  2026-09-02: One.\n":                "One.",
+		"- \t2026-09-02: One.\n":               "One.",
+		"- 2026-09-02: One.\n  two\nthree\n":   "One.\ntwo\nthree",
+		"- 2026-09-02: One.\n_two_\n":          "One.\n_two_",
+		"- 2026-09-02: One.\n===\n":            "One.\n===",
+		"- 2026-09-02: One.\n| a |\n":          "One.\n| a |",
+		"- 2026-09-02: One.\n\ttwo\n":          "One.\n  two",
+		"- 2026-09-02: One.\n two\n":           "One.\n two",
+		"<!-- note\n- 2026-09-02: One.\n-->\n": "",
+	} {
+		d := changelogDoc(t, "", "## Changelog\n"+body)
+		if got := d.ChangelogProblems(time.Time{}); len(got) != 0 {
+			t.Errorf("%q: reported %q", body, problemLines(got))
+		}
+		var got []string
+		for _, e := range d.Changelog() {
+			got = append(got, e.Text)
+		}
+		if strings.Join(got, "|") != want {
+			t.Errorf("%q: entries %q, want %q", body, got, want)
+		}
+	}
+}
+
 // A heading written straight after a comment block's "-->" renders as the
 // block's raw HTML, so the section runs on past it and L21 reports the comment
 // that does not close cleanly, not a heading.
 func TestAHeadingAfterACommentBlocksCloseDoesNotEndTheSection(t *testing.T) {
 	d := changelogDoc(t, "", "## Changelog\n- 2026-09-02: One.\n<!--\n-->## Next\n- 2026-09-03: Two.\n")
 	got := problemLines(d.ChangelogProblems(time.Time{}))
-	if len(got) != 1 || !strings.HasPrefix(got[0], "14: this line belongs to no entry") {
+	if len(got) != 1 || !strings.HasPrefix(got[0], "14: this block belongs to no entry") {
 		t.Errorf("reported %q, want one finding at the comment's first line", got)
 	}
 	if n := len(d.Changelog()); n != 2 {
@@ -173,11 +193,11 @@ func TestAHeadingAfterACommentBlocksCloseDoesNotEndTheSection(t *testing.T) {
 	}
 }
 
-func TestChangelogReportsOneFindingPerGapBetweenEntries(t *testing.T) {
+func TestChangelogReportsEachBlockThatIsNoList(t *testing.T) {
 	d := changelogDoc(t, "", "## Changelog\nOne\nTwo\n\nThree\n- 2026-09-02: One.\n\nFour\n")
 	got := problemLines(d.ChangelogProblems(time.Time{}))
-	if len(got) != 2 || !strings.HasPrefix(got[0], "13:") || !strings.HasPrefix(got[1], "19:") {
-		t.Errorf("reported %q, want the first line of each gap, 13 and 19", got)
+	if len(got) != 3 || !strings.HasPrefix(got[0], "13:") || !strings.HasPrefix(got[1], "16:") || !strings.HasPrefix(got[2], "19:") {
+		t.Errorf("reported %q, want each paragraph's first line, 13, 16 and 19", got)
 	}
 }
 
@@ -222,7 +242,7 @@ func TestALazyLineCannotFollowAnEntryOpeningABlock(t *testing.T) {
 	// no lazy continuation, so the line after it leaves the item.
 	d := changelogDoc(t, "", "## Changelog\n- # Heading\nthree\n")
 	got := problemLines(d.ChangelogProblems(time.Time{}))
-	if len(got) != 2 || !strings.HasPrefix(got[1], "14: this line belongs to no entry") {
+	if len(got) != 2 || !strings.HasPrefix(got[1], "14: this block belongs to no entry") {
 		t.Errorf("reported %q, want the undated entry and then line 14", got)
 	}
 }
@@ -253,5 +273,17 @@ func TestTwoDashesAreAnEntryHoldingAList(t *testing.T) {
 	}
 	if len(got) != 1 || !strings.Contains(got[0], "entry has no date") {
 		t.Errorf("reported %q, want only the missing date", got)
+	}
+}
+
+// TestAChangelogReadsEveryListPassingOverDefinitionsAndComments: entries are
+// the items of each top-level list in document order.
+func TestAChangelogReadsEveryListPassingOverDefinitionsAndComments(t *testing.T) {
+	d := changelogDoc(t, "", "## Changelog\n- 2026-09-01: A.\n\n<!-- c -->\n\n[x]: y.md\n\n1. 2026-09-02: B.\n")
+	if got := d.ChangelogProblems(time.Time{}); len(got) != 0 {
+		t.Errorf("reported %q", problemLines(got))
+	}
+	if got := texts(d.Changelog()); strings.Join(got, "|") != "13 2026-09-01 A.|19 2026-09-02 B." {
+		t.Errorf("entries %q", got)
 	}
 }

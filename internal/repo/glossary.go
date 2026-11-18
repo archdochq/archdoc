@@ -1,11 +1,12 @@
 package repo
 
 import (
-	"iter"
 	"os"
 	"path/filepath"
 	"slices"
 	"strings"
+
+	"archdoc.dev/internal/markdown"
 )
 
 // GlossaryPage is the spec page name the glossary always has.
@@ -80,10 +81,9 @@ func (d *Document) TermEntry() GlossaryEntry {
 			e.Line = h.Line
 			e.Paragraphs, e.Other = d.entryBlocks(h.last + 1)
 			e.Definition = d.definition(h.last + 1)
-			masked := d.maskedLines()
-			for j := range h.index {
-				if strings.TrimSpace(masked[j]) != "" {
-					e.Above = d.BodyLine + j
+			for _, b := range d.blocksIn(0, h.index) {
+				if !isCommentBlock(b) {
+					e.Above = d.BodyLine + d.lineAt(b.Start)
 					break
 				}
 			}
@@ -118,154 +118,94 @@ func (r *Repo) Term(name string) (GlossaryEntry, bool) {
 	return entry, ok
 }
 
-// entryBlocks reads the blocks from body line from to the end of the body,
-// subsections included, from the document's own walk: a comment opened before
-// the definition and closed inside it is already blanked there. A line holding
-// only a comment, like a blank one, separates blocks, unless it continues the
-// paragraph above it.
-//
-// A paragraph runs over the lines that continue it; a heading, a thematic
-// break, a list, a blockquote, a table, or a code or HTML block is another
-// block. It ends at a setext underline and a table's header row as well, as
-// the block walk's does, and a lone carriage return ends a line.
+// entryBlocks reads the top-level blocks from body line from to the end of
+// the body, subsections included: each paragraph as written with its
+// comments removed, and a count of the other blocks, comment blocks and link
+// reference definitions passed over.
 func (d *Document) entryBlocks(from int) (paragraphs []string, other int) {
-	lines, masked := d.bodyLines(), d.maskedLines()
-	// What holds the lines of the current block: none after a blank line.
-	const (
-		none = iota
-		paragraph
-		container
-		leaf
-	)
-	current, kind := none, blockProse
-	// comment is whether a comment that began a line is still open.
-	comment := false
-	var text []string
-	// Each line split at its lone carriage returns, so a header row can be
-	// read with the line after it.
-	type piece struct {
-		raw, masked string
-		line        int
-	}
-	var pieces []piece
-	for i := from; i < len(lines); i++ {
-		for raw, m := range crLines(strings.TrimSuffix(lines[i], "\r"), strings.TrimSuffix(masked[i], "\r")) {
-			pieces = append(pieces, piece{raw, m, i})
-		}
-	}
-	// A table's header row and a list item are read as the block walk reads
-	// them outside any container, as the definition is, in the paragraph the
-	// line continues if any.
-	var outside blockWalk
-	end := func() {
-		if current == paragraph {
-			paragraphs = append(paragraphs, strings.TrimSpace(strings.Join(text, "\n")))
-		}
-		current, text = none, nil
-	}
-	for p, piece := range pieces {
-		raw, m, i := piece.raw, piece.masked, piece.line
-		outside.paragraph = current == paragraph
-		// A comment beginning a line opens an HTML block, as CommonMark
-		// has it, and the text after the marker closing it is the
-		// block's. Inside a code block the marker is code.
-		if d.literal[i] == blockProse && opensCommentBlock(raw) {
-			comment = true
-		}
-		html := comment
-		comment = comment && !strings.Contains(raw, commentClose)
-		// scanBody's block walk reads a line whole, across its lone carriage
-		// returns, so a blockquote or a list is found from the piece itself.
-		// Both are read as written: a comment a paragraph left open does not
-		// hide the marker, which opens the block first.
-		_, _, quote := quoteMarker(raw, 0)
-		_, _, _, item := outside.listItem(raw, 0)
+	for _, b := range d.blocksIn(from, len(d.bodyLines())) {
 		switch {
-		case d.literal[i] != blockProse:
-			if current != leaf || kind != d.literal[i] {
-				end()
-				current, kind = leaf, d.literal[i]
-				other++
-			}
-		// A line is blank or a break as written, so one a comment holds whole
-		// inside a paragraph continues it, unless the comment opens a block.
-		case strings.TrimSpace(raw) == "" || strings.TrimSpace(m) == "" && (html || current != paragraph):
-			end()
-		case html || readsAsBlock(raw):
-			end()
+		case b.Type == markdown.Paragraph:
+			paragraphs = append(paragraphs, paragraphText(d.Body, b))
+		case !passedOver(b):
 			other++
-		case quote || p+1 < len(pieces) && outside.tableStarts(raw, pieces[p+1].raw) || item:
-			if current != container {
-				end()
-				current = container
-				other++
-			}
-		case current == none || current == leaf:
-			end()
-			current = paragraph
-			fallthrough
-		case current == paragraph:
-			if strings.TrimSpace(m) != "" {
-				text = append(text, withoutComments(raw, m))
-			}
-		default:
-			// A line continuing a list or a blockquote lazily stays in it.
 		}
 	}
-	end()
 	return paragraphs, other
 }
 
-// crLines splits a line as written and its masked twin at each lone carriage
-// return, which CommonMark reads as a line ending, at the same offsets in
-// both.
-func crLines(raw, masked string) iter.Seq2[string, string] {
-	return func(yield func(string, string) bool) {
-		for {
-			i := strings.IndexByte(raw, '\r')
-			if i < 0 {
-				yield(raw, masked)
-				return
+// paragraphText is a paragraph's lines as written, from the start of each
+// line, joined by a line feed, with each HTML comment in it removed, a line
+// left holding nothing dropped, and its ends trimmed.
+func paragraphText(body string, p *markdown.Node) string {
+	var comments []markdown.Span
+	markdown.Walk(p, func(n *markdown.Node) bool {
+		if n.Type == markdown.RawHTML && strings.HasPrefix(n.Text, "<!--") {
+			comments = append(comments, n.Span)
+		}
+		return true
+	})
+	var lines []string
+	next := 0 // the first comment that may reach this line, as they are in order
+	for _, l := range p.Lines {
+		from := strings.LastIndexAny(body[:l.Start], "\r\n") + 1
+		for next < len(comments) && comments[next].End <= from {
+			next++
+		}
+		// Within the line, a comment is cut from its first byte that is not
+		// a space or a tab to its last, so the spaces around it are kept.
+		var b strings.Builder
+		at := from
+		for _, c := range comments[next:] {
+			if c.Start >= l.End {
+				break
 			}
-			if !yield(raw[:i], masked[:i]) {
-				return
+			start, end := max(c.Start, from), min(c.End, l.End)
+			for start < end && (body[start] == ' ' || body[start] == '\t') {
+				start++
 			}
-			raw, masked = raw[i+1:], masked[i+1:]
+			for end > start && (body[end-1] == ' ' || body[end-1] == '\t') {
+				end--
+			}
+			if start < end {
+				b.WriteString(body[at:max(at, start)])
+				at = max(at, end)
+			}
+		}
+		b.WriteString(body[at:l.End])
+		if line := strings.TrimRight(b.String(), "\r\n"); strings.TrimSpace(line) != "" {
+			lines = append(lines, line)
 		}
 	}
-}
-
-// readsAsBlock reports whether a line as written is a heading, a thematic
-// break or a setext underline.
-func readsAsBlock(line string) bool {
-	return IsHeading(line) || thematicPattern.MatchString(line) || setextPattern.MatchString(line)
+	return strings.TrimSpace(strings.Join(lines, "\n"))
 }
 
 // definition is the body from line from to its end as written, comments
-// included, except a comment block left open at the end, which on the generated
-// page would run on over the terms after it. A line left blank is written
-// empty, and a lone carriage return, which CommonMark reads as a line ending,
-// ends a line.
+// included, except a comment block left open at the end, which on the
+// generated page would run on over the terms after it. A line left blank is
+// written empty, and a lone carriage return, which CommonMark reads as a line
+// ending, ends a line.
 func (d *Document) definition(from int) string {
-	lines, masked := d.bodyLines(), d.maskedLines()
-	out := make([]string, 0, len(lines)-from)
-	open := -1
-	for i := from; i < len(lines); i++ {
-		for line, m := range crLines(strings.TrimSuffix(lines[i], "\r"), strings.TrimSuffix(masked[i], "\r")) {
-			if open < 0 && opensCommentBlock(line) {
-				open = len(out)
-			}
-			if strings.Contains(line, commentClose) || strings.TrimSpace(m) != "" {
-				open = -1
-			}
-			if strings.TrimSpace(line) == "" {
-				line = ""
-			}
-			out = append(out, line)
+	lines := d.bodyLines()
+	if from >= len(lines) {
+		return ""
+	}
+	start := 0
+	if from > 0 {
+		start = d.starts[from-1]
+	}
+	end := len(d.Body)
+	if blocks := d.blocksIn(from, len(lines)); len(blocks) > 0 {
+		if last := blocks[len(blocks)-1]; isCommentBlock(last) && !last.Closed {
+			end = last.Start
 		}
 	}
-	if open >= 0 {
-		out = out[:open]
+	text := strings.ReplaceAll(d.Body[start:max(start, end)], "\r\n", "\n")
+	out := strings.Split(strings.ReplaceAll(text, "\r", "\n"), "\n")
+	for i, line := range out {
+		if strings.TrimSpace(line) == "" {
+			out[i] = ""
+		}
 	}
 	return strings.Trim(strings.Join(out, "\n"), "\n")
 }

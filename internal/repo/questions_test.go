@@ -44,9 +44,6 @@ func TestQuestionSectionFaultsAreReportedWhereTheyStand(t *testing.T) {
 		{"two questions sharing one, reported at the later", "## Open questions\n### Q?\n### Q\n", "14: question \"Q\" produces the same anchor as the heading on line 13"},
 		{"a heading beneath a question", "## Open questions\n### Q?\n#### Detail\n", "14: question \"Q?\" has a heading beneath it"},
 		{"a heading beneath a resolved question, reported once", "## Resolved questions\n### Q?\n#### Detail\n", "14: question \"Q?\" has a heading beneath it"},
-		{"a heading in a blockquote", "## Open questions\n### Q?\n> ## Not\n> more\n\nText.\n", "14: a blockquote in a question section holds a heading"},
-		{"a fence in a blockquote", "## Open questions\n### Q?\n> ```\n> x\n\nText.\n", "14: a blockquote in a question section holds a fenced code block"},
-		{"a comment in a blockquote", "## Open questions\n### Q?\n> a <!-- b -->\n\nText.\n", "14: a blockquote in a question section holds an HTML comment"},
 		{"an open question ending with a blockquote", "## Open questions\n### Q?\n\n> quoted\n", "15: open question \"Q?\" ends with a blockquote"},
 		{"an empty resolved section", "## Resolved questions\n\n<!-- nothing -->\n", "12: the \"Resolved questions\" section is empty"},
 		{"a resolved question with no answer", "## Resolved questions\n### Q?\nDetail.\n", "13: resolved question \"Q?\" does not end with a blockquote"},
@@ -99,11 +96,16 @@ func TestAQuotedLineInAFenceIsCode(t *testing.T) {
 	}
 }
 
-func TestAFenceInABlockquoteIsReportedOnceAtItsOpening(t *testing.T) {
-	d := changelogDoc(t, "", "## Resolved questions\n### Q?\n> ```\n> # code, not a heading\n> ```\n> Yes.\n")
-	got := problemLines(d.QuestionProblems(false))
-	if len(got) != 1 || !strings.HasPrefix(got[0], "14: a blockquote in a question section holds a fenced code block") {
-		t.Errorf("reported %q, want the opening fence alone", got)
+// TestAnAnswerHoldsAnyBlocks: a blockquote holds a heading, a fence and a
+// comment as GitHub renders them, and none of them ends it.
+func TestAnAnswerHoldsAnyBlocks(t *testing.T) {
+	d := changelogDoc(t, "", "## Resolved questions\n### Q?\n> ```\n> # code\n> ```\n> ## Heading\n> Yes <!-- c -->.\nlazy\n")
+	if got := d.QuestionProblems(false); len(got) != 0 {
+		t.Errorf("reported %q, want nothing", problemLines(got))
+	}
+	want := "```\n# code\n```\n## Heading\nYes <!-- c -->.\nlazy"
+	if a := d.Questions().Resolved[0].Answer; a == nil || a.Text != want {
+		t.Errorf("answer = %+v, want %q", a, want)
 	}
 }
 
@@ -114,7 +116,6 @@ func TestAnAnswerKeepsTheColumnsItHadInsideTheQuote(t *testing.T) {
 		{"> \tfoo", "  foo"},
 		{">\t\tfoo", "      foo"},
 		{">  two", " two"},
-		{">", ""},
 	} {
 		d := changelogDoc(t, "", "## Resolved questions\n### Q?\n> first\n"+c.line+"\n")
 		answer := d.Questions().Resolved[0].Answer
@@ -206,10 +207,26 @@ func TestAnAnswerHoldingAnInlineCodeSpanHoldsNoFence(t *testing.T) {
 	}
 }
 
-func TestAHeadingAfterAFenceClosedInABlockquoteIsReported(t *testing.T) {
-	d := changelogDoc(t, "", "## Resolved questions\n### Q?\n> ```\n> x\n> ```\n> ## Not\n> Yes.\n")
+// TestAQuestionsAnchorIsComparedWithAHeadingInAContainer: the heading inside
+// a blockquote has an anchor, so a link to the question is unreliable.
+func TestAQuestionsAnchorIsComparedWithAHeadingInAContainer(t *testing.T) {
+	d := changelogDoc(t, "", "## Open questions\n### Same?\n\n- ### Same?\n")
 	got := problemLines(d.QuestionProblems(false))
-	if len(got) != 2 || !strings.HasPrefix(got[1], "17: a blockquote in a question section holds a heading") {
-		t.Errorf("reported %q, want the fence and then the heading on line 17", got)
+	if len(got) != 1 || !strings.Contains(got[0], "produces the same anchor as the heading on line 15") {
+		t.Errorf("reported %q, want the question sharing the list item heading's anchor", got)
+	}
+}
+
+// TestAnAnswerIsTheBlockquoteAsTheParserReadsIt: its > indented, a lazy line
+// in it, and a link reference definition and a comment block after it passed
+// over.
+func TestAnAnswerIsTheBlockquoteAsTheParserReadsIt(t *testing.T) {
+	d := changelogDoc(t, "", "## Resolved questions\n### Q?\nDetail.\n  > Yes,\nlazily.\n\n[r]: x.md\n\n<!-- c -->\n")
+	if got := d.QuestionProblems(false); len(got) != 0 {
+		t.Errorf("reported %q", problemLines(got))
+	}
+	q := d.Questions().Resolved[0]
+	if q.Answer == nil || q.Answer.Text != "Yes,\nlazily." || q.Answer.Line != 15 || q.Detail != "Detail." {
+		t.Errorf("question = %+v, answer %+v", q, q.Answer)
 	}
 }

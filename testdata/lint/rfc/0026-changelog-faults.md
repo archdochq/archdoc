@@ -37,4 +37,5 @@ Nothing.
 - 2026-05-03: In order.
 - 2026-05-02: Out of order.
 - 2026-04-30: Before created.
-* 2026-05-04: Another marker.
+
+A paragraph, which is no entry.

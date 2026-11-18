@@ -163,7 +163,7 @@ Any document may also carry these sections, and the RFC template includes the fi
 
 - **Open questions**: unresolved matters while the document is proposed, each a level three heading with any detail as prose beneath it. Must be absent or empty before the document can be accepted.
 - **Resolved questions**: the next section after Open questions. A question answered while proposed moves here with its heading and detail, rather than being deleted, and ends on a blockquote holding its answer, its paragraphs joined by lines holding only `>`. A question handed to a follow-up document is answered with a link to it.
-- **Changelog**: one entry for each change made while proposed, as a list item beginning `- YYYY-MM-DD: ` at the start of the line, continued on lines indented by two spaces.
+- **Changelog**: one entry for each change made while proposed, as a dated list item, beginning with its date in the form `YYYY-MM-DD: `.
 
 Rejected RFCs and ADRs gain a final **Rejection rationale** section when rejected.
 

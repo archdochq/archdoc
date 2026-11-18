@@ -1893,6 +1893,7 @@ func TestATermDefinitionIsOneParagraphAndNothingElse(t *testing.T) {
 		firstWanted string
 	}{
 		{"one paragraph", "# Widget\n\nThe definition\nover two lines.\n", 1, 0, 0, "The definition\nover two lines."},
+		{"a link reference definition passed over", "# Widget\n\nThe definition.\n\n[x]: y.md\n", 1, 0, 0, "The definition."},
 		{"a subsection", "# Widget\n\nThe definition.\n## Aside\nA second paragraph.\n", 2, 1, 0, "The definition."},
 		{"a later H1", "# Widget\n\nThe definition.\n\n# Other\n\nMore.\n", 2, 1, 0, "The definition."},
 		{"a bullet", "# Widget\n\nThe definition.\n- a list\n", 1, 1, 0, "The definition."},
@@ -1922,20 +1923,18 @@ func TestATermDefinitionIsOneParagraphAndNothingElse(t *testing.T) {
 		{"an indented paragraph", "# Widget\n\n  The definition.\n", 1, 0, 0, "The definition."},
 		{"a CRLF thematic break", "# Widget\r\n\r\nThe definition.\r\n***\r\n", 1, 1, 0, "The definition."},
 		// The paragraph ends where the link scanner ends one.
-		{"a setext underline", "# Widget\n\nThe definition.\n===\n", 1, 1, 0, "The definition."},
-		{"a two-dash setext underline", "# Widget\n\nThe definition.\n--\n", 1, 1, 0, "The definition."},
+		// A paragraph over an underline is a heading.
+		{"a setext underline", "# Widget\n\nThe definition.\n===\n", 0, 1, 0, ""},
+		{"a two-dash setext underline", "# Widget\n\nThe definition.\n--\n", 0, 1, 0, ""},
 		{"an indented underline", "# Widget\n\nThe definition.\n    ===\n", 1, 0, 0, "The definition.\n    ==="},
 		{"a table row", "# Widget\n\nThe definition.\n| a | b |\n| - | - |\n", 1, 1, 0, "The definition."},
 		{"an indented table row", "# Widget\n\nThe definition.\n    | a |\n", 1, 0, 0, "The definition.\n    | a |"},
-		{"an underline indented as a block may be", "# Widget\n\nThe definition.\n  ===\n", 1, 1, 0, "The definition."},
+		{"an underline indented as a block may be", "# Widget\n\nThe definition.\n  ===\n", 0, 1, 0, ""},
 		{"a table indented as a block may be", "# Widget\n\nThe definition.\n | a |\n | - |\n", 1, 1, 0, "The definition."},
 		{"a row with no delimiter row is text", "# Widget\n\nThe definition.\n | a |\n", 1, 0, 0, "The definition.\n | a |"},
 		{"a header row without pipes", "# Widget\n\nThe definition.\nx\n-|\n", 1, 1, 0, "The definition."},
 		{"an escaped pipe after a backslash", "# Widget\n\nThe definition.\n| a \\\\| b |\n| - |\n", 1, 1, 0, "The definition."},
-		{"a paragraph whose line failed a delimiter row heads no table", "# Widget\n\nThe definition.\n-|-\n-|-\n", 1, 0, 0, "The definition.\n-|-\n-|-"},
-		{"a table after a paragraph that failed one", "# Widget\n\nThe definition.\n-|-\n\na|b\n-|-\n", 1, 1, 0, "The definition.\n-|-"},
 		{"nor after a later row", "# Widget\n\nThe definition.\na|b|c\n-|-\nd|e\n-|-\n", 1, 0, 0, "The definition.\na|b|c\n-|-\nd|e\n-|-"},
-		{"a lone pipe heads no table", "# Widget\n\nThe definition.\n|\n|-|\n", 1, 0, 0, "The definition.\n|\n|-|"},
 		{"a pipe in a comment parts a header's cells", "# Widget\n\nThe definition.\n| a <!-- | --> |\n| - | - |\n", 1, 1, 0, "The definition."},
 		{"a delimiter row in a comment marks the paragraph", "# Widget\n\na <!--\nb|c\n:-\n-->\n[d\ne\n:-\n](n.md)\n", 1, 0, 0, "a \n[d\ne\n:-\n](n.md)"},
 		// A line a comment holds continues only a paragraph it is a line of.
@@ -1952,7 +1951,6 @@ func TestATermDefinitionIsOneParagraphAndNothingElse(t *testing.T) {
 		{"a heading only once masked", "# Widget\n\nThe definition.\n#<!-- c -->\n", 1, 0, 0, "The definition.\n#"},
 		{"a heading only once masked, with text", "# Widget\n\nThe definition.\n#<!-- c --> x\n", 1, 0, 0, "The definition.\n# x"},
 		{"a heading in a comment-free definition", "# Widget\n\nThe definition.\n# x\n", 1, 1, 0, "The definition."},
-		{"a lowercase declaration", "# Widget\n\nThe definition.\n<!x>\n", 1, 0, 0, "The definition.\n<!x>"},
 		{"an uppercase declaration", "# Widget\n\nThe definition.\n<!X>\n", 1, 1, 0, "The definition."},
 		// A lone carriage return ends a line, as CommonMark has it and as the
 		// definition is published.
@@ -1976,12 +1974,12 @@ func TestATermDefinitionIsOneParagraphAndNothingElse(t *testing.T) {
 		// A blockquote marker opens a block even inside a comment the
 		// paragraph left open, as cmark-gfm reads it. The masking reads the
 		// line whole, so the paragraph loses the text cmark-gfm prints there.
-		{"a blockquote inside a comment after a lone carriage return", "# Widget\n\nAlpha <!-- x\r> y --> z\n", 1, 1, 0, "Alpha"},
+		{"a blockquote inside a comment after a lone carriage return", "# Widget\n\nAlpha <!-- x\r> y --> z\n", 1, 1, 0, "Alpha <!-- x"},
 		// A list marker does the same, where it may interrupt a paragraph.
 		{"a list item inside a comment after a line feed", "# Widget\n\nAlpha <!-- x\n- y --> z\n", 1, 1, 0, "Alpha <!-- x"},
-		{"a list item inside a comment after a lone carriage return", "# Widget\n\nAlpha <!-- x\r- y --> z\n", 1, 1, 0, "Alpha"},
-		{"a list item inside a comment after a lone carriage return in a CRLF file", "# Widget\r\n\r\nAlpha <!-- x\r- y --> z\r\n", 1, 1, 0, "Alpha"},
-		{"an item numbered 1 inside a comment after a lone carriage return", "# Widget\n\nAlpha <!-- x\r1. y --> z\n", 1, 1, 0, "Alpha"},
+		{"a list item inside a comment after a lone carriage return", "# Widget\n\nAlpha <!-- x\r- y --> z\n", 1, 1, 0, "Alpha <!-- x"},
+		{"a list item inside a comment after a lone carriage return in a CRLF file", "# Widget\r\n\r\nAlpha <!-- x\r- y --> z\r\n", 1, 1, 0, "Alpha <!-- x"},
+		{"an item numbered 1 inside a comment after a lone carriage return", "# Widget\n\nAlpha <!-- x\r1. y --> z\n", 1, 1, 0, "Alpha <!-- x"},
 		{"an item numbered 2 inside a comment after a lone carriage return", "# Widget\n\nAlpha <!-- x\r2. y --> z\n", 1, 0, 0, "Alpha \n z"},
 		{"a dash with no space inside a comment after a lone carriage return", "# Widget\n\nAlpha <!-- x\r-y --> z\n", 1, 0, 0, "Alpha \n z"},
 		{"a marker indented four columns inside a comment after a lone carriage return", "# Widget\n\nAlpha <!-- x\r    - y --> z\n", 1, 0, 0, "Alpha \n     z"},

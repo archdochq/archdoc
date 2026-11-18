@@ -27,7 +27,8 @@ func (d *Document) readHeadings() {
 		return
 	}
 	d.outline = markdown.Parse([]byte(d.Body))
-	d.headings, d.anchors = headingsIn(d.Body, d.BodyLine, d.outline)
+	d.starts = lineStarts(d.Body)
+	d.headings, d.allHeadings = headingsIn(d.Body, d.BodyLine, d.outline)
 }
 
 // Read reports whether the body was read: false where it is longer than
@@ -68,7 +69,7 @@ func (d *Document) text() string {
 
 // headingsOf parses body and returns its top-level headings and every
 // heading's anchor, as headingsIn does.
-func headingsOf(body string, bodyLine int) (top []Heading, anchors []string) {
+func headingsOf(body string, bodyLine int) (top, all []Heading) {
 	return headingsIn(body, bodyLine, markdown.Parse([]byte(body)))
 }
 
@@ -89,7 +90,7 @@ func lineIn(starts []int, at int) int { return sort.SearchInts(starts, at+1) }
 
 // headingsIn returns doc's top-level headings, which bound sections, and the
 // anchor of every heading, in the order GitHub assigns them.
-func headingsIn(body string, bodyLine int, doc *markdown.Node) (top []Heading, anchors []string) {
+func headingsIn(body string, bodyLine int, doc *markdown.Node) (top, all []Heading) {
 	starts := lineStarts(body)
 	lineOf := func(at int) int { return lineIn(starts, at) }
 
@@ -104,11 +105,7 @@ func headingsIn(body string, bodyLine int, doc *markdown.Node) (top []Heading, a
 		render(&rendered, n, numbers)
 		a := anchor(rendered.String(), taken)
 		base := anchor(rendered.String(), map[string]int{})
-		anchors = append(anchors, a)
-		if !topLevel[n] {
-			continue
-		}
-		top = append(top, Heading{
+		h := Heading{
 			Level:  n.Level,
 			Text:   headingText(body, n),
 			Line:   bodyLine + lineOf(n.Start),
@@ -116,9 +113,13 @@ func headingsIn(body string, bodyLine int, doc *markdown.Node) (top []Heading, a
 			base:   base,
 			index:  lineOf(n.Start),
 			last:   lineOf(n.End - 1),
-		})
+		}
+		all = append(all, h)
+		if topLevel[n] {
+			top = append(top, h)
+		}
 	}
-	return top, anchors
+	return top, all
 }
 
 // footnoteNumbers numbers each footnote label in the order it is first
@@ -229,8 +230,8 @@ func HeadingSurvives(text string) bool {
 // repeats, so this is only for naming the anchor a heading would have had when
 // the heading is not there to ask.
 func Anchor(text string) string {
-	if _, anchors := headingsOf("# "+text, 1); len(anchors) == 1 {
-		return anchors[0]
+	if _, all := headingsOf("# "+text, 1); len(all) == 1 {
+		return all[0].Anchor
 	}
 	return anchor(text, map[string]int{})
 }
@@ -272,4 +273,35 @@ func anchor(rendered string, taken map[string]int) string {
 		taken[candidate] = 1
 		return candidate
 	}
+}
+
+// lineAt is the index of the body line holding offset at.
+func (d *Document) lineAt(at int) int { return lineIn(d.starts, at) }
+
+// blocksIn lists the top-level blocks starting on body lines from to to,
+// headings among them.
+func (d *Document) blocksIn(from, to int) []*markdown.Node {
+	var blocks []*markdown.Node
+	if d.outline == nil {
+		return nil
+	}
+	for _, n := range d.outline.Children {
+		if line := d.lineAt(n.Start); line >= from && line < to {
+			blocks = append(blocks, n)
+		}
+	}
+	return blocks
+}
+
+// isCommentBlock reports whether n is an HTML block holding nothing but HTML
+// comments, spaces, tabs and line endings.
+func isCommentBlock(n *markdown.Node) bool {
+	return n.Type == markdown.HTMLBlock && strings.TrimSpace(stripComments(n.Text)) == ""
+}
+
+// passedOver reports whether n is a block the question sections, a Changelog
+// and a term's definition pass over: a comment block or a link reference
+// definition.
+func passedOver(n *markdown.Node) bool {
+	return isCommentBlock(n) || n.Type == markdown.LinkReferenceDefinition
 }
