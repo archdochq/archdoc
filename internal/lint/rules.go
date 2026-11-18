@@ -891,9 +891,6 @@ func L17(ctx Context) []Finding {
 	exists := existence{}
 
 	for _, d := range ctx.Repo().Documents() {
-		if !d.Read() {
-			continue
-		}
 		severity := severityFor(ctx, d)
 		for _, link := range d.Links() {
 			target, anchor, _ := strings.Cut(link.Target, "#")

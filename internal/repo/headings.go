@@ -88,6 +88,7 @@ func headingsOf(body string, bodyLine int) (top []Heading, anchors []string) {
 		var rendered strings.Builder
 		render(&rendered, n, numbers)
 		a := anchor(rendered.String(), taken)
+		base := anchor(rendered.String(), map[string]int{})
 		anchors = append(anchors, a)
 		if !topLevel[n] {
 			continue
@@ -97,6 +98,7 @@ func headingsOf(body string, bodyLine int) (top []Heading, anchors []string) {
 			Text:   headingText(body, n),
 			Line:   bodyLine + lineOf(n.Start),
 			Anchor: a,
+			base:   base,
 			index:  lineOf(n.Start),
 			last:   lineOf(n.End - 1),
 		})
@@ -165,13 +167,15 @@ func headingText(body string, n *markdown.Node) string {
 		}
 		return true
 	})
-	text := []byte(body)
-	for _, c := range comments {
-		blank(text, c.Start, c.End)
-	}
 	lines := make([]string, len(n.Lines))
 	for i, l := range n.Lines {
-		lines[i] = strings.TrimRight(string(text[l.Start:l.End]), "\r\n")
+		text := []byte(body[l.Start:l.End])
+		for _, c := range comments {
+			if c.Start < l.End && c.End > l.Start {
+				blank(text, max(c.Start, l.Start)-l.Start, min(c.End, l.End)-l.Start)
+			}
+		}
+		lines[i] = strings.TrimRight(string(text), "\r\n")
 	}
 	return strings.TrimSpace(strings.Join(lines, "\n"))
 }

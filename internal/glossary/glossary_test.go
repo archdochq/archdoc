@@ -454,7 +454,7 @@ func TestRenameAndRemoveRefuseABodyThatIsNotRead(t *testing.T) {
 	r := repotest.New(t, map[string]string{
 		repotest.TermPath("Widget"): repotest.Term("Widget", "A small thing.\n"+long),
 	})
-	if _, _, _, err := glossary.Rename(r, "Widget", "Gadget"); err == nil || !strings.Contains(err.Error(), "not read") {
+	if _, _, _, err := glossary.Rename(r, "Widget", "Gadget"); err == nil || !strings.Contains(err.Error(), "longer than") {
 		t.Errorf("Rename: error = %v, want a refusal naming the unread body", err)
 	}
 	r = repotest.New(t, map[string]string{

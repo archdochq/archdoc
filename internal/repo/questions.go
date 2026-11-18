@@ -66,6 +66,9 @@ type questionWalk struct {
 	literal  []block
 	inQuote  []bool
 	problems []Problem
+	// bases lists the headings by the anchor each has before any suffix,
+	// filled on first use.
+	bases map[string][]int
 }
 
 func (w *questionWalk) report(index int, format string, args ...any) {
@@ -238,7 +241,7 @@ func (w *questionWalk) read(qi int, open, check bool) Question {
 	h := w.d.headings[qi]
 	end := len(w.raw)
 	if qi+1 < len(w.d.headings) {
-		end = w.d.headings[qi+1].index
+		end = max(w.d.headings[qi+1].index, h.last+1)
 	}
 	body := span{h.last + 1, end}
 	q := Question{Heading: h}
@@ -363,13 +366,19 @@ func (w *questionWalk) checkQuotes(s span) {
 // before it does.
 func (w *questionWalk) checkAnchor(qi int) {
 	q := w.d.headings[qi]
-	base := Anchor(q.Text)
-	if base == "" {
+	if q.base == "" {
 		w.report(q.index, "question %q produces no anchor, so it cannot be linked to", q.Text)
 		return
 	}
-	for j, other := range w.d.headings {
-		if j == qi || Anchor(other.Text) != base {
+	if w.bases == nil {
+		w.bases = map[string][]int{}
+		for j, h := range w.d.headings {
+			w.bases[h.base] = append(w.bases[h.base], j)
+		}
+	}
+	for _, j := range w.bases[q.base] {
+		other := w.d.headings[j]
+		if j == qi {
 			continue
 		}
 		// Between two questions, the later one is reported.

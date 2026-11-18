@@ -22,8 +22,12 @@ type Heading struct {
 	Anchor string
 	// index is the heading's first line in the body's lines, used to find
 	// where the section before it ends, and last its last line, a setext
-	// heading's underline, after which its own body starts.
+	// heading's underline, after which its own body starts. A heading after a
+	// lone carriage return shares a line with the block before it.
 	index, last int
+	// base is the anchor before any suffix, which a question's is compared
+	// with.
+	base string
 }
 
 // Section is a heading and everything under it, up to the next heading of equal
@@ -276,7 +280,9 @@ func (d *Document) nextSection(i int) int {
 // sectionEnd is the body line index at which heading i's section ends.
 func (d *Document) sectionEnd(i int) int {
 	if next := d.nextSection(i); next >= 0 {
-		return d.headings[next].index
+		// A heading after a lone carriage return starts on the line the one
+		// before it ends on, which leaves that one's section empty.
+		return max(d.headings[next].index, d.headings[i].last+1)
 	}
 	return len(d.bodyLines())
 }
@@ -302,7 +308,7 @@ func (d *Document) Contents() []Entry {
 	for i, h := range d.headings {
 		end := len(lines)
 		if i+1 < len(d.headings) {
-			end = d.headings[i+1].index
+			end = max(d.headings[i+1].index, h.last+1)
 		}
 		out = append(out, Entry{Heading: h, Text: strings.Join(lines[h.last+1:end], "\n")})
 	}

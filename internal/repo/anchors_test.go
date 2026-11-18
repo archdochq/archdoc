@@ -371,3 +371,25 @@ func TestABodyIsReadUpToMaxBody(t *testing.T) {
 		}
 	}
 }
+
+// TestAHeadingAfterALoneCarriageReturnSharesItsLine: goldmark reads a lone
+// carriage return as a line ending, where the body's lines end at line feeds
+// alone, so the heading after one starts on the line the block before it
+// ends on, and that block's section is empty rather than out of bounds.
+func TestAHeadingAfterALoneCarriageReturnSharesItsLine(t *testing.T) {
+	d := page(t, "## Abstract\r## Motivation\ntext\n\nFoo\n===\r# B\n")
+	if got := headingTexts(d); !slices.Equal(got, []string{"Abstract", "Motivation", "Foo", "B"}) {
+		t.Fatalf("headings = %q", got)
+	}
+	if s := d.Sections("Abstract"); len(s) != 1 || s[0].Text != "" {
+		t.Errorf("Abstract = %+v, want one empty section", s)
+	}
+	if s := d.Sections("Motivation"); len(s) != 1 || s[0].Text != "text\n" {
+		t.Errorf("Motivation = %+v, want one holding its text", s)
+	}
+	for _, e := range d.Contents() {
+		if e.Heading.Text == "Foo" && e.Text != "" {
+			t.Errorf("Foo's entry holds %q, want nothing", e.Text)
+		}
+	}
+}
