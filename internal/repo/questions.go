@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"slices"
 	"strings"
+
+	"archdoc.dev/internal/markdown"
 )
 
 // The question sections. A question is a level three heading in one, and a
@@ -57,50 +59,28 @@ func (d *Document) QuestionProblems(skipOpen bool) []Problem {
 	return problems
 }
 
-// questionWalk holds what reading the question sections needs, so the checks
-// below are methods rather than functions taking the same five arguments.
-type questionWalk struct {
-	d        *Document
-	raw      []string
-	masked   []string
-	literal  []block
-	inQuote  []bool
-	problems []Problem
-	// bases lists the headings by the anchor each has before any suffix,
-	// filled on first use.
-	bases map[string][]int
-}
-
-func (w *questionWalk) report(index int, format string, args ...any) {
-	w.problems = append(w.problems, Problem{Line: w.d.BodyLine + index, Message: fmt.Sprintf(format, args...)})
-}
-
-// blank is a line holding nothing but whitespace and comments. A fenced code
-// block is never blank, as its opening line holds the fence.
-func (w *questionWalk) blank(i int) bool {
-	return strings.TrimSpace(w.masked[i]) == ""
-}
-
-// quoted is a blockquote line: one beginning with > at the start of the line,
-// outside an HTML comment and any literal block the quote does not hold.
-func (w *questionWalk) quoted(i int) bool {
-	return (w.literal[i] == blockProse || w.inQuote[i]) && strings.HasPrefix(w.masked[i], ">")
-}
-
-// span is a half-open run of body line indexes.
-type span struct{ start, end int }
-
+// readQuestions reads every question section from the outline: a question
+// is a top-level level three heading in one, its detail runs to the next
+// top-level heading, and it ends with a blockquote when its last top-level
+// block, passing over comment blocks and link reference definitions, is one.
 func (d *Document) readQuestions(skipOpen bool) (Questions, []Problem) {
-	// The walk fills d.literal, so it runs before the field is read: the order
-	// of a call and a field read within one composite literal is unspecified.
-	masked := d.maskedLines()
-	w := &questionWalk{d: d, raw: d.bodyLines(), masked: masked, literal: d.literal, inQuote: d.quoted}
 	var out Questions
+	var problems []Problem
+	report := func(index int, format string, args ...any) {
+		problems = append(problems, Problem{Line: d.BodyLine + index, Message: fmt.Sprintf(format, args...)})
+	}
 
-	hasOpen := false
+	// One pass marks the questions: the level three headings under the
+	// level two heading of a question section.
+	hasOpen, inSection := false, false
+	question := map[markdown.Span]bool{}
 	for _, h := range d.headings {
-		if h.Level == 2 && h.Text == OpenQuestions {
-			hasOpen = true
+		switch {
+		case h.Level <= 2:
+			inSection = h.Level == 2 && (h.Text == OpenQuestions || h.Text == ResolvedQuestions)
+			hasOpen = hasOpen || h.Level == 2 && h.Text == OpenQuestions
+		case h.Level == 3 && inSection:
+			question[h.span] = true
 		}
 	}
 
@@ -110,7 +90,7 @@ func (d *Document) readQuestions(skipOpen bool) (Questions, []Problem) {
 			continue
 		}
 		open := h.Text == OpenQuestions
-		section := span{h.last + 1, d.sectionEnd(i)}
+		from, to := h.span.End, d.sectionTo(i)
 
 		// The rows about a Resolved questions section itself apply to the
 		// first alone; a later one is reported once, at its heading, and its
@@ -118,62 +98,66 @@ func (d *Document) readQuestions(skipOpen bool) (Questions, []Problem) {
 		first := true
 		if !open {
 			if resolvedSeen {
-				w.report(h.index, "the document carries more than one %q section", ResolvedQuestions)
+				report(h.index, "the document carries more than one %q section", ResolvedQuestions)
 				first = false
 			}
 			resolvedSeen = true
 		}
 		check := !open || !skipOpen
-		if first && !open && hasOpen && !w.followsOpen(i) {
-			w.report(h.index, "%q must be the next level two heading after %q", ResolvedQuestions, OpenQuestions)
+		if first && !open && hasOpen && !d.followsOpen(i) {
+			report(h.index, "%q must be the next level two heading after %q", ResolvedQuestions, OpenQuestions)
 		}
 
-		questions := w.questionsIn(section)
-		if first && !open && w.empty(section) {
-			w.report(h.index, "the %q section is empty; delete it, or move an answered question into it", ResolvedQuestions)
-		} else if first && check {
-			before := section.end
-			if len(questions) > 0 {
-				before = d.headings[questions[0]].index
-			}
-			for line := section.start; line < before; line++ {
-				if w.blank(line) {
-					continue
-				}
-				if len(questions) == 0 {
-					w.report(line, "the %q section holds something and no question; each question is a level three heading", h.Text)
-				} else {
-					w.report(line, "the %q section holds something before its first question", h.Text)
-				}
-				break
+		var questions []int
+		for j := i + 1; j < len(d.headings) && d.headings[j].span.Start < to; j++ {
+			if d.headings[j].Level == 3 {
+				questions = append(questions, j)
 			}
 		}
-		if check {
-			w.checkQuotes(section)
+		var held []*markdown.Node
+		for _, b := range d.blocksBetween(from, to) {
+			if !isCommentBlock(b) {
+				held = append(held, b)
+			}
+		}
+		if first && !open && len(held) == 0 {
+			report(h.index, "the %q section is empty; delete it, or move an answered question into it", ResolvedQuestions)
+		} else if first && check {
+			before := to
+			if len(questions) > 0 {
+				before = d.headings[questions[0]].span.Start
+			}
+			if len(held) > 0 && held[0].Start < before {
+				if len(questions) == 0 {
+					report(d.lineAt(held[0].Start), "the %q section holds something and no question; each question is a level three heading", h.Text)
+				} else {
+					report(d.lineAt(held[0].Start), "the %q section holds something before its first question", h.Text)
+				}
+			}
 		}
 
 		for n, qi := range questions {
-			q := w.read(qi, open, check)
+			q := d.readQuestion(qi, open, check, report)
 			// A heading beneath the question, reported where it stands.
-			stop := section.end
+			stop := to
 			if n+1 < len(questions) {
-				stop = d.headings[questions[n+1]].index
+				stop = d.headings[questions[n+1]].span.Start
 			}
 			beneath := false
 			for _, sub := range d.headings[qi+1:] {
-				if sub.index >= stop {
+				if sub.span.Start >= stop {
 					break
 				}
 				beneath = true
 				if check {
-					w.report(sub.index, "question %q has a heading beneath it; detail beneath a question is prose", q.Heading.Text)
+					report(sub.index, "question %q has a heading beneath it; detail beneath a question is prose", q.Heading.Text)
 				}
 			}
 			if check && !open && !beneath && q.Answer == nil {
-				w.report(q.Heading.index, "resolved question %q does not end with a blockquote holding its answer", q.Heading.Text)
+				report(q.Heading.index, "resolved question %q does not end with a blockquote holding its answer", q.Heading.Text)
 			}
 			if check {
-				w.checkAnchor(qi)
+				d.checkAnchor(d.headings[qi], question, report)
 			}
 			if open {
 				out.Open = append(out.Open, q)
@@ -182,135 +166,88 @@ func (d *Document) readQuestions(skipOpen bool) (Questions, []Problem) {
 			}
 		}
 	}
-	slices.SortStableFunc(w.problems, func(a, b Problem) int { return a.Line - b.Line })
-	return out, w.problems
+	slices.SortStableFunc(problems, func(a, b Problem) int { return a.Line - b.Line })
+	return out, problems
 }
 
 // followsOpen reports whether the level two or higher heading before heading i
 // is an Open questions section.
-func (w *questionWalk) followsOpen(i int) bool {
+func (d *Document) followsOpen(i int) bool {
 	for j := i - 1; j >= 0; j-- {
-		if h := w.d.headings[j]; h.Level <= 2 {
+		if h := d.headings[j]; h.Level <= 2 {
 			return h.Level == 2 && h.Text == OpenQuestions
 		}
 	}
 	return false
 }
 
-// empty reports whether a section holds nothing but whitespace and comments.
-func (w *questionWalk) empty(s span) bool {
-	for i := s.start; i < s.end; i++ {
-		if !w.blank(i) {
-			return false
-		}
-	}
-	return true
-}
-
-// questionsIn lists the indexes in d.headings of the level three headings
-// within a section.
-func (w *questionWalk) questionsIn(s span) []int {
-	var found []int
-	for i, h := range w.d.headings {
-		if h.index >= s.start && h.index < s.end && h.Level == 3 {
-			found = append(found, i)
-		}
-	}
-	return found
-}
-
-// quotes lists the blockquotes within a span: runs of consecutive quoted
-// lines.
-func (w *questionWalk) quotes(s span) []span {
-	var runs []span
-	for i := s.start; i < s.end; i++ {
-		if !w.quoted(i) {
-			continue
-		}
-		start := i
-		for i < s.end && w.quoted(i) {
-			i++
-		}
-		runs = append(runs, span{start, i})
-	}
-	return runs
-}
-
-// read builds the question at heading qi, reporting the faults in how it ends.
-func (w *questionWalk) read(qi int, open, check bool) Question {
-	h := w.d.headings[qi]
-	end := len(w.raw)
-	if qi+1 < len(w.d.headings) {
-		end = max(w.d.headings[qi+1].index, h.last+1)
-	}
-	body := span{h.last + 1, end}
+// readQuestion builds the question at heading qi, reporting the faults in how
+// it ends.
+func (d *Document) readQuestion(qi int, open, check bool, report func(int, string, ...any)) Question {
+	h := d.headings[qi]
+	end := d.nextTo(qi)
 	q := Question{Heading: h}
-
-	runs := w.quotes(body)
-	detailEnd := body.end
-	if len(runs) > 0 && w.endsWith(runs[len(runs)-1], body) {
-		last := runs[len(runs)-1]
+	var kept []*markdown.Node
+	for _, b := range d.blocksBetween(h.span.End, end) {
+		if !passedOver(b) {
+			kept = append(kept, b)
+		}
+	}
+	detailEnd := end
+	if n := len(kept); n > 0 && kept[n-1].Type == markdown.Blockquote {
+		last := kept[n-1]
+		at := d.lineAt(last.Start)
 		switch {
 		case open:
 			if check {
-				w.report(last.start, "open question %q ends with a blockquote, which would read as its answer once it is resolved", h.Text)
+				report(at, "open question %q ends with a blockquote, which would read as its answer once it is resolved", h.Text)
 			}
 		default:
-			detailEnd = last.start
-			q.Answer = w.answer(last)
+			detailEnd = last.Start
+			q.Answer = d.answer(last)
 			if check {
-				if len(runs) > 1 && w.endsWith(runs[len(runs)-2], span{body.start, last.start}) {
-					w.report(last.start, "the answer to %q has another blockquote before it; join them with a line holding only >", h.Text)
+				if n > 1 && kept[n-2].Type == markdown.Blockquote {
+					report(at, "the answer to %q has another blockquote before it; join them with a line holding only >", h.Text)
 				}
-				if w.quoteEmpty(last) {
-					w.report(last.start, "the answer to %q is empty", h.Text)
+				if !slices.ContainsFunc(last.Children, func(c *markdown.Node) bool { return !isCommentBlock(c) }) {
+					report(at, "the answer to %q is empty", h.Text)
 				}
 			}
 		}
 	}
-	q.Detail = strings.Join(w.raw[body.start:detailEnd], "\n")
+	switch from := afterLine(d.Body, h.span.End-1); {
+	case detailEnd >= len(d.Body):
+		// To the end of the body, its last line ending kept, as written.
+		q.Detail = strings.Join(linesOf(d.Body[from:]), "\n")
+	case detailEnd > from:
+		q.Detail = strings.Join(linesBetween(d.Body, from, lineFrom(d.Body, detailEnd)), "\n")
+	}
 	return q
 }
 
-// endsWith reports whether a blockquote is followed by nothing but blank lines
-// and comments to the end of the span.
-func (w *questionWalk) endsWith(run, within span) bool {
-	for i := run.end; i < within.end; i++ {
-		if !w.blank(i) {
-			return false
-		}
+// answer is a blockquote's lines with any indentation before each >, the >
+// and one column after it removed, and a lazy line as written.
+func (d *Document) answer(quote *markdown.Node) *Answer {
+	lines := linesOf(d.Body[lineFrom(d.Body, quote.Start):lineTo(d.Body, quote.End-1)])
+	for i, line := range lines {
+		lines[i] = unquote(line)
 	}
-	return true
+	return &Answer{Line: d.BodyLine + d.lineAt(quote.Start), Text: strings.Join(lines, "\n")}
 }
 
-// quoteEmpty reports whether a blockquote holds nothing but its markers,
-// whitespace and comments.
-func (w *questionWalk) quoteEmpty(run span) bool {
-	for i := run.start; i < run.end; i++ {
-		if strings.TrimSpace(strings.TrimPrefix(w.masked[i], ">")) != "" {
-			return false
-		}
-	}
-	return true
-}
-
-// answer is a blockquote's text without its markers.
-func (w *questionWalk) answer(run span) *Answer {
-	lines := make([]string, 0, run.end-run.start)
-	for i := run.start; i < run.end; i++ {
-		lines = append(lines, unquote(strings.TrimSuffix(w.raw[i], "\r")))
-	}
-	return &Answer{Line: w.d.BodyLine + run.start, Text: strings.Join(lines, "\n")}
-}
-
-// unquote removes a blockquote line's > and one column of the whitespace after
-// it, as CommonMark does. The whitespace before the text is expanded to spaces
-// at the columns it occupied inside the quote first, because a tab moved two
-// columns left changes width, and a paragraph would read as an indented code
+// unquote removes a blockquote line's indentation, its > and one column of
+// the whitespace after it, as CommonMark does, or returns a lazy line, which
+// has no marker, as written. The whitespace before the text is expanded to
+// spaces at the columns it occupied inside the quote first, because a tab
+// moved left changes width, and a paragraph would read as an indented code
 // block once the quote is gone.
 func unquote(line string) string {
-	rest := strings.TrimPrefix(line, ">")
-	column, lead := 1, 0
+	indent := len(line) - len(strings.TrimLeft(line, " "))
+	if indent > 3 || !strings.HasPrefix(line[indent:], ">") {
+		return line
+	}
+	rest := line[indent+1:]
+	column, lead := indent+1, 0
 	var spaces strings.Builder
 	for ; lead < len(rest) && (rest[lead] == ' ' || rest[lead] == '\t'); lead++ {
 		width := 1
@@ -327,98 +264,30 @@ func unquote(line string) string {
 	return expanded + rest[lead:]
 }
 
-// checkQuotes reports a heading, a fence or a comment inside a blockquote. An
-// answer is read from its lines as written, which holds none of them as the
-// rendered quote does, so they are refused rather than read some other way.
-//
-// A fence is reported at the line opening it, and the lines it holds are code,
-// so a # or a comment marker among them is neither a heading nor a comment.
-func (w *questionWalk) checkQuotes(s span) {
-	for _, run := range w.quotes(s) {
-		var fenceChar byte
-		fenceLen := 0
-		for i := run.start; i < run.end; i++ {
-			content := unquote(strings.TrimSuffix(w.raw[i], "\r"))
-			switch {
-			case fenceLen > 0:
-				if closesFence(content, fenceChar, fenceLen) {
-					fenceLen = 0
-				}
-			case IsHeading(content):
-				w.report(i, "a blockquote in a question section holds a heading")
-				continue
-			case fenceOpens(content):
-				m := fencePattern.FindStringSubmatch(content)
-				fenceChar, fenceLen = m[1][0], len(m[1])
-				w.report(i, "a blockquote in a question section holds a fenced code block")
-				continue
-			}
-			if w.masked[i] != w.raw[i] {
-				w.report(i, "a blockquote in a question section holds an HTML comment")
-			}
-		}
-	}
-}
-
 // checkAnchor reports a question whose heading produces no anchor, or the same
-// anchor as another heading. Anchors are compared before any suffix is added,
-// because a suffix is assigned in document order and moves when a heading
-// before it does.
-func (w *questionWalk) checkAnchor(qi int) {
-	q := w.d.headings[qi]
+// anchor as another heading, one inside a container included. Anchors are
+// compared before any suffix is added, because a suffix is assigned in
+// document order and moves when a heading before it does. Between two
+// questions, the later one is reported.
+func (d *Document) checkAnchor(q Heading, question map[markdown.Span]bool, report func(int, string, ...any)) {
 	if q.base == "" {
-		w.report(q.index, "question %q produces no anchor, so it cannot be linked to", q.Text)
+		report(q.index, "question %q produces no anchor, so it cannot be linked to", q.Text)
 		return
 	}
-	if w.bases == nil {
-		w.bases = map[string][]int{}
-		for j, h := range w.d.headings {
-			w.bases[h.base] = append(w.bases[h.base], j)
+	if d.bases == nil {
+		d.bases = map[string][]Heading{}
+		for _, h := range d.allHeadings {
+			d.bases[h.base] = append(d.bases[h.base], h)
 		}
 	}
-	for _, j := range w.bases[q.base] {
-		other := w.d.headings[j]
-		if j == qi {
+	for _, other := range d.bases[q.base] {
+		if other.span == q.span {
 			continue
 		}
-		// Between two questions, the later one is reported.
-		if w.isQuestion(j) && j > qi {
+		if question[other.span] && other.span.Start > q.span.Start {
 			continue
 		}
-		w.report(q.index, "question %q produces the same anchor as the heading on line %d, so a link to either is unreliable", q.Text, other.Line)
+		report(q.index, "question %q produces the same anchor as the heading on line %d, so a link to either is unreliable", q.Text, other.Line)
 		return
 	}
-}
-
-// isQuestion reports whether heading j is a level three heading within a
-// question section.
-func (w *questionWalk) isQuestion(j int) bool {
-	if w.d.headings[j].Level != 3 {
-		return false
-	}
-	for k := j - 1; k >= 0; k-- {
-		if h := w.d.headings[k]; h.Level <= 2 {
-			return h.Level == 2 && (h.Text == OpenQuestions || h.Text == ResolvedQuestions)
-		}
-	}
-	return false
-}
-
-// questionQuotes marks the blockquote lines of every question section, by body
-// line index.
-func (d *Document) questionQuotes() map[int]bool {
-	// The walk fills d.literal, so it runs before the field is read: the order
-	// of a call and a field read within one composite literal is unspecified.
-	masked := d.maskedLines()
-	w := &questionWalk{d: d, raw: d.bodyLines(), masked: masked, literal: d.literal, inQuote: d.quoted}
-	marked := map[int]bool{}
-	for i, h := range d.headings {
-		if h.Level != 2 || (h.Text != OpenQuestions && h.Text != ResolvedQuestions) {
-			continue
-		}
-		for line, end := h.last+1, d.sectionEnd(i); line < end; line++ {
-			marked[line] = w.quoted(line)
-		}
-	}
-	return marked
 }

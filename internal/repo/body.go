@@ -5,6 +5,8 @@ import (
 	"regexp"
 	"slices"
 	"strings"
+
+	"archdoc.dev/internal/markdown"
 )
 
 // Heading is one markdown heading in a document body.
@@ -23,6 +25,8 @@ type Heading struct {
 	// base is the anchor before any suffix, which a question's is compared
 	// with.
 	base string
+	// span is the heading's bytes in the body.
+	span markdown.Span
 }
 
 // Section is a heading and everything under it, up to the next heading of equal
@@ -1344,7 +1348,10 @@ func (d *Document) Anchors() []string {
 	if d.unread {
 		return nil
 	}
-	anchors := append(make([]string, 0, len(d.anchors)), d.anchors...)
+	anchors := make([]string, 0, len(d.allHeadings))
+	for _, h := range d.allHeadings {
+		anchors = append(anchors, h.Anchor)
+	}
 	return append(anchors, explicitAnchors(d.outline)...)
 }
 

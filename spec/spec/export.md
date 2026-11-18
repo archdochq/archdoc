@@ -19,7 +19,7 @@ Each document carries its front matter, the derived reverse relationships (`upda
 
 `questions` has `open` and `resolved`, the questions of every section of each name in document order. Each question has `text`, `anchor` and `line`, its heading's, and `body`, its detail as written. A resolved question has `answer`, with `line`, the blockquote's first line, and `body`, its text without the markers, where the question ends with a blockquote.
 
-`changelog` is the entries of every `Changelog` section in document order. Each has `line`, its entry line; `date`, where it has one; and `body`, its text. What either holds is what was parsed, whatever lint reports. A line belonging to no question, answer or entry appears only in `source`, and in `contents` under `--all-headings`.
+`changelog` is the entries of every `Changelog` section in document order, an entry being an item of a top-level list in the section, whatever its marker. Each has `line`, its entry line; `date`, where it has one; and `body`, its text. What either holds is what was parsed, whatever lint reports. A line belonging to no question, answer or entry appears only in `source`, and in `contents` under `--all-headings`.
 
 `rejection_rationale` is every `Rejection rationale` section in document order, whatever the document's status or type, and is empty where there is none. Each has `anchor` and `line`, its heading's, and `body`, the lines after the heading, a setext heading's underline, up to the next top-level heading of level one or two as written, subsections included. It holds what was parsed, whatever lint reports.
 

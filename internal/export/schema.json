@@ -169,18 +169,18 @@
       "additionalProperties": false,
       "properties": {
         "line": {"type": "integer", "minimum": 1, "description": "The blockquote's first line, where its body starts."},
-        "body": {"type": "string", "description": "Each line with its > and one column of the whitespace after it removed, so it is Markdown without the quote. Absent where bodies were excluded."}
+        "body": {"type": "string", "description": "Each line with any indentation before its >, the > and one column of the whitespace after it removed, and a lazy line as written, so it is Markdown without the quote. Absent where bodies were excluded."}
       }
     },
     "changelog_entry": {
       "type": "object",
-      "description": "One entry of a Changelog section: a list item beginning - at column 0.",
+      "description": "One entry of a Changelog section: an item of a top-level list in the section, whatever its marker.",
       "required": ["line"],
       "additionalProperties": false,
       "properties": {
         "line": {"type": "integer", "minimum": 1, "description": "The entry line, 1-based in the file."},
         "date": {"type": "string", "format": "date", "description": "Absent where the entry is undated."},
-        "body": {"type": "string", "description": "The entry without its marker and date, each later line with the item's two columns of indentation removed. Absent where bodies were excluded."}
+        "body": {"type": "string", "description": "The entry without its marker and date, each later line with the item's content indentation removed where it has it, and a lazy line as written. Absent where bodies were excluded."}
       }
     },
     "rejection_rationale_section": {

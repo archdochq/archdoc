@@ -27,7 +27,8 @@ func (d *Document) readHeadings() {
 		return
 	}
 	d.outline = markdown.Parse([]byte(d.Body))
-	d.headings, d.anchors = headingsIn(d.Body, d.BodyLine, d.outline)
+	d.starts = lineStarts(d.Body)
+	d.headings, d.allHeadings = headingsIn(d.Body, d.BodyLine, d.outline)
 }
 
 // Read reports whether the body was read: false where it is longer than
@@ -68,7 +69,7 @@ func (d *Document) text() string {
 
 // headingsOf parses body and returns its top-level headings and every
 // heading's anchor, as headingsIn does.
-func headingsOf(body string, bodyLine int) (top []Heading, anchors []string) {
+func headingsOf(body string, bodyLine int) (top, all []Heading) {
 	return headingsIn(body, bodyLine, markdown.Parse([]byte(body)))
 }
 
@@ -89,7 +90,7 @@ func lineIn(starts []int, at int) int { return sort.SearchInts(starts, at+1) }
 
 // headingsIn returns doc's top-level headings, which bound sections, and the
 // anchor of every heading, in the order GitHub assigns them.
-func headingsIn(body string, bodyLine int, doc *markdown.Node) (top []Heading, anchors []string) {
+func headingsIn(body string, bodyLine int, doc *markdown.Node) (top, all []Heading) {
 	starts := lineStarts(body)
 	lineOf := func(at int) int { return lineIn(starts, at) }
 
@@ -104,11 +105,7 @@ func headingsIn(body string, bodyLine int, doc *markdown.Node) (top []Heading, a
 		render(&rendered, n, numbers)
 		a := anchor(rendered.String(), taken)
 		base := anchor(rendered.String(), map[string]int{})
-		anchors = append(anchors, a)
-		if !topLevel[n] {
-			continue
-		}
-		top = append(top, Heading{
+		h := Heading{
 			Level:  n.Level,
 			Text:   headingText(body, n),
 			Line:   bodyLine + lineOf(n.Start),
@@ -116,9 +113,14 @@ func headingsIn(body string, bodyLine int, doc *markdown.Node) (top []Heading, a
 			base:   base,
 			index:  lineOf(n.Start),
 			last:   lineOf(n.End - 1),
-		})
+			span:   n.Span,
+		}
+		all = append(all, h)
+		if topLevel[n] {
+			top = append(top, h)
+		}
 	}
-	return top, anchors
+	return top, all
 }
 
 // footnoteNumbers numbers each footnote label in the order it is first
@@ -229,8 +231,8 @@ func HeadingSurvives(text string) bool {
 // repeats, so this is only for naming the anchor a heading would have had when
 // the heading is not there to ask.
 func Anchor(text string) string {
-	if _, anchors := headingsOf("# "+text, 1); len(anchors) == 1 {
-		return anchors[0]
+	if _, all := headingsOf("# "+text, 1); len(all) == 1 {
+		return all[0].Anchor
 	}
 	return anchor(text, map[string]int{})
 }
@@ -272,4 +274,108 @@ func anchor(rendered string, taken map[string]int) string {
 		taken[candidate] = 1
 		return candidate
 	}
+}
+
+// lineAt is the index of the body line holding offset at.
+func (d *Document) lineAt(at int) int { return lineIn(d.starts, at) }
+
+// blocksBetween lists the top-level blocks starting at offsets from to to,
+// headings among them.
+func (d *Document) blocksBetween(from, to int) []*markdown.Node {
+	if d.outline == nil {
+		return nil
+	}
+	// The blocks are in document order, so those in range are one run.
+	children := d.outline.Children
+	first := sort.Search(len(children), func(i int) bool { return children[i].Start >= from })
+	last := first
+	for last < len(children) && children[last].Start < to {
+		last++
+	}
+	return children[first:last]
+}
+
+// sectionTo is the offset at which heading i's section ends: the start of
+// the next top-level heading of its level or higher, or the end of the body.
+func (d *Document) sectionTo(i int) int {
+	if next := d.nextSection(i); next >= 0 {
+		return d.headings[next].span.Start
+	}
+	return len(d.Body)
+}
+
+// nextTo is the offset at which heading i's body ends: the start of the next
+// top-level heading of any level, or the end of the body.
+func (d *Document) nextTo(i int) int {
+	if i+1 < len(d.headings) {
+		return d.headings[i+1].span.Start
+	}
+	return len(d.Body)
+}
+
+// lineFrom is the offset at which the line holding offset at starts, a line
+// ending at a line feed or a carriage return.
+func lineFrom(body string, at int) int { return strings.LastIndexAny(body[:at], "\r\n") + 1 }
+
+// lineTo is the offset of the line ending after offset at, or the end of the
+// body.
+func lineTo(body string, at int) int {
+	if i := strings.IndexAny(body[at:], "\r\n"); i >= 0 {
+		return at + i
+	}
+	return len(body)
+}
+
+// afterLine is the offset of the line after the one holding offset at.
+func afterLine(body string, at int) int {
+	end := lineTo(body, at)
+	switch {
+	case strings.HasPrefix(body[end:], "\r\n"):
+		return end + 2
+	case end < len(body):
+		return end + 1
+	}
+	return end
+}
+
+// linesOf splits text at each line ending, a line feed, a carriage return and
+// line feed, or a lone carriage return, which goldmark reads as one.
+func linesOf(text string) []string {
+	return strings.Split(strings.ReplaceAll(strings.ReplaceAll(text, "\r\n", "\n"), "\r", "\n"), "\n")
+}
+
+// linesBetween is the lines from the one holding offset from to the line
+// before the one holding offset to, without a line ending after the last.
+func linesBetween(body string, from, to int) []string {
+	from = lineFrom(body, from)
+	if to <= from {
+		return nil
+	}
+	text := strings.TrimSuffix(body[from:to], "\n")
+	text = strings.TrimSuffix(text, "\r")
+	return linesOf(text)
+}
+
+// isCommentBlock reports whether n is an HTML block holding nothing but HTML
+// comments, spaces, tabs and line endings.
+func isCommentBlock(n *markdown.Node) bool {
+	if n.Type != markdown.HTMLBlock || strings.TrimSpace(stripComments(n.Text)) != "" {
+		return false
+	}
+	// A comment left open in a block its end marker has closed, as in
+	// `<!-- a --> <!-- b`, is raw HTML a browser reads as hiding the rest.
+	spans := commentSpans(n.Text)
+	if len(spans) == 0 {
+		return true
+	}
+	last := spans[len(spans)-1]
+	open := !strings.HasSuffix(n.Text[last.Start:last.End], "-->")
+	return !open || !n.Closed
+}
+
+// passedOver reports whether n is a block the question sections, a Changelog
+// and a term's definition pass over: a comment block or a link reference
+// definition.
+func passedOver(n *markdown.Node) bool {
+	return isCommentBlock(n) || n.Type == markdown.LinkReferenceDefinition
 }
