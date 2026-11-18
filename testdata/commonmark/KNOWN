@@ -66,8 +66,11 @@ archdoc/definition-then-thematic-break document/paragraph[0] goldmark reads --- 
 archdoc/footnote-label-case document/paragraph[0]/text[0] goldmark matches a footnote reference to a definition only where their labels' case agrees, where the reference ignores case
 archdoc/footnote-label-with-space document/paragraph[0]/link[0] goldmark reads a footnote label holding a space, where the reference reads a link to a link reference definition
 archdoc/footnote-label-with-escaped-bracket document/paragraph[0]/link[0] goldmark reads a footnote label holding an escaped ], where the reference reads a link to a link reference definition
+archdoc/footnote-label-ending-in-escaped-backslash document goldmark reads a backslash before ] in a footnote label as escaping it where the backslash is itself escaped, so reads a footnote definition where the reference reads a paragraph
 archdoc/footnote-reference-after-bang-before-parentheses document/paragraph[0]/link[0] goldmark reads [^1] after ! and before a destination as a footnote reference, where the reference reads a link
 archdoc/html-block-opening-footnote-definition document/footnote_definition[0]/html_block[0] goldmark keeps the space after a footnote definition's colon in an HTML block that opens the definition
+archdoc/code-span-on-a-lazy-line document/block_quote[0]/paragraph[0]/code[0] the reference keeps the leading space of a lazy line within a code span, which goldmark and commonmark.js remove
+archdoc/fence-info-ending-in-entity-space document/code_block[0] the reference drops a space written as an entity at the end of a fence's info string, which goldmark and commonmark.js keep
 
 # Bodies the readers' tests read, which the outline replaces them in reading.
 archdoc/a-link-destination-is-read-as-git-hub-reads-it-11 document/paragraph[0]/text[0] goldmark reads a title written directly after a destination within < and >, where the reference and commonmark.js read no link

@@ -2,6 +2,7 @@ package markdown
 
 import (
 	"fmt"
+	"runtime"
 	"strings"
 	"testing"
 	"time"
@@ -13,25 +14,29 @@ type shape struct {
 	name string
 	body string
 	// slower names why goldmark reads the shape in more than linear time,
-	// skipping its test until it does not.
+	// skipping the test of goldmark's time until it does not.
 	slower string
 }
 
-func shapes() []shape {
-	const n = 40000
+// shapes builds each shape at size k, where 4 is the size the time limit is
+// for and each is about k times as long as at 1, or k squared for those whose
+// pattern grows as it repeats.
+func shapes(k int) []shape {
+	n := 10000 * k
 	r := strings.Repeat
 	var nestedLists, backticks, refDefs strings.Builder
-	for i := 0; i < 1000; i++ {
+	for i := 0; i < 250*k; i++ {
 		nestedLists.WriteString(r("  ", i) + "* a\n")
 	}
-	for i := 1; i < 2000; i++ {
+	for i := 1; i < 500*k; i++ {
 		backticks.WriteString("e" + r("`", i))
 	}
-	for i := 0; i < 5000; i++ {
+	for i := 0; i < 1250*k; i++ {
 		fmt.Fprintf(&refDefs, "[l%d]: u%d\n", i, i)
 	}
-	refDefs.WriteString(r("[l1]", 5000))
+	refDefs.WriteString(r("[l1]", 1250*k))
 	unclosed := r("a <!--", n)
+	const bracketsOnLines = "a bracketed text closed on each line of a paragraph"
 	return []shape{
 		// From cmark-gfm's pathological tests.
 		{name: "nested strong emphasis", body: r("*a **a ", n/4) + "b" + r(" a** a*", n/4)},
@@ -44,7 +49,7 @@ func shapes() []shape {
 		{name: "link openers and emphasis closers", body: r("[ a_", n)},
 		{name: "pattern [ (]( repeated", body: r("[ (](", n)},
 		{name: "nested brackets", body: r("[", n) + "a" + r("]", n)},
-		{name: "nested blockquotes", body: r("> ", 2000) + "a"},
+		{name: "nested blockquotes", body: r("> ", 500*k) + "a"},
 		{name: "deeply nested lists", body: nestedLists.String(), slower: "list items nested a level deeper on each line"},
 		{name: "backticks", body: backticks.String(), slower: "backtick runs of every length"},
 		{name: "unclosed links A", body: r("[a](<b", n)},
@@ -59,6 +64,9 @@ func shapes() []shape {
 		{name: "fences each closed", body: r("```\n```\n", n)},
 		{name: "fences each holding a line", body: r("~~~\na\n~~~\n", n)},
 		{name: "link reference definitions", body: refDefs.String(), slower: "link reference definitions"},
+		{name: "brackets on each line", body: r("[a]\n", n), slower: bracketsOnLines},
+		{name: "collapsed references on each line", body: r("[a][]\n", n) + "\n[a]: u\n", slower: bracketsOnLines},
+		{name: "collapsed references on each quoted line", body: r("> [a][]\n", n) + "\n[a]: u\n", slower: bracketsOnLines},
 		// From the timing tests of the readers the outline replaces.
 		{name: "links left open on a line", body: r("[a](b ", n/4) + "\n\n" + r("[", n/2) + r("[a](b)", n/2) + "\n", slower: "brackets left open before a run of links"},
 		{name: "a paragraph of unclosed comments", body: r("x <!-- y\n", n/2)},
@@ -72,7 +80,7 @@ func shapes() []shape {
 		{name: "comment markers after the close of a comment in a paragraph", body: "x <!-- y\n--> " + unclosed + "\n"},
 		{name: "comment markers after a comment block", body: "<!-- x --> " + unclosed + "\n"},
 		{name: "comment markers after a long indent", body: "para\n" + r(" ", 2*n) + unclosed + "\n"},
-		{name: "code spans and one comment marker", body: r("`a` ", 300000) + "<!-- x\n"},
+		{name: "code spans and one comment marker", body: r("`a` ", 75000*k) + "<!-- x\n"},
 		{name: "a heading of brackets never closed", body: "## " + r("[a ", n) + "\n\ntext\n\n[a]: x.md\n"},
 		{name: "a heading of nested links", body: "## " + r("[a ", n) + r("](x.md)", n) + "\n\ntext\n\n[a]: x.md\n"},
 		{name: "a heading of nested brackets, none a link", body: "## " + r("[a ", n) + r("]", n) + "\n\ntext\n\n[a]: x.md\n"},
@@ -82,19 +90,45 @@ func shapes() []shape {
 	}
 }
 
-// TestEachShapeIsReadInLinearTime reads each shape. A shape goldmark reads
-// in more than linear time is skipped, naming it, until it does not.
+// TestEachShapeIsReadInLinearTime reads each shape under a time limit,
+// skipping a shape goldmark reads in more than linear time, naming it, until
+// it does not; and asserts of every shape that building the outline from
+// goldmark's tree takes time growing no faster than the body's length.
 func TestEachShapeIsReadInLinearTime(t *testing.T) {
-	for _, s := range shapes() {
+	small := shapes(1)
+	for i, s := range shapes(4) {
 		t.Run(s.name, func(t *testing.T) {
-			if s.slower != "" {
-				t.Skip("goldmark v2.1.16 reads " + s.slower + " in more than linear time")
+			if s.slower == "" {
+				started := time.Now()
+				Parse([]byte(s.body))
+				if took := time.Since(started); took > 2*time.Second {
+					t.Errorf("reading %d bytes took %v", len(s.body), took)
+				}
+			} else {
+				t.Log("goldmark v2.1.16 reads " + s.slower + " in more than linear time, so its time is not tested")
 			}
-			started := time.Now()
-			Parse([]byte(s.body))
-			if took := time.Since(started); took > 2*time.Second {
-				t.Errorf("reading %d bytes took %v", len(s.body), took)
+			// Twice the growth of the body allows for noise; growth with
+			// the square of it is four times.
+			from, to := outlineTime(small[i].body), outlineTime(s.body)
+			grew, longer := float64(to)/float64(from), float64(len(s.body))/float64(len(small[i].body))
+			if to > 20*time.Millisecond && grew > 2*longer {
+				t.Errorf("building the outline took %v for %d bytes and %v for %d", from, len(small[i].body), to, len(s.body))
 			}
 		})
 	}
+}
+
+// outlineTime is the shortest of three builds of body's outline from the
+// parser's tree, the parser's own time left out.
+func outlineTime(body string) time.Duration {
+	src := withLoneCarriageReturnsAsLineFeeds([]byte(body))
+	tree := gm.Parse(src)
+	best := time.Duration(1 << 62)
+	for range 3 {
+		runtime.GC()
+		started := time.Now()
+		outline(src, tree)
+		best = min(best, time.Since(started))
+	}
+	return best
 }

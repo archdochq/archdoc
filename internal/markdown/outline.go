@@ -89,9 +89,9 @@ type Node struct {
 
 	// Lines is a leaf block's content, line by line.
 	Lines []Line
-	// Text is a text's text with escapes and entities resolved, a code span's,
-	// code block's or footnote reference's content, raw HTML and an HTML
-	// block as written, and an autolink's text.
+	// Text is a text's text with escapes and entities resolved, a code span's
+	// or code block's content, raw HTML and an HTML block as written, and an
+	// autolink's text.
 	Text string
 
 	Level     int  // a heading's level

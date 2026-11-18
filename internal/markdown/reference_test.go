@@ -439,6 +439,11 @@ func stripTaskBox(item *cnode) byte {
 		return 0
 	}
 	merged[0] = &cnode{name: "text", attrs: map[string]string{}, text: strings.TrimLeft(t[3:], " \t")}
+	if len(merged) == 1 && merged[0].text == "" && len(item.children) == 1 && item.children[0].name == "paragraph" {
+		// A task holding only its box is an item with nothing in it.
+		item.children = nil
+		return t[1]
+	}
 	firstParagraph(item).children = merged
 	return t[1]
 }

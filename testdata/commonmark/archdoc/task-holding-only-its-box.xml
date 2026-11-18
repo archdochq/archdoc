@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE document SYSTEM "CommonMark.dtd">
+<document sourcepos="1:1-1:6" xmlns="http://commonmark.org/xml/1.0">
+  <list sourcepos="1:1-1:6" type="bullet" tight="true">
+    <tasklist sourcepos="1:1-1:6" completed="true" />
+  </list>
+</document>

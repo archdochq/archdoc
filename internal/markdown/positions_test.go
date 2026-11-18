@@ -1,6 +1,7 @@
 package markdown
 
 import (
+	"bytes"
 	"html"
 	"regexp"
 	"strconv"
@@ -81,7 +82,41 @@ func placementProblems(src []byte, doc *Node) []string {
 		}
 	}
 	check(doc, nil)
+	if at := uncovered(src, doc); at >= 0 {
+		out = append(out, "byte "+strconv.Itoa(at)+" "+quote(string(src[at:min(at+20, len(src))]))+" lies in no block")
+	}
 	return out
+}
+
+// uncovered is the first byte that lies in no block other than the
+// document, where it is not a space, a line ending or a blockquote's marker,
+// or -1. A setext underline goldmark gives a heading after the table that
+// took the heading's last line lies in none, as the outline reads that
+// heading as the paragraph it was, and KNOWN lists it.
+func uncovered(src []byte, doc *Node) int {
+	depth := make([]int, len(src)+1)
+	Walk(doc, func(n *Node) bool {
+		if n.Type.IsBlock() && n.Type != Document && n.Start < n.End {
+			depth[n.Start]++
+			depth[n.End]--
+		}
+		return true
+	})
+	in := 0
+	for i := 0; i < len(src); i++ {
+		in += depth[i]
+		if in == 0 && !strings.ContainsRune(" \t\r\n>", rune(src[i])) {
+			start := bytes.LastIndexByte(src[:i], '\n') + 1
+			end := start + bytes.IndexByte(append(src[start:len(src):len(src)], '\n'), '\n')
+			if !isUnderline(src[start:end]) {
+				return i
+			}
+			for ; i+1 < end; i++ {
+				in += depth[i+1]
+			}
+		}
+	}
+	return -1
 }
 
 // startProblem says how n does not start at the first byte of its construct.

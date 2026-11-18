@@ -100,8 +100,8 @@ func (b *builder) piece(n ast.Node, cur *int) []*Node {
 		if b.src[o.Start] == '!' {
 			o.Start++
 		}
-		o.End = b.closingBracket(o.Start+2) + 1
-		o.LabelSpan = Span{o.Start + 2, o.End - 1}
+		o.LabelSpan = multiSpan(v.Label)
+		o.End = o.LabelSpan.End + 1
 		*cur = o.End
 		return []*Node{o}
 	}

@@ -310,3 +310,16 @@ func TestAnIndentedCodeBlockStartsAtItsContent(t *testing.T) {
 	wantSpans(t, "        foo\n    bar\n", CodeBlock, "    foo\n    bar")
 	wantSpans(t, "\t\tfoo\n", CodeBlock, "\tfoo")
 }
+
+func TestABlockEndsBeforeBlankLinesOfItsContainer(t *testing.T) {
+	wantSpans(t, "> <!-- a\n>\n", HTMLBlock, "<!-- a")
+	wantSpans(t, "> ```\n> a\n>\n", CodeBlock, "```\n> a")
+	wantSpans(t, "> ```\n>\n", CodeBlock, "```")
+	wantSpans(t, "> ```\n> a\n>\n", Blockquote, "> ```\n> a")
+	wantSpans(t, "| a |\n|---|\n", Table, "| a |\n|---|")
+}
+
+func TestADefinitionEndsAfterAnEmptyTitle(t *testing.T) {
+	wantSpans(t, "[r]: /u \"\"\n[s]:\n/v\n''\n> [t]: /w\n> ()\n\n[u]: /x\n\n\"\"\n", LinkReferenceDefinition,
+		"[r]: /u \"\"", "[s]:\n/v\n''", "[t]: /w\n> ()", "[u]: /x")
+}

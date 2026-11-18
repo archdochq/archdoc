@@ -2,6 +2,7 @@ package markdown
 
 import (
 	"bytes"
+	"slices"
 	"sort"
 	"strings"
 
@@ -22,10 +23,31 @@ var gm = parser.New(parser.WithExtensions(
 // Parse reads body into its outline.
 func Parse(body []byte) *Node {
 	src := withLoneCarriageReturnsAsLineFeeds(body)
+	return outline(src, gm.Parse(src))
+}
+
+// outline builds the outline of src from the parser's tree of it.
+func outline(src []byte, tree ast.Node) *Node {
 	b := builder{src: src}
-	doc := b.block(gm.Parse(src))
-	b.settleFences(doc)
+	doc := b.block(tree)
+	starts := blockStarts(doc)
+	if b.settleFences(doc, starts) || b.settleTitles(starts) {
+		refitContainers(doc)
+	}
 	return doc
+}
+
+// blockStarts are the starts of every block but the document, in order.
+func blockStarts(doc *Node) []int {
+	var starts []int
+	Walk(doc, func(n *Node) bool {
+		if n.Type.IsBlock() && n.Type != Document {
+			starts = append(starts, n.Start)
+		}
+		return true
+	})
+	sort.Ints(starts)
+	return starts
 }
 
 // withLoneCarriageReturnsAsLineFeeds returns body, or a copy of it in which
@@ -51,6 +73,14 @@ type builder struct {
 	src []byte
 	// lines are the lines of the leaf block whose pieces are being built.
 	lines []Line
+	// titles are the definitions given an empty title on the line after
+	// their destination, and where each ended before it.
+	titles []untitled
+}
+
+type untitled struct {
+	n   *Node
+	end int
 }
 
 // written is a label as written, which the parser matches labels by: escapes
@@ -66,26 +96,12 @@ func (b *builder) writtenWithin(s Span) string {
 		return b.written(b.src[s.Start:s.End])
 	}
 	var out []byte
-	for _, l := range b.lines {
-		if lo, hi := max(l.Start, s.Start), min(l.End, s.End); lo < hi {
-			out = append(out, b.src[lo:hi]...)
-		}
+	i := sort.Search(len(b.lines), func(i int) bool { return b.lines[i].End > s.Start })
+	for ; i < len(b.lines) && b.lines[i].Start < s.End; i++ {
+		l := b.lines[i]
+		out = append(out, b.src[max(l.Start, s.Start):min(l.End, s.End)]...)
 	}
 	return b.written(out)
-}
-
-// closingBracket is the index of the first ] at or after i that no backslash
-// escapes, or len(src) where none is.
-func (b *builder) closingBracket(i int) int {
-	for ; i < len(b.src); i++ {
-		switch b.src[i] {
-		case '\\':
-			i++
-		case ']':
-			return i
-		}
-	}
-	return len(b.src)
 }
 
 func (b *builder) block(n ast.Node) *Node {
@@ -108,8 +124,8 @@ func (b *builder) block(n ast.Node) *Node {
 		o.End = b.markerEnd(o.Start)
 	case *east.FootnoteDefinition:
 		o.Type, o.Label, o.HasLabel = FootnoteDefinition, b.written(v.Label.Bytes(b.src)), true
-		o.End = b.closingBracket(o.Start+2) + 2
-		o.LabelSpan = Span{o.Start + 2, o.End - 2}
+		o.LabelSpan = multiSpan(v.Label)
+		o.End = o.LabelSpan.End + 2
 	case *ast.Paragraph:
 		o.Type = Paragraph
 	case *ast.Heading:
@@ -235,6 +251,9 @@ func (b *builder) blockEnd(o *Node) {
 	for _, c := range o.Children {
 		o.End = max(o.End, c.End)
 	}
+	if o.Type == Table && len(o.Children) > 0 {
+		o.End = max(o.End, b.lineEnd(b.nextLine(o.Children[0].Start)))
+	}
 }
 
 func (b *builder) codeBlock(o *Node, v *ast.CodeBlock) {
@@ -249,15 +268,12 @@ func (b *builder) codeBlock(o *Node, v *ast.CodeBlock) {
 	if !o.Fenced {
 		// Spaces past the four columns that open the block are content.
 		o.Start = segs[0].Start
-		o.End = trimRight(b.src, o.Start, segs[len(segs)-1].Stop)
+		o.End = b.contentEnd(o.Start, o.Lines, o.Start)
 		return
 	}
 	o.Info = v.Info.Value(b.src)
 	open := b.lineEnd(o.Start)
-	o.End = open
-	if len(segs) > 0 {
-		o.End = trimRight(b.src, o.Start, segs[len(segs)-1].Stop)
-	}
+	o.End = b.contentEnd(o.Start, o.Lines, open)
 	fence := b.src[o.Start]
 	n := 0
 	for o.Start+n < len(b.src) && b.src[o.Start+n] == fence {
@@ -276,16 +292,8 @@ func (b *builder) codeBlock(o *Node, v *ast.CodeBlock) {
 // settleFences reopens each fenced code block whose closing fence, as read
 // from the bytes, is a line on which another block starts: the opening fence
 // of a block after the container holding the first has closed it.
-func (b *builder) settleFences(doc *Node) {
+func (b *builder) settleFences(doc *Node, starts []int) bool {
 	reopened := false
-	var starts []int
-	Walk(doc, func(n *Node) bool {
-		if n.Type.IsBlock() && n.Type != Document {
-			starts = append(starts, n.Start)
-		}
-		return true
-	})
-	sort.Ints(starts)
 	Walk(doc, func(n *Node) bool {
 		if n.Type != CodeBlock || !n.Closed {
 			return true
@@ -293,17 +301,41 @@ func (b *builder) settleFences(doc *Node) {
 		line := bytes.LastIndexByte(b.src[:n.End], '\n') + 1
 		if i := sort.SearchInts(starts, line); i < len(starts) && starts[i] < n.End {
 			n.Closed = false
-			n.End = b.lineEnd(n.Start)
-			if len(n.Lines) > 0 {
-				n.End = max(n.End, trimRight(b.src, n.Start, n.Lines[len(n.Lines)-1].End))
-			}
+			n.End = b.contentEnd(n.Start, n.Lines, b.lineEnd(n.Start))
 			reopened = true
 		}
 		return true
 	})
-	if reopened {
-		refitContainers(doc)
+	return reopened
+}
+
+// settleTitles takes back each empty title found on the line after a
+// definition's destination where a block starts on that line, as the parser
+// then did not read it as the title.
+func (b *builder) settleTitles(starts []int) bool {
+	taken := false
+	for _, t := range b.titles {
+		line := bytes.LastIndexByte(b.src[:t.n.TitleSpan.Start], '\n') + 1
+		if i := sort.SearchInts(starts, line); i < len(starts) && starts[i] < t.n.End {
+			t.n.HasTitle, t.n.TitleSpan, t.n.End = false, Span{}, t.end
+			taken = true
+		}
 	}
+	return taken
+}
+
+// contentEnd is where a block whose content is lines ends: after the last
+// byte, from start, of its last line holding more than spaces, so not at the
+// marker of a container's line that is otherwise blank; or at orElse where
+// no line does.
+func (b *builder) contentEnd(start int, lines []Line, orElse int) int {
+	for i := len(lines) - 1; i >= 0; i-- {
+		from := max(start, lines[i].Start)
+		if e := trimRight(b.src, from, lines[i].End); e > from {
+			return e
+		}
+	}
+	return orElse
 }
 
 // refitContainers ends each container holding a child after its last child
@@ -351,7 +383,7 @@ func (b *builder) htmlBlock(o *Node, v *ast.HTMLBlock) {
 	var buf bytes.Buffer
 	_, _ = v.Value.WriteTo(&buf, b.src)
 	o.Text = withoutCarriageReturns(buf.String())
-	o.End = trimRight(b.src, o.Start, segs[len(segs)-1].Stop)
+	o.End = b.contentEnd(o.Start, o.Lines, b.lineEnd(o.Start))
 	if v.HTMLBlockKind <= ast.HTMLBlockKind5 {
 		// The parser looks for the end marker in the whole of the first
 		// line, start marker included, so <!--> closes.
@@ -384,7 +416,33 @@ func (b *builder) definition(o *Node, v *ast.LinkReferenceDefinition) {
 	if o.HasTitle {
 		o.TitleSpan = multiSpan(v.Title)
 		o.End = o.TitleSpan.End + 1
+	} else if !v.Destination.IsOwned() {
+		b.emptyTitle(o)
 	}
+}
+
+// emptyTitle finds a title written "", ” or () after a definition's
+// destination, on its line or alone on the next, which the parser keeps no
+// position for.
+func (b *builder) emptyTitle(o *Node) {
+	q := o.End
+	for q < len(b.src) && (b.src[q] == ' ' || b.src[q] == '\t') {
+		q++
+	}
+	next := q < len(b.src) && (b.src[q] == '\n' || b.src[q] == '\r')
+	if next {
+		q = b.nextLine(q)
+		for q < len(b.src) && (b.src[q] == ' ' || b.src[q] == '\t' || b.src[q] == '>') {
+			q++
+		}
+	}
+	if q+2 > len(b.src) || !slices.Contains([]string{`""`, "''", "()"}, string(b.src[q:q+2])) || b.lineEnd(q+2) != q+2 {
+		return
+	}
+	if next {
+		b.titles = append(b.titles, untitled{o, o.End})
+	}
+	o.HasTitle, o.TitleSpan, o.End = true, Span{q + 1, q + 1}, q+2
 }
 
 // pastAngle returns i, or i+1 where the byte there closes a destination
