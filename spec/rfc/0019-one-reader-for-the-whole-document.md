@@ -1,9 +1,9 @@
 ---
 id: RFC-0019
 title: One reader for the whole document
-status: proposed
+status: accepted
 created: 2026-11-13
-decided:
+decided: 2026-11-18
 depends: [ADR-0007, ADR-0009, ADR-0019, ADR-0023, ADR-0026]
 updates: [RFC-0002, RFC-0006, RFC-0007, RFC-0008, RFC-0009, RFC-0011, RFC-0012, RFC-0016]
 obsoletes: []

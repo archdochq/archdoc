@@ -1,11 +1,11 @@
 ---
 id: ADR-0026
 title: Documents are read with goldmark
-status: proposed
+status: accepted
 created: 2026-11-13
-decided:
+decided: 2026-11-18
 depends: [ADR-0005, ADR-0007, ADR-0025]
-updates: [ADR-0005]
+updates: [ADR-0005, ADR-0025]
 obsoletes: [ADR-0006]
 ---
 
