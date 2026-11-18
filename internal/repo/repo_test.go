@@ -1895,6 +1895,7 @@ func TestATermDefinitionIsOneParagraphAndNothingElse(t *testing.T) {
 		{"one paragraph", "# Widget\n\nThe definition\nover two lines.\n", 1, 0, 0, "The definition\nover two lines."},
 		{"a link reference definition passed over", "# Widget\n\nThe definition.\n\n[x]: y.md\n", 1, 0, 0, "The definition."},
 		{"a comment left open after one closed", "# Widget\n\nThe definition.\n\n<!-- a --> <!-- b\n", 1, 1, 0, "The definition."},
+		{"a bare comment marker left open after one closed", "# Widget\n\nThe definition.\n\n<!-- a --> <!--\n", 1, 1, 0, "The definition."},
 		{"the H1 alone with no line feed", "# Widget", 0, 0, 0, ""},
 		{"a subsection", "# Widget\n\nThe definition.\n## Aside\nA second paragraph.\n", 2, 1, 0, "The definition."},
 		{"a later H1", "# Widget\n\nThe definition.\n\n# Other\n\nMore.\n", 2, 1, 0, "The definition."},

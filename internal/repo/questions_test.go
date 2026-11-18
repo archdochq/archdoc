@@ -240,6 +240,7 @@ func TestAQuestionsLinesAreTheParsersLines(t *testing.T) {
 		"### Q?\r> A\n":            {"", "A"},
 		"### Q?\r\n> A\r\n> B\r\n": {"", "A\nB"},
 		"### Q?\n> A\n    > B\n":   {"", "A\n    > B"},
+		"### Q?\r\nD.\r\n> A\r\n":  {"D.", "A"},
 	} {
 		d := changelogDoc(t, "", "## Resolved questions\n"+body)
 		if got := d.QuestionProblems(false); len(got) != 0 {
@@ -253,5 +254,14 @@ func TestAQuestionsLinesAreTheParsersLines(t *testing.T) {
 	d := changelogDoc(t, "", "## Open questions\n### Q?\r### Q?\n")
 	if got := problemLines(d.QuestionProblems(false)); len(got) != 1 || !strings.Contains(got[0], "same anchor") {
 		t.Errorf("two questions on one line: reported %q, want the later one", got)
+	}
+}
+
+// TestTheDetailOfTheLastQuestionKeepsItsLastLineEnding: read to the end of
+// the body as written.
+func TestTheDetailOfTheLastQuestionKeepsItsLastLineEnding(t *testing.T) {
+	d := changelogDoc(t, "", "## Open questions\n### Q?\nDetail.\n")
+	if q := d.Questions().Open; len(q) != 1 || q[0].Detail != "Detail.\n" {
+		t.Errorf("questions %+v, want detail %q", q, "Detail.\n")
 	}
 }
