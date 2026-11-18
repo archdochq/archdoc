@@ -369,7 +369,7 @@ func isCommentBlock(n *markdown.Node) bool {
 		return true
 	}
 	last := spans[len(spans)-1]
-	open := !strings.HasSuffix(n.Text[last.Start:last.End], "-->") && last.End-last.Start > 5
+	open := !strings.HasSuffix(n.Text[last.Start:last.End], "-->")
 	return !open || !n.Closed
 }
 

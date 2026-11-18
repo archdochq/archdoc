@@ -475,7 +475,7 @@ the result can delete content it never read.
   scanner ~~takes~~ took a heading or a table row at any indentation, since it ~~does~~ did not know
   the indentation of the list item holding a line, so `    | x` after a definition's line ended the
   paragraph for links and continued it for L15, which is what CommonMark does. ~~A paragraph ends at a
-  setext underline and a table row as well, indented at most three spaces as a block start at the
+  setext underline ~~and a table row as well,~~ indented at most three spaces as a block start at the
   top level is, and at a table's header row, by the block walk's own test. The table row is struck because a
   `|` line with no delimiter row beneath it is text in GFM, and L15 reported it. A lone carriage
   return ends a line there, as it does in CommonMark and in what is published:

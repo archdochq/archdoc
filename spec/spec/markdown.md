@@ -80,3 +80,4 @@ A body is read through masked copies of its lines, each the same length as the l
 
 - Comment-masked text blanks each HTML comment in an HTML block, one left open running to the block's end. A section's emptiness is read from it.
 - Prose text blanks every byte but those of text that is prose, and holds no line of a code block or an HTML block. Text is prose where it is not in a heading, not within a link's or an image's text, not between an `<a` start tag and its `</a>` in the same paragraph or table cell, not part of an address with a scheme or beginning `www.`, from its start to the next space, and not between a `[` and the `]` closing it on its line. A code span, raw HTML and a link reference definition are not text. Suggestions are offered within prose text.
+- The walk keeps a comment-masked copy of its own, read only to say whether a block is left open when the body ends.

@@ -215,7 +215,11 @@ func (d *Document) readQuestion(qi int, open, check bool, report func(int, strin
 			}
 		}
 	}
-	if from := afterLine(d.Body, h.span.End-1); detailEnd > from {
+	switch from := afterLine(d.Body, h.span.End-1); {
+	case detailEnd >= len(d.Body):
+		// To the end of the body, its last line ending kept, as written.
+		q.Detail = strings.Join(linesOf(d.Body[from:]), "\n")
+	case detailEnd > from:
 		q.Detail = strings.Join(linesBetween(d.Body, from, lineFrom(d.Body, detailEnd)), "\n")
 	}
 	return q
