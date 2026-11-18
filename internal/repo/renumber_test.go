@@ -686,3 +686,22 @@ func TestRenumberRefusesWhileABodyIsNotRead(t *testing.T) {
 		t.Errorf("error = %v, want a refusal naming spec/long.md", err)
 	}
 }
+
+// TestRenumberRewritesOnlyTheWikiLinksNamingIt: a [[...]] naming another
+// document is left as written.
+func TestRenumberRewritesOnlyTheWikiLinksNamingIt(t *testing.T) {
+	r := repotest.New(t, map[string]string{
+		"rfc/0001-base.md": draft("RFC-0001", "Base"),
+		"spec/uses.md":     "---\ntitle: Uses\nincludes: []\n---\n\n# Uses\n\n[[RFC-0001]] and [[RFC-0002]]\n",
+	})
+	if _, _, err := repo.Renumber(r, "RFC-0001", "RFC-0009", frozenIDs()); err != nil {
+		t.Fatal(err)
+	}
+	got, err := os.ReadFile(r.File("spec/uses.md"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(got), "[[RFC-0009]] and [[RFC-0002]]") {
+		t.Errorf("uses.md is now:\n%s", got)
+	}
+}

@@ -40,8 +40,6 @@ type Suggestion struct {
 }
 
 var (
-	// repo owns the wiki-link rule; this was a third spelling of it.
-	wikiLink = repo.WikiLinkSubmatchPattern
 	// Identifiers are matched only in their canonical form. Lower case in
 	// prose is more likely a filename fragment than a reference.
 	identifier = regexp.MustCompile(`\b(?:RFC|ADR|REF)-\d{4}\b`)
@@ -81,45 +79,41 @@ func Resolve(ctx lint.Context) (Changes, []lint.Finding) {
 		}
 
 		var unresolved []lint.Finding
-		rewritten := rewrite(d.Body, d.BodyLine, func(line repo.ProseLine) string {
+		var splices []repo.WikiLink
+		var expansions []string
+		for _, l := range links {
 			// A heading is left exactly as written, as Suggest leaves it: L10
-			// compares the H1's raw text against the front matter, and L08, L09
-			// and the freeze gate compare an H2's against the required list, so
-			// expanding a link inside one changes what all four read. It is
-			// reported, as L16 reports it, so the author writes the heading
-			// without it; it does not hold back the rest of the document.
-			if repo.IsHeading(line.Masked) || d.InHeading(line.Number) {
-				for _, m := range wikiLink.FindAllStringSubmatch(line.Masked, -1) {
-					findings = append(findings, lint.Finding{
-						Path: d.Path, Line: line.Number, Severity: lint.Error, Rule: "link",
-						Message: fmt.Sprintf("[[%s]] is in a heading and is not rewritten: write the heading without it", m[1]),
-					})
-				}
-				return line.Raw
+			// compares the H1's raw text against the front matter, and L08,
+			// L09 and the freeze gate compare an H2's against the required
+			// list, so expanding a link inside one changes what all four read.
+			// It is reported, as L16 reports it, so the author writes the
+			// heading without it; it does not hold back the rest of the
+			// document.
+			if l.Heading {
+				findings = append(findings, lint.Finding{
+					Path: d.Path, Line: l.Line, Severity: lint.Error, Rule: "link",
+					Message: fmt.Sprintf("[[%s]] is in a heading and is not rewritten: write the heading without it", l.Name),
+				})
+				continue
 			}
-
-			// Matches are found in the masked line, so a [[X]] inside a code
-			// span is never seen, and spliced into the raw line by offset, so
-			// the code span is never disturbed.
-			var b strings.Builder
-			last := 0
-			for _, m := range wikiLink.FindAllStringSubmatchIndex(line.Masked, -1) {
-				name := line.Raw[m[2]:m[3]]
-				found, ok := resolve(ctx.Repo(), d, name)
-				if !ok {
-					unresolved = append(unresolved, lint.Finding{
-						Path: d.Path, Line: line.Number, Severity: lint.Error, Rule: "link",
-						Message: fmt.Sprintf("[[%s]] matches no identifier and no glossary term", name),
-					})
-					continue
-				}
-				b.WriteString(line.Raw[last:m[0]])
-				b.WriteString(found.expansion)
-				last = m[1]
+			found, ok := resolve(ctx.Repo(), d, l.Name)
+			if !ok {
+				unresolved = append(unresolved, lint.Finding{
+					Path: d.Path, Line: l.Line, Severity: lint.Error, Rule: "link",
+					Message: fmt.Sprintf("[[%s]] matches no identifier and no glossary term", l.Name),
+				})
+				continue
 			}
-			b.WriteString(line.Raw[last:])
-			return b.String()
-		})
+			splices, expansions = append(splices, l), append(expansions, found.expansion)
+		}
+		lines := strings.Split(d.Body, "\n")
+		// Right to left, so a splice leaves the columns of the links before
+		// it on its line where they were.
+		for i := len(splices) - 1; i >= 0; i-- {
+			l, line := splices[i], lines[splices[i].Line-d.BodyLine]
+			lines[l.Line-d.BodyLine] = line[:l.Start] + expansions[i] + line[l.End:]
+		}
+		rewritten := strings.Join(lines, "\n")
 		if len(unresolved) > 0 {
 			findings = append(findings, unresolved...)
 			continue
@@ -151,23 +145,11 @@ func Suggest(r *repo.Repo) []Suggestion {
 		// every run.
 		first := linked(r, d)
 
+		// Only prose is matched: a heading names its section, and a
+		// suggestion inside a link, an address or brackets would nest one
+		// link in another or break what is there.
 		for line := range d.Prose() {
-			// Headings are excluded, as is anything already inside a link: a
-			// suggestion over a link would nest one inside another.
-			//
-			// Every heading, not just the H1. A section's identity is its raw
-			// heading text, compared with == by L08, L09, L14 and the freeze
-			// gate, and anchor() is the only place that renders it first. So
-			// wrapping an H2 in a link left the anchor resolving and deleted
-			// the section from every rule at once: a repository that linted
-			// clean reported a missing required section, and a proposed RFC
-			// with an open question was accepted because "Open questions" was
-			// no longer that.
-			if repo.IsHeading(line.Masked) || d.InHeading(line.Number) {
-				continue
-			}
-			masked := maskLinks(line.Masked)
-
+			masked := line.Masked
 			for _, m := range matches(patterns, masked) {
 				text := line.Raw[m.start:m.end]
 				found, ok := resolve(r, d, text)
@@ -238,66 +220,6 @@ func (p position) set() bool { return p.line != 0 }
 func (p position) before(line, col int) bool {
 	return p.set() && (p.line < line || p.line == line && p.col < col)
 }
-
-// maskLinks blanks every span a suggestion must not be offered inside, keeping
-// their length so offsets still line up with the raw line. Wiki links are
-// masked too: wrapping text inside [[...]] leaves markup that no longer matches
-// the wiki-link pattern, so the unresolved link it was reporting disappears.
-func maskLinks(line string) string {
-	blank := func(m string) string { return strings.Repeat(" ", len(m)) }
-	for _, pattern := range []*regexp.Regexp{
-		// referenceDefinition first: it needs the destination still there to
-		// match at all, and bareURL blanks exactly that. Ordered the other way
-		// the definition's label stayed exposed, a term standing in it was
-		// offered, and --apply spliced an inline link into the label, which
-		// degrades every [text][label] in the repository to plain text with
-		// lint blind to it.
-		referenceDefinition,
-		repo.WikiLinkPattern, repo.MarkdownLinkPattern, repo.ReferenceLinkPattern,
-		bracketed, bareURL, wwwURL, autolink,
-	} {
-		line = pattern.ReplaceAllStringFunc(line, blank)
-	}
-
-	// Raw HTML, and a bracket still unmatched after all that. Both mean the line
-	// holds something a per-line masker cannot see the extent of: an HTML block,
-	// whose contents markdown does not re-parse, or a link whose label wraps
-	// onto another line. The whole line is withheld rather than guessed at, on
-	// the trade this function already makes: over-masking costs one missed
-	// suggestion, and getting it wrong writes markdown source into the middle of
-	// an attribute, or a link inside a link, with nothing afterwards able to see
-	// either.
-	//
-	// A blank line ends an HTML block, so prose between two of them carries no
-	// tag and is still offered.
-	if htmlTag.MatchString(line) || strings.Count(line, "[") != strings.Count(line, "]") {
-		return strings.Repeat(" ", len(line))
-	}
-	return line
-}
-
-// htmlTag is an opening, closing or self-closing raw HTML tag.
-var htmlTag = regexp.MustCompile(`</?[A-Za-z][A-Za-z0-9-]*(?:\s[^>]*)?/?>`)
-
-// A URL is not prose, and neither is the target of a link reference
-// definition. Splicing a suggestion into the middle of one destroys it
-// silently: lint parses only markdown links, so a mangled bare URL is not a
-// link to any rule, and the relative link spliced into it is itself valid.
-var (
-	bareURL  = regexp.MustCompile(`(?i)\b[a-z][a-z0-9+.\-]*://\S+`)
-	autolink = regexp.MustCompile(`<[a-zA-Z][a-zA-Z0-9+.\-]*:[^>\s]*>`)
-	// GitHub links a URL beginning www. with no scheme, so it is not prose
-	// either.
-	wwwURL = regexp.MustCompile(`(?i)\bwww\.\S+`)
-	// The whole line, title included: a parenthesised title after the
-	// destination was left exposed and a term standing in it was rewritten,
-	// which destroys the definition.
-	referenceDefinition = regexp.MustCompile(`^[ \t]*\[[^\]]*\]:.*$`)
-	// Any bracketed span, which covers a shortcut reference link ([Label]
-	// resolved against a definition elsewhere) as well as the label half of
-	// every other form. Nothing inside brackets is prose worth suggesting over.
-	bracketed = regexp.MustCompile(`!?\[[^\]\n]*\]`)
-)
 
 // Apply rewrites one document's source with the suggestions accepted for it.
 // A suggestion for another path, or one whose line has changed since it was
@@ -586,17 +508,6 @@ func open(d *repo.Document) bool {
 		return !d.FrontMatter.Status.Terminal()
 	}
 	return true
-}
-
-// rewrite maps every prose line of a body through f, leaving fenced blocks
-// exactly as they are.
-func rewrite(body string, bodyLine int, f func(repo.ProseLine) string) string {
-	// Split once and rewrite in place: nothing else aliases this slice.
-	rewritten := strings.Split(body, "\n")
-	for line := range repo.Prose(body, bodyLine) {
-		rewritten[line.Number-bodyLine] = f(line)
-	}
-	return strings.Join(rewritten, "\n")
 }
 
 // replaceBody puts a rewritten body back with its front matter.

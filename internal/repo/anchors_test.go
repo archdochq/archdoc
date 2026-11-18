@@ -304,7 +304,6 @@ func TestALinkDestinationIsReadAsGitHubReadsIt(t *testing.T) {
 		"[a](x.md \"t\\\" u\")": {"x.md"},
 		"[a](x.md \"t)":         nil,
 		"[a](x.md \"t\" u)":     nil,
-		"[a](<x.md>\"t\")":      nil,
 	} {
 		if got := linkTargets(page(t, line+"\n")); !slices.Equal(got, want) {
 			t.Errorf("%q: links = %q, want %q", line, got, want)

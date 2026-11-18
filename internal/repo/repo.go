@@ -3,6 +3,7 @@
 package repo
 
 import (
+	"archdoc.dev/internal/markdown"
 	"errors"
 	"fmt"
 	"io/fs"
@@ -148,6 +149,10 @@ type Document struct {
 	// anchors the anchor of every heading, in the order GitHub assigns them.
 	headings []Heading
 	anchors  []string
+	// outline is the body as goldmark reads it, nil where it is not read.
+	outline *markdown.Node
+	// commentMasked is the body's comment-masked text, made on first use.
+	commentMasked []string
 	// unread records that the body is longer than MaxBody, so nothing reads
 	// it.
 	unread bool

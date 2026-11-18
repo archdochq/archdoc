@@ -349,24 +349,18 @@ func rewriteReferences(d *Document, rn rename) (rewritten []byte, touched bool, 
 	}
 
 	// The body: wiki links naming the identifier, and links that resolve to
-	// the file being renamed, both read from the masked view so that code and
+	// the file being renamed, both read from the outline so that code and
 	// comments are left alone. A bare mention in prose is left alone too,
 	// because rewriting a sentence is not this command's business.
 	var edits []lineEdit
-	wiki := "[[" + rn.from + "]]"
-	for line := range d.Prose() {
-		for at := 0; ; {
-			i := strings.Index(line.Masked[at:], wiki)
-			if i < 0 {
-				break
-			}
-			at += i
-			if rn.shared {
-				leftAt = append(leftAt, line.Number-1)
-			} else {
-				edits = append(edits, lineEdit{line.Number - 1, at, at + len(wiki), "[[" + rn.to + "]]"})
-			}
-			at += len(wiki)
+	for _, w := range d.WikiLinks() {
+		if w.Name != rn.from {
+			continue
+		}
+		if rn.shared {
+			leftAt = append(leftAt, w.Line-1)
+		} else {
+			edits = append(edits, lineEdit{w.Line - 1, w.Start, w.End, "[[" + rn.to + "]]"})
 		}
 	}
 	for _, l := range d.Links() {

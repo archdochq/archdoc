@@ -834,3 +834,35 @@ func TestASetextHeadingIsLeftAsWritten(t *testing.T) {
 		t.Errorf("wiki links = %+v, want one marked as in a heading", links)
 	}
 }
+
+// TestALineHoldingRawHTMLOrAnUnmatchedBracketIsOfferedOutsideThem: only the
+// bytes outside prose are withheld, not the whole line.
+func TestALineHoldingRawHTMLOrAnUnmatchedBracketIsOfferedOutsideThem(t *testing.T) {
+	r := repotest.New(t, map[string]string{
+		"rfc/0001-a.md": "---\nid: RFC-0001\ntitle: Alpha\nstatus: draft\n---\n\n# RFC-0001: Alpha\n",
+		"spec/b.md":     "---\ntitle: B\nincludes: []\n---\n\n# B\n\nSee <b>this</b> and RFC-0001.\n",
+		"spec/c.md":     "---\ntitle: C\nincludes: []\n---\n\n# C\n\nA [ left open, then RFC-0001.\n",
+		"spec/d.md":     "---\ntitle: D\nincludes: []\n---\n\n# D\n\n<a href=\"x\">RFC-0001</a> and [RFC-0001] and `RFC-0001`.\n",
+	})
+	got := map[string]bool{}
+	for _, s := range link.Suggest(r) {
+		got[s.Path] = true
+	}
+	if !got["spec/b.md"] || !got["spec/c.md"] || got["spec/d.md"] {
+		t.Errorf("suggested in %v, want spec/b.md and spec/c.md and not spec/d.md", got)
+	}
+}
+
+// TestResolveExpandsEveryLinkOnALine: each splice leaves the columns of the
+// links before it where they were.
+func TestResolveExpandsEveryLinkOnALine(t *testing.T) {
+	r := repotest.New(t, map[string]string{
+		"rfc/0001-a.md": "---\nid: RFC-0001\ntitle: Alpha\nstatus: draft\n---\n\n# RFC-0001: Alpha\n",
+		"spec/b.md":     "---\ntitle: B\nincludes: []\n---\n\n# B\n\nSee [[RFC-0001]] and [[RFC-0001]] here.\n",
+	})
+	changes, _ := link.Resolve(lint.NewContext(r, nil, now))
+	want := "See [RFC-0001: Alpha](../rfc/0001-a.md) and [RFC-0001: Alpha](../rfc/0001-a.md) here."
+	if got := string(changes["spec/b.md"]); !strings.Contains(got, want) {
+		t.Errorf("rewritten:\n%s\nwant a line %q", got, want)
+	}
+}
