@@ -1,6 +1,6 @@
 ---
 title: Architecture
-includes: [ADR-0005, ADR-0011, RFC-0008, RFC-0009, RFC-0014, RFC-0015, RFC-0016]
+includes: [ADR-0005, ADR-0011, ADR-0025, ADR-0026, RFC-0008, RFC-0009, RFC-0014, RFC-0015, RFC-0016, RFC-0019]
 ---
 
 # Architecture

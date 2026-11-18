@@ -1,6 +1,6 @@
 ---
 title: Lifecycle
-includes: [ADR-0001, RFC-0008, RFC-0009, RFC-0015]
+includes: [ADR-0001, RFC-0008, RFC-0009, RFC-0015, RFC-0019]
 ---
 
 # Lifecycle

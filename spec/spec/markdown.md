@@ -1,6 +1,6 @@
 ---
 title: Markdown
-includes: [ADR-0006, ADR-0007, RFC-0008, RFC-0009, RFC-0011]
+includes: [ADR-0007, ADR-0026, RFC-0008, RFC-0009, RFC-0011, RFC-0019]
 ---
 
 # Markdown

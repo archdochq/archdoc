@@ -1,9 +1,9 @@
 ---
 id: ADR-0025
 title: The dependency list adds pflag and x/text
-status: proposed
+status: accepted
 created: 2026-11-03
-decided:
+decided: 2026-11-18
 depends: [ADR-0005]
 updates: [ADR-0005, ADR-0006]
 obsoletes: []
