@@ -479,3 +479,38 @@ func TestRenameRetitlesASetextH1(t *testing.T) {
 		t.Errorf("the H1 was not retitled:\n%s", source)
 	}
 }
+
+// TestRenameRetitlesTheH1HoweverItIsWritten: the H1 is retitled at the
+// content the outline gives, so a closing sequence, extra spaces after the
+// marker and an indented marker are kept as written.
+func TestRenameRetitlesTheH1HoweverItIsWritten(t *testing.T) {
+	for h1, want := range map[string]string{
+		"# Widget #":  "# Gadget #",
+		"#  Widget":   "#  Gadget",
+		" # Widget":   " # Gadget",
+		"# Widget":    "# Gadget",
+		"Widget\n===": "Gadget\n===",
+	} {
+		r := repotest.New(t, map[string]string{
+			"term/widget.md": "---\ntitle: Widget # Widget\nformerly: []\nnamed_by:\n---\n\n" + h1 + "\n\nA small thing.\n",
+		})
+		_, _, source, err := glossary.Rename(r, "Widget", "Gadget")
+		if err != nil {
+			t.Errorf("%q: Rename: %v", h1, err)
+			continue
+		}
+		if !strings.Contains(string(source), "\n"+want+"\n") {
+			t.Errorf("%q: the H1 was not retitled in place:\n%s", h1, source)
+		}
+	}
+}
+
+// TestRenameRefusesAnH1HoldingAComment: retitling would drop the comment.
+func TestRenameRefusesAnH1HoldingAComment(t *testing.T) {
+	r := repotest.New(t, map[string]string{
+		"term/widget.md": "---\ntitle: Widget\nformerly: []\nnamed_by:\n---\n\n# Widget <!-- note -->\n\nA small thing.\n",
+	})
+	if _, _, _, err := glossary.Rename(r, "Widget", "Gadget"); err == nil || !strings.Contains(err.Error(), "comment") {
+		t.Errorf("Rename: error = %v, want a refusal naming the comment", err)
+	}
+}

@@ -392,3 +392,12 @@ func TestAHeadingAfterALoneCarriageReturnSharesItsLine(t *testing.T) {
 		}
 	}
 }
+
+// TestATermsH1IsTheDocumentsH1: the first top-level heading, where it is of
+// level one, so a term whose first heading is an H2 has none.
+func TestATermsH1IsTheDocumentsH1(t *testing.T) {
+	d, _ := repo.Parse("term/widget.md", []byte("---\ntitle: Widget\nformerly: []\nnamed_by:\n---\n\n## Aside\n\nx\n\n# Widget\n\nA thing.\n"))
+	if e := d.TermEntry(); e.Line != 0 || e.Definition != "" {
+		t.Errorf("entry = %+v, want no H1 and so no definition", e)
+	}
+}

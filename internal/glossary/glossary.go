@@ -8,7 +8,6 @@ import (
 	"bytes"
 	"fmt"
 	"path"
-	"regexp"
 	"slices"
 	"strings"
 	"unicode/utf8"
@@ -97,7 +96,20 @@ func Rename(r *repo.Repo, from, to string) (oldPath, newPath string, source []by
 	if d == nil {
 		return "", "", nil, fmt.Errorf("%s is missing", entry.Path)
 	}
-	out, err := repo.SetField(d.Source, "title", d.FrontMatter.LineOf("title"), scalar(to))
+	// The H1 carries the term too, and L10 holds it to the title. It is
+	// retitled first, at the content the outline gives, as the front matter
+	// edits below change no offset in the body but would move the H1's.
+	start, end, ok := d.H1Content()
+	if !ok {
+		return "", "", nil, fmt.Errorf("%s has no H1 to retitle", entry.Path)
+	}
+	// A comment in the H1 is the author's, and retitling the content would
+	// drop it.
+	if strings.Contains(string(d.Source[start:end]), "<!--") {
+		return "", "", nil, fmt.Errorf("%s holds a comment in its H1; retitle it by hand", entry.Path)
+	}
+	out := append(append(append([]byte{}, d.Source[:start]...), to...), d.Source[end:]...)
+	out, err = repo.SetField(out, "title", d.FrontMatter.LineOf("title"), scalar(to))
 	if err != nil {
 		return "", "", nil, err
 	}
@@ -113,8 +125,6 @@ func Rename(r *repo.Repo, from, to string) (oldPath, newPath string, source []by
 	if err != nil {
 		return "", "", nil, err
 	}
-	// The H1 carries the term too, and L10 holds it to the title.
-	out = retitleHeading(out, entry.Term, to)
 	newPath = PathOf(to)
 	if _, err := readBack(newPath, out, to); err != nil {
 		return "", "", nil, err
@@ -148,11 +158,8 @@ func readBack(docPath string, source []byte, term string) (repo.GlossaryEntry, e
 	d, _ := repo.Parse(docPath, source)
 	entry := d.TermEntry()
 	heading := ""
-	for _, h := range d.Headings() {
-		if h.Level == 1 {
-			heading = h.Text
-			break
-		}
+	if h, ok := d.H1(); ok {
+		heading = h.Text
 	}
 	if len(d.Problems) > 0 || entry.Term != term || heading != term {
 		return entry, fmt.Errorf("%q would not read back as written; choose another name", term)
@@ -268,34 +275,6 @@ func marshal(n *yaml.Node) string {
 	}
 	return strings.TrimRight(string(out), "\n")
 }
-
-// retitleHeading replaces the H1 that carries the term, written `# <term>` or
-// as `<term>` over a line of `=`. Only the first is touched: the definition
-// below it is the author's.
-func retitleHeading(source []byte, from, to string) []byte {
-	lines := bytes.Split(source, []byte("\n"))
-	for i, line := range lines {
-		text, cr := bytes.CutSuffix(line, []byte("\r"))
-		var title string
-		switch {
-		case bytes.Equal(text, []byte("# "+from)):
-			title = "# " + to
-		case bytes.Equal(text, []byte(from)) && i+1 < len(lines) && setextH1.Match(lines[i+1]):
-			title = to
-		default:
-			continue
-		}
-		lines[i] = []byte(title)
-		if cr {
-			lines[i] = append(lines[i], '\r')
-		}
-		break
-	}
-	return bytes.Join(lines, []byte("\n"))
-}
-
-// setextH1 is a level one setext underline.
-var setextH1 = regexp.MustCompile(`^ {0,3}=+[ \t]*\r?$`)
 
 // count is n and noun, with an s where n is not 1.
 func count(n int, noun string) string {

@@ -76,18 +76,17 @@ func (d *Document) TermEntry() GlossaryEntry {
 		Formerly: d.FrontMatter.Formerly,
 	}
 	e.Anchor = Anchor(e.Term)
-	for _, h := range d.headings {
-		if h.Level == 1 {
-			e.Line = h.Line
-			e.Paragraphs, e.Other = d.entryBlocks(h.span.End)
-			e.Definition = d.definition(afterLine(d.Body, h.span.End-1))
-			for _, b := range d.blocksBetween(0, h.span.Start) {
-				if !isCommentBlock(b) {
-					e.Above = d.BodyLine + d.lineAt(b.Start)
-					break
-				}
+	// The H1 is the document's: its first top-level heading, where that is
+	// of level one.
+	if h, ok := d.H1(); ok {
+		e.Line = h.Line
+		e.Paragraphs, e.Other = d.entryBlocks(h.span.End)
+		e.Definition = d.definition(afterLine(d.Body, h.span.End-1))
+		for _, b := range d.blocksBetween(0, h.span.Start) {
+			if !isCommentBlock(b) {
+				e.Above = d.BodyLine + d.lineAt(b.Start)
+				break
 			}
-			break
 		}
 	}
 	return e
