@@ -161,16 +161,7 @@ type Document struct {
 	// unread records that the body is longer than MaxBody, so nothing reads
 	// it.
 	unread bool
-	// masked is bodyLines with comments blanked, walked once per document.
-	masked []string
-	// literal marks the lines of masked inside a code block or an HTML
-	// block, and quoted those a blockquote holds, from the same walk.
-	literal []block
-	quoted  []bool
-	// unclosed records that the body ends inside a comment or a block only a
-	// marker closes.
-	unclosed bool
-	repo     *Repo
+	repo   *Repo
 
 	// lines is derived from an immutable document, so it is computed once on
 	// first use. bodyLines was re-splitting the whole body on every section

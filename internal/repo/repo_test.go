@@ -838,7 +838,7 @@ func TestAHeadingIsNotItsTrailingComment(t *testing.T) {
 }
 
 // wikiNames is the wiki links of a one-document repository with the given body,
-// which is how these tests ask what the walk considered prose.
+// which is how these tests ask what is read as text.
 func wikiNames(t *testing.T, body string) []string {
 	t.Helper()
 	d := repotest.New(t, map[string]string{
@@ -1902,7 +1902,7 @@ func TestATermDefinitionIsOneParagraphAndNothingElse(t *testing.T) {
 		{"a bullet", "# Widget\n\nThe definition.\n- a list\n", 1, 1, 0, "The definition."},
 		{"an item numbered 1", "# Widget\n\nThe definition.\n1. first\n", 1, 1, 0, "The definition."},
 		{"a number continuing a sentence", "# Widget\n\nIn use from\n2025. onwards.\n", 1, 0, 0, "In use from\n2025. onwards."},
-		// An item interrupts a paragraph as the block walk has it: not empty,
+		// An item interrupts a paragraph as CommonMark has it: not empty,
 		// and numbered from 1 however many zeros lead the number.
 		{"an empty bullet", "# Widget\n\nDef.\n* \n", 1, 0, 0, "Def.\n*"},
 		{"a bullet alone", "# Widget\n\nDef.\n+\n", 1, 0, 0, "Def.\n+"},
