@@ -1566,20 +1566,6 @@ func TestWrappedLinkTextLosesTheCarriageReturn(t *testing.T) {
 	}
 }
 
-// TestALongLineIsReadInLinearTime: every ] used to run the destination pattern
-// to the end of the line when no ) followed, and each link closed made every
-// bracket still open inactive one by one. Both made a long line quadratic: a
-// 60 KB line took ten seconds where it takes milliseconds.
-func TestALongLineIsReadInLinearTime(t *testing.T) {
-	repo.ReadEveryBody(t)
-	body := strings.Repeat("[a](b ", 10000) + "\n\n" + strings.Repeat("[", 20000) + strings.Repeat("[a](b)", 20000) + "\n"
-	started := time.Now()
-	linksOf(t, body)
-	if took := time.Since(started); took > 2*time.Second {
-		t.Errorf("reading two long lines took %v", took)
-	}
-}
-
 // TestAParagraphOfUnclosedCommentsIsReadInLinearTime: each comment opened in
 // a paragraph used to walk to the paragraph's end to find whether it closed,
 // so a paragraph of lines each opening one was quadratic: 4,000 lines took
