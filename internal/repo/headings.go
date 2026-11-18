@@ -281,16 +281,17 @@ func (d *Document) lineAt(at int) int { return lineIn(d.starts, at) }
 // blocksIn lists the top-level blocks starting on body lines from to to,
 // headings among them.
 func (d *Document) blocksIn(from, to int) []*markdown.Node {
-	var blocks []*markdown.Node
 	if d.outline == nil {
 		return nil
 	}
-	for _, n := range d.outline.Children {
-		if line := d.lineAt(n.Start); line >= from && line < to {
-			blocks = append(blocks, n)
-		}
+	// The blocks are in document order, so those in range are one run.
+	children := d.outline.Children
+	first := sort.Search(len(children), func(i int) bool { return d.lineAt(children[i].Start) >= from })
+	last := first
+	for last < len(children) && d.lineAt(children[last].Start) < to {
+		last++
 	}
-	return blocks
+	return children[first:last]
 }
 
 // isCommentBlock reports whether n is an HTML block holding nothing but HTML
