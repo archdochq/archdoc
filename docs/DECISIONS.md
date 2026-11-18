@@ -92,11 +92,11 @@ would have to round-trip everything it parsed.~~ Superseded by RFC-0019: a body 
 into an outline of positions in the file as written, and writers still edit the file at an offset, so
 nothing is round-tripped. Headings are read from the outline; what is not yet is read as below.
 
-- **One walk per document.** The scanner that decides what is a comment, a fence or a code span is not
+- ~~**One walk per document.** The scanner that decides what is a comment, a fence or a code span is not
   only a shared *function* but a shared *traversal*: its masked output is cached on the document, and
   section text is a slice of it. Running the same function again on a fragment starts from a clean
   state and disagrees with the walk that decided the heading was a heading, which let a section
-  containing only a comment read as full.
+  containing only a comment read as full.~~ Superseded by RFC-0019: goldmark reads the blocks, and the walk is removed.
 - **A comment is nothing, wherever it is.** `Section.Empty`, the glossary's paragraph split, ~~heading
   parsing~~ (headings are read from the outline, below) and link scanning all read the same masked text, so a comment on one line behaves like a
   comment spanning several. Comments are blanked in place rather than dropped, which keeps every byte
@@ -110,7 +110,7 @@ nothing is round-tripped. Headings are read from the outline; what is not yet is
   still a target. ~~An unterminated comment runs to
   the end of the body, as a browser reads one.~~ Superseded by the next entry: only a comment opening
   a block does.
-- **A comment is read where CommonMark reads one.** A `<!--` opening a block, ~~at most three spaces in,~~
+- ~~**A comment is read where CommonMark reads one.** A `<!--` opening a block, ~~at most three spaces in,~~
   at most three columns in, a tab running to the next multiple of four, runs until a line holds `-->`, ~~or to the end~~ or until the blockquote or list item holding it
   ends, or to the end: run on past its container, it hid everything after a quoted `<!-- note`.
   Anywhere else it is raw HTML only where a `-->` follows before the paragraph ends, and text
@@ -120,8 +120,8 @@ nothing is round-tripped. Headings are read from the outline; what is not yet is
   paragraph holding a comment continues past it, and a code span wrapped across its lines holds any
   `<!--` in it. The rule that any unterminated `<!--` ran to the end hid every heading and link after
   a sentence mentioning the marker, and a code span wrapped onto a second line did the same, while
-  GitHub showed them.
-- **A heading and a table cell hold their own comments.** A `<!--` in a heading is a comment only where
+  GitHub showed them.~~ Superseded by RFC-0019: goldmark reads the blocks, and the walk is removed.
+- ~~**A heading and a table cell hold their own comments.** A `<!--` in a heading is a comment only where
   `-->` closes it on the heading's line: a heading is one line, and read as running on, a stray marker
   hid lines GitHub renders. A row is parted into cells before anything else, as GFM
   does, and each cell's comments and code spans are read in it, so a backtick in an earlier cell opens
@@ -129,38 +129,40 @@ nothing is round-tripped. Headings are read from the outline; what is not yet is
   follows, as neither is a table's header. `<!-->` and `<!--->` are complete comments, the `-->`
   sharing the `<!--`'s dashes, in the masker and in the patterns that read a comment whole for anchors.
   `<!` opens an HTML block only before an uppercase letter, as cmark-gfm has it, so `<!x>` is text in
-  its paragraph.
+  its paragraph.~~ Superseded by RFC-0019: goldmark reads the blocks, and the walk is removed.
 - **A tab runs to the next multiple of four columns.** Counted as four wherever it fell, a tab after
-  `- ` or `> ` read the item's text as an indented code block and hid its links.
-- **Code wins over comments; whichever of a comment and a fence opens first wins over the other.** A
+  `- ` or `> ` read the item's text as an indented code block and hid its links. goldmark now reads the
+  blocks, and the rule still holds where the tool reads columns itself, removing a `Changelog` entry's
+  content indentation and an answer's `>`.
+- ~~**Code wins over comments; whichever of a comment and a fence opens first wins over the other.** A
   `<!--` inside a code span or a fenced block is literal text, which is what lets a document describe
   the placeholders the templates ship with. A fence marker inside a comment is likewise literal. Both
-  are blocks, and "whichever opens first" is the only rule needed to order them.
-- **A code span closes on a backtick run of exactly the length that opened it.** Go's `regexp` is RE2
+  are blocks, and "whichever opens first" is the only rule needed to order them.~~ Superseded by RFC-0019: goldmark reads the blocks, and the walk is removed.
+- ~~**A code span closes on a backtick run of exactly the length that opened it.** Go's `regexp` is RE2
   and has no backreferences, so "the same length" cannot be written as a pattern: it is scanned for.
   The pattern this replaced accepted any closing run, so a double-backtick span was cut short at its
-  first inner backtick and everything after it mis-parsed.
-- **A fence closes on a run at least as long as the one that opened it, carrying no info string.** An
+  first inner backtick and everything after it mis-parsed.~~ Superseded by RFC-0019: goldmark reads the blocks, and the walk is removed.
+- ~~**A fence closes on a run at least as long as the one that opened it, carrying no info string.** An
   info string is permitted on the opening fence only, so a line reading ```` ``` inside ```` within a
   ```` ```text ```` block is content. One pattern serving both ends ended the block early and let the
   real closing fence open a second one. The closing run is at most three columns past the containers
   holding it, read in columns as the opening run is: matched against a pattern of at most three
   spaces, a closing fence indented with a tab inside a blockquote or list item left the block open, so
   the links and `[[...]]` links after it in that container, and in a list item its headings, were read
-  as code.
-- **Blockquotes and list items are read only where a section gives them a meaning.** A blockquote is an
+  as code.~~ Superseded by RFC-0019: goldmark reads the blocks, and the walk is removed.
+- ~~**Blockquotes and list items are read only where a section gives them a meaning.** A blockquote is an
   answer in a question section and a list item is an entry in a `Changelog`; anywhere else each stays
   text, so nothing about a document that carries neither section changes. ~~Their markers and
-  indentation are not read anywhere else.~~ Superseded by the next entry, for the blocks they hold.
-- **Code blocks and HTML blocks are literal, inside blockquotes and list items as well.** A fence
+  indentation are not read anywhere else.~~ Superseded by the next entry, for the blocks they hold.~~ Superseded by RFC-0019: goldmark reads the blocks, and the walk is removed.
+- ~~**Code blocks and HTML blocks are literal, inside blockquotes and list items as well.** A fence
   indented under a list item, or behind `>`, was read as prose, so a `<!--` it held hid the rest of the
   document; an indented code block was prose, so `renumber` rewrote a wiki link in one and `link --suggest`
   linked text in one; and an HTML block's lines were headings and links GitHub does not show. The walk
   now follows containers by their markers and indentation, with lazy continuation, and treats indented
   code, the seven HTML block types other than a comment, and fences as literal: content, never prose.
   A backtick fence's info string cannot hold a backtick, so ```` ```go``` ```` opening a line is a code
-  span. This is still not a parser: no inline structure is built~~, and setext headings are not read~~.
-  Setext headings are read from the outline, below.
+  span. This is still not a parser: no inline structure is built, ~~and setext headings are not read~~.
+  Setext headings are read from the outline, below.~~ Superseded by RFC-0019: goldmark reads the blocks, and the walk is removed.
 - ~~**A blockquote in a question section may not hold a heading, a fence or a comment.** The walk finds
   each of those before it knows a line is quoted, ~~and does not see a fence inside a blockquote at all, so
   a comment marker inside one would hide the rest of the document~~ and an answer is read from its lines
@@ -177,11 +179,11 @@ nothing is round-tripped. Headings are read from the outline; what is not yet is
   walk, and a heading that is one only once a comment on its line is masked is reported.~~ Section
   boundaries come from the outline's top-level headings, so such a line is a paragraph, and a heading
   indented into the entry above it is part of the entry, as both render.
-- **A pattern anchored at the end of a line accepts a carriage return before it.** A body is split on
+- ~~**A pattern anchored at the end of a line accepts a carriage return before it.** A body is split on
   `\n`, so a line of a CRLF file keeps its `\r`, and a pattern ending in `[ \t]*$` read a file checked
   out by Git for Windows differently from its LF copy: link definitions went unread, so L17 never
   checked them, and a heading kept its closing hashes. The `\r` is accepted rather than stripped,
-  because it is the line's last byte and accepting it leaves every offset where it was.
+  because it is the line's last byte and accepting it leaves every offset where it was.~~ Superseded by RFC-0019: goldmark reads the blocks, and the walk is removed.
 - **Masking never moves a byte.** Every masker writes spaces in place, so a match found in the masked
   text is at the same offset in the text as written, and an edit spliced by offset lands in the right
   column. This is the invariant the whole rewriting design rests on, and it is fuzzed rather than
@@ -252,15 +254,15 @@ nothing is round-tripped. Headings are read from the outline; what is not yet is
   at a time when a link closed, so a 60 KB line took ten seconds. The pattern is not tried after a
   line's last `)`, inactivity is one bound on the stack rather than a flag on each bracket, and a
   label's length is measured only as far as the longest label can run.~~ Superseded by reading links from the outline, below.
-- **A paragraph's end is found once for the paragraph.** Each comment opened inside a paragraph walked
+- ~~**A paragraph's end is found once for the paragraph.** Each comment opened inside a paragraph walked
   to the paragraph's end to learn whether it closed, and each code span left open before such a comment
   walked there again, so a paragraph of lines each opening a comment was quadratic in its length.
   `scanBody` finds the end once and every line before it reuses it; a line at or past it is in another
-  paragraph~~, and a line leaving no paragraph open discards it, since a comment in a heading asks for
+  paragraph, ~~and a line leaving no paragraph open discards it, since a comment in a heading asks for
   the end of a paragraph that is not there~~. A comment in a heading no longer asks: it closes on its
   line or is text. The first line from each line on holding a `-->` is found once for the body, so asking
-  whether a comment closes does not reread the lines of its paragraph.
-- **A line's markers share one reading of the line.** Each `<!--` on a line asked whether the rest of
+  whether a comment closes does not reread the lines of its paragraph.~~ Superseded by RFC-0019: goldmark reads the blocks, and the walk is removed.
+- ~~**A line's markers share one reading of the line.** Each `<!--` on a line asked whether the rest of
   the line closed it, where the next code span began and which spans before it were left open, each
   read from the line's start or to its end, so a line of 40,000 markers took twenty seconds, and three
   minutes in a heading, whose anchor ran a pattern to the end of the text for each marker to find no
@@ -268,7 +270,7 @@ nothing is round-tripped. Headings are read from the outline; what is not yet is
   found once; the next marker and the next span are positions kept until passed. The first span left
   open on the line is found for the first marker to ask, after `closes` has answered, and not sooner:
   `ends` reads the walk's state when it is first asked and the answer is kept for later lines, so
-  asking it on a line that never asked before would move where a paragraph ends.
+  asking it on a line that never asked before would move where a paragraph ends.~~ Superseded by RFC-0019: goldmark reads the blocks, and the walk is removed.
 - ~~**A heading's brackets are matched once for the heading.** Each `[` in a heading walked towards the
   end of the text for its `]`, so a heading of 40,000 left open took three seconds; and each link
   closed marked every bracket still open inactive one at a time, and each character asked the whole

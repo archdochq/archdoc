@@ -34,7 +34,7 @@ archdoc/
 
 `cmd/archdoc` is the only package that imports cobra. No package under `internal/` prints, prompts, or calls `os.Exit`; each is usable without a terminal. Every command takes its writer from cobra.
 
-`internal/repo` opens a repository without failing on a malformed document: faults are recorded on the document as problems carrying a line and a message, and `lint` decides their severity. A document's headings, the sections they bound, every anchor, its links, references and `[[...]]` links, its prose text and the comment-masked text a section's emptiness reads are taken from the body's outline. Questions, `Changelog` entries and a term's definition are read from the outline's top-level blocks, and one walk of the body's lines says whether a block is left open when the body ends. A body longer than 131,072 bytes is read by neither. A `Changelog`'s entries and a resolved question's answer are taken from the lines as written, within sections the outline's headings bound.
+`internal/repo` opens a repository without failing on a malformed document: faults are recorded on the document as problems carrying a line and a message, and `lint` decides their severity. A document's headings, the sections they bound, every anchor, its links, references and `[[...]]` links, its prose text and the comment-masked text a section's emptiness reads are taken from the body's outline. Questions, `Changelog` entries and a term's definition are read from the outline's top-level blocks, and whether a block is left open when the body ends from its last blocks. A body longer than 131,072 bytes is read by neither. A `Changelog`'s entries and a resolved question's answer are taken from the lines as written, within sections the outline's headings bound.
 
 `internal/markdown` parses a body with goldmark into an outline of its blocks and inline pieces, each holding its position in the body as written, and is the only package that imports goldmark. `internal/repo` reads it for headings, links, `[[...]]` links, anchors, prose text, comment-masked text, questions, `Changelog` entries and term definitions. Its tests compare the outline with cmark-gfm's parse of the cases under `testdata/commonmark`.
 
@@ -57,4 +57,4 @@ archdoc/
 - `github.com/yuin/goldmark/v2`, which `internal/markdown` imports to parse a body
 - `github.com/goreleaser/goreleaser`, at build time only
 
-Nothing else. `internal/repo` reads what the outline does not give it with the standard library.
+Nothing else. `internal/repo` reads every Markdown construct from the outline.

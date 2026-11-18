@@ -607,3 +607,28 @@ func TestAnHTMLBlockAtTheEndIsClosed(t *testing.T) {
 		t.Error("the body reads as unclosed")
 	}
 }
+
+// TestABlockLeftOpenIsOneOnlyItsMarkerCloses: a top-level fence, comment
+// block or raw HTML block running to the end of the body is left open; a
+// block a blank line closes, or one inside a container, which a heading
+// written after it ends, is not.
+func TestABlockLeftOpenIsOneOnlyItsMarkerCloses(t *testing.T) {
+	for body, want := range map[string]bool{
+		"```\ncode\n":               true,
+		"<!-- note\n\nmore\n":       true,
+		"<pre>\ntext\n":             true,
+		"<pre\ntext\n":              true,
+		"<pre\r\ntext\r\n":          true,
+		"> ```\n> code\n":           false,
+		"- ```\n  code\n":           false,
+		"<?php\n":                   true,
+		"<div>\ntext\n":             false,
+		"- ```\n  code\n\nAfter.\n": false,
+		"```\ncode\n```\n":          false,
+		"Text <!-- not a block\n":   false,
+	} {
+		if got := page(t, body).Unclosed(); got != want {
+			t.Errorf("%q: Unclosed() = %v, want %v", body, got, want)
+		}
+	}
+}
