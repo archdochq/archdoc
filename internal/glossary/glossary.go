@@ -103,6 +103,11 @@ func Rename(r *repo.Repo, from, to string) (oldPath, newPath string, source []by
 	if !ok {
 		return "", "", nil, fmt.Errorf("%s has no H1 to retitle", entry.Path)
 	}
+	// A comment in the H1 is the author's, and retitling the content would
+	// drop it.
+	if strings.Contains(string(d.Source[start:end]), "<!--") {
+		return "", "", nil, fmt.Errorf("%s holds a comment in its H1; retitle it by hand", entry.Path)
+	}
 	out := append(append(append([]byte{}, d.Source[:start]...), to...), d.Source[end:]...)
 	out, err = repo.SetField(out, "title", d.FrontMatter.LineOf("title"), scalar(to))
 	if err != nil {

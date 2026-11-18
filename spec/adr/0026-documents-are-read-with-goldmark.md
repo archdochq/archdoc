@@ -68,7 +68,7 @@ The shapes timed were 22: 16 from the pathological tests of CommonMark and cmark
 
 The last three take goldmark v2 time growing faster than their length: at 16 times the length, nested list items and backtick runs take 57 and 55 times as long, and definitions alone, without the references, take 15 times as long at 4.4 times the length. Each of the other 19 takes goldmark v2 about three to five times as long at four times the length.
 
-Two more shapes, found while the reader was built, take goldmark v2.1.16 time growing faster than their length: brackets left open before a run of links, and a bracketed text closed on each line of a paragraph, 800 KB of which takes 19.3 seconds. v1.8.7 reads the first in linear time, 9 ms at 128 KiB and 37 ms at 512 KiB, where v2.1.16 takes 148 ms and 2.26 s.
+Two more shapes, found on 2026-11-17 and 2026-11-18 in timing tests of the outline of the body goldmark parses, take goldmark v2.1.16 time growing faster than their length: brackets left open before a run of links, and a bracketed text closed on each line of a paragraph, 800 KB of which takes 19.3 seconds. v1.8.7 reads the first in linear time, 9 ms at 128 KiB and 37 ms at 512 KiB, where v2.1.16 takes 148 ms and 2.26 s.
 
 ## Decision
 

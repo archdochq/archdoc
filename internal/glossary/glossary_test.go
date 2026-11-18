@@ -504,3 +504,13 @@ func TestRenameRetitlesTheH1HoweverItIsWritten(t *testing.T) {
 		}
 	}
 }
+
+// TestRenameRefusesAnH1HoldingAComment: retitling would drop the comment.
+func TestRenameRefusesAnH1HoldingAComment(t *testing.T) {
+	r := repotest.New(t, map[string]string{
+		"term/widget.md": "---\ntitle: Widget\nformerly: []\nnamed_by:\n---\n\n# Widget <!-- note -->\n\nA small thing.\n",
+	})
+	if _, _, _, err := glossary.Rename(r, "Widget", "Gadget"); err == nil || !strings.Contains(err.Error(), "comment") {
+		t.Errorf("Rename: error = %v, want a refusal naming the comment", err)
+	}
+}
