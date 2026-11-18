@@ -145,7 +145,7 @@ Every reading of a body takes this one outline. No reader reads the body's bytes
 
 A `[[...]]` link is read from the bytes of the file that text spans, as written: `[[`, a name holding no `[` or `]`, and `]]`, on one line, all within text that is outside the text of a link or an image. An escaped bracket is not text as written, so `\[[a]]` is no `[[...]]` link. Where the document defines the label inside, as in `[[RFC-0007]]` beside `[RFC-0007]: path`, the parser reads a link within brackets, and there is no `[[...]]` link. A `[[...]]` link in a heading is read, and L16 reports it, as now.
 
-Text is prose where it is not in a heading, not within the text of a link or an image, not between an `<a` start tag and its `</a>` in the same leaf block, not part of an address with a scheme, from the scheme to the next space or line ending, and not between a `[` and a `]` on its line. `link --suggest` and `link --apply` offer and apply a suggestion only where its whole match lies within prose. A line holding raw HTML or a bracket left unmatched is no longer withheld as a whole: only the bytes outside prose are.
+Text is prose where it is not in a heading, not within the text of a link or an image, not between an `<a` start tag and its `</a>` in the same leaf block, not part of an address with a scheme or beginning `www.`, from its start to the next space or line ending, and not between a `[` and a `]` on its line. `link --suggest` and `link --apply` offer and apply a suggestion only where its whole match lies within prose. A line holding raw HTML or a bracket left unmatched is no longer withheld as a whole: only the bytes outside prose are.
 
 ### Questions
 
@@ -325,3 +325,4 @@ goldmark v2.1.16 reads three of the shapes [ADR-0026](../adr/0026-documents-are-
 - 2026-11-18: Resolve how a body goldmark reads in more than linear time is bounded: a body longer than 131,072 bytes is not read, L23, new, reports it, the rules, commands and export that read a body treat it as holding nothing, and the commands that need a body refuse it. Correct the claim that writers refuse a document holding a block left open today, which only `reject` does.
 - 2026-11-18: Add emphasis beside a currency symbol to the differences `KNOWN` begins with, and deliver in stage 2 the end of L21's reports on a heading indented or masked into opening or ending its section.
 - 2026-11-18: Make masked text in stage 4 with the readers that read it, rather than in stage 3.
+- 2026-11-18: Count an address beginning `www.` with one carrying a scheme as not prose, as goldmark leaves some that cmark-gfm finds unlinked.

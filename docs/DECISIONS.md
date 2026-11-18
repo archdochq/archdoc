@@ -345,9 +345,10 @@ nothing is round-tripped. Headings are read from the outline; what is not yet is
   with the positions the outline gives; a `[[...]]` link is found in adjacent text pieces on one line,
   as written, so an escaped bracket or a label the document defines ends it. A suggestion is offered
   within prose text, which blanks everything that is not text outside a heading, a link, an `<a>`
-  element, an address with a scheme and a bracketed span, so a line holding raw HTML or an unmatched
-  bracket is no longer withheld whole. Questions, `Changelog` entries and term definitions, which stage
-  4 of RFC-0019 moves, still read the walk's masked lines, so section emptiness reads the outline's
+  element, an address with a scheme or beginning `www.`, which goldmark leaves unlinked in places
+  cmark-gfm links, and a bracketed span, so a line holding raw HTML or an unmatched
+  bracket is no longer withheld whole. Questions and term definitions, which stage 4 of RFC-0019 moves,
+  still read the walk's masked lines, so section emptiness reads the outline's
   comment-masked text while they do not.
 - **Spaces before a line break are the break's.** cmark-gfm's text before a soft line break, or a hard
   one made of spaces, holds no trailing spaces or tabs, where goldmark's does. The outline drops them
@@ -525,13 +526,13 @@ the result can delete content it never read.
 - **`renumber` follows links by resolving them.** It found them by searching each body line for the
   renamed file's name, so it rewrote a link to a same-named file in another directory, which an RFC and
   the ADR extracted from it commonly are, along with a mention in prose or a line of code, and a frozen
-  document holding any of these refused the rename. It now resolves the links lint reads, from the
-  masked view, against the directory of the document holding each, and rewrites a destination in place
-  by its columns, so the directory and fragment as written survive. Wiki links are read from the same
-  view. The moved document's own references are followed too, since a link to itself would otherwise
-  name a file that is gone. A link the parser does not read, such as one whose text wraps across lines
-  or holds a `]`, is not followed, where the text search caught it among everything else; renumber
-  follows what lint checks. A destination whose file name as written does not decode to the old one,
+  document holding any of these refused the rename. It now resolves the links lint reads, ~~from the
+  masked view,~~ from the outline, against the directory of the document holding each, and rewrites a
+  destination in place by its columns, so the directory and fragment as written survive. Wiki links are
+  read from the same ~~view~~ outline, at the columns it gives. The moved document's own references are
+  followed too, since a link to itself would otherwise name a file that is gone. ~~A link the parser
+  does not read, such as one whose text wraps across lines or holds a `]`, is not followed, where the
+  text search caught it among everything else;~~ renumber follows what lint checks. A destination whose file name as written does not decode to the old one,
   because an encoded `/` or `#` moves it, is refused rather than rewritten into another destination.
 - **`renumber` leaves an identifier another document still claims.** When two branches each take the same
   next number, renumbering one of the two rewrote every reference to the identifier, including those

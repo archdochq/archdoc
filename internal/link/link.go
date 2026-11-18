@@ -79,11 +79,9 @@ func Resolve(ctx lint.Context) (Changes, []lint.Finding) {
 		}
 
 		var unresolved []lint.Finding
-		lines := strings.Split(d.Body, "\n")
-		// Right to left within a line, so a splice leaves the columns of the
-		// links before it where they were.
-		for i := len(links) - 1; i >= 0; i-- {
-			l := links[i]
+		var splices []repo.WikiLink
+		var expansions []string
+		for _, l := range links {
 			// A heading is left exactly as written, as Suggest leaves it: L10
 			// compares the H1's raw text against the front matter, and L08,
 			// L09 and the freeze gate compare an H2's against the required
@@ -106,10 +104,15 @@ func Resolve(ctx lint.Context) (Changes, []lint.Finding) {
 				})
 				continue
 			}
-			line := lines[l.Line-d.BodyLine]
-			lines[l.Line-d.BodyLine] = line[:l.Start] + found.expansion + line[l.End:]
+			splices, expansions = append(splices, l), append(expansions, found.expansion)
 		}
-		slices.Reverse(unresolved)
+		lines := strings.Split(d.Body, "\n")
+		// Right to left, so a splice leaves the columns of the links before
+		// it on its line where they were.
+		for i := len(splices) - 1; i >= 0; i-- {
+			l, line := splices[i], lines[splices[i].Line-d.BodyLine]
+			lines[l.Line-d.BodyLine] = line[:l.Start] + expansions[i] + line[l.End:]
+		}
 		rewritten := strings.Join(lines, "\n")
 		if len(unresolved) > 0 {
 			findings = append(findings, unresolved...)

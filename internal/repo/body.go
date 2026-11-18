@@ -2,7 +2,6 @@ package repo
 
 import (
 	"fmt"
-	"iter"
 	"regexp"
 	"slices"
 	"strings"
@@ -32,9 +31,8 @@ type Section struct {
 	Heading Heading
 	// Text is the section's body as written, which is what a rewrite needs.
 	Text string
-	// masked is the same lines with comments blanked, taken from the
-	// document's own walk. Empty reads this one, so that what counts as
-	// nothing here is what counts as nothing everywhere else.
+	// masked is the same lines with each comment in an HTML block blanked,
+	// the outline's comment-masked text, which Empty reads.
 	masked string
 }
 
@@ -351,17 +349,6 @@ func (d *Document) Unclosed() bool {
 	return d.unclosed
 }
 
-// UnclosedIn is the same question about a whole file that is not a Document
-// yet, which is what a writer has in hand just before it returns.
-func UnclosedIn(source []byte) bool {
-	_, body, _, ok := splitFrontMatter(source)
-	if !ok {
-		body = source
-	}
-	_, _, _, _, _, unclosed := scanBody(string(body))
-	return unclosed
-}
-
 // maskCells applies mask, which keeps the length of what it is given, to each
 // cell of a table row on its own, as GFM parts the cells first.
 func maskCells(row string, mask func(cell string) string) string {
@@ -440,35 +427,18 @@ func matchingRun(s string, from, n int) int {
 	return 0
 }
 
-// proseLines iterates the body lines that are not literal, with their
-// zero-based index and with everything inside an HTML comment blanked.
-func proseLines(body string) iter.Seq2[int, string] {
-	return func(yield func(int, string) bool) {
-		masked, literal, _, _, _, _ := scanBody(body)
-		for i, line := range masked {
-			if literal[i] != blockProse {
-				continue
-			}
-			if !yield(i, line) {
-				return
-			}
-		}
-	}
-}
-
 // scanBody splits text into lines, blanks the HTML comments in each, and
 // reports which lines are literal: inside a fenced or indented code block or
 // an HTML block, where nothing is prose but everything is content. quoted
 // marks the lines a blockquote holds, literal or not, continues those that
 // continue the paragraph of the line before, and rows a table's rows.
 //
-// It is the single definition of how blocks, code spans and comments
-// interact, and every consumer reads it rather than restating the rule. There
-// used to be a second definition, a regular expression requiring a closing
-// marker, behind Section.Empty and the glossary's paragraph split. It
-// disagreed with this one about an unterminated comment, and that
-// disagreement was enough to carry an unfinished document through the freeze
-// gate in silence.
+// Questions, a term's definition and whether a block is left open still read
+// it; everything else reads the outline. There used to be a second
+// definition, a regular expression requiring a closing marker, behind
+// Section.Empty and the glossary's paragraph split. It disagreed with this one
+// about an unterminated comment, and that disagreement was enough to carry an
+// unfinished document through the freeze gate in silence.
 //
 // A literal block holds its lines to its end, so nothing in it opens a
 // comment. A block can only begin a line, so a line already inside a comment

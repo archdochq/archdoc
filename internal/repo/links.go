@@ -35,6 +35,7 @@ func (d *Document) links() (links, uses []Link) {
 		return nil, nil
 	}
 	starts := lineStarts(d.Body)
+	text, textAt := linkText(d.Body, d.outline)
 	at := func(offset int) (line, column int) {
 		i := lineIn(starts, offset)
 		if i > 0 {
@@ -61,8 +62,7 @@ func (d *Document) links() (links, uses []Link) {
 				kind = LinkImage
 			}
 			line, column := at(n.DestinationSpan.Start)
-			text := strings.ReplaceAll(withCommentsBlank(d.Body, n), "\r\n", "\n")
-			links = append(links, Link{Text: text, Target: decoded(n.Destination), Type: kind,
+			links = append(links, Link{Text: text[textAt[n.TextSpan.Start]:textAt[n.TextSpan.End]], Target: decoded(n.Destination), Type: kind,
 				Line: line, Start: column, End: column + n.DestinationSpan.End - n.DestinationSpan.Start})
 		}
 		return true
@@ -76,17 +76,33 @@ func (d *Document) links() (links, uses []Link) {
 	return links, uses
 }
 
-// withCommentsBlank is a link's text as written with each HTML comment in it
-// replaced by spaces.
-func withCommentsBlank(body string, link *markdown.Node) string {
-	text := []byte(body[link.TextSpan.Start:link.TextSpan.End])
-	markdown.Walk(link, func(p *markdown.Node) bool {
-		if p.Type == markdown.RawHTML && strings.HasPrefix(p.Text, "<!--") {
-			blank(text, p.Start-link.TextSpan.Start, p.End-link.TextSpan.Start)
+// linkText is body with each HTML comment's bytes spaces, its line endings
+// kept, and each carriage return before a line feed removed, and the offset
+// in it of each offset in body, so a link's text is one slice of it however
+// deeply links and images nest.
+func linkText(body string, doc *markdown.Node) (string, []int) {
+	blanked := []byte(body)
+	markdown.Walk(doc, func(n *markdown.Node) bool {
+		if n.Type == markdown.RawHTML && strings.HasPrefix(n.Text, "<!--") {
+			for i := n.Start; i < n.End; i++ {
+				if blanked[i] != '\n' && blanked[i] != '\r' {
+					blanked[i] = ' '
+				}
+			}
 		}
 		return true
 	})
-	return string(text)
+	out := make([]byte, 0, len(body))
+	at := make([]int, len(body)+1)
+	for i := range len(body) {
+		at[i] = len(out)
+		if body[i] == '\r' && i+1 < len(body) && body[i+1] == '\n' {
+			continue
+		}
+		out = append(out, blanked[i])
+	}
+	at[len(body)] = len(out)
+	return string(out), at
 }
 
 // decoded is a destination with its percent-encoding decoded, so a path is
@@ -116,8 +132,9 @@ func (d *Document) WikiLinks() []WikiLink {
 	eachTextRun(d.outline, func(run markdown.Span, heading bool) {
 		written := d.Body[run.Start:run.End]
 		for _, m := range wikiLinkPattern.FindAllStringSubmatchIndex(written, -1) {
-			if escapedAt(d.Body, run.Start+m[0]) || escapedAt(d.Body, run.Start+m[0]+1) ||
-				escapedAt(d.Body, run.Start+m[1]-2) || escapedAt(d.Body, run.Start+m[1]-1) {
+			// Only the outer brackets can be escaped: each inner one follows
+			// a bracket.
+			if escapedAt(d.Body, run.Start+m[0]) || escapedAt(d.Body, run.Start+m[1]-2) {
 				continue
 			}
 			i := lineIn(starts, run.Start+m[0])
@@ -283,7 +300,7 @@ func (d *Document) proseLines() []*string {
 var (
 	anchorOpens   = regexp.MustCompile(`(?i)^<a[\s>/]`)
 	anchorCloses  = regexp.MustCompile(`(?i)^</a\s*>`)
-	schemeAddress = regexp.MustCompile(`(?i)\b[a-z][a-z0-9+.\-]*://\S*`)
+	schemeAddress = regexp.MustCompile(`(?i)\b(?:[a-z][a-z0-9+.\-]*://|www\.)\S*`)
 )
 
 // explicitAnchors are the ids and names of <a> elements in raw HTML and HTML

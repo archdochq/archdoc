@@ -4,6 +4,7 @@ import (
 	"slices"
 	"strings"
 	"testing"
+	"time"
 
 	"archdoc.dev/internal/repo"
 )
@@ -18,6 +19,7 @@ func TestProseIsTextOutsideLinksAddressesBracketsAndHeadings(t *testing.T) {
 		"a ![b](i.png) c\n":                     "a c",
 		"x <a href=\"u\">in</a> y\n":            "x y",
 		"see foo://e.com/p and more\n":          "see and more",
+		"a\twww.x.com/Wing b\n":                 "a b",
 		"a [b] c [[d]] e\n":                     "a c e",
 		"a `code` b <!-- c --> d\n":             "a b d",
 		"a [ b\n":                               "a [ b",
@@ -41,7 +43,8 @@ func TestProseIsTextOutsideLinksAddressesBracketsAndHeadings(t *testing.T) {
 // label inside it.
 func TestAWikiLinkIsReadFromTextAsWritten(t *testing.T) {
 	d := page(t, "a [[RFC-0001]] b \\[[x]] [[y\\]] `[[z]]`\n\n"+
-		"[[RFC-0007]] and [[w]](u.md) and [a [[v]]](u.md)\n\n[RFC-0007]: p.md\n\n## In [[RFC-0002]]\n")
+		"[[RFC-0007]] and [[w]](u.md) and [a [[v]]](u.md)\n\n[RFC-0007]: p.md\n\n## In [[RFC-0002]]\n\n"+
+		"*[[RFC-0003]]* and [[RFC-*0004*]]\n")
 	var got []string
 	for _, l := range d.WikiLinks() {
 		got = append(got, l.Name)
@@ -53,8 +56,8 @@ func TestAWikiLinkIsReadFromTextAsWritten(t *testing.T) {
 			t.Errorf("%s: heading %v", l.Name, l.Heading)
 		}
 	}
-	if !slices.Equal(got, []string{"RFC-0001", "RFC-0002"}) {
-		t.Errorf("wiki links = %q, want RFC-0001 and RFC-0002", got)
+	if !slices.Equal(got, []string{"RFC-0001", "RFC-0002", "RFC-0003"}) {
+		t.Errorf("wiki links = %q, want RFC-0001, RFC-0002 and RFC-0003", got)
 	}
 }
 
@@ -67,5 +70,32 @@ func TestExplicitAnchorsAreReadFromRawHTMLAndHTMLBlocks(t *testing.T) {
 	want := []string{"page", "inline", "block", "used"}
 	if got := d.Anchors(); !slices.Equal(got, want) {
 		t.Errorf("anchors = %q, want %q", got, want)
+	}
+}
+
+// TestALinksTextKeepsItsLinesWithItsCommentsBlank: the lines are joined by a
+// line feed, a carriage return before one dropped, and a comment spanning
+// them is spaces, the line feed kept.
+func TestALinksTextKeepsItsLinesWithItsCommentsBlank(t *testing.T) {
+	for body, want := range map[string]string{
+		// The marker inside the comment is the comment's.
+		"> [a <!-- c\n> d --> e](u.md)\n": "a       \n        e",
+		"[a\r\nb](u.md)\r\n":              "a\nb",
+	} {
+		if links := page(t, body).Links(); len(links) != 1 || links[0].Text != want {
+			t.Errorf("%q: links = %+v, want text %q", body, links, want)
+		}
+	}
+}
+
+// TestNestedImagesAreReadInLinearTime: each image's text was copied and
+// walked for comments, so each level of nesting paid for every level inside
+// it, and 21,000 took four seconds.
+func TestNestedImagesAreReadInLinearTime(t *testing.T) {
+	d := page(t, strings.Repeat("![", 21000)+"x"+strings.Repeat("](a)", 21000)+"\n")
+	started := time.Now()
+	d.Links()
+	if took := time.Since(started); took > 2*time.Second {
+		t.Errorf("reading the links took %v", took)
 	}
 }
