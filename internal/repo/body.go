@@ -25,8 +25,9 @@ type Heading struct {
 	// base is the anchor before any suffix, which a question's is compared
 	// with.
 	base string
-	// span is the heading's bytes in the body.
-	span markdown.Span
+	// span is the heading's bytes in the body, and content its content's,
+	// from the first byte of its first line to the last of its last.
+	span, content markdown.Span
 }
 
 // Section is a heading and everything under it, up to the next heading of equal

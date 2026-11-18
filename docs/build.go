@@ -272,6 +272,9 @@ func linksResolve(name string, body []byte, listed map[string]bool) error {
 		return fmt.Errorf("%s opens with ---; a guide has no front matter", name)
 	}
 	d, _ := repo.Parse(path.Join(string(repo.TypeSpec), name), body)
+	if !d.Read() {
+		return fmt.Errorf("%s is longer than %d bytes, so its links are not read; split it", name, repo.MaxBody)
+	}
 	for _, l := range d.Links() {
 		if absolute.MatchString(l.Target) {
 			continue

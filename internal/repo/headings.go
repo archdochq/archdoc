@@ -115,6 +115,13 @@ func headingsIn(body string, bodyLine int, doc *markdown.Node) (top, all []Headi
 			last:   lineOf(n.End - 1),
 			span:   n.Span,
 		}
+		if len(n.Lines) > 0 {
+			end := n.Lines[len(n.Lines)-1].End
+			for end > n.Lines[0].Start && strings.ContainsRune(" \t\r\n", rune(body[end-1])) {
+				end--
+			}
+			h.content = markdown.Span{Start: n.Lines[0].Start, End: end}
+		}
 		all = append(all, h)
 		if topLevel[n] {
 			top = append(top, h)
@@ -378,4 +385,16 @@ func isCommentBlock(n *markdown.Node) bool {
 // definition.
 func passedOver(n *markdown.Node) bool {
 	return isCommentBlock(n) || n.Type == markdown.LinkReferenceDefinition
+}
+
+// H1Content is where the H1's content lies in Source, without its markers,
+// closing sequence or underline, so a writer can retitle it in place. ok is
+// false where there is no H1 or it holds nothing.
+func (d *Document) H1Content() (start, end int, ok bool) {
+	h, found := d.H1()
+	if !found || h.content.End <= h.content.Start {
+		return 0, 0, false
+	}
+	offset := len(d.Source) - len(d.Body)
+	return offset + h.content.Start, offset + h.content.End, true
 }
