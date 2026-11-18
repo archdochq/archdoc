@@ -225,7 +225,7 @@ func EscapeMarkdown(text string) string {
 // leave one alone.
 func IsHeading(line string) bool { return headingPattern.MatchString(line) }
 
-// Headings returns every heading in the body, in order.
+// Headings returns the body's top-level headings, in order.
 func (d *Document) Headings() []Heading { return d.headings }
 
 // H1 returns the first heading when it is an H1.
@@ -290,8 +290,8 @@ func (d *Document) sectionEnd(i int) int {
 // reads every line of a body exactly once.
 type Entry struct {
 	Heading Heading
-	// Text is the body as written, from the line after the heading to the line
-	// before the next one, so Heading.Line plus one is its first line.
+	// Text is the body as written, from the line after the heading's last, a
+	// setext heading's underline, to the line before the next one.
 	Text string
 }
 

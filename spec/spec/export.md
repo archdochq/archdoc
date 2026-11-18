@@ -21,7 +21,7 @@ Each document carries its front matter, the derived reverse relationships (`upda
 
 `changelog` is the entries of every `Changelog` section in document order. Each has `line`, its entry line; `date`, where it has one; and `body`, its text. What either holds is what was parsed, whatever lint reports. A line belonging to no question, answer or entry appears only in `source`, and in `contents` under `--all-headings`.
 
-`rejection_rationale` is every `Rejection rationale` section in document order, whatever the document's status or type, and is empty where there is none. Each has `anchor` and `line`, its heading's, and `body`, the lines after the heading up to the next heading of level one or two as written, subsections included. It holds what was parsed, whatever lint reports.
+`rejection_rationale` is every `Rejection rationale` section in document order, whatever the document's status or type, and is empty where there is none. Each has `anchor` and `line`, its heading's, and `body`, the lines after the heading, a setext heading's underline, up to the next top-level heading of level one or two as written, subsections included. It holds what was parsed, whatever lint reports.
 
 A document whose body is longer than 131,072 bytes, which is not read, has empty `contents`, `questions`, `changelog`, `rejection_rationale` and `links`, and a group's `description` is empty.
 

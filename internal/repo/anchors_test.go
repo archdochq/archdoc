@@ -2,6 +2,7 @@ package repo_test
 
 import (
 	"slices"
+	"strings"
 	"testing"
 
 	"archdoc.dev/internal/repo"
@@ -352,5 +353,21 @@ func TestASetextHeadingsBodyStartsAfterItsUnderline(t *testing.T) {
 	}
 	if got := d.Contents(); len(got) != 2 || got[1].Text != "\ntext\n" {
 		t.Errorf("contents = %+v", got)
+	}
+}
+
+// TestABodyIsReadUpToMaxBody: a body of MaxBody bytes is read, and one a byte
+// longer is not.
+func TestABodyIsReadUpToMaxBody(t *testing.T) {
+	const head = "---\ntitle: Page\nincludes: []\n---\n"
+	for extra, read := range map[int]bool{0: true, 1: false} {
+		body := "# Page\n" + strings.Repeat("a", repo.MaxBody-len("# Page\n")+extra)
+		d, _ := repo.Parse("spec/page.md", []byte(head+body))
+		if len(d.Body) != repo.MaxBody+extra {
+			t.Fatalf("body is %d bytes, want %d", len(d.Body), repo.MaxBody+extra)
+		}
+		if d.Read() != read || (len(d.Headings()) == 1) != read {
+			t.Errorf("a body of %d bytes: read %v with %d headings, want read %v", len(d.Body), d.Read(), len(d.Headings()), read)
+		}
 	}
 }

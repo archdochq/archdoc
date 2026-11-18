@@ -97,8 +97,8 @@ nothing is round-tripped. Headings are read from the outline; what is not yet is
   section text is a slice of it. Running the same function again on a fragment starts from a clean
   state and disagrees with the walk that decided the heading was a heading, which let a section
   containing only a comment read as full.
-- **A comment is nothing, wherever it is.** `Section.Empty`, the glossary's paragraph split, heading
-  parsing and link scanning all read the same masked text, so a comment on one line behaves like a
+- **A comment is nothing, wherever it is.** `Section.Empty`, the glossary's paragraph split, ~~heading
+  parsing~~ (headings are read from the outline, below) and link scanning all read the same masked text, so a comment on one line behaves like a
   comment spanning several. Comments are blanked in place rather than dropped, which keeps every byte
   offset valid and ~~lets prose sharing a line with a comment survive~~ (narrowed by #73) lets prose
   sharing a line with a comment inside a paragraph survive. The last line of a comment opening a block is the block's, as
@@ -159,7 +159,8 @@ nothing is round-tripped. Headings are read from the outline; what is not yet is
   now follows containers by their markers and indentation, with lazy continuation, and treats indented
   code, the seven HTML block types other than a comment, and fences as literal: content, never prose.
   A backtick fence's info string cannot hold a backtick, so ```` ```go``` ```` opening a line is a code
-  span. This is still not a parser: no inline structure is built, and setext headings are not read.
+  span. This is still not a parser: no inline structure is built~~, and setext headings are not read~~.
+  Setext headings are read from the outline, below.
 - **A blockquote in a question section may not hold a heading, a fence or a comment.** The walk finds
   each of those before it knows a line is quoted, ~~and does not see a fence inside a blockquote at all, so
   a comment marker inside one would hide the rest of the document~~ and an answer is read from its lines
@@ -192,8 +193,8 @@ nothing is round-tripped. Headings are read from the outline; what is not yet is
   in isolation, and are slugged from the heading's *rendered* text so link syntax is stripped first.
   ~~Stripping inline links was all the rendering done.~~ ~~Rendering now resolves escapes and entities,
   keeps a code span's content, drops tags, emphasis underscores and images, and reads reference links
-  and nested brackets, and the slug keeps the marks, letter numbers and connector punctuation
-  github-slugger keeps. Each was a heading whose link worked on GitHub and failed L17, or the reverse,
+  and nested brackets, and~~ The slug keeps the marks, letter numbers and connector punctuation
+  github-slugger keeps. ~~Each was a heading whose link worked on GitHub and failed L17, or the reverse,
   and `link` wrote the wrong anchor into a glossary link. An underscore run is emphasis only where it
   pairs, the runs of `*`, `_` and `~` paired as cmark-gfm pairs them: dropping every run that flanked a
   word gave `## The _id field` the anchor `the-id-field`, where GitHub's is `the-_id-field`. A bare
@@ -358,7 +359,7 @@ nothing is round-tripped. Headings are read from the outline; what is not yet is
   also in the wrong place is two findings for one fault, the second contradicting the first.
 - **Extra H2 sections are permitted** between or after the required ones. Forced anyway by the rejection
   rationale appending after `Changelog`, and by refs requiring `Sources` last.
-- **A section includes its own subsections**, ending at the next top-level heading of the same level or higher, so
+- **A section includes its own subsections**, ending at the next ~~heading~~ top-level heading (RFC-0019) of the same level or higher, so
   a `Proposal` structured with `###` headings is not reported empty.
 - **A section is empty if it holds nothing but whitespace and comments.** That definition is the reason
   L14 checks emptiness rather than the absence of comments: a comment cannot be both the definition of

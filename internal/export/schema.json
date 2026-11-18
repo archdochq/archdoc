@@ -93,7 +93,7 @@
         },
         "contents": {
           "type": "array",
-          "description": "Every top-level heading in document order, one held by no blockquote, list item or footnote definition, each with the prose beneath it, except the question sections, the Changelog and the Rejection rationale, which are published in questions, changelog and rejection_rationale. With --all-headings, every heading. Content before the first heading belongs to no entry and appears only in source. Empty, as questions, changelog, rejection_rationale and links are, where the body is longer than 131,072 bytes, which is not read.",
+          "description": "Every top-level heading in document order, one held by no blockquote, list item or footnote definition, each with the prose beneath it, except the question sections, the Changelog and the Rejection rationale, which are published in questions, changelog and rejection_rationale. With --all-headings, every top-level heading. Content before the first heading belongs to no entry and appears only in source. Empty, as questions, changelog, rejection_rationale and links are, where the body is longer than 131,072 bytes, which is not read.",
           "items": {"$ref": "#/$defs/entry"}
         },
         "questions": {
@@ -185,7 +185,7 @@
     },
     "rejection_rationale_section": {
       "type": "object",
-      "description": "A level two heading Rejection rationale and every line up to the next heading of level one or two.",
+      "description": "A top-level level two heading Rejection rationale and every line after it up to the next top-level heading of level one or two.",
       "required": ["anchor", "line"],
       "additionalProperties": false,
       "properties": {
@@ -218,7 +218,7 @@
         "slug": {"type": "string", "description": "The group's filename without the extension. Each document's groups name it by this."},
         "title": {"type": "string"},
         "path": {"type": "string", "description": "Slash-separated, relative to root."},
-        "description": {"type": "string", "description": "The body after the group's H1, as written, or the whole body where its first heading is not an H1. Absent where bodies were excluded."},
+        "description": {"type": "string", "description": "The body after the group's H1, as written, or the whole body where its first heading is not an H1. Empty where the body is longer than 131,072 bytes, which is not read. Absent where bodies were excluded."},
         "documents": {"type": "array", "items": {"type": "string"},
                       "description": "The members as written, whether or not they resolve. An identifier names an RFC, ADR or ref; anything else names a spec page."},
         "links": {"type": "array", "items": {"$ref": "#/$defs/link"}}

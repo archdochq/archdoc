@@ -465,3 +465,17 @@ func TestRenameAndRemoveRefuseABodyThatIsNotRead(t *testing.T) {
 		t.Errorf("Remove: error = %v, want a refusal naming spec/long.md", err)
 	}
 }
+
+// TestRenameRetitlesASetextH1: a term's H1 may be written over a line of =.
+func TestRenameRetitlesASetextH1(t *testing.T) {
+	r := repotest.New(t, map[string]string{
+		"term/widget.md": "---\ntitle: Widget\nformerly: []\nnamed_by:\n---\n\nWidget\n======\n\nA small thing.\n",
+	})
+	_, _, source, err := glossary.Rename(r, "Widget", "Gadget")
+	if err != nil {
+		t.Fatalf("Rename: %v", err)
+	}
+	if !strings.Contains(string(source), "\nGadget\n======\n") {
+		t.Errorf("the H1 was not retitled:\n%s", source)
+	}
+}

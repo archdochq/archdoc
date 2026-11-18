@@ -42,7 +42,7 @@ Extra H2 sections are permitted between or after the required ones. `Open questi
 
 ## Questions
 
-The question sections are H2s titled `Open questions` and `Resolved questions`. A question is an H3 within one, and its text is the question. Its detail is the lines after it, to its answer or to the next heading. A document carries at most one `Resolved questions` section, and where it has an `Open questions` section, `Resolved questions` is the next H2 or H1 after one.
+The question sections are H2s titled `Open questions` and `Resolved questions`. A question is an H3 within one, and its text is the question. Its detail is the lines after it, to its answer or to the next top-level heading. A document carries at most one `Resolved questions` section, and where it has an `Open questions` section, `Resolved questions` is the next H2 or H1 after one.
 
 Within a question section, a blockquote is a run of consecutive lines each beginning with `>` at the start of the line, outside an HTML comment and any code block or HTML block the blockquote does not hold. A question ends with a blockquote when its last one is followed by nothing but blank lines and comments before the next heading or the end of the document. In `Resolved questions`, that blockquote is the question's answer: its lines with the `>` and one column of the whitespace after it removed from each, a tab after the marker leaving two spaces. A link reference definition behind `>` in a question section is read as a link.
 
@@ -50,7 +50,7 @@ An `Open questions` section is empty or holds questions and nothing before the f
 
 ## Changelog entries
 
-A `Changelog` section runs from its H2 to the next H1 or H2. A carriage return before a line feed is removed before a line of it is read, and a blank line holds nothing but spaces and tabs.
+A `Changelog` section runs from the line after its H2 to the next top-level H1 or H2. A carriage return before a line feed is removed before a line of it is read, and a blank line holds nothing but spaces and tabs.
 
 An entry line begins `- ` at column 0 with a character other than a space or a tab after the space, and is not a line made only of three or more `-`, spaces and tabs. A block opener is a line beginning `#`, `>`, `<`, `-`, `*`, `+`, `_`, `=`, `|`, `[`, a backtick or `~`, or digits followed by `.` or `)`. After an entry line, each line in turn belongs to the entry while it is indented by two or more spaces with no tab before its first non-blank character; or blank, where a later line belongs to the entry; or a line at column 0 that is neither blank nor a block opener, directly after the entry line or another such line, where what follows the entry line's `- ` is not a block opener either. The first other line ends the entry.
 

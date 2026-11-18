@@ -11,7 +11,7 @@ includes: [ADR-0008, ADR-0009, ADR-0010, ADR-0023, ADR-0024, RFC-0008, RFC-0009,
 
 Every rule reports an error unless stated. A rule comparing a front matter value against something else does not report where that value did not parse, which L01 reports, and L02 and L10 do not report a `title` or `id` that is missing or empty. A finding that no permitted edit to the named document could clear is a warning. This applies to L01, L02, L07, L08, L09, L10, L14, L16, L17, L20, L21 and L23 when the document is frozen, to the L04 and L05 faults that only an edit to a frozen document could clear, and to L03 when every document holding the identifier is frozen. It does not apply to a fault another permitted edit can clear, such as a reference to a document that can be written, nor to L11.
 
-A body longer than 131,072 bytes is not read, and holds nothing for any rule: L23 reports it, L08, L10 and L15 pass the document over, and L17 checks a link into it without its anchor.
+A body longer than 131,072 bytes is not read, and holds nothing for any rule: L23 reports it, the rules that read a body, L08, L09, L10, L14, L15, L16, L17, L20 and L21, report nothing in it, and L17 checks a link into it without its anchor.
 
 ## Acknowledged warnings
 

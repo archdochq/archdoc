@@ -346,6 +346,7 @@ var Rules = []Rule{
 		Changes: []Change{
 			{Release: "v0.6.0", Summary: "Reports a warning rather than an error in a frozen document"},
 			{Release: "v0.6.0", Summary: "Reads `Open questions` from top-level headings alone, a setext heading among them"},
+			{Release: "v0.6.0", Summary: "Reports nothing in a body longer than 131,072 bytes, which L23 reports"},
 		},
 	},
 	{
@@ -416,6 +417,7 @@ var Rules = []Rule{
 			{Release: "v0.6.0", Summary: "Reports an empty section whose heading is closed by `#` characters in a CRLF file"},
 			{Release: "v0.6.0", Summary: "Reports an empty section after a fenced code block in a list item whose closing fence is indented with a tab, which hid it"},
 			{Release: "v0.6.0", Summary: "Reads a setext heading as a section's heading, and a section's text from the line after its underline"},
+			{Release: "v0.6.0", Summary: "Reports nothing in a body longer than 131,072 bytes, which L23 reports"},
 		},
 	},
 	{
@@ -446,6 +448,8 @@ var Rules = []Rule{
 			{Release: "v0.6.0", Summary: "Does not report a `[[...]]` after the `-->` closing a comment block on the same line"},
 			{Release: "v0.6.0", Summary: "Reports a `[[...]]` on the lines after a heading holding a `<!--` that no `-->` closes on the heading's line"},
 			{Release: "v0.6.0", Summary: "Reports a `[[...]]` after a fenced code block in a list item whose closing fence is indented with a tab"},
+			{Release: "v0.6.0", Summary: "Names the edit for a `[[...]]` in a setext heading as for one in an ATX heading"},
+			{Release: "v0.6.0", Summary: "Reports nothing in a body longer than 131,072 bytes, which L23 reports"},
 		},
 	},
 	{

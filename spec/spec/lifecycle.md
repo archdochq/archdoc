@@ -39,7 +39,7 @@ M03, run by `archdoc lint --merge`, judges a pull request's changes of status by
 6. For `accept` and `reject`: fail if lint reports any error other than L03 about the document as rewritten, judged within the rest of the repository and, for `reject`, with the rejection rationale taken as written, listing each error as `lint` prints it. L11 compares the file on disk with the configured branch, so it judges the document as it stood before the transition. The file is written only once this passes.
 7. Print the new status.
 
-A transition refuses to write a `decided` date earlier than `created`, and refuses a status the graph does not know. `reject` refuses a document whose parse stops short of the end of the file. None of the transition commands commits.
+A transition refuses to write a `decided` date earlier than `created`, and refuses a status the graph does not know. `reject` refuses a document whose parse stops short of the end of the file. `accept` and `reject` refuse a document whose body is longer than 131,072 bytes, which is not read. None of the transition commands commits.
 
 ## Backfilling
 
