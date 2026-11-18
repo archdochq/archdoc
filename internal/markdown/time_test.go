@@ -107,13 +107,19 @@ func TestEachShapeIsReadInLinearTime(t *testing.T) {
 			} else {
 				t.Log("goldmark v2.1.16 reads " + s.slower + " in more than linear time, so its time is not tested")
 			}
-			// Twice the growth of the body allows for noise; growth with
-			// the square of it is four times.
-			from, to := outlineTime(small[i].body), outlineTime(s.body)
-			grew, longer := float64(to)/float64(from), float64(len(s.body))/float64(len(small[i].body))
-			if to > 20*time.Millisecond && grew > 2*longer {
-				t.Errorf("building the outline took %v for %d bytes and %v for %d", from, len(small[i].body), to, len(s.body))
+			// Twice the growth of the body allows for noise, and so does
+			// measuring again before failing, as a shared machine can slow
+			// one measurement where growth with the square of the body's
+			// length slows every one.
+			longer := float64(len(s.body)) / float64(len(small[i].body))
+			var from, to time.Duration
+			for range 3 {
+				from, to = outlineTime(small[i].body), outlineTime(s.body)
+				if to <= 20*time.Millisecond || float64(to)/float64(from) <= 2*longer {
+					return
+				}
 			}
+			t.Errorf("building the outline took %v for %d bytes and %v for %d", from, len(small[i].body), to, len(s.body))
 		})
 	}
 }
