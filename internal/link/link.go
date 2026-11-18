@@ -88,7 +88,7 @@ func Resolve(ctx lint.Context) (Changes, []lint.Finding) {
 			// expanding a link inside one changes what all four read. It is
 			// reported, as L16 reports it, so the author writes the heading
 			// without it; it does not hold back the rest of the document.
-			if repo.IsHeading(line.Masked) {
+			if repo.IsHeading(line.Masked) || d.InHeading(line.Number) {
 				for _, m := range wikiLink.FindAllStringSubmatch(line.Masked, -1) {
 					findings = append(findings, lint.Finding{
 						Path: d.Path, Line: line.Number, Severity: lint.Error, Rule: "link",
@@ -163,7 +163,7 @@ func Suggest(r *repo.Repo) []Suggestion {
 			// clean reported a missing required section, and a proposed RFC
 			// with an open question was accepted because "Open questions" was
 			// no longer that.
-			if repo.IsHeading(line.Masked) {
+			if repo.IsHeading(line.Masked) || d.InHeading(line.Number) {
 				continue
 			}
 			masked := maskLinks(line.Masked)

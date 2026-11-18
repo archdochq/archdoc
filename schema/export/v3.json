@@ -93,7 +93,7 @@
         },
         "contents": {
           "type": "array",
-          "description": "Every heading in document order, each with the prose beneath it, except the question sections, the Changelog and the Rejection rationale, which are published in questions, changelog and rejection_rationale. With --all-headings, every heading. Content before the first heading belongs to no entry and appears only in source.",
+          "description": "Every top-level heading in document order, one held by no blockquote, list item or footnote definition, each with the prose beneath it, except the question sections, the Changelog and the Rejection rationale, which are published in questions, changelog and rejection_rationale. With --all-headings, every heading. Content before the first heading belongs to no entry and appears only in source. Empty, as questions, changelog, rejection_rationale and links are, where the body is longer than 131,072 bytes, which is not read.",
           "items": {"$ref": "#/$defs/entry"}
         },
         "questions": {
@@ -123,16 +123,16 @@
     },
     "entry": {
       "type": "object",
-      "description": "One heading and the lines beneath it, up to the next heading of any level. No entry holds another's prose, so walking them reads every line of a body once.",
+      "description": "One top-level heading and the lines beneath it, up to the next top-level heading of any level. No entry holds another's prose, so walking them reads every line of a body once.",
       "required": ["level", "text", "anchor", "line"],
       "additionalProperties": false,
       "properties": {
         "level": {"type": "integer", "minimum": 1, "maximum": 6,
                   "description": "Carried rather than implied by nesting, because heading levels need not descend one at a time."},
-        "text": {"type": "string", "description": "The heading as written, without its marker."},
+        "text": {"type": "string", "description": "The heading as written, without its marker or a setext heading's underline, a setext heading's lines joined by a line feed."},
         "anchor": {"type": "string", "description": "As GitHub computes it. A repeat within a document gains a numbered suffix. Set your heading ids from this rather than generating your own."},
         "line": {"type": "integer", "minimum": 1,
-                 "description": "1-based in the file. The body begins on the next line, so a position inside it needs no further arithmetic."},
+                 "description": "The heading's first line, 1-based in the file. The body begins on the next line, or for a setext heading on the line after its underline."},
         "body": {"type": "string",
                  "description": "The lines as written, untrimmed. Empty where one heading follows another directly. Absent where bodies were excluded."}
       }
@@ -190,7 +190,7 @@
       "additionalProperties": false,
       "properties": {
         "anchor": {"type": "string", "description": "As GitHub computes it, as a contents entry's is."},
-        "line": {"type": "integer", "minimum": 1, "description": "The heading's line, 1-based in the file. The body begins on the next line."},
+        "line": {"type": "integer", "minimum": 1, "description": "The heading's first line, 1-based in the file. The body begins on the next line, or for a setext heading on the line after its underline."},
         "body": {"type": "string", "description": "The section's lines after its heading as written, subsections included. Absent where bodies were excluded."}
       }
     },

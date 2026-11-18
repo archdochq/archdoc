@@ -674,3 +674,15 @@ func TestRenumberReportsAFileItCouldNotRemove(t *testing.T) {
 		t.Errorf("err = %v, want both removals reported", err)
 	}
 }
+
+// TestRenumberRefusesWhileABodyIsNotRead: a reference in a body too long to
+// read could not be rewritten, and would be left pointing at nothing.
+func TestRenumberRefusesWhileABodyIsNotRead(t *testing.T) {
+	r := repotest.New(t, map[string]string{
+		"rfc/0001-base.md": draft("RFC-0001", "Base"),
+		"spec/long.md":     "---\ntitle: Long\nincludes: []\n---\n\n# Long\n\n" + strings.Repeat("Filler.\n", 16400),
+	})
+	if _, _, err := repo.Renumber(r, "RFC-0001", "RFC-0009", frozenIDs()); err == nil || !strings.Contains(err.Error(), "spec/long.md") {
+		t.Errorf("error = %v, want a refusal naming spec/long.md", err)
+	}
+}

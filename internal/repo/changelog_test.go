@@ -146,8 +146,6 @@ func TestChangelogReportsWhatItCannotReadAsCommonMarkDoes(t *testing.T) {
 		{"a date and no text", "- 2026-09-02:\n", "13: entry has a date and no text"},
 		{"dates out of order", "- 2026-09-02: One.\n- 2026-09-01: Two.\n", "14: entry dated 2026-09-01 is earlier than the entry before it"},
 		{"a date before created", "- 2025-12-31: One.\n", "13: entry dated 2025-12-31 is before the document was created"},
-		{"an indented closing heading", "- 2026-09-02: One.\n  ## Next\n", "14: \"Next\" is indented by 2 spaces"},
-		{"a closing heading only once masked", "- 2026-09-02: One.\n#<!-- c -->Next\n", "14: \"Next\" is a heading only once a comment on its line is masked"},
 		{"a misspelt heading", "- 2026-09-02: One.\n\n## Change-Log\n", "15: \"Change-Log\" is not read as the \"Changelog\" section"},
 		{"a second section", "- 2026-09-02: One.\n\n## Changelog\n\n- 2026-09-03: Two.\n", "15: the document carries more than one \"Changelog\" section"},
 	} {
@@ -200,11 +198,14 @@ func TestChangelogDatesAreCheckedAgainstTheDecidedDateGiven(t *testing.T) {
 	}
 }
 
-func TestAnIndentedChangelogHeadingIsReported(t *testing.T) {
+func TestAChangelogHeadingWithinAListItemOpensNoSection(t *testing.T) {
+	// GitHub renders the heading inside the item, so it bounds no section.
 	d := changelogDoc(t, "", "## Abstract\n\n- a list\n  ## Changelog\n- 2026-09-02: One.\n")
-	got := problemLines(d.ChangelogProblems(time.Time{}))
-	if len(got) != 1 || !strings.HasPrefix(got[0], "15: \"Changelog\" is indented by 2 spaces") {
-		t.Errorf("reported %q", got)
+	if got := d.ChangelogProblems(time.Time{}); len(got) != 0 {
+		t.Errorf("reported %q", problemLines(got))
+	}
+	if got := d.Changelog(); len(got) != 0 {
+		t.Errorf("entries = %+v, want none", got)
 	}
 }
 
@@ -234,16 +235,12 @@ func TestAHeadingIndentedOneSpaceEndsTheSectionAsItRenders(t *testing.T) {
 	}
 }
 
-func TestASecondSectionsHeadingIsCheckedOnce(t *testing.T) {
+func TestAChangelogHeadingWithinAnEntryOpensNoSecondSection(t *testing.T) {
 	d := changelogDoc(t, "", "## Changelog\n- 2026-09-02: One.\n  ## Changelog\n- 2026-09-03: Two.\n")
-	indented := 0
 	for _, p := range problemLines(d.ChangelogProblems(time.Time{})) {
-		if strings.Contains(p, "is indented by 2 spaces") {
-			indented++
+		if strings.Contains(p, "more than one") {
+			t.Errorf("reported %q", p)
 		}
-	}
-	if indented != 1 {
-		t.Errorf("the indented heading was reported %d times, want once", indented)
 	}
 }
 

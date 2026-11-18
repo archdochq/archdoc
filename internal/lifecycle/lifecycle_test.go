@@ -507,3 +507,18 @@ func TestAcceptRefusesADocumentWithNoH1AtAll(t *testing.T) {
 		}
 	}
 }
+
+// TestAcceptAndRejectRefuseABodyThatIsNotRead: accept reads the open
+// questions and reject appends after the body, so neither acts on a body too
+// long to read. withdraw changes front matter alone.
+func TestAcceptAndRejectRefuseABodyThatIsNotRead(t *testing.T) {
+	d := document(t, "rfc/0001-a-design.md", rfc("proposed", "", "\n")+strings.Repeat("Filler.\n", 16400))
+	for _, to := range []repo.Status{repo.StatusAccepted, repo.StatusRejected} {
+		if _, err := lifecycle.Apply(d, to, now, nil); err == nil || !strings.Contains(err.Error(), "not read") {
+			t.Errorf("%s: error = %v, want a refusal naming the unread body", to, err)
+		}
+	}
+	if _, err := lifecycle.Apply(d, repo.StatusWithdrawn, now, nil); err != nil {
+		t.Errorf("withdraw: %v", err)
+	}
+}

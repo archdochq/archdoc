@@ -1120,29 +1120,6 @@ func TestADateWrittenAsAYAMLAliasIsRead(t *testing.T) {
 	}
 }
 
-func TestACommentClosingInsideASectionLeavesItEmpty(t *testing.T) {
-	// Section.Text was sliced from the raw body and then scanned from a clean
-	// state, so a comment opened before the section and closed inside it was
-	// invisible to the section-level check: the walk that had already masked
-	// it was thrown away and the stray "-->" left behind read as content.
-	// scanBody was the single definition of a comment but not the single walk.
-	// A comment can reach past a heading only where the line is a heading once
-	// masked: one written as a heading closes its comment on its line or holds
-	// none.
-	d := repotest.New(t, map[string]string{
-		"adr/0001-a.md": "---\nid: ADR-0001\ntitle: A\n---\n\n# ADR-0001: A\n\n" +
-			"##<!-- a --> Consequences <!-- I will\nfill this in later -->\n\n",
-	}).ByPath("adr/0001-a.md")
-
-	sections := d.Sections("Consequences")
-	if len(sections) != 1 {
-		t.Fatalf("want one Consequences section, got %d", len(sections))
-	}
-	if !sections[0].Empty() {
-		t.Errorf("the section holds only a comment but does not read as empty; its text is %q", sections[0].Text)
-	}
-}
-
 func TestACommentOpenInAHeadingWrittenAsOneDoesNotRunOn(t *testing.T) {
 	d := repotest.New(t, map[string]string{
 		"adr/0001-a.md": "---\nid: ADR-0001\ntitle: A\n---\n\n# ADR-0001: A\n\n" +

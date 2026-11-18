@@ -144,7 +144,13 @@ type Document struct {
 	// Stale is true for a spec page including an effectively obsolete document.
 	Stale bool
 
+	// headings are the body's top-level headings, which bound sections, and
+	// anchors the anchor of every heading, in the order GitHub assigns them.
 	headings []Heading
+	anchors  []string
+	// unread records that the body is longer than MaxBody, so nothing reads
+	// it.
+	unread bool
 	// masked is bodyLines with comments blanked, walked once per document.
 	masked []string
 	// literal marks the lines of masked inside a code block or an HTML
@@ -389,8 +395,7 @@ func (d *Document) parse(source []byte) {
 	d.Source = source
 	block, body, bodyLine, ok := splitFrontMatter(source)
 	d.Body, d.BodyLine = string(body), bodyLine
-	d.headings = parseHeadings(d.Body, d.BodyLine)
-	d.anchorHeadings()
+	d.readHeadings()
 	if !ok {
 		// No key was read, so none reads as missing.
 		d.FrontMatter.unread = true

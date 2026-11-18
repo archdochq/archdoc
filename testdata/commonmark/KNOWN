@@ -120,3 +120,20 @@ archdoc/links-around-declarations-and-comments-are-read-as-gi-29 document/block_
 archdoc/links-around-declarations-and-comments-are-read-as-git-5 document/paragraph[0] goldmark reads <! before a lowercase letter as a declaration, as CommonMark 0.31.2 does, where GFM 0.29 requires an uppercase letter
 archdoc/prose-never-moves-a-byte-11 document/paragraph[0] goldmark reads <! before a lowercase letter as a declaration, as CommonMark 0.31.2 does, where GFM 0.29 requires an uppercase letter
 archdoc/text-longer-than-a-label-is-not-a-reference-1 document/paragraph[0]/text[0] goldmark reads a link reference whose label is longer than the 999 characters CommonMark allows
+archdoc/emphasis-after-a-currency-symbol document/heading[0]/text[0] goldmark reads a currency symbol as punctuation beside _, as CommonMark 0.31.2 does, where GFM 0.29 counts only punctuation
+archdoc/emphasis-closing-before-a-tilde document/heading[0]/text[0] the reference reads _ before a ~ as closing no emphasis, where goldmark and commonmark.js read emphasis
+archdoc/emphasis-opening-after-a-tilde document/heading[0]/text[0] the reference reads _ after a ~ as opening no emphasis, where goldmark and commonmark.js read emphasis
+archdoc/emphasis-across-unequal-tildes document/heading[0]/text[0] goldmark reads strikethrough of unequal runs of tildes
+archdoc/address-after-an-escaped-backslash document/heading[0]/text[0] the reference finds an address after a backslash, where goldmark finds none
+archdoc/address-ending-in-an-underscore-before-a-semicolon document/heading[0]/emph[0] goldmark keeps an underscore before a closing ; in an address, which the reference ends the address before
+archdoc/address-with-a-replacement-character-domain document/heading[0]/text[0] the reference finds an address whose domain holds a character outside ASCII, where goldmark finds none
+archdoc/address-with-an-accented-domain document/heading[0]/text[0] the reference finds an address whose domain holds a character outside ASCII, where goldmark finds none
+archdoc/address-with-an-accented-domain-holding-an-underscore document/heading[0]/text[0] the reference finds an address whose domain holds a character outside ASCII, where goldmark finds none
+archdoc/address-with-an-underscore-after-a-hyphen document/heading[0]/text[0] goldmark finds an address with an underscore in one of its last two domain labels, which GFM does not allow
+archdoc/address-with-an-underscore-in-its-last-label document/heading[0]/text[0] goldmark finds an address with an underscore in one of its last two domain labels, which GFM does not allow
+archdoc/address-with-underscores-in-its-last-two-labels document/heading[0]/text[0] goldmark finds an address with an underscore in one of its last two domain labels, which GFM does not allow
+archdoc/address-www-with-an-underscore-in-its-domain document/heading[0]/text[0] goldmark finds an address with an underscore in one of its last two domain labels, which GFM does not allow
+archdoc/address-www-ending-its-domain-in-an-underscore document/heading[0]/emph[0] goldmark finds an address with an underscore in one of its last two domain labels, which GFM does not allow
+archdoc/address-with-an-uppercase-scheme document/heading[0]/link[0] the reference finds an address whose scheme is written in capitals, where goldmark finds none
+archdoc/address-www-after-a-tab-in-a-heading document/heading[0]/text[0] the reference finds an address after a tab, where goldmark finds none
+archdoc/title-directly-after-a-bracketed-destination-in-a-heading document/heading[0]/text[0] goldmark reads a title written directly after a destination within < and >, where the reference and commonmark.js read no link

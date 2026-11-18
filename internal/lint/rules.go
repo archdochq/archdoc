@@ -406,6 +406,10 @@ func L07(ctx Context) []Finding {
 func L08(ctx Context) []Finding {
 	var rep report
 	for _, d := range ctx.Repo().Documents() {
+		// A body too long to read is L23's to report, and holds nothing.
+		if !d.Read() {
+			continue
+		}
 		required := d.RequiredSections()
 		if len(required) == 0 {
 			continue
@@ -480,6 +484,10 @@ func L09(ctx Context) []Finding {
 func L10(ctx Context) []Finding {
 	var rep report
 	for _, d := range ctx.Repo().Documents() {
+		// A body too long to read is L23's to report, and holds nothing.
+		if !d.Read() {
+			continue
+		}
 		// A title or id that is missing, empty or did not parse is L01's to
 		// report, and the heading wanted from it would be wrong.
 		fm := d.FrontMatter
@@ -783,7 +791,7 @@ func L15(ctx Context) []Finding {
 	var rep report
 	for _, e := range entries {
 		d := ctx.Repo().ByPath(e.Path)
-		if d == nil {
+		if d == nil || !d.Read() {
 			continue
 		}
 		if e.Above != 0 {
@@ -883,6 +891,9 @@ func L17(ctx Context) []Finding {
 	exists := existence{}
 
 	for _, d := range ctx.Repo().Documents() {
+		if !d.Read() {
+			continue
+		}
 		severity := severityFor(ctx, d)
 		for _, link := range d.Links() {
 			target, anchor, _ := strings.Cut(link.Target, "#")
@@ -947,7 +958,9 @@ func L17(ctx Context) []Finding {
 			if target != "" && path.Ext(target) != ".md" {
 				continue // not markdown, so there are no headings to check
 			}
-			if !slices.Contains(anchorsOf(resolved, source), anchor) {
+			// A body too long to read has no anchor known, so a link into it
+			// is checked without its fragment.
+			if anchors := anchorsOf(resolved, source); anchors != nil && !slices.Contains(anchors, anchor) {
 				where := target
 				if where == "" {
 					where = "this document"
@@ -1070,6 +1083,20 @@ func L18(ctx Context) []Finding {
 			}
 			rep.warnf(d, d.FrontMatter.LineOf("depends"), "depends on %s, which is %s, while this document is %s",
 				id, status, d.FrontMatter.Status)
+		}
+	}
+	return rep.findings
+}
+
+// L23 reports a body too long to read. goldmark reads some shapes in time
+// growing with the square of their length, so a body past repo.MaxBody is
+// not read at all, and the rules that read a body pass the document over.
+func L23(ctx Context) []Finding {
+	var rep report
+	for _, d := range ctx.Repo().Documents() {
+		if !d.Read() {
+			rep.atf(severityFor(ctx, d), d, d.BodyLine,
+				"the body is %d bytes, longer than the %d bytes the tool reads, so nothing in it is read", len(d.Body), repo.MaxBody)
 		}
 	}
 	return rep.findings

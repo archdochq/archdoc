@@ -107,7 +107,7 @@ func (d *Document) readQuestions(skipOpen bool) (Questions, []Problem) {
 			continue
 		}
 		open := h.Text == OpenQuestions
-		section := span{h.index + 1, d.sectionEnd(i)}
+		section := span{h.last + 1, d.sectionEnd(i)}
 
 		// The rows about a Resolved questions section itself apply to the
 		// first alone; a later one is reported once, at its heading, and its
@@ -240,7 +240,7 @@ func (w *questionWalk) read(qi int, open, check bool) Question {
 	if qi+1 < len(w.d.headings) {
 		end = w.d.headings[qi+1].index
 	}
-	body := span{h.index + 1, end}
+	body := span{h.last + 1, end}
 	q := Question{Heading: h}
 
 	runs := w.quotes(body)
@@ -407,7 +407,7 @@ func (d *Document) questionQuotes() map[int]bool {
 		if h.Level != 2 || (h.Text != OpenQuestions && h.Text != ResolvedQuestions) {
 			continue
 		}
-		for line, end := h.index+1, d.sectionEnd(i); line < end; line++ {
+		for line, end := h.last+1, d.sectionEnd(i); line < end; line++ {
 			marked[line] = w.quoted(line)
 		}
 	}

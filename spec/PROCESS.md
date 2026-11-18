@@ -208,11 +208,11 @@ ArchDoc provides:
 
 - `archdoc init`: scaffold a new repository in the current directory.
 - `archdoc new rfc|adr|ref "Title"`: create the next-numbered document of that type from its template, in draft. `--as-of <date>` creates a ref as a record of an exchange.
-- `archdoc propose <id>`, `accept <id>`, `reject <id>`, `withdraw <id>`: move a document through its lifecycle. Each validates the transition, edits the file, and stops. Committing is left to you. `accept` and `reject` refuse a document while lint reports any error about it other than L03, a number another document shares, and `accept` refuses one with open questions, because the next push freezes it and lint would then report a fault nobody is permitted to repair.
+- `archdoc propose <id>`, `accept <id>`, `reject <id>`, `withdraw <id>`: move a document through its lifecycle. Each validates the transition, edits the file, and stops. Committing is left to you. `accept` and `reject` refuse a document while lint reports any error about it other than L03, a number another document shares, and `accept` refuses one with open questions, because the next push freezes it and lint would then report a fault nobody is permitted to repair. Both refuse a document whose body is longer than 131,072 bytes, which the tool does not read.
 - `archdoc lint`: check the repository against the rules in this document. With `--merge`, also judge a pull request, checked out merged into the configured branch, against that branch.
 - `archdoc changes`: list what the working tree changes in the record against the configured branch, as Markdown for a pull request's summary, or with `--json`.
 - `archdoc link`: resolve `[[...]]` links. With `--suggest`, offer new ones.
-- `archdoc renumber <id|path> [new-id]`: change a document's number, rewriting the filename, the `id`, the heading and every reference to it, but not the text of a link to it. Takes the next free number when no target is given. Refuses when the document is frozen, or when a frozen document holds a reference it would rewrite.
+- `archdoc renumber <id|path> [new-id]`: change a document's number, rewriting the filename, the `id`, the heading and every reference to it, but not the text of a link to it. Takes the next free number when no target is given. Refuses when the document is frozen, when a frozen document holds a reference it would rewrite, or while any document's body is longer than 131,072 bytes, as a reference in it cannot be seen.
 - `archdoc term add|rename|remove|list|show`: maintain the glossary.
 - `archdoc index`: regenerate `INDEX.md`. With `--check`, fail if the committed index is out of date.
 - `archdoc glossary`: regenerate `GLOSSARY.md` from `term/`. With `--check`, fail if the committed glossary is out of date.
@@ -244,6 +244,7 @@ Lint enforces:
 - Every `depends` entry references a document that is accepted, or one sharing the referencing document's own non-terminal status. Warning.
 - No `spec/glossary.md` is left from before terms became files. Warning.
 - Every warning `archdoc.json` acknowledges is one lint reports on a frozen document.
+- No document's body is longer than 131,072 bytes. Nothing in a longer one is read, so the rules that read a body pass it over, and a link into it is checked without its anchor.
 
 On a pull request into the configured branch, `lint --merge` also enforces, judging each change as one step from that branch:
 

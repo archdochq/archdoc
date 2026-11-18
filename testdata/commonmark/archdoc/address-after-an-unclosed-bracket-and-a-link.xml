@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE document SYSTEM "CommonMark.dtd">
+<document sourcepos="1:1-1:31" xmlns="http://commonmark.org/xml/1.0">
+  <heading sourcepos="1:1-1:31" level="1">
+    <text sourcepos="1:3-1:5" xml:space="preserve">[i </text>
+    <link sourcepos="1:6-1:11" destination="c" title="">
+      <text sourcepos="1:7-1:7" xml:space="preserve">b</text>
+    </link>
+    <text sourcepos="1:12-1:26" xml:space="preserve"> https://a.com/</text>
+    <emph sourcepos="1:27-1:29">
+      <text sourcepos="1:28-1:28" xml:space="preserve">x</text>
+    </emph>
+    <text sourcepos="1:30-1:31" xml:space="preserve"> y</text>
+  </heading>
+</document>

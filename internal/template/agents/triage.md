@@ -25,7 +25,7 @@ or `withdrawn`, and lint fails on any change to one. (PROCESS.md, Lifecycle) A f
 no permitted edit could clear it. Editing the document to silence the warning trades a warning
 for an L11 error, which is strictly worse.
 
-This applies to L01, L02, L07, L08, L09, L10, L14, L16, L17, L20 and L21 when the named document
+This applies to L01, L02, L07, L08, L09, L10, L14, L16, L17, L20, L21 and L23 when the named document
 is frozen, to L04 and L05 where only an edit to a frozen document could clear the fault, and to L03
 when every document holding the identifier is frozen. Leave them. If the content
 is genuinely wrong, write a new document that `updates` the frozen one.
@@ -77,8 +77,9 @@ belongs.
 | L18 | `depends` names a document that is not accepted, other than one sharing the referring document's non-terminal status (warning) | Usually accept the dependency first |
 | L19 | `spec/glossary.md` is left from before terms became files, and is no longer read (warning) | Move its terms to `term/` with `archdoc term add`. Guide: `spec-pages.md` |
 | L20 | A question section is not shaped as questions: something before the first question; a question with no anchor, or sharing one with another heading; a heading beneath a question; a blockquote holding a heading, fence or comment; an open question ending with a blockquote; a resolved question with no answer, an empty one, or another blockquote just before it; `Resolved questions` empty, misplaced or repeated | Rewrite it in that shape: reword a clashing question, join two blockquotes with a line holding only `>`. Guide: `authoring.md`, Questions |
-| L21 | A Changelog entry is undated, has a malformed or impossible date, has a date and no text, or is out of order or outside the document's dates; a line in the section is outside the list form the tool reads; the heading is indented, misspelt or repeated, or the heading after the section is indented | Date the entry, or rewrite the line as an entry or within one, and write the heading `## Changelog` at the start of its line. Guide: `authoring.md`, The Changelog |
+| L21 | A Changelog entry is undated, has a malformed or impossible date, has a date and no text, or is out of order or outside the document's dates; a line in the section is outside the list form the tool reads; or the heading is misspelt or repeated | Date the entry, or rewrite the line as an entry or within one, and spell the heading `## Changelog`. Guide: `authoring.md`, The Changelog |
 | L22 | An entry in `acknowledged` names a path that is not a document, a document that is not frozen, a code that is not an L rule, or a rule that reports no warning on the document | Remove the entry from `acknowledged` |
+| L23 | A document's body is longer than 131,072 bytes, so the tool does not read it, and the rules that read a body pass it over | Split the document, or move what makes it long into a file it links to |
 | M01 | An RFC or ADR arrives on the configured branch as a draft | Propose it with `archdoc propose` before it merges |
 | M02 | A document arrives carrying an identifier a document on the configured branch already holds | Rebase, then renumber the arriving one by path: `archdoc renumber <path>` |
 | M03 | A change of status the lifecycle does not permit from the status on the configured branch, under that branch's `strict` | Make one step at a time from the branch: where `strict` is on, merge the proposal first and give the verdict afterwards |

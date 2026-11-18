@@ -74,6 +74,9 @@ func Rename(r *repo.Repo, from, to string) (oldPath, newPath string, source []by
 	if !ok {
 		return "", "", nil, fmt.Errorf("%q is not a term", from)
 	}
+	if d := r.ByPath(entry.Path); d != nil && !d.Read() {
+		return "", "", nil, fmt.Errorf("%s has a body longer than %d bytes, which is not read, so its H1 cannot be retitled; shorten it first", entry.Path, repo.MaxBody)
+	}
 	if to == entry.Term {
 		return "", "", nil, fmt.Errorf("%q is already the term's name", to)
 	}
@@ -166,6 +169,9 @@ func Remove(r *repo.Repo, term string, frozen func(*repo.Document) bool) (docPat
 	entry, ok := r.Term(term)
 	if !ok {
 		return "", fmt.Errorf("%q is not a term", term)
+	}
+	if unread := r.Unread(); len(unread) > 0 {
+		return "", fmt.Errorf("%s has a body longer than %d bytes, which is not read, so a link to %q in it cannot be seen; shorten it first", unread[0], repo.MaxBody, term)
 	}
 	anchors := []string{entry.Anchor}
 	for _, former := range entry.Formerly {

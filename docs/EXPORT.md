@@ -115,9 +115,11 @@ derived by walking the whole repository, and is the reason this command exists.
 ## Contents
 
 `contents` is the document's design as a flat list of its headings, in the
-order they are written: every heading outside the question sections, the
+order they are written: every top-level heading, one held by no blockquote,
+list item or footnote definition, outside the question sections, the
 Changelog and the rejection rationale, which are published as data of their
-own (see Questions, the Changelog and the rejection rationale below).
+own (see Questions, the Changelog and the rejection rationale below). A
+heading inside a container is part of the body holding it, and renders there.
 Rendering it renders the design:
 
 ```js
@@ -129,11 +131,12 @@ for (const e of doc.contents) {
 
 Four things about it are worth knowing.
 
-**A body runs to the next heading of any level**, not to the next one of equal
+**A body runs to the next top-level heading of any level**, not to the next one of equal
 or higher level. So no entry holds another entry's prose, and walking the list
 reads every line of the document once, apart from the sections left out of it.
 With `--all-headings` nothing is left out. The body is the lines as written and is
-not trimmed, so `line` plus one is its first line.
+not trimmed, so `line` plus one is its first line, or for a setext heading,
+written over a line of `=` or `-`, the line after that underline.
 
 **`level` is carried rather than implied by position.** Heading levels need not
 descend one at a time, and a document going from `#` to `###` has no honest
@@ -171,6 +174,10 @@ the process permits them.
 
 Anything before the first heading belongs to no entry, and appears only in
 `source`. In practice that is a blank line.
+
+A document whose body is longer than 131,072 bytes is not read, so its
+`contents`, `questions`, `changelog`, `rejection_rationale` and `links` are
+empty, and lint reports it as L23. `source`, where asked for, still holds it.
 
 ## Questions, the Changelog and the rejection rationale
 
