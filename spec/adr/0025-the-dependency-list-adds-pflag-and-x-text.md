@@ -28,7 +28,9 @@ The dependency list is cobra for the command tree, pflag for its flags, yaml.v3 
 
 ## Alternatives
 
-Whether any other module was weighed for either need is not recorded.
+- **cobra's `cobra/doc` package, in place of walking the flags.** Recorded with the walk on 2026-10-26, in `docs/DECISIONS.md` by [24ca467]. Lost because it brings `go-md2man`, and writes Markdown, man pages, ReST and YAML rather than the shape the command reference publishes.
+
+Whether any other module was weighed for Unicode normalisation is not recorded.
 
 ## Consequences
 
@@ -46,3 +48,4 @@ Constrained:
 - A need that would take another library will still be met with the standard library or not met.
 
 [#36]: https://github.com/archdochq/archdoc/issues/36
+[24ca467]: https://github.com/archdochq/archdoc/commit/24ca4671524f0fb9c453406a42b334d43d4c6331
