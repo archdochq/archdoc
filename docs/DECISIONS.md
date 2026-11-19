@@ -525,7 +525,7 @@ the result can delete content it never read.
   counting brackets ran past both when a quote hid one. A block holding a line break yaml counts and
   splitting on newlines does not (a lone carriage return, U+0085, U+2028 or U+2029) is refused, because
   every line yaml gives after one is late: a key was found in the body, and a value run over the key
-  beneath it.
+  beneath it. So is a block holding a second YAML document, which reading ignores and no key bounds.
 - **Nothing is written through a symbolic link, and nothing is written outside the repository.** One
   helper refuses a path that is a symlink, and one resolves every directory component before the write,
   because a root can be perfectly ordinary while a document directory inside it points elsewhere.

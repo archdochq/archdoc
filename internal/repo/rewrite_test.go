@@ -297,3 +297,13 @@ func TestSetFieldEndsTheLastValueAtTheBlock(t *testing.T) {
 		t.Errorf("SetField =\n%q\nwant\n%q", out, want)
 	}
 }
+
+// TestSetFieldRefusesASecondDocument covers a block holding two YAML
+// documents. The last key of the first has no key after it to bound its value,
+// and a flow value whose closing bracket a quote hid ran on over the second.
+func TestSetFieldRefusesASecondDocument(t *testing.T) {
+	source := []byte("---\ntitle: T\nincludes: [a, b'c]\n...\n--- \nnote: kept\n---\n\n# T\n")
+	if out, err := repo.SetField(source, "includes", "[a]"); err == nil {
+		t.Errorf("SetField rewrote a block holding a second document:\n%q", out)
+	}
+}

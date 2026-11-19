@@ -3,6 +3,7 @@ package repo
 import (
 	"bytes"
 	"fmt"
+	"io"
 	"strings"
 
 	"gopkg.in/yaml.v3"
@@ -28,6 +29,12 @@ func SetField(source []byte, key string, value string) ([]byte, error) {
 	// beneath it.
 	if hasOtherBreak(block) {
 		return nil, fmt.Errorf("front matter holds a line break other than a newline (a lone carriage return, U+0085, U+2028 or U+2029), so %q cannot be found by line; edit it by hand", key)
+	}
+	// A value is bounded by the key after it, and the last key of a first
+	// document has none, so a value read too far would take a second document
+	// with it, which reading ignores but the author wrote.
+	if !oneDocument(block) {
+		return nil, fmt.Errorf("front matter holds more than one YAML document, so %q cannot be rewritten safely; edit it by hand", key)
 	}
 	line, next := keyLine(block, key)
 	if line == 0 {
@@ -128,6 +135,14 @@ func hasOtherBreak(block []byte) bool {
 		}
 	}
 	return false
+}
+
+// oneDocument reports whether a block holds at most one YAML document.
+func oneDocument(block []byte) bool {
+	d := yaml.NewDecoder(bytes.NewReader(block))
+	var n yaml.Node
+	// A block with nothing readable in it is keyLine's to refuse.
+	return d.Decode(&n) != nil || d.Decode(&n) == io.EOF
 }
 
 // keyLine is the line of the file a top-level front matter key is written on,
