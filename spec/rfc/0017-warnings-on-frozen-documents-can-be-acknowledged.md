@@ -2,7 +2,7 @@
 id: RFC-0017
 title: Warnings on frozen documents can be acknowledged
 status: proposed
-created: 2026-10-31
+created: 2026-11-02
 decided:
 depends: [ADR-0009, ADR-0023]
 updates: [RFC-0006]
@@ -29,7 +29,7 @@ A repository running `lint --strict-warnings` fails on such a warning for good. 
 |---|---|
 | Acknowledgement | A frozen document, by path within `root`, and the rules whose warnings on it are accepted |
 | Acknowledged warning | A warning from an acknowledged rule on its document while that document is frozen |
-| Stale acknowledgement | An acknowledgement, or one rule in it, matching no warning lint would otherwise report |
+| Stale acknowledgement | An acknowledgement whose path is not a frozen document, or one rule in it that is not an L rule or reports no warning lint would otherwise report on that document |
 
 ### Components
 
@@ -40,7 +40,7 @@ A repository running `lint --strict-warnings` fails on such a warning for good. 
 | `internal/reference` | `object` among the types the reference schema permits for a configuration key |
 | `internal/export` | `acknowledged` in the exported configuration and the export schema. `config` publishes every setting `archdoc.json` holds, so it gains a sixth beside the five [RFC-0006](0006-the-export-publishes-what-it-parsed.md) names |
 | `testdata/lint` | A fixture for L22 |
-| Spec pages | `layout.md` for the key; `lint.md` for acknowledged warnings, their effect on `--strict-warnings`, and L22 |
+| Spec pages | `layout.md` for the key; `lint.md` for acknowledged warnings, their effect on `--strict-warnings`, and L22; `export.md` for `acknowledged` in the exported configuration |
 | `agents/triage.md` | Acknowledging a warning on a frozen document as its remedy, and the L22 row generated from the registry |
 | `PROCESS.md` | The key, and acknowledgements among what lint enforces |
 
@@ -90,7 +90,7 @@ A repository acknowledges L17 on an RFC at `rfc/0012-retry-policy.md` for a link
 ### Out of scope
 
 - **A command to write acknowledgements.** The key is edited by hand; `lint --json` gives the path and rule an entry needs.
-- **Listing the acknowledged warnings.** `archdoc.json` holds them, and L22 holds each to a warning lint still reports.
+- **Listing the acknowledged warnings.** `archdoc.json` holds the path and rule of each acknowledgement, not the warnings it accepts, and L22 reports one whose rule reports no warning on its document.
 
 ## Alternatives considered
 
@@ -112,3 +112,4 @@ The exported configuration always holds `acknowledged`, empty where `archdoc.jso
 - 2026-11-08: `internal/reference`, `internal/export` and `PROCESS.md` are named in Components. The reference publishes each configuration key's type, the export publishes every setting `archdoc.json` holds, and `PROCESS.md` lists what lint enforces. Step 5 of the effect on lint says L22 reads the findings before any is left out, where it said after step 2. The examples name their documents by path, since [ADR-0003](../adr/0003-reverse-relationships-are-derived.md) and [RFC-0012](0012-rejection-rationale.md) are documents in this repository.
 - 2026-11-09: L22 is stated as reporting an acknowledgement once its rule reports no warning on the document, since matching is on path and rule. A warning's rule is taken from `lint --json`, which the printed output does not carry. The claim that an acknowledgement cannot hide a fault that can be cleared is removed, and with it the Abstract's claim that none outlives the fault it accepted. L22's path is stated as relative to `root`. The statement in Backwards compatibility that nothing changes for a repository without the key is removed, since the exported configuration always holds `acknowledged` and `archdoc reference` lists the key. `updates` names [RFC-0006](0006-the-export-publishes-what-it-parsed.md), whose `config` is the file's five settings. The previous entry's date is corrected from 2026-11-04 to 2026-11-08, and the documents it mentions are linked.
 - 2026-11-10: The Abstract names each case L22 reports. The `internal/export` component names `acknowledged` as a sixth setting beside the five [RFC-0006](0006-the-export-publishes-what-it-parsed.md) names. Backwards compatibility states that `archdoc reference` also lists L22 and the `object` type, and that it and export schema v3 both postdate v0.5.1.
+- 2026-11-19: `created` is corrected from 2026-10-31 to 2026-11-02, the date of [ADR-0023](../adr/0023-every-finding-no-permitted-edit-can-clear-is-a-warning.md), on which this design rests, and of this document's first commit. A stale acknowledgement covers every case L22 reports, not only a rule reporting no warning. Out of scope states that `archdoc.json` holds the path and rule of each acknowledgement rather than the warnings it accepts. The spec pages in Components include `export.md`.
