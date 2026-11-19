@@ -705,3 +705,27 @@ func TestRenumberRewritesOnlyTheWikiLinksNamingIt(t *testing.T) {
 		t.Errorf("uses.md is now:\n%s", got)
 	}
 }
+
+// TestRenumberRetitlesTheHeadingBeneathAnIDWrittenAcrossLines covers an edit
+// that moves lines. Rewriting an id written across lines puts it on one, so a
+// heading retitled afterwards at the line the parse found it on was the line
+// after it: the heading kept the old identifier and the prose took the new one.
+func TestRenumberRetitlesTheHeadingBeneathAnIDWrittenAcrossLines(t *testing.T) {
+	source := strings.Replace(draft("RFC-0002", "Beta"), "id: RFC-0002", "id:\n  RFC-0002", 1)
+	source = strings.Replace(source, "# RFC-0002: Beta\n\n", "# RFC-0002: Beta\nRFC-0002 replaces the old approach.\n\n", 1)
+	r := repotest.New(t, map[string]string{"rfc/0002-beta.md": source})
+
+	if _, _, err := repo.Renumber(r, "RFC-0002", "RFC-0005", nothingFrozen); err != nil {
+		t.Fatalf("Renumber: %v", err)
+	}
+	body, err := os.ReadFile(r.File("rfc/0005-beta.md"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	text := string(body)
+	for _, want := range []string{"id: RFC-0005\n", "# RFC-0005: Beta\n", "\nRFC-0002 replaces the old approach.\n"} {
+		if !strings.Contains(text, want) {
+			t.Errorf("the renumbered file does not carry %q:\n%s", want, text)
+		}
+	}
+}

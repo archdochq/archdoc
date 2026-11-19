@@ -20,7 +20,7 @@ includes:
 # Glossary
 `)
 
-	out, err := repo.SetField(source, "includes", 3, "[RFC-0001, ADR-0002, RFC-0004]")
+	out, err := repo.SetField(source, "includes", "[RFC-0001, ADR-0002, RFC-0004]")
 	if err != nil {
 		t.Fatalf("SetField: %v", err)
 	}
@@ -48,7 +48,7 @@ extra: value
 # Glossary
 `)
 
-	out, err := repo.SetField(source, "includes", 3, "[RFC-0001, ADR-0002]")
+	out, err := repo.SetField(source, "includes", "[RFC-0001, ADR-0002]")
 	if err != nil {
 		t.Fatalf("SetField: %v", err)
 	}
@@ -57,7 +57,7 @@ extra: value
 	}
 }
 
-func TestSetFieldRefusesALineOutsideTheFrontMatter(t *testing.T) {
+func TestSetFieldRefusesAKeyOnlyTheBodyHolds(t *testing.T) {
 	// The body may contain something that looks exactly like a key.
 	source := []byte(`---
 title: Example
@@ -71,7 +71,7 @@ status: draft
 ` + "```" + `
 `)
 
-	if _, err := repo.SetField(source, "status", 9, "accepted"); err == nil {
+	if _, err := repo.SetField(source, "status", "accepted"); err == nil {
 		t.Error("SetField rewrote a line in the body, outside the front matter block")
 	}
 }
@@ -81,7 +81,7 @@ func TestSetFieldKeepsACommentAfterAnApostrophe(t *testing.T) {
 	// the start of the value does.
 	source := []byte("---\ntitle: Ollie's plan   # keep me\nincludes: []\n---\n\n# X\n")
 
-	out, err := repo.SetField(source, "title", 2, "Another plan")
+	out, err := repo.SetField(source, "title", "Another plan")
 	if err != nil {
 		t.Fatalf("SetField: %v", err)
 	}
@@ -105,7 +105,7 @@ func TestSetFieldHandlesEverySpellingOfAMultiLineValue(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			source := []byte("---\ntitle: Glossary\n" + tc.front + "---\n\n# Glossary\n")
 
-			out, err := repo.SetField(source, "includes", 3, "[RFC-0001, ADR-0001, RFC-0004]")
+			out, err := repo.SetField(source, "includes", "[RFC-0001, ADR-0001, RFC-0004]")
 			if err != nil {
 				t.Fatalf("SetField: %v", err)
 			}
@@ -122,7 +122,7 @@ func TestSetFieldHandlesEverySpellingOfAMultiLineValue(t *testing.T) {
 func TestSetFieldKeepsACommentIndentedUnderTheValue(t *testing.T) {
 	source := []byte("---\nid: RFC-0001\nstatus: draft\n  # still being written\ncreated: 2026-01-01\n---\n\n# X\n")
 
-	out, err := repo.SetField(source, "status", 3, "proposed")
+	out, err := repo.SetField(source, "status", "proposed")
 	if err != nil {
 		t.Fatalf("SetField: %v", err)
 	}
@@ -143,7 +143,7 @@ func TestSetFieldNeverReturnsFrontMatterThatWillNotParse(t *testing.T) {
 	} {
 		source := []byte("---\ntitle: T\n" + front + "---\n\n# T\n")
 
-		out, err := repo.SetField(source, "includes", 3, "[RFC-0001]")
+		out, err := repo.SetField(source, "includes", "[RFC-0001]")
 		if err != nil {
 			continue // refusing is an acceptable outcome
 		}
@@ -161,7 +161,7 @@ func TestSetFieldWorksOnAFileWithAByteOrderMark(t *testing.T) {
 	const bom = "\ufeff"
 	source := []byte(bom + "---\nid: RFC-0001\nstatus: draft\ncreated: 2026-01-01\n---\n\n# RFC-0001: X\n")
 
-	out, err := repo.SetField(source, "status", 3, "proposed")
+	out, err := repo.SetField(source, "status", "proposed")
 	if err != nil {
 		t.Fatalf("SetField: %v", err)
 	}
@@ -191,7 +191,7 @@ includes:
 # Page
 `)
 
-	_, err := repo.SetField(source, "includes", 3, "[ADR-0001, ADR-0002]")
+	_, err := repo.SetField(source, "includes", "[ADR-0001, ADR-0002]")
 	if err == nil {
 		t.Fatal("SetField reported success over comments it was about to delete")
 	}
@@ -211,7 +211,7 @@ includes:
 # Page
 `)
 
-	out, err := repo.SetField(source, "includes", 3, "[ADR-0001, ADR-0002]")
+	out, err := repo.SetField(source, "includes", "[ADR-0001, ADR-0002]")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -221,13 +221,89 @@ includes:
 }
 
 func TestSetFieldRefusesAKeyThatIsNotThere(t *testing.T) {
-	// LineOf returns 0 for an absent key and lifecycle.Apply passes it straight
-	// through, so a document whose "decided:" line was deleted reaches here
-	// with line 0. Without the guard lines[line-1] indexes -1 and the process
-	// panics in front of the user.
+	// A document whose "decided:" line was deleted reaches here from
+	// lifecycle.Apply. With no line for the key, lines[line-1] would index -1
+	// and the process would panic in front of the user.
 	source := []byte("---\nid: RFC-0001\ntitle: A\nstatus: proposed\n---\n\n# RFC-0001: A\n")
 
-	if _, err := repo.SetField(source, "decided", 0, "2026-02-01"); err == nil {
-		t.Error("SetField accepted line 0 for a key that is not in the front matter")
+	if _, err := repo.SetField(source, "decided", "2026-02-01"); err == nil {
+		t.Error("SetField rewrote a key that is not in the front matter")
+	}
+}
+
+// TestSetFieldRefusesABreakYamlCountsAndLinesDoNot covers yaml counting a
+// line break that splitting on newlines does not, which numbers every line
+// after it late. Above the key, id was found at a body line reading as the key,
+// and the body was rewritten in its place. Inside the value, the next key was
+// numbered late, the value was taken to run over it, and it was deleted.
+func TestSetFieldRefusesABreakYamlCountsAndLinesDoNot(t *testing.T) {
+	for name, brk := range map[string]string{
+		"next line": "\u0085", "line separator": "\u2028", "paragraph separator": "\u2029", "lone carriage return": "\r",
+	} {
+		t.Run(name, func(t *testing.T) {
+			above := []byte("---\ntitle: \"a" + brk + "b" + brk + "c" + brk + "d\"\nid: RFC-0001\n---\n\nid: RFC-0001 example\n")
+			if out, err := repo.SetField(above, "id", "RFC-0009"); err == nil {
+				t.Errorf("SetField rewrote a block whose lines yaml numbers late:\n%q", out)
+			}
+			inside := []byte("---\nincludes: [\"a" + brk + "b\", c'd]\nid: RFC-0001\nstatus: draft\n---\n")
+			if out, err := repo.SetField(inside, "includes", "[X]"); err == nil {
+				t.Errorf("SetField rewrote a block whose lines yaml numbers late:\n%q", out)
+			}
+		})
+	}
+}
+
+// TestSetFieldReadsABracketInAPlainScalarAsText covers a plain scalar holding
+// an opening bracket, which is valid YAML. Read as an open flow collection, the
+// value ran on past the keys beneath it and the block's end, and rewriting it
+// deleted them.
+func TestSetFieldReadsABracketInAPlainScalarAsText(t *testing.T) {
+	source := []byte("---\ntitle: Use [brackets\nid: RFC-0001\nstatus: draft\n---\n\nSome prose ]\n\n---\n\nThe rest.\n")
+	out, err := repo.SetField(source, "title", "New")
+	if err != nil {
+		t.Fatalf("SetField: %v", err)
+	}
+	want := "---\ntitle: New\nid: RFC-0001\nstatus: draft\n---\n\nSome prose ]\n\n---\n\nThe rest.\n"
+	if string(out) != want {
+		t.Errorf("SetField =\n%q\nwant\n%q", out, want)
+	}
+}
+
+// TestSetFieldEndsAValueAtTheNextKey covers a flow collection whose closing
+// bracket an apostrophe hides from counting. yaml reads b'c as a plain scalar,
+// and counting brackets ran the value on past every key beneath it.
+func TestSetFieldEndsAValueAtTheNextKey(t *testing.T) {
+	source := []byte("---\nincludes: [a, b'c]\nid: RFC-0001\nstatus: draft\n---\n\n# Body ]\n")
+	out, err := repo.SetField(source, "includes", "[a]")
+	if err != nil {
+		t.Fatalf("SetField: %v", err)
+	}
+	want := "---\nincludes: [a]\nid: RFC-0001\nstatus: draft\n---\n\n# Body ]\n"
+	if string(out) != want {
+		t.Errorf("SetField =\n%q\nwant\n%q", out, want)
+	}
+}
+
+// TestSetFieldEndsTheLastValueAtTheBlock is the same for the last key, where
+// no key follows and only the closing delimiter bounds the value.
+func TestSetFieldEndsTheLastValueAtTheBlock(t *testing.T) {
+	source := []byte("---\nid: RFC-0001\nincludes: [a, b'c]\n---\n\n# Body ]\n")
+	out, err := repo.SetField(source, "includes", "[a]")
+	if err != nil {
+		t.Fatalf("SetField: %v", err)
+	}
+	want := "---\nid: RFC-0001\nincludes: [a]\n---\n\n# Body ]\n"
+	if string(out) != want {
+		t.Errorf("SetField =\n%q\nwant\n%q", out, want)
+	}
+}
+
+// TestSetFieldRefusesASecondDocument covers a block holding two YAML
+// documents. The last key of the first has no key after it to bound its value,
+// and a flow value whose closing bracket a quote hid ran on over the second.
+func TestSetFieldRefusesASecondDocument(t *testing.T) {
+	source := []byte("---\ntitle: T\nincludes: [a, b'c]\n...\n--- \nnote: kept\n---\n\n# T\n")
+	if out, err := repo.SetField(source, "includes", "[a]"); err == nil {
+		t.Errorf("SetField rewrote a block holding a second document:\n%q", out)
 	}
 }

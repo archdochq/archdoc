@@ -81,12 +81,12 @@ func Apply(d *repo.Document, to repo.Status, now time.Time, g git.Repository) ([
 				"so the rejection rationale cannot be appended where it would be read; close the marker first", d.Path)
 	}
 
-	out, err := repo.SetField(d.Source, "status", d.FrontMatter.LineOf("status"), string(to))
+	out, err := repo.SetField(d.Source, "status", string(to))
 	if err != nil {
 		return nil, err
 	}
 	if to.Terminal() {
-		out, err = repo.SetField(out, "decided", d.FrontMatter.LineOf("decided"), now.Format(repo.DateLayout))
+		out, err = repo.SetField(out, "decided", now.Format(repo.DateLayout))
 		if err != nil {
 			return nil, err
 		}

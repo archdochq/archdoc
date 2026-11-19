@@ -3,30 +3,56 @@ package repo
 import (
 	"bytes"
 	"fmt"
+	"io"
 	"strings"
 
 	"gopkg.in/yaml.v3"
 )
 
-// SetField replaces the value of one front matter key, on the line it was
+// SetField replaces the value of one front matter key, on the line it is
 // written, and leaves everything else exactly as it was: the order of the other
 // keys, their spacing, and any comments. Re-serialising the block through a
 // YAML encoder would be shorter and would quietly discard all three.
-func SetField(source []byte, key string, line int, value string) ([]byte, error) {
-	if line <= 0 {
+//
+// The key is found in the source given, not taken from an earlier parse. A
+// value written across lines is rewritten onto one, which moves every line
+// beneath it, so a line number read before one edit names the wrong line by the
+// next.
+func SetField(source []byte, key string, value string) ([]byte, error) {
+	block, _, _, ok := splitFrontMatter(source)
+	if !ok {
+		return nil, fmt.Errorf("no front matter block to rewrite")
+	}
+	// yaml counts a lone carriage return, U+0085, U+2028 and U+2029 as breaks,
+	// which splitting on newlines does not, so every line it gives after one
+	// is late: a key could be found in the body, or a value run over the key
+	// beneath it.
+	if hasOtherBreak(block) {
+		return nil, fmt.Errorf("front matter holds a line break other than a newline (a lone carriage return, U+0085, U+2028 or U+2029), so %q cannot be found by line; edit it by hand", key)
+	}
+	// A value is bounded by the key after it, and the last key of a first
+	// document has none, so a value read too far would take a second document
+	// with it, which reading ignores but the author wrote.
+	if !oneDocument(block) {
+		return nil, fmt.Errorf("front matter holds more than one YAML document, so %q cannot be rewritten safely; edit it by hand", key)
+	}
+	line, next := keyLine(block, key)
+	if line == 0 {
 		return nil, fmt.Errorf("front matter has no %q key to rewrite", key)
 	}
 	lines := bytes.Split(source, []byte("\n"))
-	if line > len(lines) {
-		return nil, fmt.Errorf("front matter key %q is recorded on line %d, past the end of the file", key, line)
-	}
 	closing, ok := closingDelimiter(lines)
 	if !ok {
 		return nil, fmt.Errorf("no front matter block to rewrite")
 	}
-	if line >= closing+1 {
-		return nil, fmt.Errorf("line %d is outside the front matter block, which ends at line %d", line, closing+1)
+	// The value ends before the next key yaml reads, and within the block,
+	// whatever it holds: guessing its extent from brackets alone ran on past
+	// the keys beneath it when a quote hid its closing bracket.
+	limit := closing
+	if next > line && next-1 < limit {
+		limit = next - 1
 	}
+	lines, after := lines[:limit], lines[limit:]
 
 	original := string(lines[line-1])
 	// Keep any carriage return so a CRLF file stays CRLF.
@@ -63,7 +89,8 @@ func SetField(source []byte, key string, line int, value string) ([]byte, error)
 		}
 	}
 	rewritten := append(lines[:line-1:line-1], []byte(rebuilt))
-	out := bytes.Join(append(rewritten, lines[end:]...), []byte("\n"))
+	rewritten = append(append(rewritten, lines[end:]...), after...)
+	out := bytes.Join(rewritten, []byte("\n"))
 
 	// The last line of defence. However the old value was written, the result
 	// must still be readable: front matter that no longer decodes takes the
@@ -91,6 +118,52 @@ func FrontMatterParses(source []byte) bool {
 	}
 	var node yaml.Node
 	return yaml.Unmarshal(block, &node) == nil
+}
+
+// hasOtherBreak reports whether a block holds a line break yaml counts and
+// splitting on newlines does not. These are every break yaml reads besides a
+// newline and a carriage return before one.
+func hasOtherBreak(block []byte) bool {
+	if bytes.Contains(block, []byte("\u0085")) || bytes.Contains(block, []byte("\u2028")) || bytes.Contains(block, []byte("\u2029")) {
+		return true
+	}
+	// The block ends where a newline was cut away, so a carriage return
+	// ending it ended a line.
+	for i, c := range block {
+		if c == '\r' && i+1 < len(block) && block[i+1] != '\n' {
+			return true
+		}
+	}
+	return false
+}
+
+// oneDocument reports whether a block holds at most one YAML document.
+func oneDocument(block []byte) bool {
+	d := yaml.NewDecoder(bytes.NewReader(block))
+	var n yaml.Node
+	// A block with nothing readable in it is keyLine's to refuse.
+	return d.Decode(&n) != nil || d.Decode(&n) == io.EOF
+}
+
+// keyLine is the line of the file a top-level front matter key is written on,
+// counting the opening delimiter, and the line of the key after it, or 0 for
+// either when the block does not parse or holds no such key. The first of a
+// duplicated key is the one reading takes.
+func keyLine(block []byte, key string) (line, next int) {
+	var root yaml.Node
+	if yaml.Unmarshal(block, &root) != nil || len(root.Content) == 0 || root.Content[0].Kind != yaml.MappingNode {
+		return 0, 0
+	}
+	mapping := root.Content[0]
+	for i := 0; i+1 < len(mapping.Content); i += 2 {
+		if mapping.Content[i].Value == key {
+			if i+2 < len(mapping.Content) {
+				next = mapping.Content[i+2].Line + 1
+			}
+			return mapping.Content[i].Line + 1, next
+		}
+	}
+	return 0, 0
 }
 
 // closingDelimiter is the index of the front matter block's closing ---.
@@ -123,7 +196,13 @@ func closingDelimiter(lines [][]byte) (int, bool) {
 // lines and comments after it stay where they are.
 func valueEnd(lines [][]byte, keyIndex, keyIndent int) int {
 	// A flow collection ends when its brackets balance, wherever that falls.
-	if depth := bracketDepth(text(lines[keyIndex])); depth > 0 {
+	// Only a value opening with a bracket is one: a plain scalar may hold a
+	// bracket, and reading it as a collection ran on to the block's end.
+	_, value, _ := strings.Cut(text(lines[keyIndex]), ":")
+	if value = strings.TrimSpace(value); !strings.HasPrefix(value, "[") && !strings.HasPrefix(value, "{") {
+		value = ""
+	}
+	if depth := bracketDepth(value); depth > 0 {
 		for end := keyIndex + 1; end < len(lines); end++ {
 			if depth += bracketDepth(text(lines[end])); depth <= 0 {
 				return end + 1
