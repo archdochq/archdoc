@@ -1164,10 +1164,26 @@ func TestL17FollowsALinkOutOfRootIntoTheGitRepository(t *testing.T) {
 	}
 }
 
-// absentBranch has no configured branch, where nothing is frozen by design.
-type absentBranch struct{ stubGit }
+// absentBranch has no configured branch, which before the first commit means
+// nothing is frozen, and after it a branch name configured wrong.
+type absentBranch struct {
+	stubGit
+	committed bool
+	err       error
+}
 
 func (absentBranch) BranchExists(string) (bool, error) { return false, nil }
+
+func (a absentBranch) HasCommits() (bool, error) { return a.committed, a.err }
+
+// unreadableSettings holds an archdoc.json on the branch that does not parse.
+type unreadableSettings struct{ stubGit }
+
+func (unreadableSettings) ListFiles(string) ([]string, error) { return []string{"archdoc.json"}, nil }
+
+func (unreadableSettings) FilesAt(string, []string) (map[string][]byte, error) {
+	return map[string][]byte{"archdoc.json": []byte("{")}, nil
+}
 
 // failingBranch cannot say whether the branch exists.
 type failingBranch struct{ stubGit }
@@ -1190,7 +1206,10 @@ func TestBranchErrorNamesAFailedReadAndNothingElse(t *testing.T) {
 		"a branch that cannot be looked up": {failingBranch{}, "refs unreadable"},
 		"a branch that cannot be listed":    {failingList{}, "ls-tree exploded"},
 		"a read that succeeds":              {stubGit{}, ""},
-		"no branch":                         {absentBranch{}, ""},
+		"no branch before the first commit": {absentBranch{}, ""},
+		"no branch after it":                {absentBranch{committed: true}, `branch "main" does not exist`},
+		"no branch and no telling":          {absentBranch{err: errors.New("log failed")}, "log failed"},
+		"settings on the branch unreadable": {unreadableSettings{}, "archdoc.json"},
 		"no git":                            {nil, ""},
 	} {
 		t.Run(name, func(t *testing.T) {

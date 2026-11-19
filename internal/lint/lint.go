@@ -4,6 +4,7 @@ package lint
 
 import (
 	"cmp"
+	"fmt"
 	"path"
 	"slices"
 	"strings"
@@ -173,8 +174,20 @@ func NewContext(r *repo.Repo, g git.Repository, now time.Time) Context {
 func branchFiles(ctx Context) (map[string]BranchFile, error) {
 	branch := ctx.Repo().Config().Branch
 	exists, err := ctx.Git().BranchExists(branch)
-	if err != nil || !exists {
+	if err != nil {
 		return nil, err
+	}
+	if !exists {
+		// Nothing is frozen before the first commit. A branch absent from a
+		// repository with commits is a name configured wrong, which L11
+		// reports, and a writer cannot tell from it what is frozen.
+		if committed, err := ctx.Git().HasCommits(); err != nil || committed {
+			if err == nil {
+				err = fmt.Errorf("branch %q does not exist", branch)
+			}
+			return nil, err
+		}
+		return nil, nil
 	}
 	// The documents on the branch are under its own root, which a pull
 	// request moving the root does not share with the working tree.
@@ -236,7 +249,9 @@ func branchFiles(ctx Context) (map[string]BranchFile, error) {
 			files[byFullPath[full]] = BranchFile{Content: committed, Status: status}
 		}
 	}
-	return files, nil
+	// A settings file on the branch that does not parse left the documents
+	// read under the working tree's root, which may not be the branch's.
+	return files, located.Unreadable
 }
 
 // Rules is every rule, in code order.

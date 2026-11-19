@@ -14,7 +14,7 @@ includes: [RFC-0007, RFC-0019]
 - If `X` matches both, the term wins.
 - If `X` matches neither: error, and the document is left unchanged.
 
-A document is either rewritten in full or not at all. A frozen document containing `[[...]]` produces a warning naming it and is never modified. A document that is terminal in the working tree and not yet on the branch is not frozen and is rewritten like any other, which is how a backfilled document's links resolve. Outside a git repository, or where git fails reading the configured branch, freezing cannot be established, and a terminal document is reported as an error and left alone. Findings from `link` follow `lint`'s exit codes.
+A document is either rewritten in full or not at all. A frozen document containing `[[...]]` produces a warning naming it and is never modified. A document that is terminal in the working tree and not yet on the branch is not frozen and is rewritten like any other, which is how a backfilled document's links resolve. Outside a git repository, or where the configured branch cannot be read, freezing cannot be established, and a terminal document is reported as an error and left alone. Findings from `link` follow `lint`'s exit codes.
 
 ## Suggestions
 
@@ -40,7 +40,7 @@ A repository with no `term/` directory has no glossary, which is valid: L15 and 
 
 - `add <term> <definition> [--named-by <id>]`: writes `term/<slug>.md`. Refuses a slug already taken, which covers a name differing only in case, a `--named-by` that is not a document in the repository, a definition that is not exactly one paragraph, and a file the index cannot see.
 - `rename <old> <new>`: renames the file, sets `title`, and appends the old name to `formerly`, leaving out any name whose anchor is the new name's. Refuses the term's current name, and a term whose body is longer than 131,072 bytes, which is not read. The H1 is retitled where it is `# <old>` or `<old>` over a line of `=`. Links elsewhere are not rewritten and do not need to be: the old name keeps an anchor on the generated page.
-- `remove <term>`: deletes the file. Refuses when a frozen document links to the term, by its anchor or a former name's on the generated page, or to its file, since the link could never be corrected, while any document's body is longer than 131,072 bytes, as a link in it cannot be seen, and where git fails reading the configured branch, as a frozen document cannot be told from one that is not.
+- `remove <term>`: deletes the file. Refuses when a frozen document links to the term, by its anchor or a former name's on the generated page, or to its file, since the link could never be corrected, while any document's body is longer than 131,072 bytes, as a link in it cannot be seen, and where the configured branch cannot be read, as a frozen document cannot be told from one that is not.
 - `list`: prints the terms, one per line.
 - `show <term>`: prints the term and its definition, as `GLOSSARY.md` writes it.
 

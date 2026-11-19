@@ -9,7 +9,7 @@ RFCs and ADRs have a status. Spec pages and refs do not.
 
 ## Statuses
 
-`draft`, `proposed`, `accepted`, `rejected` and `withdrawn`. The last three are terminal. A document with a terminal status is frozen: any change to it once it exists on the configured branch is reported by lint, and every writer refuses it. Where git fails reading the configured branch, so whether a document is frozen is not known, `renumber` and `term remove` refuse, naming the failure, and `link` leaves every terminal document alone; lint reports the failure under L11.
+`draft`, `proposed`, `accepted`, `rejected` and `withdrawn`. The last three are terminal. A document with a terminal status is frozen: any change to it once it exists on the configured branch is reported by lint, and every writer refuses it. Where the configured branch cannot be read, so whether a document is frozen is not known, `renumber` and `term remove` refuse, naming the failure, and `link` leaves every terminal document alone; lint reports the failure under L11.
 
 ## Transitions
 

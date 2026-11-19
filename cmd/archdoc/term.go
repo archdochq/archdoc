@@ -90,7 +90,8 @@ func termRemove() *cobra.Command {
 		Short: "Delete a term",
 		Long: "Delete a term.\n\n" +
 			"Refuses when a frozen document links to it: the link would be left pointing at an anchor " +
-			"that no longer exists, and the document holding it could never be corrected.",
+			"that no longer exists, and the document holding it could never be corrected. " +
+			"Refuses as well when the configured branch cannot be read, so that cannot be known.",
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			r, err := openRepo()
