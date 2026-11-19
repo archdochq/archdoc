@@ -896,7 +896,7 @@ func TestL16NamesTheEditThatClearsIt(t *testing.T) {
 	const frozen = "rfc/0001-frozen.md"
 	files := map[string]string{
 		frozen:                rfc("RFC-0001", "Frozen", "accepted", " 2026-02-01", "See [[RFC-0002]].\n\n### About [[RFC-0002]]"),
-		"rfc/0002-open.md":    rfc("RFC-0002", "Open", "proposed", "", "See [[RFC-0001]].\n\n### On [[RFC-0001]]"),
+		"rfc/0002-open.md":    rfc("RFC-0002", "Open", "proposed", "", "See [[RFC-0001]] and ![[RFC-0003]].\n\n### On [[RFC-0001]]"),
 		"rfc/0003-decided.md": rfc("RFC-0003", "Decided", "accepted", " 2026-02-01", "See [[RFC-0001]]."),
 	}
 	dir := gitFixture(t, map[string]string{frozen: files[frozen]})
@@ -914,6 +914,8 @@ func TestL16NamesTheEditThatClearsIt(t *testing.T) {
 		// A heading in a frozen document is frozen too: L11 forbids the edit.
 		"rfc/0001-frozen.md:26: unresolved wiki link [[RFC-0002]]: the document is frozen, so it is left as written",
 		"rfc/0002-open.md:24: unresolved wiki link [[RFC-0001]]: run archdoc link",
+		// archdoc link leaves an embed, which expanded would be an image.
+		"rfc/0002-open.md:24: unresolved wiki link [[RFC-0003]]: remove the ! before it, as archdoc link leaves an embed as written",
 		"rfc/0002-open.md:26: unresolved wiki link [[RFC-0001]]: write the heading without it",
 		"rfc/0003-decided.md:24: unresolved wiki link [[RFC-0001]]: run archdoc link",
 	}

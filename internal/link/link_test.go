@@ -907,3 +907,20 @@ func TestSuggestSkipsAMentionAfterABang(t *testing.T) {
 		t.Errorf("suggested at columns %v, want %v: only the mention not after a !", cols, want)
 	}
 }
+
+// TestAnEmbedThatResolvesToNothingHoldsTheDocumentBack: an embed is a wiki
+// link that does not resolve before it is one that would become an image, so
+// the document is left unchanged, as for any link that resolves to nothing.
+func TestAnEmbedThatResolvesToNothingHoldsTheDocumentBack(t *testing.T) {
+	r := repotest.New(t, map[string]string{
+		"rfc/0001-a.md": "---\nid: RFC-0001\ntitle: Alpha\nstatus: draft\n---\n\n# RFC-0001: Alpha\n",
+		"spec/b.md":     "---\ntitle: B\nincludes: []\n---\n\n# B\n\n[[RFC-0001]] and ![[Nope]].\n",
+	})
+	changes, findings := link.Resolve(lint.NewContext(r, nil, now))
+	if _, rewritten := changes["spec/b.md"]; rewritten {
+		t.Errorf("a document holding a link that resolves to nothing was rewritten:\n%s", changes["spec/b.md"])
+	}
+	if len(findings) != 1 || !strings.Contains(findings[0].Message, "matches no identifier") {
+		t.Errorf("findings = %v, want [[Nope]] reported as resolving to nothing", findings)
+	}
+}

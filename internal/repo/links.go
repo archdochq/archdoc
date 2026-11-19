@@ -142,8 +142,10 @@ func (d *Document) WikiLinks() []WikiLink {
 			if i > 0 {
 				column -= starts[i-1]
 			}
+			at := run.Start + m[0]
 			links = append(links, WikiLink{Name: written[m[2]:m[3]], Line: d.BodyLine + i,
-				Start: column, End: column + m[1] - m[0], Heading: heading})
+				Start: column, End: column + m[1] - m[0], Heading: heading,
+				Embed: at > 0 && d.Body[at-1] == '!' && !escapedAt(d.Body, at-1)})
 		}
 	})
 	return links
