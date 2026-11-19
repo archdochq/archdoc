@@ -518,7 +518,10 @@ the result can delete content it never read.
   key in several shapes, and all of them are recognised, because replacing only the key's line orphans
   the tail and produces front matter that no longer parses. A `#` inside quotes is not a comment, and a
   carriage return is preserved so a CRLF file stays CRLF. A comment written among a value's items is
-  refused rather than deleted.
+  refused rather than deleted. `SetField` finds the key in the source it is given rather than taking a
+  line from an earlier parse: rewriting a value written across lines puts it on one and moves every
+  line beneath it, so `renumber` retitled the line after the H1 and `withdraw` refused a `decided` key
+  that had moved.
 - **Nothing is written through a symbolic link, and nothing is written outside the repository.** One
   helper refuses a path that is a symlink, and one resolves every directory component before the write,
   because a root can be perfectly ordinary while a document directory inside it points elsewhere.

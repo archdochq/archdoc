@@ -281,25 +281,27 @@ func renamedPath(d *Document, number int) (string, error) {
 // renameInSelf rewrites the front matter id and the heading of the document's
 // source, given with its references to itself already followed. Both, or the
 // document trades an L03 error for an L10 one.
+//
+// The heading is retitled first, at the line the parse found it on. Following
+// references edits within lines and leaves that line where it was, but
+// rewriting an id written across lines puts it on one, and every line beneath
+// it moves up.
 func renameInSelf(d *Document, source []byte, from, to string) ([]byte, error) {
-	source, err := SetField(source, "id", d.FrontMatter.LineOf("id"), to)
+	if h1, ok := d.H1(); ok {
+		lines := strings.Split(string(source), "\n")
+		if i := h1.Line - 1; i >= 0 && i < len(lines) {
+			// The first mention of the old identifier is replaced, wherever it
+			// is in the heading. A heading not holding it is left as it is, for
+			// L10 to report rather than this command to repair.
+			lines[i] = strings.Replace(lines[i], from, to, 1)
+			source = []byte(strings.Join(lines, "\n"))
+		}
+	}
+	source, err := SetField(source, "id", to)
 	if err != nil {
 		return nil, fmt.Errorf("rewriting the id of %s: %w", d.Path, err)
 	}
-	h1, ok := d.H1()
-	if !ok {
-		return source, nil
-	}
-	lines := strings.Split(string(source), "\n")
-	if h1.Line < 1 || h1.Line > len(lines) {
-		return source, nil
-	}
-	i := h1.Line - 1
-	// The first mention of the old identifier is replaced, wherever it is in
-	// the heading. A heading not holding it is left as it is, for L10 to
-	// report rather than this command to repair.
-	lines[i] = strings.Replace(lines[i], from, to, 1)
-	return []byte(strings.Join(lines, "\n")), nil
+	return source, nil
 }
 
 // lineEdit replaces columns start to end of one line, counted from 0.

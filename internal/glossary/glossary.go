@@ -109,7 +109,7 @@ func Rename(r *repo.Repo, from, to string) (oldPath, newPath string, source []by
 		return "", "", nil, fmt.Errorf("%s holds a comment in its H1; retitle it by hand", entry.Path)
 	}
 	out := append(append(append([]byte{}, d.Source[:start]...), to...), d.Source[end:]...)
-	out, err = repo.SetField(out, "title", d.FrontMatter.LineOf("title"), scalar(to))
+	out, err = repo.SetField(out, "title", scalar(to))
 	if err != nil {
 		return "", "", nil, err
 	}
@@ -121,7 +121,7 @@ func Rename(r *repo.Repo, from, to string) (oldPath, newPath string, source []by
 	formerly := slices.DeleteFunc(append(slices.Clone(d.FrontMatter.Formerly), entry.Term), func(name string) bool {
 		return repo.Anchor(name) == repo.Anchor(to)
 	})
-	out, err = repo.SetField(out, "formerly", d.FrontMatter.LineOf("formerly"), list(formerly))
+	out, err = repo.SetField(out, "formerly", list(formerly))
 	if err != nil {
 		return "", "", nil, err
 	}

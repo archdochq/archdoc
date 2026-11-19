@@ -514,3 +514,22 @@ func TestRenameRefusesAnH1HoldingAComment(t *testing.T) {
 		t.Errorf("Rename: error = %v, want a refusal naming the comment", err)
 	}
 }
+
+// TestRenameRecordsTheFormerNameBeneathATitleWrittenAcrossLines covers two
+// edits in sequence: rewriting a title written across lines puts it on one,
+// which moves formerly up a line.
+func TestRenameRecordsTheFormerNameBeneathATitleWrittenAcrossLines(t *testing.T) {
+	r := repotest.New(t, map[string]string{
+		repotest.TermPath("editable"): strings.Replace(repotest.Term("editable", "Not frozen."), "title: editable", "title:\n  editable", 1),
+	})
+
+	_, _, source, err := glossary.Rename(r, "editable", "open")
+	if err != nil {
+		t.Fatalf("Rename: %v", err)
+	}
+	for _, want := range []string{"title: open\n", "formerly: [editable]\n", "# open\n"} {
+		if !strings.Contains(string(source), want) {
+			t.Errorf("the renamed file does not carry %q:\n%s", want, source)
+		}
+	}
+}

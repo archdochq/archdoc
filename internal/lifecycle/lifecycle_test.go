@@ -522,3 +522,20 @@ func TestAcceptAndRejectRefuseABodyThatIsNotRead(t *testing.T) {
 		t.Errorf("withdraw: %v", err)
 	}
 }
+
+// TestApplyRecordsTheDateBeneathAStatusWrittenAcrossLines covers two edits in
+// sequence. Rewriting a status written across lines puts it on one, which moved
+// decided up a line, and the date was then written at the line the parse had
+// found decided on, which no longer held it.
+func TestApplyRecordsTheDateBeneathAStatusWrittenAcrossLines(t *testing.T) {
+	source := strings.Replace(rfc("draft", "", "\n"), "status: draft\n", "status:\n  draft\n", 1)
+	d := document(t, "rfc/0001-a-design.md", source)
+
+	out, err := lifecycle.Apply(d, repo.StatusWithdrawn, now, nil)
+	if err != nil {
+		t.Fatalf("Apply: %v", err)
+	}
+	if !strings.Contains(string(out), "status: withdrawn\n") || !strings.Contains(string(out), "decided: 2026-09-11\n") {
+		t.Errorf("withdraw did not record the status and date:\n%s", out)
+	}
+}

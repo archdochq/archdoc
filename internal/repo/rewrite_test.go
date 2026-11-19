@@ -20,7 +20,7 @@ includes:
 # Glossary
 `)
 
-	out, err := repo.SetField(source, "includes", 3, "[RFC-0001, ADR-0002, RFC-0004]")
+	out, err := repo.SetField(source, "includes", "[RFC-0001, ADR-0002, RFC-0004]")
 	if err != nil {
 		t.Fatalf("SetField: %v", err)
 	}
@@ -48,7 +48,7 @@ extra: value
 # Glossary
 `)
 
-	out, err := repo.SetField(source, "includes", 3, "[RFC-0001, ADR-0002]")
+	out, err := repo.SetField(source, "includes", "[RFC-0001, ADR-0002]")
 	if err != nil {
 		t.Fatalf("SetField: %v", err)
 	}
@@ -57,7 +57,7 @@ extra: value
 	}
 }
 
-func TestSetFieldRefusesALineOutsideTheFrontMatter(t *testing.T) {
+func TestSetFieldRefusesAKeyOnlyTheBodyHolds(t *testing.T) {
 	// The body may contain something that looks exactly like a key.
 	source := []byte(`---
 title: Example
@@ -71,7 +71,7 @@ status: draft
 ` + "```" + `
 `)
 
-	if _, err := repo.SetField(source, "status", 9, "accepted"); err == nil {
+	if _, err := repo.SetField(source, "status", "accepted"); err == nil {
 		t.Error("SetField rewrote a line in the body, outside the front matter block")
 	}
 }
@@ -81,7 +81,7 @@ func TestSetFieldKeepsACommentAfterAnApostrophe(t *testing.T) {
 	// the start of the value does.
 	source := []byte("---\ntitle: Ollie's plan   # keep me\nincludes: []\n---\n\n# X\n")
 
-	out, err := repo.SetField(source, "title", 2, "Another plan")
+	out, err := repo.SetField(source, "title", "Another plan")
 	if err != nil {
 		t.Fatalf("SetField: %v", err)
 	}
@@ -105,7 +105,7 @@ func TestSetFieldHandlesEverySpellingOfAMultiLineValue(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			source := []byte("---\ntitle: Glossary\n" + tc.front + "---\n\n# Glossary\n")
 
-			out, err := repo.SetField(source, "includes", 3, "[RFC-0001, ADR-0001, RFC-0004]")
+			out, err := repo.SetField(source, "includes", "[RFC-0001, ADR-0001, RFC-0004]")
 			if err != nil {
 				t.Fatalf("SetField: %v", err)
 			}
@@ -122,7 +122,7 @@ func TestSetFieldHandlesEverySpellingOfAMultiLineValue(t *testing.T) {
 func TestSetFieldKeepsACommentIndentedUnderTheValue(t *testing.T) {
 	source := []byte("---\nid: RFC-0001\nstatus: draft\n  # still being written\ncreated: 2026-01-01\n---\n\n# X\n")
 
-	out, err := repo.SetField(source, "status", 3, "proposed")
+	out, err := repo.SetField(source, "status", "proposed")
 	if err != nil {
 		t.Fatalf("SetField: %v", err)
 	}
@@ -143,7 +143,7 @@ func TestSetFieldNeverReturnsFrontMatterThatWillNotParse(t *testing.T) {
 	} {
 		source := []byte("---\ntitle: T\n" + front + "---\n\n# T\n")
 
-		out, err := repo.SetField(source, "includes", 3, "[RFC-0001]")
+		out, err := repo.SetField(source, "includes", "[RFC-0001]")
 		if err != nil {
 			continue // refusing is an acceptable outcome
 		}
@@ -161,7 +161,7 @@ func TestSetFieldWorksOnAFileWithAByteOrderMark(t *testing.T) {
 	const bom = "\ufeff"
 	source := []byte(bom + "---\nid: RFC-0001\nstatus: draft\ncreated: 2026-01-01\n---\n\n# RFC-0001: X\n")
 
-	out, err := repo.SetField(source, "status", 3, "proposed")
+	out, err := repo.SetField(source, "status", "proposed")
 	if err != nil {
 		t.Fatalf("SetField: %v", err)
 	}
@@ -191,7 +191,7 @@ includes:
 # Page
 `)
 
-	_, err := repo.SetField(source, "includes", 3, "[ADR-0001, ADR-0002]")
+	_, err := repo.SetField(source, "includes", "[ADR-0001, ADR-0002]")
 	if err == nil {
 		t.Fatal("SetField reported success over comments it was about to delete")
 	}
@@ -211,7 +211,7 @@ includes:
 # Page
 `)
 
-	out, err := repo.SetField(source, "includes", 3, "[ADR-0001, ADR-0002]")
+	out, err := repo.SetField(source, "includes", "[ADR-0001, ADR-0002]")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -227,7 +227,7 @@ func TestSetFieldRefusesAKeyThatIsNotThere(t *testing.T) {
 	// panics in front of the user.
 	source := []byte("---\nid: RFC-0001\ntitle: A\nstatus: proposed\n---\n\n# RFC-0001: A\n")
 
-	if _, err := repo.SetField(source, "decided", 0, "2026-02-01"); err == nil {
+	if _, err := repo.SetField(source, "decided", "2026-02-01"); err == nil {
 		t.Error("SetField accepted line 0 for a key that is not in the front matter")
 	}
 }

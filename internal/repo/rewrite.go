@@ -8,25 +8,25 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-// SetField replaces the value of one front matter key, on the line it was
+// SetField replaces the value of one front matter key, on the line it is
 // written, and leaves everything else exactly as it was: the order of the other
 // keys, their spacing, and any comments. Re-serialising the block through a
 // YAML encoder would be shorter and would quietly discard all three.
-func SetField(source []byte, key string, line int, value string) ([]byte, error) {
-	if line <= 0 {
-		return nil, fmt.Errorf("front matter has no %q key to rewrite", key)
-	}
-	lines := bytes.Split(source, []byte("\n"))
-	if line > len(lines) {
-		return nil, fmt.Errorf("front matter key %q is recorded on line %d, past the end of the file", key, line)
-	}
-	closing, ok := closingDelimiter(lines)
+//
+// The key is found in the source given, not taken from an earlier parse. A
+// value written across lines is rewritten onto one, which moves every line
+// beneath it, so a line number read before one edit names the wrong line by the
+// next.
+func SetField(source []byte, key string, value string) ([]byte, error) {
+	block, _, _, ok := splitFrontMatter(source)
 	if !ok {
 		return nil, fmt.Errorf("no front matter block to rewrite")
 	}
-	if line >= closing+1 {
-		return nil, fmt.Errorf("line %d is outside the front matter block, which ends at line %d", line, closing+1)
+	line := keyLine(block, key)
+	if line == 0 {
+		return nil, fmt.Errorf("front matter has no %q key to rewrite", key)
 	}
+	lines := bytes.Split(source, []byte("\n"))
 
 	original := string(lines[line-1])
 	// Keep any carriage return so a CRLF file stays CRLF.
@@ -93,22 +93,21 @@ func FrontMatterParses(source []byte) bool {
 	return yaml.Unmarshal(block, &node) == nil
 }
 
-// closingDelimiter is the index of the front matter block's closing ---.
-//
-// isDelimiter is shared with the reading side, so the two cannot come to
-// disagree about what opens a block. They did once: the reader trimmed a byte
-// order mark and this did not, so every transition on a document saved by a
-// Windows editor failed on a block the user could plainly see.
-func closingDelimiter(lines [][]byte) (int, bool) {
-	if len(lines) == 0 || !isDelimiter(lines[0]) {
-		return 0, false
+// keyLine is the line of the file a top-level front matter key is written on,
+// counting the opening delimiter, or 0 when the block does not parse or holds
+// no such key. The first of a duplicated key is the one reading takes.
+func keyLine(block []byte, key string) int {
+	var root yaml.Node
+	if yaml.Unmarshal(block, &root) != nil || len(root.Content) == 0 || root.Content[0].Kind != yaml.MappingNode {
+		return 0
 	}
-	for i := 1; i < len(lines); i++ {
-		if isDelimiter(lines[i]) {
-			return i, true
+	mapping := root.Content[0]
+	for i := 0; i+1 < len(mapping.Content); i += 2 {
+		if mapping.Content[i].Value == key {
+			return mapping.Content[i].Line + 1
 		}
 	}
-	return 0, false
+	return 0
 }
 
 // valueEnd is the index one past the last line of a key's value.
