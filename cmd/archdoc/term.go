@@ -7,10 +7,8 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-	"time"
 
 	"archdoc.dev/internal/glossary"
-	"archdoc.dev/internal/lint"
 	"archdoc.dev/internal/repo"
 	"github.com/spf13/cobra"
 )
@@ -107,11 +105,11 @@ func termRemove() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			// NewContext rather than a literal, for the reason renumber gives:
-			// without the branch snapshot every document looks editable, and
-			// the guard this command exists for would never fire.
-			frozen := lint.NewContext(r, g, time.Now()).Frozen
-			docPath, err := glossary.Remove(r, term, frozen)
+			ctx, err := writerContext(r, g)
+			if err != nil {
+				return err
+			}
+			docPath, err := glossary.Remove(r, term, ctx.Frozen)
 			if err != nil {
 				return err
 			}

@@ -10,9 +10,11 @@ import (
 	"io"
 	"os"
 	"runtime/debug"
+	"time"
 
 	"archdoc.dev/internal/config"
 	"archdoc.dev/internal/git"
+	"archdoc.dev/internal/lint"
 	"archdoc.dev/internal/repo"
 	"github.com/charmbracelet/x/term"
 	"github.com/spf13/cobra"
@@ -138,6 +140,21 @@ func openGit(r *repo.Repo) (git.Repository, error) {
 		return nil, err
 	}
 	return g, nil
+}
+
+// writerContext is the lint context a command that edits documents decides
+// what it may edit with. NewContext rather than a literal: Frozen reads the
+// branch snapshot, and without it every document looks editable, which would
+// let the command make exactly the unrepairable edit it exists to refuse. A
+// branch that could not be read is refused for the same reason.
+func writerContext(r *repo.Repo, g git.Repository) (lint.Context, error) {
+	ctx := lint.NewContext(r, g, time.Now())
+	if err := ctx.BranchError(); err != nil {
+		return lint.Context{}, fmt.Errorf(
+			"%s could not be read, so whether a document is frozen is not known, and nothing was changed: %w",
+			r.Config().Branch, err)
+	}
+	return ctx, nil
 }
 
 // interactive reports whether the command may prompt: stdin must be a terminal

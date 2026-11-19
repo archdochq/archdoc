@@ -3,9 +3,7 @@ package main
 import (
 	"fmt"
 	"strings"
-	"time"
 
-	"archdoc.dev/internal/lint"
 	"archdoc.dev/internal/repo"
 	"github.com/spf13/cobra"
 )
@@ -46,11 +44,11 @@ func newRenumberCommand() *cobra.Command {
 				return err
 			}
 
-			// NewContext rather than a literal: Frozen reads the branch
-			// snapshot, and without it every document looks editable, which
-			// would let this command make exactly the unrepairable edit it
-			// exists to refuse.
-			frozen := lint.NewContext(r, g, time.Now()).Frozen
+			ctx, err := writerContext(r, g)
+			if err != nil {
+				return err
+			}
+			frozen := ctx.Frozen
 
 			if len(args) == 0 {
 				chosen, err := askForRenumber(cmd, r, frozen)

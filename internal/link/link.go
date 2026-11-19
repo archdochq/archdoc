@@ -481,7 +481,8 @@ func segments(dir string) []string {
 //
 // Outside a git repository the question cannot be settled, so a terminal
 // document is left alone rather than assumed editable, which is what this did
-// before it could tell the two apart. The branch is consulted only for a
+// before it could tell the two apart. Nor can it where git fails reading the
+// branch, where Frozen answers false for every document. The branch is consulted only for a
 // terminal document, so a repository whose wiki links all sit in open
 // documents still never builds the snapshot.
 func rewritable(ctx lint.Context, d *repo.Document) (state string, severity lint.Severity, ok bool) {
@@ -490,6 +491,8 @@ func rewritable(ctx lint.Context, d *repo.Document) (state string, severity lint
 		return "", "", true
 	case ctx.Git() == nil:
 		return "terminal", lint.Error, false
+	case ctx.BranchError() != nil:
+		return fmt.Sprintf("terminal (%s could not be read: %v)", ctx.Repo().Config().Branch, ctx.BranchError()), lint.Error, false
 	case ctx.Frozen(d):
 		return "frozen on " + ctx.Repo().Config().Branch, lint.Warning, false
 	}

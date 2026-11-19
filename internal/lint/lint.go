@@ -67,16 +67,29 @@ type Context struct {
 // snapshot defers reading the branch until something asks.
 type snapshot struct {
 	once  sync.Once
-	load  func() map[string]BranchFile
+	load  func() (map[string]BranchFile, error)
 	files map[string]BranchFile
+	err   error
 }
 
 func (s *snapshot) get() map[string]BranchFile {
 	if s == nil {
 		return nil
 	}
-	s.once.Do(func() { s.files = s.load() })
+	s.once.Do(func() { s.files, s.err = s.load() })
 	return s.files
+}
+
+// BranchError is what kept the configured branch from being read, or nil when
+// it was read or there is none. Frozen answers false for a document it could
+// not read, which lint can afford, because L11 reports the failure, and a
+// command about to edit cannot, so a writer refuses while this is set.
+func (c Context) BranchError() error {
+	if c.branch == nil {
+		return nil
+	}
+	c.branch.get()
+	return c.branch.err
 }
 
 // Repo is the repository being checked.
@@ -148,7 +161,7 @@ func NewContext(r *repo.Repo, g git.Repository, now time.Time) Context {
 	if g != nil {
 		// The closure captures ctx before branch is set, which is safe because
 		// branchFiles reads only the repository and the git handle.
-		ctx.branch = &snapshot{load: func() map[string]BranchFile { return branchFiles(ctx) }}
+		ctx.branch = &snapshot{load: func() (map[string]BranchFile, error) { return branchFiles(ctx) }}
 	}
 	return ctx
 }
@@ -156,11 +169,12 @@ func NewContext(r *repo.Repo, g git.Repository, now time.Time) Context {
 // branchFiles reads each document as it stands on the branch. A document absent
 // from the branch is new and is left out; one that cannot be read is recorded
 // with its error, so that L11 can report it rather than concluding the document
-// is editable.
-func branchFiles(ctx Context) map[string]BranchFile {
+// is editable. The error is the first that kept the branch from being read.
+func branchFiles(ctx Context) (map[string]BranchFile, error) {
 	branch := ctx.Repo().Config().Branch
-	if exists, err := ctx.Git().BranchExists(branch); err != nil || !exists {
-		return nil
+	exists, err := ctx.Git().BranchExists(branch)
+	if err != nil || !exists {
+		return nil, err
 	}
 	// The documents on the branch are under its own root, which a pull
 	// request moving the root does not share with the working tree.
@@ -170,7 +184,7 @@ func branchFiles(ctx Context) map[string]BranchFile {
 		for _, d := range ctx.Repo().Documents() {
 			files[d.Path] = BranchFile{Err: err}
 		}
-		return files
+		return files, err
 	}
 	prefix := located.Root
 
@@ -207,7 +221,7 @@ func branchFiles(ctx Context) map[string]BranchFile {
 		for _, full := range wanted {
 			files[byFullPath[full]] = BranchFile{Err: err}
 		}
-		return files
+		return files, err
 	}
 	for _, full := range wanted {
 		if committed, ok := contents[full]; ok {
@@ -222,7 +236,7 @@ func branchFiles(ctx Context) map[string]BranchFile {
 			files[byFullPath[full]] = BranchFile{Content: committed, Status: status}
 		}
 	}
-	return files
+	return files, nil
 }
 
 // Rules is every rule, in code order.
