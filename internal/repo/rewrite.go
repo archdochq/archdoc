@@ -22,20 +22,21 @@ func SetField(source []byte, key string, value string) ([]byte, error) {
 	if !ok {
 		return nil, fmt.Errorf("no front matter block to rewrite")
 	}
+	// yaml counts a lone carriage return, U+0085, U+2028 and U+2029 as breaks,
+	// which splitting on newlines does not, so every line it gives after one
+	// is late: a key could be found in the body, or a value run over the key
+	// beneath it.
+	if hasOtherBreak(block) {
+		return nil, fmt.Errorf("front matter holds a line break other than a newline (a lone carriage return, U+0085, U+2028 or U+2029), so %q cannot be found by line; edit it by hand", key)
+	}
 	line, next := keyLine(block, key)
 	if line == 0 {
 		return nil, fmt.Errorf("front matter has no %q key to rewrite", key)
 	}
 	lines := bytes.Split(source, []byte("\n"))
-	// yaml counts a lone carriage return and U+2028 as line breaks, which
-	// splitting on newlines does not, so a key after one is numbered past its
-	// line and can be numbered into the body, where a line can read as the key.
 	closing, ok := closingDelimiter(lines)
 	if !ok {
 		return nil, fmt.Errorf("no front matter block to rewrite")
-	}
-	if line > closing {
-		return nil, fmt.Errorf("front matter key %q is read on line %d, outside the block, which ends at line %d", key, line, closing+1)
 	}
 	// The value ends before the next key yaml reads, and within the block,
 	// whatever it holds: guessing its extent from brackets alone ran on past
@@ -110,6 +111,23 @@ func FrontMatterParses(source []byte) bool {
 	}
 	var node yaml.Node
 	return yaml.Unmarshal(block, &node) == nil
+}
+
+// hasOtherBreak reports whether a block holds a line break yaml counts and
+// splitting on newlines does not. These are every break yaml reads besides a
+// newline and a carriage return before one.
+func hasOtherBreak(block []byte) bool {
+	if bytes.Contains(block, []byte("\u0085")) || bytes.Contains(block, []byte("\u2028")) || bytes.Contains(block, []byte("\u2029")) {
+		return true
+	}
+	// The block ends where a newline was cut away, so a carriage return
+	// ending it ended a line.
+	for i, c := range block {
+		if c == '\r' && i+1 < len(block) && block[i+1] != '\n' {
+			return true
+		}
+	}
+	return false
 }
 
 // keyLine is the line of the file a top-level front matter key is written on,

@@ -231,17 +231,23 @@ func TestSetFieldRefusesAKeyThatIsNotThere(t *testing.T) {
 	}
 }
 
-// TestSetFieldRefusesAKeyNumberedIntoTheBody covers yaml counting a line
-// break that splitting on newlines does not. A quoted title holding U+2028
-// numbers every key after it a line late, which put id at a body line that
-// reads as the key, and the body was rewritten in its place.
-func TestSetFieldRefusesAKeyNumberedIntoTheBody(t *testing.T) {
-	for name, brk := range map[string]string{"line separator": "\u2028", "lone carriage return": "\r"} {
+// TestSetFieldRefusesABreakYamlCountsAndLinesDoNot covers yaml counting a
+// line break that splitting on newlines does not, which numbers every line
+// after it late. Above the key, id was found at a body line reading as the key,
+// and the body was rewritten in its place. Inside the value, the next key was
+// numbered late, the value was taken to run over it, and it was deleted.
+func TestSetFieldRefusesABreakYamlCountsAndLinesDoNot(t *testing.T) {
+	for name, brk := range map[string]string{
+		"next line": "\u0085", "line separator": "\u2028", "paragraph separator": "\u2029", "lone carriage return": "\r",
+	} {
 		t.Run(name, func(t *testing.T) {
-			source := []byte("---\ntitle: \"a" + brk + "b" + brk + "c" + brk + "d\"\nid: RFC-0001\n---\n\nid: RFC-0001 example\n")
-			out, err := repo.SetField(source, "id", "RFC-0009")
-			if err == nil && !strings.Contains(string(out), "\nid: RFC-0001 example\n") {
-				t.Errorf("SetField rewrote a line of the body:\n%q", out)
+			above := []byte("---\ntitle: \"a" + brk + "b" + brk + "c" + brk + "d\"\nid: RFC-0001\n---\n\nid: RFC-0001 example\n")
+			if out, err := repo.SetField(above, "id", "RFC-0009"); err == nil {
+				t.Errorf("SetField rewrote a block whose lines yaml numbers late:\n%q", out)
+			}
+			inside := []byte("---\nincludes: [\"a" + brk + "b\", c'd]\nid: RFC-0001\nstatus: draft\n---\n")
+			if out, err := repo.SetField(inside, "includes", "[X]"); err == nil {
+				t.Errorf("SetField rewrote a block whose lines yaml numbers late:\n%q", out)
 			}
 		})
 	}

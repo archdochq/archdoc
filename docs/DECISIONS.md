@@ -522,9 +522,10 @@ the result can delete content it never read.
   line from an earlier parse: rewriting a value written across lines puts it on one and moves every
   line beneath it, so `renumber` retitled the line after the H1 and `withdraw` refused a `decided` key
   that had moved. The value is bounded by the next key yaml reads and by the closing delimiter, since
-  counting brackets ran past both when a quote hid one, and a key yaml numbers outside the block, as a
-  lone carriage return or U+2028 in a quoted value makes it, is refused rather than looked for in the
-  body.
+  counting brackets ran past both when a quote hid one. A block holding a line break yaml counts and
+  splitting on newlines does not (a lone carriage return, U+0085, U+2028 or U+2029) is refused, because
+  every line yaml gives after one is late: a key was found in the body, and a value run over the key
+  beneath it.
 - **Nothing is written through a symbolic link, and nothing is written outside the repository.** One
   helper refuses a path that is a symlink, and one resolves every directory component before the write,
   because a root can be perfectly ordinary while a document directory inside it points elsewhere.
