@@ -221,13 +221,73 @@ includes:
 }
 
 func TestSetFieldRefusesAKeyThatIsNotThere(t *testing.T) {
-	// LineOf returns 0 for an absent key and lifecycle.Apply passes it straight
-	// through, so a document whose "decided:" line was deleted reaches here
-	// with line 0. Without the guard lines[line-1] indexes -1 and the process
-	// panics in front of the user.
+	// A document whose "decided:" line was deleted reaches here from
+	// lifecycle.Apply. With no line for the key, lines[line-1] would index -1
+	// and the process would panic in front of the user.
 	source := []byte("---\nid: RFC-0001\ntitle: A\nstatus: proposed\n---\n\n# RFC-0001: A\n")
 
 	if _, err := repo.SetField(source, "decided", "2026-02-01"); err == nil {
-		t.Error("SetField accepted line 0 for a key that is not in the front matter")
+		t.Error("SetField rewrote a key that is not in the front matter")
+	}
+}
+
+// TestSetFieldRefusesAKeyNumberedIntoTheBody covers yaml counting a line
+// break that splitting on newlines does not. A quoted title holding U+2028
+// numbers every key after it a line late, which put id at a body line that
+// reads as the key, and the body was rewritten in its place.
+func TestSetFieldRefusesAKeyNumberedIntoTheBody(t *testing.T) {
+	for name, brk := range map[string]string{"line separator": "\u2028", "lone carriage return": "\r"} {
+		t.Run(name, func(t *testing.T) {
+			source := []byte("---\ntitle: \"a" + brk + "b" + brk + "c" + brk + "d\"\nid: RFC-0001\n---\n\nid: RFC-0001 example\n")
+			out, err := repo.SetField(source, "id", "RFC-0009")
+			if err == nil && !strings.Contains(string(out), "\nid: RFC-0001 example\n") {
+				t.Errorf("SetField rewrote a line of the body:\n%q", out)
+			}
+		})
+	}
+}
+
+// TestSetFieldReadsABracketInAPlainScalarAsText covers a plain scalar holding
+// an opening bracket, which is valid YAML. Read as an open flow collection, the
+// value ran on past the keys beneath it and the block's end, and rewriting it
+// deleted them.
+func TestSetFieldReadsABracketInAPlainScalarAsText(t *testing.T) {
+	source := []byte("---\ntitle: Use [brackets\nid: RFC-0001\nstatus: draft\n---\n\nSome prose ]\n\n---\n\nThe rest.\n")
+	out, err := repo.SetField(source, "title", "New")
+	if err != nil {
+		t.Fatalf("SetField: %v", err)
+	}
+	want := "---\ntitle: New\nid: RFC-0001\nstatus: draft\n---\n\nSome prose ]\n\n---\n\nThe rest.\n"
+	if string(out) != want {
+		t.Errorf("SetField =\n%q\nwant\n%q", out, want)
+	}
+}
+
+// TestSetFieldEndsAValueAtTheNextKey covers a flow collection whose closing
+// bracket an apostrophe hides from counting. yaml reads b'c as a plain scalar,
+// and counting brackets ran the value on past every key beneath it.
+func TestSetFieldEndsAValueAtTheNextKey(t *testing.T) {
+	source := []byte("---\nincludes: [a, b'c]\nid: RFC-0001\nstatus: draft\n---\n\n# Body ]\n")
+	out, err := repo.SetField(source, "includes", "[a]")
+	if err != nil {
+		t.Fatalf("SetField: %v", err)
+	}
+	want := "---\nincludes: [a]\nid: RFC-0001\nstatus: draft\n---\n\n# Body ]\n"
+	if string(out) != want {
+		t.Errorf("SetField =\n%q\nwant\n%q", out, want)
+	}
+}
+
+// TestSetFieldEndsTheLastValueAtTheBlock is the same for the last key, where
+// no key follows and only the closing delimiter bounds the value.
+func TestSetFieldEndsTheLastValueAtTheBlock(t *testing.T) {
+	source := []byte("---\nid: RFC-0001\nincludes: [a, b'c]\n---\n\n# Body ]\n")
+	out, err := repo.SetField(source, "includes", "[a]")
+	if err != nil {
+		t.Fatalf("SetField: %v", err)
+	}
+	want := "---\nid: RFC-0001\nincludes: [a]\n---\n\n# Body ]\n"
+	if string(out) != want {
+		t.Errorf("SetField =\n%q\nwant\n%q", out, want)
 	}
 }

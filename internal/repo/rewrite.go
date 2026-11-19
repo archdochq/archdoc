@@ -22,11 +22,29 @@ func SetField(source []byte, key string, value string) ([]byte, error) {
 	if !ok {
 		return nil, fmt.Errorf("no front matter block to rewrite")
 	}
-	line := keyLine(block, key)
+	line, next := keyLine(block, key)
 	if line == 0 {
 		return nil, fmt.Errorf("front matter has no %q key to rewrite", key)
 	}
 	lines := bytes.Split(source, []byte("\n"))
+	// yaml counts a lone carriage return and U+2028 as line breaks, which
+	// splitting on newlines does not, so a key after one is numbered past its
+	// line and can be numbered into the body, where a line can read as the key.
+	closing, ok := closingDelimiter(lines)
+	if !ok {
+		return nil, fmt.Errorf("no front matter block to rewrite")
+	}
+	if line > closing {
+		return nil, fmt.Errorf("front matter key %q is read on line %d, outside the block, which ends at line %d", key, line, closing+1)
+	}
+	// The value ends before the next key yaml reads, and within the block,
+	// whatever it holds: guessing its extent from brackets alone ran on past
+	// the keys beneath it when a quote hid its closing bracket.
+	limit := closing
+	if next > line && next-1 < limit {
+		limit = next - 1
+	}
+	lines, after := lines[:limit], lines[limit:]
 
 	original := string(lines[line-1])
 	// Keep any carriage return so a CRLF file stays CRLF.
@@ -63,7 +81,8 @@ func SetField(source []byte, key string, value string) ([]byte, error) {
 		}
 	}
 	rewritten := append(lines[:line-1:line-1], []byte(rebuilt))
-	out := bytes.Join(append(rewritten, lines[end:]...), []byte("\n"))
+	rewritten = append(append(rewritten, lines[end:]...), after...)
+	out := bytes.Join(rewritten, []byte("\n"))
 
 	// The last line of defence. However the old value was written, the result
 	// must still be readable: front matter that no longer decodes takes the
@@ -94,20 +113,42 @@ func FrontMatterParses(source []byte) bool {
 }
 
 // keyLine is the line of the file a top-level front matter key is written on,
-// counting the opening delimiter, or 0 when the block does not parse or holds
-// no such key. The first of a duplicated key is the one reading takes.
-func keyLine(block []byte, key string) int {
+// counting the opening delimiter, and the line of the key after it, or 0 for
+// either when the block does not parse or holds no such key. The first of a
+// duplicated key is the one reading takes.
+func keyLine(block []byte, key string) (line, next int) {
 	var root yaml.Node
 	if yaml.Unmarshal(block, &root) != nil || len(root.Content) == 0 || root.Content[0].Kind != yaml.MappingNode {
-		return 0
+		return 0, 0
 	}
 	mapping := root.Content[0]
 	for i := 0; i+1 < len(mapping.Content); i += 2 {
 		if mapping.Content[i].Value == key {
-			return mapping.Content[i].Line + 1
+			if i+2 < len(mapping.Content) {
+				next = mapping.Content[i+2].Line + 1
+			}
+			return mapping.Content[i].Line + 1, next
 		}
 	}
-	return 0
+	return 0, 0
+}
+
+// closingDelimiter is the index of the front matter block's closing ---.
+//
+// isDelimiter is shared with the reading side, so the two cannot come to
+// disagree about what opens a block. They did once: the reader trimmed a byte
+// order mark and this did not, so every transition on a document saved by a
+// Windows editor failed on a block the user could plainly see.
+func closingDelimiter(lines [][]byte) (int, bool) {
+	if len(lines) == 0 || !isDelimiter(lines[0]) {
+		return 0, false
+	}
+	for i := 1; i < len(lines); i++ {
+		if isDelimiter(lines[i]) {
+			return i, true
+		}
+	}
+	return 0, false
 }
 
 // valueEnd is the index one past the last line of a key's value.
@@ -122,7 +163,13 @@ func keyLine(block []byte, key string) int {
 // lines and comments after it stay where they are.
 func valueEnd(lines [][]byte, keyIndex, keyIndent int) int {
 	// A flow collection ends when its brackets balance, wherever that falls.
-	if depth := bracketDepth(text(lines[keyIndex])); depth > 0 {
+	// Only a value opening with a bracket is one: a plain scalar may hold a
+	// bracket, and reading it as a collection ran on to the block's end.
+	_, value, _ := strings.Cut(text(lines[keyIndex]), ":")
+	if value = strings.TrimSpace(value); !strings.HasPrefix(value, "[") && !strings.HasPrefix(value, "{") {
+		value = ""
+	}
+	if depth := bracketDepth(value); depth > 0 {
 		for end := keyIndex + 1; end < len(lines); end++ {
 			if depth += bracketDepth(text(lines[end])); depth <= 0 {
 				return end + 1

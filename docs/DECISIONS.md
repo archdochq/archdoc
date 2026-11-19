@@ -521,7 +521,10 @@ the result can delete content it never read.
   refused rather than deleted. `SetField` finds the key in the source it is given rather than taking a
   line from an earlier parse: rewriting a value written across lines puts it on one and moves every
   line beneath it, so `renumber` retitled the line after the H1 and `withdraw` refused a `decided` key
-  that had moved.
+  that had moved. The value is bounded by the next key yaml reads and by the closing delimiter, since
+  counting brackets ran past both when a quote hid one, and a key yaml numbers outside the block, as a
+  lone carriage return or U+2028 in a quoted value makes it, is refused rather than looked for in the
+  body.
 - **Nothing is written through a symbolic link, and nothing is written outside the repository.** One
   helper refuses a path that is a symlink, and one resolves every directory component before the write,
   because a root can be perfectly ordinary while a document directory inside it points elsewhere.
