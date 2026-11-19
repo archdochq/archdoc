@@ -1,9 +1,9 @@
 ---
 id: RFC-0017
 title: Warnings on frozen documents can be acknowledged
-status: proposed
+status: accepted
 created: 2026-11-02
-decided:
+decided: 2026-11-19
 depends: [ADR-0009, ADR-0023]
 updates: [RFC-0006]
 obsoletes: []
