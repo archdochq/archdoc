@@ -61,11 +61,18 @@ func termRename() *cobra.Command {
 		Use:   "rename <old> <new>",
 		Short: "Retitle a term, recording the previous name",
 		Long: "Retitle a term, recording the previous name.\n\n" +
-			"The old name keeps an anchor in the generated glossary, so a link written before the " +
-			"rename still resolves, including one inside a frozen document that could never be corrected.",
+			"The old name keeps an anchor in the generated glossary, so a link to the page written before " +
+			"the rename still resolves, including one inside a frozen document that could never be corrected.\n\n" +
+			"A new name whose filename differs moves the term's file, so the rename is refused when a " +
+			"frozen document links to the file. It is refused as well where the configured branch " +
+			"cannot be read.",
 		Args: cobra.MaximumNArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			r, err := openRepo()
+			if err != nil {
+				return err
+			}
+			g, err := openGit(r)
 			if err != nil {
 				return err
 			}
@@ -73,7 +80,11 @@ func termRename() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			was, docPath, source, err := glossary.Rename(r, old, replacement)
+			ctx, err := writerContext(r, g)
+			if err != nil {
+				return err
+			}
+			was, docPath, source, err := glossary.Rename(r, old, replacement, ctx.Frozen)
 			if err != nil {
 				return err
 			}

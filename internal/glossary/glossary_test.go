@@ -64,7 +64,7 @@ func TestRenameRecordsThePreviousName(t *testing.T) {
 		repotest.TermPath("editable"): repotest.Term("editable", "Not frozen."),
 	})
 
-	was, now, source, err := glossary.Rename(r, "editable", "open")
+	was, now, source, err := glossary.Rename(r, "editable", "open", nothingFrozen)
 	if err != nil {
 		t.Fatalf("Rename: %v", err)
 	}
@@ -176,7 +176,7 @@ func TestRenameWritesAnyNameSoItReadsBack(t *testing.T) {
 		r := repotest.New(t, map[string]string{
 			repotest.TermPath("Plain"): repotest.Term("Plain", "A definition."),
 		})
-		_, docPath, source, err := glossary.Rename(r, "Plain", name)
+		_, docPath, source, err := glossary.Rename(r, "Plain", name, nothingFrozen)
 		if err != nil {
 			t.Errorf("Rename(Plain, %q): %v", name, err)
 			continue
@@ -195,7 +195,7 @@ func TestRenameKeepsAFormerNameWhole(t *testing.T) {
 	r := repotest.New(t, map[string]string{
 		"term/a-b.md": "---\ntitle: \"A, B\"\nformerly: []\nnamed_by:\n---\n\n# A, B\n\nA definition.\n",
 	})
-	_, docPath, source, err := glossary.Rename(r, "A, B", "Cee")
+	_, docPath, source, err := glossary.Rename(r, "A, B", "Cee", nothingFrozen)
 	if err != nil {
 		t.Fatalf("Rename: %v", err)
 	}
@@ -211,13 +211,13 @@ func TestRenameKeepsAnyFormerNameAsWritten(t *testing.T) {
 		r := repotest.New(t, map[string]string{
 			repotest.TermPath("Plain"): repotest.Term("Plain", "A definition."),
 		})
-		_, docPath, source, err := glossary.Rename(r, "Plain", name)
+		_, docPath, source, err := glossary.Rename(r, "Plain", name, nothingFrozen)
 		if err != nil {
 			t.Errorf("Rename(Plain, %q): %v", name, err)
 			continue
 		}
 		r = repotest.New(t, map[string]string{docPath: string(source)})
-		_, docPath, source, err = glossary.Rename(r, name, "Cee")
+		_, docPath, source, err = glossary.Rename(r, name, "Cee", nothingFrozen)
 		if err != nil {
 			t.Errorf("Rename(%q, Cee): %v", name, err)
 			continue
@@ -232,7 +232,7 @@ func TestRenameRefusesTheCurrentName(t *testing.T) {
 	r := repotest.New(t, map[string]string{
 		repotest.TermPath("Widget"): repotest.Term("Widget", "A definition."),
 	})
-	if _, _, _, err := glossary.Rename(r, "Widget", "Widget"); err == nil {
+	if _, _, _, err := glossary.Rename(r, "Widget", "Widget", nothingFrozen); err == nil {
 		t.Error("renamed Widget to itself")
 	}
 }
@@ -254,7 +254,7 @@ func TestRenameRecordsNoNameTheHeadingAlreadyAnswers(t *testing.T) {
 				repotest.TermPath(tc.from): "---\ntitle: " + tc.from + "\nformerly: " + formerly +
 					"\nnamed_by:\n---\n\n# " + tc.from + "\n\nA definition.\n",
 			})
-			_, docPath, source, err := glossary.Rename(r, tc.from, tc.to)
+			_, docPath, source, err := glossary.Rename(r, tc.from, tc.to, nothingFrozen)
 			if err != nil {
 				t.Fatalf("Rename: %v", err)
 			}
@@ -269,7 +269,7 @@ func TestRenameKeepsACRLFHeadingCRLF(t *testing.T) {
 	r := repotest.New(t, map[string]string{
 		"term/gamma.md": "---\r\ntitle: Gamma\r\nformerly: []\r\nnamed_by:\r\n---\r\n\r\n# Gamma\r\n\r\nA definition.\r\n",
 	})
-	_, _, source, err := glossary.Rename(r, "Gamma", "Delta")
+	_, _, source, err := glossary.Rename(r, "Gamma", "Delta", nothingFrozen)
 	if err != nil {
 		t.Fatalf("Rename: %v", err)
 	}
@@ -388,7 +388,7 @@ func TestAddAndRenameRefuseANameTheHeadingReadsDifferently(t *testing.T) {
 	if _, _, err := glossary.Add(r, "Sharp #", "A definition.", ""); err == nil {
 		t.Error("Add accepted a name whose heading reads as another")
 	}
-	if _, _, _, err := glossary.Rename(r, "Plain", "Sharp #"); err == nil {
+	if _, _, _, err := glossary.Rename(r, "Plain", "Sharp #", nothingFrozen); err == nil {
 		t.Error("Rename accepted a name whose heading reads as another")
 	}
 }
@@ -420,7 +420,7 @@ func TestAddAndRenameRefuseANameNoTermFileCanHold(t *testing.T) {
 		if _, _, err := glossary.Add(r, name, "A definition.", ""); err == nil {
 			t.Errorf("Add accepted %q", name)
 		}
-		if _, _, _, err := glossary.Rename(r, "Widget", name); err == nil {
+		if _, _, _, err := glossary.Rename(r, "Widget", name, nothingFrozen); err == nil {
 			t.Errorf("Rename accepted %q", name)
 		}
 	}
@@ -454,7 +454,7 @@ func TestRenameAndRemoveRefuseABodyThatIsNotRead(t *testing.T) {
 	r := repotest.New(t, map[string]string{
 		repotest.TermPath("Widget"): repotest.Term("Widget", "A small thing.\n"+long),
 	})
-	if _, _, _, err := glossary.Rename(r, "Widget", "Gadget"); err == nil || !strings.Contains(err.Error(), "longer than") {
+	if _, _, _, err := glossary.Rename(r, "Widget", "Gadget", nothingFrozen); err == nil || !strings.Contains(err.Error(), "longer than") {
 		t.Errorf("Rename: error = %v, want a refusal naming the unread body", err)
 	}
 	r = repotest.New(t, map[string]string{
@@ -471,7 +471,7 @@ func TestRenameRetitlesASetextH1(t *testing.T) {
 	r := repotest.New(t, map[string]string{
 		"term/widget.md": "---\ntitle: Widget\nformerly: []\nnamed_by:\n---\n\nWidget\n======\n\nA small thing.\n",
 	})
-	_, _, source, err := glossary.Rename(r, "Widget", "Gadget")
+	_, _, source, err := glossary.Rename(r, "Widget", "Gadget", nothingFrozen)
 	if err != nil {
 		t.Fatalf("Rename: %v", err)
 	}
@@ -494,7 +494,7 @@ func TestRenameRetitlesTheH1HoweverItIsWritten(t *testing.T) {
 		r := repotest.New(t, map[string]string{
 			"term/widget.md": "---\ntitle: Widget # Widget\nformerly: []\nnamed_by:\n---\n\n" + h1 + "\n\nA small thing.\n",
 		})
-		_, _, source, err := glossary.Rename(r, "Widget", "Gadget")
+		_, _, source, err := glossary.Rename(r, "Widget", "Gadget", nothingFrozen)
 		if err != nil {
 			t.Errorf("%q: Rename: %v", h1, err)
 			continue
@@ -510,7 +510,7 @@ func TestRenameRefusesAnH1HoldingAComment(t *testing.T) {
 	r := repotest.New(t, map[string]string{
 		"term/widget.md": "---\ntitle: Widget\nformerly: []\nnamed_by:\n---\n\n# Widget <!-- note -->\n\nA small thing.\n",
 	})
-	if _, _, _, err := glossary.Rename(r, "Widget", "Gadget"); err == nil || !strings.Contains(err.Error(), "comment") {
+	if _, _, _, err := glossary.Rename(r, "Widget", "Gadget", nothingFrozen); err == nil || !strings.Contains(err.Error(), "comment") {
 		t.Errorf("Rename: error = %v, want a refusal naming the comment", err)
 	}
 }
@@ -523,7 +523,7 @@ func TestRenameRecordsTheFormerNameBeneathATitleWrittenAcrossLines(t *testing.T)
 		repotest.TermPath("editable"): strings.Replace(repotest.Term("editable", "Not frozen."), "title: editable", "title:\n  editable", 1),
 	})
 
-	_, _, source, err := glossary.Rename(r, "editable", "open")
+	_, _, source, err := glossary.Rename(r, "editable", "open", nothingFrozen)
 	if err != nil {
 		t.Fatalf("Rename: %v", err)
 	}
@@ -531,5 +531,79 @@ func TestRenameRecordsTheFormerNameBeneathATitleWrittenAcrossLines(t *testing.T)
 		if !strings.Contains(string(source), want) {
 			t.Errorf("the renamed file does not carry %q:\n%s", want, source)
 		}
+	}
+}
+
+// TestRenameRefusesToMoveAFileAFrozenDocumentLinks covers the link a former
+// name's anchor does not keep. A new slug moves term/widget.md, and a frozen
+// document linking the file was left pointing at nothing, which no edit could
+// repair; Remove already refused the same link.
+func TestRenameRefusesToMoveAFileAFrozenDocumentLinks(t *testing.T) {
+	files := func(link string) map[string]string {
+		return map[string]string{
+			repotest.TermPath("Widget"): repotest.Term("Widget", "A small thing."),
+			"spec/uses.md":              "---\ntitle: Uses\nincludes: []\n---\n\n# Uses\n\nIt holds a [Widget](" + link + ").\n",
+		}
+	}
+	for _, c := range []struct {
+		name, link, to string
+		frozen         func(*repo.Document) bool
+		refused        bool
+	}{
+		{"a frozen link to the file", "../term/widget.md", "Gadget", everythingFrozen, true},
+		{"an editable link to the file", "../term/widget.md", "Gadget", nothingFrozen, false},
+		{"a frozen link to the file, the filename kept", "../term/widget.md", "WIDGET", everythingFrozen, false},
+		{"a frozen link to the anchor, which the former name keeps", "../GLOSSARY.md#widget", "Gadget", everythingFrozen, false},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			_, _, _, err := glossary.Rename(repotest.New(t, files(c.link)), "Widget", c.to, c.frozen)
+			switch {
+			case c.refused && (err == nil || !strings.Contains(err.Error(), "spec/uses.md")):
+				t.Errorf("error = %v, want a refusal naming spec/uses.md", err)
+			case !c.refused && err != nil:
+				t.Errorf("Rename: %v", err)
+			}
+		})
+	}
+}
+
+// TestRenameRefusesToMoveAFileWhileABodyIsNotRead: a link to the file in a
+// body that is not read cannot be seen, so whether one is frozen cannot be
+// known. A rename keeping the filename moves nothing, and goes ahead.
+func TestRenameRefusesToMoveAFileWhileABodyIsNotRead(t *testing.T) {
+	r := repotest.New(t, map[string]string{
+		repotest.TermPath("Widget"): repotest.Term("Widget", "A small thing."),
+		"spec/long.md":              "---\ntitle: Long\nincludes: []\n---\n\n# Long\n\n" + strings.Repeat("Filler.\n", 16400),
+	})
+	if _, _, _, err := glossary.Rename(r, "Widget", "Gadget", nothingFrozen); err == nil || !strings.Contains(err.Error(), "spec/long.md") {
+		t.Errorf("error = %v, want a refusal naming spec/long.md", err)
+	}
+	if _, _, _, err := glossary.Rename(r, "Widget", "WIDGET", nothingFrozen); err != nil {
+		t.Errorf("a rename keeping the filename was refused: %v", err)
+	}
+}
+
+// TestRenameJudgesTheMoveByThePathNotTheSlug: a term's file need not be named
+// for its title, so a rename keeping the slug can still move the file, and one
+// changing it can leave the file where it is.
+func TestRenameJudgesTheMoveByThePathNotTheSlug(t *testing.T) {
+	uses := "---\ntitle: Uses\nincludes: []\n---\n\n# Uses\n\nIt holds a [term](../term/foo.md).\n"
+	for _, c := range []struct {
+		name, title, to string
+		refused         bool
+	}{
+		{"the slug kept and the file moved", "Bar", "BAR", true},
+		{"the slug changed and the file kept", "Bar", "Foo", false},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			r := repotest.New(t, map[string]string{"term/foo.md": repotest.Term(c.title, "A thing."), "spec/uses.md": uses})
+			_, _, _, err := glossary.Rename(r, c.title, c.to, everythingFrozen)
+			switch {
+			case c.refused && (err == nil || !strings.Contains(err.Error(), "spec/uses.md")):
+				t.Errorf("error = %v, want a refusal naming spec/uses.md", err)
+			case !c.refused && err != nil:
+				t.Errorf("Rename: %v", err)
+			}
+		})
 	}
 }

@@ -718,7 +718,9 @@ the result can delete content it never read.
 - **A link to a former name's anchor keeps resolving; nothing else is rewritten.** A link to
   `GLOSSARY.md#<old name>` resolves through the anchor generation keeps for it. A link to the term's old
   file under `term/` does not, nor does `[[<old name>]]`, since a former name is not a term; L17 and L16
-  report them.
+  report them. A rename that moves the file is refused where a frozen document links to it, which no
+  edit could then correct; the move follows the path, not the slug, as a file need not be named for its
+  title.
 - **With no `term/`, `glossary --check` accepts an absent `GLOSSARY.md`.** A repository with no `term/`
   has no glossary, and the check demanded the empty page `archdoc glossary` writes, so removing `term/`
   and the page failed the workflow `init` scaffolds. A page that is there, including a symbolic link
