@@ -393,6 +393,9 @@ type WikiLink struct {
 	// Heading is whether the link is in a heading, where link leaves it: the
 	// heading's text is what L08, L09, L10 and anchors read.
 	Heading bool
+	// Embed is whether an unescaped ! comes straight before it, as in
+	// Obsidian's ![[X]], where link leaves it: expanded, it would be an image.
+	Embed bool
 }
 
 // AnchorsIn returns the heading anchors of arbitrary markdown, for checking a

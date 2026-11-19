@@ -469,7 +469,7 @@ var Rules = []Rule{
 		Check:   L16,
 		Title:   "Wiki links are resolved",
 		Summary: "An unresolved `[[...]]` link",
-		Remedy:  "Run `archdoc link`. In a heading, which it leaves as written, write the heading without it; in a terminal document outside a git repository, replace it by hand; in a frozen document, leave it as written",
+		Remedy:  "Run `archdoc link`. In a heading, which it leaves as written, write the heading without it; after a `!`, which would make it an image, remove the `!`; in a terminal document outside a git repository, replace it by hand; in a frozen document, leave it as written",
 		Since:   "v0.1.0-alpha.1",
 		Changes: []Change{
 			{Release: "v0.6.0", Summary: "Names the edit that clears a link in a heading, in a frozen document, and in a terminal document outside a git repository"},
@@ -481,6 +481,7 @@ var Rules = []Rule{
 			{Release: "v0.6.0", Summary: "Names the edit for a `[[...]]` in a setext heading as for one in an ATX heading"},
 			{Release: "v0.6.0", Summary: "Reports nothing in a body longer than 131,072 bytes, which L23 reports"},
 			{Release: "v0.6.0", Summary: "Reads a `[[...]]` from text as goldmark reads it, so not one with an escaped bracket, one in a link's text, or one whose label the document defines"},
+			{Release: "v0.6.0", Summary: "Names removing the `!` as the edit that clears a `![[...]]`"},
 		},
 	},
 	{

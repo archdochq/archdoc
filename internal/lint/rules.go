@@ -849,6 +849,8 @@ func L16(ctx Context) []Finding {
 				remedy = "the document is frozen, so it is left as written"
 			case link.Heading:
 				remedy = "write the heading without it"
+			case link.Embed:
+				remedy = "remove the ! before it, as archdoc link leaves an embed as written"
 			case ctx.Git() == nil && d.FrontMatter.Status.Terminal():
 				remedy = "archdoc link does not rewrite a terminal document outside a git repository, so replace it by hand"
 			}
