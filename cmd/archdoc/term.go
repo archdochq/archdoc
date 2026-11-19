@@ -7,10 +7,8 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-	"time"
 
 	"archdoc.dev/internal/glossary"
-	"archdoc.dev/internal/lint"
 	"archdoc.dev/internal/repo"
 	"github.com/spf13/cobra"
 )
@@ -92,7 +90,8 @@ func termRemove() *cobra.Command {
 		Short: "Delete a term",
 		Long: "Delete a term.\n\n" +
 			"Refuses when a frozen document links to it: the link would be left pointing at an anchor " +
-			"that no longer exists, and the document holding it could never be corrected.",
+			"that no longer exists, and the document holding it could never be corrected. " +
+			"Refuses as well when the configured branch cannot be read, so that cannot be known.",
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			r, err := openRepo()
@@ -107,11 +106,11 @@ func termRemove() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			// NewContext rather than a literal, for the reason renumber gives:
-			// without the branch snapshot every document looks editable, and
-			// the guard this command exists for would never fire.
-			frozen := lint.NewContext(r, g, time.Now()).Frozen
-			docPath, err := glossary.Remove(r, term, frozen)
+			ctx, err := writerContext(r, g)
+			if err != nil {
+				return err
+			}
+			docPath, err := glossary.Remove(r, term, ctx.Frozen)
 			if err != nil {
 				return err
 			}

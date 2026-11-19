@@ -747,6 +747,11 @@ the result can delete content it never read.
 - **The branch snapshot is built on first use.** `link` asks whether a document is frozen only when a
   terminal document turns out to contain a wiki link, which on most repositories is never, and building
   the snapshot eagerly cost a git subprocess per document for an answer nobody wanted.
+- **A writer refuses a branch it could not read.** `Frozen` answers false for a document whose read
+  failed, which lint can afford, because L11 reports the failure, and a command about to edit cannot:
+  `term remove` removed a term a frozen document linked to. `renumber` and `term remove` refuse before
+  acting. `link` leaves a terminal document alone, as it does outside git, so the snapshot is still built
+  only for a terminal document holding a wiki link.
 - **Whether a frozen document has changed is decided by git, not by comparing bytes.** git applies
   checkout filters between the object it stores and the file on disk, so under end-of-line
   normalisation, the default on Windows, every frozen document differed from its blob while the tree was

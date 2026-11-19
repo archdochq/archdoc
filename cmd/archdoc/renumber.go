@@ -3,9 +3,7 @@ package main
 import (
 	"fmt"
 	"strings"
-	"time"
 
-	"archdoc.dev/internal/lint"
 	"archdoc.dev/internal/repo"
 	"github.com/spf13/cobra"
 )
@@ -32,6 +30,7 @@ func newRenumberCommand() *cobra.Command {
 			"the file are still followed.\n\n" +
 			"Refuses when the document is frozen, or when a frozen document would have to change, " +
 			"because a reference inside a frozen document could never be corrected afterwards, " +
+			"when the configured branch cannot be read, so neither can be known, " +
 			"and when a file already holds the new name. A failure part way restores every file " +
 			"already written.\n\n" +
 			"With no arguments, asks which document to renumber among those that are not frozen.",
@@ -46,11 +45,11 @@ func newRenumberCommand() *cobra.Command {
 				return err
 			}
 
-			// NewContext rather than a literal: Frozen reads the branch
-			// snapshot, and without it every document looks editable, which
-			// would let this command make exactly the unrepairable edit it
-			// exists to refuse.
-			frozen := lint.NewContext(r, g, time.Now()).Frozen
+			ctx, err := writerContext(r, g)
+			if err != nil {
+				return err
+			}
+			frozen := ctx.Frozen
 
 			if len(args) == 0 {
 				chosen, err := askForRenumber(cmd, r, frozen)

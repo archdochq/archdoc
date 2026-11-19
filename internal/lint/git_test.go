@@ -1163,3 +1163,63 @@ func TestL17FollowsALinkOutOfRootIntoTheGitRepository(t *testing.T) {
 		t.Errorf("findings = %q, want %q", got, want)
 	}
 }
+
+// absentBranch has no configured branch, which before the first commit means
+// nothing is frozen, and after it a branch name configured wrong.
+type absentBranch struct {
+	stubGit
+	committed bool
+	err       error
+}
+
+func (absentBranch) BranchExists(string) (bool, error) { return false, nil }
+
+func (a absentBranch) HasCommits() (bool, error) { return a.committed, a.err }
+
+// unreadableSettings holds an archdoc.json on the branch that does not parse.
+type unreadableSettings struct{ stubGit }
+
+func (unreadableSettings) ListFiles(string) ([]string, error) { return []string{"archdoc.json"}, nil }
+
+func (unreadableSettings) FilesAt(string, []string) (map[string][]byte, error) {
+	return map[string][]byte{"archdoc.json": []byte("{")}, nil
+}
+
+// failingBranch cannot say whether the branch exists.
+type failingBranch struct{ stubGit }
+
+func (failingBranch) BranchExists(string) (bool, error) {
+	return false, errors.New("refs unreadable")
+}
+
+// TestBranchErrorNamesAFailedReadAndNothingElse pins what a writer refuses on.
+// Frozen answers false for a document the branch read failed on, so a writer
+// guarding on it alone edited frozen documents; but no git and no branch are
+// states where nothing is frozen, and refusing there would block every edit.
+func TestBranchErrorNamesAFailedReadAndNothingElse(t *testing.T) {
+	r := repotest.Fixture(t, "repo")
+	for name, c := range map[string]struct {
+		git  git.Repository
+		want string
+	}{
+		"a read that fails":                 {stubGit{err: errors.New("object store unreadable")}, "object store unreadable"},
+		"a branch that cannot be looked up": {failingBranch{}, "refs unreadable"},
+		"a branch that cannot be listed":    {failingList{}, "ls-tree exploded"},
+		"a read that succeeds":              {stubGit{}, ""},
+		"no branch before the first commit": {absentBranch{}, ""},
+		"no branch after it":                {absentBranch{committed: true}, `branch "main" does not exist`},
+		"no branch and no telling":          {absentBranch{err: errors.New("log failed")}, "log failed"},
+		"settings on the branch unreadable": {unreadableSettings{}, "archdoc.json"},
+		"no git":                            {nil, ""},
+	} {
+		t.Run(name, func(t *testing.T) {
+			err := lint.NewContext(r, c.git, now).BranchError()
+			switch {
+			case c.want == "" && err != nil:
+				t.Errorf("BranchError = %v, want nil", err)
+			case c.want != "" && (err == nil || !strings.Contains(err.Error(), c.want)):
+				t.Errorf("BranchError = %v, want one naming %q", err, c.want)
+			}
+		})
+	}
+}

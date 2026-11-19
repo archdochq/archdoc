@@ -8,6 +8,7 @@ import (
 	"io"
 	"io/fs"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"slices"
 	"strings"
@@ -1728,5 +1729,54 @@ func TestRenumberWithNoArgumentAsksOrSaysWhatItNeeds(t *testing.T) {
 	out, code := run(t, dir, "renumber")
 	if code != exitUsage || !strings.Contains(out, "archdoc renumber <id|path>") {
 		t.Errorf("exit = %d, output = %q; want a refusal naming the arguments", code, out)
+	}
+}
+
+// TestWritersRefuseABranchTheyCannotRead covers a git that fails part way.
+// Every document read from the branch then carries the error, Frozen answers
+// false for each, and the commands guarding on it edited frozen documents:
+// term remove broke a frozen RFC's link to the term, which no edit could
+// repair. renumber and term remove refuse outright; link leaves the terminal
+// document alone and reports it. The git on PATH runs the real one for
+// everything but cat-file.
+func TestWritersRefuseABranchTheyCannotRead(t *testing.T) {
+	real, err := exec.LookPath("git")
+	if err != nil {
+		t.Skip("git is not installed")
+	}
+	for name, args := range map[string][]string{
+		"term remove": {"term", "remove", "Sprocket"},
+		"renumber":    {"renumber", "RFC-0002", "RFC-0003"},
+		"link":        {"link"},
+	} {
+		t.Run(name, func(t *testing.T) {
+			dir := repotest.New(t, map[string]string{
+				repotest.TermPath("Sprocket"): repotest.Term("Sprocket", "A small thing."),
+				"rfc/0001-frozen.md": strings.Replace(rfc("RFC-0001", "Frozen", "accepted", " 2026-01-02"),
+					"Why it matters.", "It uses a [Sprocket](../GLOSSARY.md#sprocket), as [[RFC-0002]] does.", 1),
+				"rfc/0002-open.md": strings.Replace(rfc("RFC-0002", "Open", "draft", ""),
+					"Why it matters.", "See [[RFC-0001]].", 1),
+			}).Config().Dir()
+			runGit(t, dir, "init", "-q", "-b", "main")
+			runGit(t, dir, "add", "-A")
+			runGit(t, dir, "-c", "user.name=T", "-c", "user.email=t@example.com", "commit", "-q", "-m", "x")
+			watched := []string{"rfc/0001-frozen.md", repotest.TermPath("Sprocket")}
+			before := map[string]string{}
+			for _, p := range watched {
+				before[p] = readFile(t, filepath.Join(dir, p))
+			}
+
+			t.Setenv("PATH", strings.TrimPrefix(fakeTool(t, "git",
+				`case " $* " in *" cat-file "*) echo "cat-file failed" >&2; exit 1;; esac; exec "`+real+`" "$@"`), "PATH="))
+			out, code := run(t, dir, args...)
+			if code == exitOK || !strings.Contains(out, "main could not be read") {
+				t.Errorf("exit = %d, want a refusal naming the unread branch:\n%s", code, out)
+			}
+			for _, p := range watched {
+				if after, err := os.ReadFile(filepath.Join(dir, p)); err != nil || string(after) != before[p] {
+					t.Errorf("%s changed despite the refusal (%v)", p, err)
+				}
+			}
+		})
 	}
 }
