@@ -49,7 +49,7 @@ Bodies are raw Markdown. Nothing is rendered. `source` is the file exactly as it
 
 The command also removes what an earlier export left and this one does not write. It reads the `index.json` already in the directory before overwriting it, and takes the previous run's files from it: `index.json` itself, one file per document it lists, `glossary.json` where it recorded a glossary, and `groups.json` where it recorded groups. Each removal is reported on stderr, leaving stdout the list of files that now exist.
 
-It therefore only ever removes a file an ArchDoc export wrote there. Where the directory holds no `index.json`, or holds one that is not an ArchDoc export, nothing is removed and the command says so. A path in that index that is not local to the directory is ignored, and nothing outside the directory is deleted. Directories left empty are not removed.
+It therefore only ever removes a file an ArchDoc export wrote there. Where the directory holds no `index.json`, or holds one that is not an ArchDoc export, nothing is removed and the command says so. A path in that index that is not local to the directory is ignored, and nothing outside the directory is deleted. A directory in the tree that resolves outside it, through a symbolic link, is refused before any file is written or removed. Directories left empty are not removed.
 
 ## Schema
 

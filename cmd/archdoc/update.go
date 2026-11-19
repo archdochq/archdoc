@@ -90,6 +90,14 @@ func newUpdateCommand() *cobra.Command {
 					return nil
 				}
 			}
+			// Every file is checked before any is written: a guides directory
+			// linked from elsewhere was rewritten, where archdoc agents
+			// refuses the same tree.
+			for _, f := range changed {
+				if err := repo.Contains(f.dir, f.path()); err != nil {
+					return err
+				}
+			}
 			for _, f := range changed {
 				if err := os.MkdirAll(filepath.Dir(f.path()), 0o755); err != nil {
 					return err

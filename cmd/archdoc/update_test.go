@@ -354,3 +354,29 @@ func TestUpdateRaisesThePinToTheRunningRelease(t *testing.T) {
 		t.Error("the old pin survived")
 	}
 }
+
+// TestUpdateRefusesAGuidesDirectoryLinkedOutOfTheRepository: archdoc agents
+// refused agents/ linked from elsewhere, and update rewrote every guide on the
+// other end of the link.
+func TestUpdateRefusesAGuidesDirectoryLinkedOutOfTheRepository(t *testing.T) {
+	dir := scaffolded(t, "--agents")
+	shared := filepath.Join(t.TempDir(), "shared")
+	if err := os.Rename(filepath.Join(dir, "agents"), shared); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(shared, filepath.Join(dir, "agents")); err != nil {
+		t.Skipf("symlinks unavailable: %v", err)
+	}
+	guide := filepath.Join(shared, "working.md")
+	const edited = "a guide edited where it is shared\n"
+	if err := os.WriteFile(guide, []byte(edited), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	out, code := run(t, dir, "update", "--yes")
+	if code == exitOK || !strings.Contains(out, "resolves outside the repository") {
+		t.Errorf("exit = %d, want a refusal naming agents:\n%s", code, out)
+	}
+	if got, _ := os.ReadFile(guide); string(got) != edited {
+		t.Error("the guide on the other end of the link was rewritten")
+	}
+}

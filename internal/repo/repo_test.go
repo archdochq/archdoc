@@ -2072,3 +2072,19 @@ func TestAFrontMatterFaultIsReportedOnceAtItsLine(t *testing.T) {
 		})
 	}
 }
+
+// TestContainsJudgesAMissingDirectoryByWhereItWouldBeMade: a directory not
+// made yet was passed, and making it under a link out of the root put the
+// write outside.
+func TestContainsJudgesAMissingDirectoryByWhereItWouldBeMade(t *testing.T) {
+	root, outside := t.TempDir(), t.TempDir()
+	if err := os.Symlink(outside, filepath.Join(root, "linked")); err != nil {
+		t.Skipf("symlinks unavailable: %v", err)
+	}
+	if err := repo.Contains(root, filepath.Join(root, "linked", "new", "x.md")); err == nil {
+		t.Error("a directory to be made under a link out of the root was passed")
+	}
+	if err := repo.Contains(root, filepath.Join(root, "new", "deeper", "x.md")); err != nil {
+		t.Errorf("a directory to be made inside the root was refused: %v", err)
+	}
+}
