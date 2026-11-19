@@ -64,7 +64,7 @@ func Add(r *repo.Repo, term, definition, namedBy string) (docPath string, source
 // Rename retitles a term and records the previous name, which generation turns
 // into an anchor so links written before the rename keep resolving. That is
 // what makes a rename safe for a frozen document, which could never be edited
-// to follow one. A link to the term's own file is not kept: a new slug moves
+// to follow one. A link to the term's own file is not kept: a new name can move
 // the file, so a rename that would leave a frozen document's link to it
 // pointing nowhere is refused, as Remove refuses one.
 func Rename(r *repo.Repo, from, to string, frozen func(*repo.Document) bool) (oldPath, newPath string, source []byte, err error) {
@@ -92,12 +92,16 @@ func Rename(r *repo.Repo, from, to string, frozen func(*repo.Document) bool) (ol
 				return "", "", nil, fmt.Errorf("%q is already defined in %s", e.Term, e.Path)
 			}
 		}
+	}
+	// The file moves wherever its path changes, which a filename not matching
+	// its title's slug makes it do even where the slug does not.
+	if newPath = PathOf(to); newPath != entry.Path {
 		if unread := r.Unread(); len(unread) > 0 {
 			return "", "", nil, fmt.Errorf("%s has a body longer than %d bytes, which is not read, so a link to %s in it cannot be seen; shorten it first", unread[0], repo.MaxBody, entry.Path)
 		}
 		if blocking := frozenLinks(r, entry, nil, frozen); len(blocking) > 0 {
-			return "", "", nil, fmt.Errorf("%s is linked from %s, which is frozen, and renaming %q moves the file; the link could not be corrected",
-				entry.Path, strings.Join(blocking, ", "), entry.Term)
+			return "", "", nil, fmt.Errorf("%s is linked from %s, which is frozen, and renaming %q moves the file to %s; the link could not be corrected",
+				entry.Path, strings.Join(blocking, ", "), entry.Term, newPath)
 		}
 	}
 
@@ -134,7 +138,6 @@ func Rename(r *repo.Repo, from, to string, frozen func(*repo.Document) bool) (ol
 	if err != nil {
 		return "", "", nil, err
 	}
-	newPath = PathOf(to)
 	if _, err := readBack(newPath, out, to); err != nil {
 		return "", "", nil, err
 	}

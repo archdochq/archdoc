@@ -582,3 +582,28 @@ func TestRenameRefusesToMoveAFileWhileABodyIsNotRead(t *testing.T) {
 		t.Errorf("a rename keeping the filename was refused: %v", err)
 	}
 }
+
+// TestRenameJudgesTheMoveByThePathNotTheSlug: a term's file need not be named
+// for its title, so a rename keeping the slug can still move the file, and one
+// changing it can leave the file where it is.
+func TestRenameJudgesTheMoveByThePathNotTheSlug(t *testing.T) {
+	uses := "---\ntitle: Uses\nincludes: []\n---\n\n# Uses\n\nIt holds a [term](../term/foo.md).\n"
+	for _, c := range []struct {
+		name, title, to string
+		refused         bool
+	}{
+		{"the slug kept and the file moved", "Bar", "BAR", true},
+		{"the slug changed and the file kept", "Bar", "Foo", false},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			r := repotest.New(t, map[string]string{"term/foo.md": repotest.Term(c.title, "A thing."), "spec/uses.md": uses})
+			_, _, _, err := glossary.Rename(r, c.title, c.to, everythingFrozen)
+			switch {
+			case c.refused && (err == nil || !strings.Contains(err.Error(), "spec/uses.md")):
+				t.Errorf("error = %v, want a refusal naming spec/uses.md", err)
+			case !c.refused && err != nil:
+				t.Errorf("Rename: %v", err)
+			}
+		})
+	}
+}

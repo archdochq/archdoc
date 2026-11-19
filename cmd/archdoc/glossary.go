@@ -21,8 +21,8 @@ func newGlossaryCommand() *cobra.Command {
 		Use:   "glossary",
 		Short: "Regenerate GLOSSARY.md",
 		Long: "Regenerate GLOSSARY.md from the files under term/.\n\n" +
-			"Every term's former names keep an anchor on the page, so a link written before a rename " +
-			"still resolves, including one inside a frozen document that could never be corrected.",
+			"Every term's former names keep an anchor on the page, so a link to the page written before " +
+			"a rename still resolves, including one inside a frozen document that could never be corrected.",
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			if asJSON && !check {

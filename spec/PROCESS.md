@@ -180,7 +180,7 @@ Refs have no fixed structure beyond a closing **Sources** section, so that the `
 
 The glossary is not a spec page. Each term is one file, `term/<slug>.md`, whose front matter carries `title` (the term as written), `formerly` (previous names, oldest first) and `named_by` (the document that introduced the term), and whose body is an H1 reading the term as `title` gives it, followed by exactly one paragraph defining it. A term has no status and no lifecycle. A glossary with no entries is valid.
 
-`GLOSSARY.md` is generated from those files, in ascending order of title ignoring case. Every former name keeps an anchor on it, so a link written before a rename still resolves. `spec/glossary.md` is no longer read. `archdoc term` maintains the files, and is easier than writing them by hand.
+`GLOSSARY.md` is generated from those files, in ascending order of title ignoring case. Every former name keeps an anchor on it, so a link to it written before a rename still resolves. A rename moving a term's file is refused where a frozen document links to the file. `spec/glossary.md` is no longer read. `archdoc term` maintains the files, and is easier than writing them by hand.
 
 ## Workflow
 
