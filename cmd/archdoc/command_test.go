@@ -1746,6 +1746,7 @@ func TestWritersRefuseABranchTheyCannotRead(t *testing.T) {
 	}
 	for name, args := range map[string][]string{
 		"term remove": {"term", "remove", "Sprocket"},
+		"term rename": {"term", "rename", "Sprocket", "Gear"},
 		"renumber":    {"renumber", "RFC-0002", "RFC-0003"},
 		"link":        {"link"},
 	} {

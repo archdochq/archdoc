@@ -84,8 +84,9 @@ archdoc term show "Tenant"
 
 `add` refuses a term whose slug matches an existing one, ignoring case. `rename` renames the
 file and appends the old name to `formerly`; the generated page keeps an anchor for every former
-name, so links written before the rename, including those in frozen documents, still resolve.
-`remove` refuses when a frozen document links to the term.
+name, so links to it written before the rename, including those in frozen documents, still
+resolve. A link to the term's file does not follow a new filename, so `rename` refuses one in a
+frozen document. `remove` refuses when a frozen document links to the term.
 
 `[[Some Term]]` resolves to `GLOSSARY.md#some-term`.
 
