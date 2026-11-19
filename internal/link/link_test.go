@@ -866,3 +866,44 @@ func TestResolveExpandsEveryLinkOnALine(t *testing.T) {
 		t.Errorf("rewritten:\n%s\nwant a line %q", got, want)
 	}
 }
+
+// TestAnEmbedIsReportedAndLeftAsWritten covers ![[X]], an embed where it is
+// written. Expanded after its !, it became an image of a document, which
+// renders broken; an escaped ! is text, so a link after it is expanded.
+func TestAnEmbedIsReportedAndLeftAsWritten(t *testing.T) {
+	r := repotest.New(t, map[string]string{
+		"rfc/0001-a.md": "---\nid: RFC-0001\ntitle: Alpha\nstatus: draft\n---\n\n# RFC-0001: Alpha\n",
+		"spec/b.md":     "---\ntitle: B\nincludes: []\n---\n\n# B\n\nSee ![[RFC-0001]], \\![[RFC-0001]] and \\\\![[RFC-0001]].\n",
+	})
+	changes, findings := link.Resolve(lint.NewContext(r, nil, now))
+	want := "See ![[RFC-0001]], \\![RFC-0001: Alpha](../rfc/0001-a.md) and \\\\![[RFC-0001]].\n"
+	if got := string(changes["spec/b.md"]); !strings.HasSuffix(got, want) {
+		t.Errorf("rewritten =\n%s\nwant it to end\n%s", got, want)
+	}
+	if len(findings) != 2 {
+		t.Fatalf("findings = %v, want the two embeds reported", findings)
+	}
+	for _, f := range findings {
+		if !strings.Contains(f.Message, "would become an image") {
+			t.Errorf("finding %q does not name the image", f.Message)
+		}
+	}
+}
+
+// TestSuggestSkipsAMentionAfterABang: wrapping Bang!RFC-0001 wrote an image.
+// A later mention is offered in its place.
+func TestSuggestSkipsAMentionAfterABang(t *testing.T) {
+	r := repotest.New(t, map[string]string{
+		"rfc/0001-a.md": "---\nid: RFC-0001\ntitle: Alpha\nstatus: draft\n---\n\n# RFC-0001: Alpha\n",
+		"spec/b.md":     "---\ntitle: B\nincludes: []\n---\n\n# B\n\nBang!RFC-0001, then RFC-0001.\n",
+	})
+	var cols []int
+	for _, s := range link.Suggest(r) {
+		if s.Path == "spec/b.md" {
+			cols = append(cols, s.Col)
+		}
+	}
+	if want := []int{20}; !slices.Equal(cols, want) {
+		t.Errorf("suggested at columns %v, want %v: only the mention not after a !", cols, want)
+	}
+}

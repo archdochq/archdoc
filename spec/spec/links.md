@@ -24,7 +24,7 @@ A suggestion wraps the matched text exactly as written: `RFC-0007` becomes `[RFC
 
 With a terminal on stdin and no `--apply`: for each suggestion, the file, line and highlighted match are shown on stderr with the prompt `[y]es [n]o [a]ll in file [s]kip file [q]uit`; `q` writes the accepted changes and exits. The file is re-read before it is written, and left alone if it changed meanwhile. Without a terminal and without `--apply`: suggestions are printed and the exit code is 2 if there are any. With `--apply`: every suggestion is applied.
 
-Neither `link` nor `link --suggest` rewrites a heading. `link` reports each `[[...]]` in a heading as an error naming the edit, writing the heading without it, and still rewrites the rest of the document. A document with nothing rewritten is not written.
+Neither `link` nor `link --suggest` rewrites a heading. `link` reports each `[[...]]` in a heading as an error naming the edit, writing the heading without it, and still rewrites the rest of the document. A link written straight after an unescaped `!` is an image, so `link` reports `![[...]]` the same way, naming the `!` to remove, and `link --suggest` offers nothing straight after one. A document with nothing rewritten is not written.
 
 ## The glossary
 

@@ -78,6 +78,7 @@ func Resolve(ctx lint.Context) (Changes, []lint.Finding) {
 			continue
 		}
 
+		lines := strings.Split(d.Body, "\n")
 		var unresolved []lint.Finding
 		var splices []repo.WikiLink
 		var expansions []string
@@ -96,6 +97,17 @@ func Resolve(ctx lint.Context) (Changes, []lint.Finding) {
 				})
 				continue
 			}
+			// An unescaped ! before the expansion makes it an image, which
+			// for a link to a document renders broken. ![[X]] is an embed
+			// where it is written, which Markdown has no form for, so it is
+			// reported for the author to decide, as L16 reports it.
+			if bang(lines[l.Line-d.BodyLine], l.Start) {
+				findings = append(findings, lint.Finding{
+					Path: d.Path, Line: l.Line, Severity: lint.Error, Rule: "link",
+					Message: fmt.Sprintf("![[%s]] would become an image and is not rewritten: remove the ! to link it", l.Name),
+				})
+				continue
+			}
 			found, ok := resolve(ctx.Repo(), d, l.Name)
 			if !ok {
 				unresolved = append(unresolved, lint.Finding{
@@ -106,7 +118,6 @@ func Resolve(ctx lint.Context) (Changes, []lint.Finding) {
 			}
 			splices, expansions = append(splices, l), append(expansions, found.expansion)
 		}
-		lines := strings.Split(d.Body, "\n")
 		// Right to left, so a splice leaves the columns of the links before
 		// it on its line where they were.
 		for i := len(splices) - 1; i >= 0; i-- {
@@ -123,6 +134,19 @@ func Resolve(ctx lint.Context) (Changes, []lint.Finding) {
 		}
 	}
 	return changes, findings
+}
+
+// bang reports whether an unescaped ! comes straight before column at of
+// line, which would make a link written there an image.
+func bang(line string, at int) bool {
+	if at == 0 || line[at-1] != '!' {
+		return false
+	}
+	n := 0
+	for i := at - 2; i >= 0 && line[i] == '\\'; i-- {
+		n++
+	}
+	return n%2 == 0
 }
 
 // Suggest proposes links over bare identifiers and glossary terms that are not
@@ -155,7 +179,9 @@ func Suggest(r *repo.Repo) []Suggestion {
 				found, ok := resolve(r, d, text)
 				// Keyed on what the text resolves to, not how it was spelled,
 				// so Wings, wings and WINGS are one suggestion.
-				if !ok || found.key == d.ID || offered[found.key] || first[found.key].before(line.Number, m.start) {
+				// A link wrapped straight after an unescaped ! is an image.
+				if !ok || found.key == d.ID || offered[found.key] || first[found.key].before(line.Number, m.start) ||
+					bang(line.Raw, m.start) {
 					continue
 				}
 				offered[found.key] = true
