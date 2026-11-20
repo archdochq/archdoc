@@ -60,7 +60,7 @@ belongs.
 | L01 | Front matter is malformed, has an unknown key, a required key is missing or empty, or `as_of` is empty | Fix the front matter |
 | L02 | `id` does not match the filename, or the filename is not `<NNNN>-<slug>.md` | Rename the file, or correct `id` |
 | L03 | Two documents claim the same identifier | Renumber the wrong one with `archdoc renumber <path>`, then correct each reference it lists that meant that one |
-| L04 | A referenced identifier does not resolve, or a group's member names nothing or is listed twice | Create the document, or correct the reference or the group's list |
+| L04 | A referenced identifier does not resolve or is listed twice, or a group's member names nothing or is listed twice | Create the document, or correct the reference, the list or the group's list |
 | L05 | `updates`/`obsoletes` targets something not accepted, of the wrong type, or itself, or one document appears in both | Accept the target, or correct the list |
 | L06 | `includes` targets something not accepted | Accept the target, or remove it from the page |
 | L07 | `decided` set without a terminal status, or before `created`, backfill dates disagree, or a ref's `as_of` is after `verified` | Correct the dates |

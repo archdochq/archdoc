@@ -223,7 +223,7 @@ Lint enforces:
 
 - Every document has valid front matter for its type, with no unknown keys, and no required key or `as_of` left empty.
 - Every `id` matches its filename and type; no identifier appears twice.
-- Every identifier in `depends`, `updates`, `obsoletes` and `includes` resolves to an existing document of a permitted type.
+- Every identifier in `depends`, `updates`, `obsoletes` and `includes` resolves to an existing document of a permitted type, and none is listed twice in one list.
 - Every member of a group resolves to an RFC, ADR, ref or spec page, and no group lists a member twice.
 - `includes`, `updates` and `obsoletes` reference only accepted documents, and `updates` and `obsoletes` only documents of the same type. Nothing updates or obsoletes itself, and nothing appears in both lists of one document.
 - Documents with a terminal status have `decided` set; others do not, and `decided` is never before `created`.
