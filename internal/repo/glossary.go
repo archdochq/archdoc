@@ -46,23 +46,33 @@ type GlossaryEntry struct {
 //
 // Terms are files rather than sections of one page, so uniqueness is the
 // filesystem's answer and ordering is decided here rather than checked.
+//
+// The entries are built once, as the documents they are read from never
+// change once read, and each caller is given its own slice: built for each
+// call, link asking once per link into the glossary was quadratic.
 func (r *Repo) Glossary() (entries []GlossaryEntry, ok bool) {
-	if _, err := os.Stat(filepath.Join(r.config.RootDir(), string(TypeTerm))); err != nil {
+	if !r.glossaryRead {
+		r.glossaryRead = true
+		if _, err := os.Stat(filepath.Join(r.config.RootDir(), string(TypeTerm))); err != nil {
+			return nil, false
+		}
+		r.hasGlossary, r.glossary = true, []GlossaryEntry{}
+		for _, d := range r.Documents() {
+			if d.Type == TypeTerm {
+				r.glossary = append(r.glossary, d.TermEntry())
+			}
+		}
+		slices.SortFunc(r.glossary, func(a, b GlossaryEntry) int {
+			if c := strings.Compare(strings.ToLower(a.Term), strings.ToLower(b.Term)); c != 0 {
+				return c
+			}
+			return strings.Compare(a.Path, b.Path)
+		})
+	}
+	if !r.hasGlossary {
 		return nil, false
 	}
-	entries = []GlossaryEntry{}
-	for _, d := range r.Documents() {
-		if d.Type == TypeTerm {
-			entries = append(entries, d.TermEntry())
-		}
-	}
-	slices.SortFunc(entries, func(a, b GlossaryEntry) int {
-		if c := strings.Compare(strings.ToLower(a.Term), strings.ToLower(b.Term)); c != 0 {
-			return c
-		}
-		return strings.Compare(a.Path, b.Path)
-	})
-	return entries, true
+	return slices.Clone(r.glossary), true
 }
 
 // TermEntry reads one term file. The term is the front matter title rather

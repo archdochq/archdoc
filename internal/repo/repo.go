@@ -92,6 +92,11 @@ type Repo struct {
 	byPage    map[string]*Document
 	byPath    map[string]*Document
 	terms     map[string]GlossaryEntry
+	// glossary is Glossary's answer, built on first use, and hasGlossary
+	// whether term/ exists.
+	glossary     []GlossaryEntry
+	hasGlossary  bool
+	glossaryRead bool
 }
 
 // Document is one file in one of the type directories.

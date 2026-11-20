@@ -2126,3 +2126,17 @@ func TestInsideComparesARelativeRootWithAnAbsoluteLink(t *testing.T) {
 		t.Errorf("a directory inside the root was refused: %v", err)
 	}
 }
+
+// TestGlossaryGivesEachCallerItsOwnEntries: the entries are built once, so a
+// caller sorting or changing the slice it was given must not reach the next.
+func TestGlossaryGivesEachCallerItsOwnEntries(t *testing.T) {
+	r := repotest.New(t, map[string]string{
+		repotest.TermPath("Alpha"): repotest.Term("Alpha", "A."),
+		repotest.TermPath("Beta"):  repotest.Term("Beta", "B."),
+	})
+	first, _ := r.Glossary()
+	first[0].Term = "Changed"
+	if again, _ := r.Glossary(); again[0].Term != "Alpha" {
+		t.Errorf("a caller's change reached the next caller: %q", again[0].Term)
+	}
+}

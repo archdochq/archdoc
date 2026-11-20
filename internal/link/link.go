@@ -156,6 +156,7 @@ func bang(line string, at int) bool {
 func Suggest(r *repo.Repo) []Suggestion {
 	patterns := termPatterns(r)
 	var suggestions []Suggestion
+	byAnchor := glossaryAnchors(r)
 
 	for _, d := range r.Documents() {
 		// A term's own file is skipped: offering to link a term to itself
@@ -167,7 +168,7 @@ func Suggest(r *repo.Repo) []Suggestion {
 		// Where the document first links to each target. An occurrence after
 		// that is not the first, so offering it would link the target again on
 		// every run.
-		first := linked(r, d)
+		first := linked(r, d, byAnchor)
 
 		// Only prose is matched: a heading names its section, and a
 		// suggestion inside a link, an address or brackets would nest one
@@ -195,12 +196,33 @@ func Suggest(r *repo.Repo) []Suggestion {
 	return suggestions
 }
 
+// glossaryAnchors maps each anchor the generated glossary serves, a term's
+// own or a former name's, to the keys of the terms under it, so a link into
+// the glossary is looked up rather than every entry searched for it.
+func glossaryAnchors(r *repo.Repo) map[string][]string {
+	byAnchor := map[string][]string{}
+	entries, _ := r.Glossary()
+	for _, e := range entries {
+		key := "term:" + strings.ToLower(e.Term)
+		anchors := []string{e.Anchor}
+		for _, f := range e.Formerly {
+			anchors = append(anchors, repo.Anchor(f))
+		}
+		for _, a := range anchors {
+			if !slices.Contains(byAnchor[a], key) {
+				byAnchor[a] = append(byAnchor[a], key)
+			}
+		}
+	}
+	return byAnchor
+}
+
 // linked gives where a document first links to each target its links reach,
 // keyed as resolve keys them: a document by its identifier, a term by its own
 // file or its entry in the generated glossary, under its anchor or a former
 // name's. A reference link counts where it is used, and a definition, which
 // renders nothing, does not count at all.
-func linked(r *repo.Repo, d *repo.Document) map[string]position {
+func linked(r *repo.Repo, d *repo.Document, byAnchor map[string][]string) map[string]position {
 	keys := map[string]position{}
 	note := func(key string, l repo.Link) {
 		if p := keys[key]; !p.set() || (position{l.Line, l.Start}).before(p.line, p.col) {
@@ -217,11 +239,8 @@ func linked(r *repo.Repo, d *repo.Document) map[string]position {
 		}
 		resolved := path.Join(path.Dir(d.Path), target)
 		if resolved == glossary.File {
-			entries, _ := r.Glossary()
-			for _, e := range entries {
-				if e.Anchor == anchor || slices.ContainsFunc(e.Formerly, func(f string) bool { return repo.Anchor(f) == anchor }) {
-					note("term:"+strings.ToLower(e.Term), l)
-				}
+			for _, key := range byAnchor[anchor] {
+				note(key, l)
 			}
 			continue
 		}
