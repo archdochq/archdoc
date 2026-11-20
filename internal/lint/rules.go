@@ -729,10 +729,17 @@ func L11(ctx Context) []Finding {
 	}
 	// Deleted only where the base had it: one added on the branch since the
 	// cut was never in HEAD's history to delete.
-	held, err := ctx.Git().ListFiles(base)
+	listed, err := ctx.Git().ListFiles(base)
 	if err != nil {
 		rep.add(Error, ".", 0, err.Error())
 		return rep.findings
+	}
+	// A set, as each document missing from the tree is looked up in it: a
+	// search of the whole listing for each cost their product on a large
+	// repository.
+	held := make(map[string]bool, len(listed))
+	for _, file := range listed {
+		held[file] = true
 	}
 
 	// Collected first, then read in one batch. This was the last caller reading
@@ -751,7 +758,7 @@ func L11(ctx Context) []Finding {
 		// carrying a status key by mistake is not, whatever the key says, as
 		// branchFiles already decides for one still in the tree.
 		if t, isDoc := repo.TypeOf(docPath); !isDoc || !t.HasLifecycle() || inTree[docPath] ||
-			!slices.Contains(held, path.Join(atBase.Root, docPath)) {
+			!held[path.Join(atBase.Root, docPath)] {
 			continue
 		}
 		gone = append(gone, file)
