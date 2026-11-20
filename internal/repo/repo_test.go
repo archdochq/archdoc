@@ -2022,6 +2022,21 @@ func TestATermDefinitionIsOneParagraphAndNothingElse(t *testing.T) {
 	}
 }
 
+// TestALongFrontMatterFaultIsReportedAtItsFirstLine: finding the line cost
+// a parse per line, and a block of hundreds of kilobytes with its fault near
+// the top took seconds on every command.
+func TestALongFrontMatterFaultIsReportedAtItsFirstLine(t *testing.T) {
+	source := "---\n\ttitle: T\n" + strings.Repeat("k: v\n", 80000) + "---\n\n# T\n"
+	started := time.Now()
+	d, _ := repo.Parse("spec/page.md", []byte(source))
+	if took := time.Since(started); took > 2*time.Second {
+		t.Errorf("parsing took %v", took)
+	}
+	if len(d.Problems) != 1 || d.Problems[0].Line != 2 || !strings.Contains(d.Problems[0].Message, "not valid YAML") {
+		t.Errorf("problems = %+v, want the fault reported once, at the block's first line", d.Problems)
+	}
+}
+
 func TestAFrontMatterFaultIsReportedOnceAtItsLine(t *testing.T) {
 	cases := []struct {
 		name, source string
