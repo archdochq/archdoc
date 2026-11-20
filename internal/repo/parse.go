@@ -292,7 +292,15 @@ func parseFrontMatter(t Type, block []byte) (FrontMatter, []Problem) {
 // counts a scanner error's line from 1 and a parser error's from 0, names the
 // line a construct opened on for some errors, and names none on the first
 // line.
+//
+// Each line cut is a parse of what is left, so the search costs the block's
+// size times its lines. A block longer than faultSearched is reported at its
+// first line instead: front matter runs to a few hundred bytes, and one far
+// past that, with its fault near the top, stalled every command opening it.
 func faultLine(block []byte, err error) int {
+	if len(block) > faultSearched {
+		return 1
+	}
 	lines := bytes.Split(block, []byte("\n"))
 	want := yamlProblem(err)
 	k := len(lines)
@@ -304,6 +312,9 @@ func faultLine(block []byte, err error) int {
 	}
 	return k
 }
+
+// faultSearched is the longest block faultLine searches for its fault's line.
+const faultSearched = 16 << 10
 
 // yamlProblem is a YAML error without its prefix and line number.
 func yamlProblem(err error) string {

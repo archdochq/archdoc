@@ -267,7 +267,7 @@ var Rules = []Rule{
 			{Release: "v0.6.0", Summary: "Reports an unknown status at the `status` line rather than line 1"},
 			{Release: "v0.6.0", Summary: "Reads a group's front matter, and reports an `as_of` left empty"},
 			{Release: "v0.6.0", Summary: "Reports a warning rather than an error in a frozen document"},
-			{Release: "v0.6.0", Summary: "Reports invalid YAML once, at the line it stops being valid, with no key reported missing, a missing or unclosed block once, and an empty list item"},
+			{Release: "v0.6.0", Summary: "Reports invalid YAML once, at the line it stops being valid, or at its first line in a block longer than 16 KiB, with no key reported missing, a missing or unclosed block once, and an empty list item"},
 		},
 	},
 	{
