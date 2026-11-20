@@ -507,7 +507,7 @@ var Rules = []Rule{
 			{Release: "v0.6.0", Summary: "Does not check a link after the `-->` closing a comment block on the same line, or take a heading written there as an anchor"},
 			{Release: "v0.6.0", Summary: "Checks a link on the lines after a heading holding a `<!--` that no `-->` closes on the heading's line"},
 			{Release: "v0.6.0", Summary: "Checks a link after a fenced code block in a list item whose closing fence is indented with a tab"},
-			{Release: "v0.6.0", Summary: "Gives a heading inside a blockquote, a list item or a referenced footnote definition an anchor, in the order GitHub renders the headings, and renders a heading's anchor from its pieces as goldmark reads them"},
+			{Release: "v0.6.0", Summary: "Gives a heading inside a blockquote, a list item or a referenced footnote definition an anchor, one indented under another definition included, in the order GitHub renders the headings, and renders a heading's anchor from its pieces as goldmark reads them"},
 			{Release: "v0.6.0", Summary: "Checks a link into a document whose body is longer than 131,072 bytes without its fragment, and passes over the links in one"},
 			{Release: "v0.6.0", Summary: "Reads links, images and link reference definitions as goldmark reads them, a definition behind a blockquote's marker anywhere included"},
 			{Release: "v0.6.0", Summary: "Gives a setext heading an anchor, and none to a line that is not a heading on GitHub, such as `##` with no space after it"},

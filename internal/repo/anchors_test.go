@@ -401,3 +401,23 @@ func TestATermsH1IsTheDocumentsH1(t *testing.T) {
 		t.Errorf("entry = %+v, want no H1 and so no definition", e)
 	}
 }
+
+// TestANestedFootnoteDefinitionIsRenderedAsItsOwn: a definition indented
+// under another is a footnote of its own, numbered where it is referenced,
+// with its headings and explicit anchors, even inside one nothing references.
+// Only the first definition met was registered, so it had none.
+func TestANestedFootnoteDefinitionIsRenderedAsItsOwn(t *testing.T) {
+	for name, c := range map[string]struct {
+		body string
+		want []string
+	}{
+		"under a referenced definition":    {"See [^a] and [^b].\n\n[^a]: First note.\n\n    [^b]: # Second\n\n        <a id=\"nb\"></a>\n", []string{"page", "second", "nb"}},
+		"under an unreferenced definition": {"See [^b].\n\n[^a]: unreferenced\n\n    [^b]: x <a id=\"nb\"></a>\n\n    ## Inner\n", []string{"page", "nb"}},
+	} {
+		t.Run(name, func(t *testing.T) {
+			if got := page(t, c.body).Anchors(); !slices.Equal(got, c.want) {
+				t.Errorf("anchors = %q, want %q", got, c.want)
+			}
+		})
+	}
+}

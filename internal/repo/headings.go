@@ -151,16 +151,23 @@ func footnoteNumbers(doc *markdown.Node) map[string]int {
 // referenced. A definition that nothing references is not rendered.
 func anchorOrder(doc *markdown.Node, numbers map[string]int) []*markdown.Node {
 	var order []*markdown.Node
-	definitions := map[string]*markdown.Node{}
 	markdown.Walk(doc, func(n *markdown.Node) bool {
 		switch n.Type {
 		case markdown.FootnoteDefinition:
-			if _, ok := definitions[n.Label]; !ok {
-				definitions[n.Label] = n
-			}
 			return false
 		case markdown.Heading:
 			order = append(order, n)
+		}
+		return true
+	})
+	// A definition indented under another is rendered as a footnote of its
+	// own, so every definition is found, inside another or not.
+	definitions := map[string]*markdown.Node{}
+	markdown.Walk(doc, func(n *markdown.Node) bool {
+		if n.Type == markdown.FootnoteDefinition {
+			if _, ok := definitions[n.Label]; !ok {
+				definitions[n.Label] = n
+			}
 		}
 		return true
 	})

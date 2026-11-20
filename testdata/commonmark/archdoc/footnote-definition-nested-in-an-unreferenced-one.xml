@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE document SYSTEM "CommonMark.dtd">
+<document sourcepos="1:1-7:12" xmlns="http://commonmark.org/xml/1.0">
+  <paragraph sourcepos="1:1-1:9">
+    <text sourcepos="1:1-1:4" xml:space="preserve">See </text>
+    <<unknown> sourcepos="1:5-1:8" />
+    <text sourcepos="1:9-1:9" xml:space="preserve">.</text>
+  </paragraph>
+  <<unknown> sourcepos="5:11-6:0">
+    <paragraph sourcepos="5:11-5:27">
+      <text sourcepos="5:11-5:12" xml:space="preserve">x </text>
+      <html_inline sourcepos="5:13-5:23" xml:space="preserve">&lt;a id=&quot;nb&quot;&gt;</html_inline>
+      <html_inline sourcepos="5:24-5:27" xml:space="preserve">&lt;/a&gt;</html_inline>
+    </paragraph>
+  </<unknown>>
+</document>
