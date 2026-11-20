@@ -2160,3 +2160,19 @@ func TestNestedBracketsAreMaskedInLinearTime(t *testing.T) {
 		t.Errorf("the brackets were not blanked, or the text after them was")
 	}
 }
+
+// TestAHeadingOfManyCommentsIsReadInLinearTime: each line of a heading
+// checked every comment in it, so a setext heading of many lines each holding
+// a comment took time in their product.
+func TestAHeadingOfManyCommentsIsReadInLinearTime(t *testing.T) {
+	repo.ReadEveryBody(t)
+	source := "---\ntitle: P\nincludes: []\n---\n\n# P\n\n" + strings.Repeat("a<!---->\n", 120000) + "---\n"
+	started := time.Now()
+	d, _ := repo.Parse("spec/p.md", []byte(source))
+	if took := time.Since(started); took > 2*time.Second {
+		t.Errorf("reading took %v", took)
+	}
+	if h := d.Headings(); len(h) != 2 || !strings.HasPrefix(h[1].Text, "a       \na       \n") {
+		t.Errorf("the setext heading was not read with its comments blanked")
+	}
+}

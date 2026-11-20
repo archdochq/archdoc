@@ -191,13 +191,22 @@ func headingText(body string, n *markdown.Node) string {
 		}
 		return true
 	})
+	// Comments and lines both come in order, so one index walks the comments
+	// beside the lines: checking every comment on every line cost their
+	// product. A comment over several lines is kept until a line starts
+	// past its end.
 	lines := make([]string, len(n.Lines))
+	next := 0
 	for i, l := range n.Lines {
 		text := []byte(body[l.Start:l.End])
-		for _, c := range comments {
-			if c.Start < l.End && c.End > l.Start {
-				blank(text, max(c.Start, l.Start)-l.Start, min(c.End, l.End)-l.Start)
+		for next < len(comments) && comments[next].End <= l.Start {
+			next++
+		}
+		for _, c := range comments[next:] {
+			if c.Start >= l.End {
+				break
 			}
+			blank(text, max(c.Start, l.Start)-l.Start, min(c.End, l.End)-l.Start)
 		}
 		lines[i] = strings.TrimRight(string(text), "\r\n")
 	}
