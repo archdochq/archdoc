@@ -258,7 +258,16 @@ func L04(ctx Context) []Finding {
 		if d.FrontMatter.NamedBy != "" && ctx.Repo().ByID(d.FrontMatter.NamedBy) == nil {
 			rep.errorf(d, d.FrontMatter.LineOf("named_by"), "named_by references %s, which does not exist", d.FrontMatter.NamedBy)
 		}
+		listed := map[reference]bool{}
 		for _, ref := range references(d) {
+			// Each relationship is derived once, so a second listing adds
+			// nothing but a line to correct; only an edit to the document
+			// can, so it is a warning in a frozen one.
+			if listed[ref] {
+				rep.atf(severityFor(ctx, d), d, d.FrontMatter.LineOf(ref.field), "%s lists %s more than once", ref.field, ref.id)
+				continue
+			}
+			listed[ref] = true
 			target := ctx.Repo().ByID(ref.id)
 			if target == nil {
 				// A document that does not exist can be written, unless no

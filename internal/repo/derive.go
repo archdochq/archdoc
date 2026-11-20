@@ -80,17 +80,17 @@ func (r *Repo) contribute(d *Document) {
 	if d.ID != "" {
 		for _, id := range d.FrontMatter.Updates {
 			if target := r.byID[id]; target != nil {
-				target.UpdatedBy = append(target.UpdatedBy, d.ID)
+				target.UpdatedBy = appendOnce(target.UpdatedBy, d.ID)
 			}
 		}
 		for _, id := range d.FrontMatter.Obsoletes {
 			if target := r.byID[id]; target != nil {
-				target.ObsoletedBy = append(target.ObsoletedBy, d.ID)
+				target.ObsoletedBy = appendOnce(target.ObsoletedBy, d.ID)
 			}
 		}
 		for _, id := range d.FrontMatter.Depends {
 			if target := r.byID[id]; target != nil {
-				target.DependedOnBy = append(target.DependedOnBy, d.ID)
+				target.DependedOnBy = appendOnce(target.DependedOnBy, d.ID)
 			}
 		}
 	}
@@ -109,7 +109,7 @@ func (r *Repo) contribute(d *Document) {
 	}
 	for _, id := range d.FrontMatter.Includes {
 		if target := r.byID[id]; target != nil {
-			target.IncludedIn = append(target.IncludedIn, d.Page)
+			target.IncludedIn = appendOnce(target.IncludedIn, d.Page)
 		}
 	}
 }
@@ -159,4 +159,15 @@ func ImplementedIn(includedIn []string) []string {
 		}
 	}
 	return out
+}
+
+// appendOnce adds name to a reverse list unless it was the last added: a
+// document listing the same identifier twice relates to it once, which L04
+// reports, and was listed twice in the index and the export. One document's
+// entries are added together, so only the last can repeat it.
+func appendOnce(list []string, name string) []string {
+	if len(list) > 0 && list[len(list)-1] == name {
+		return list
+	}
+	return append(list, name)
 }

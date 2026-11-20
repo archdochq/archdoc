@@ -432,7 +432,7 @@ func TestTheRegistryRecordsEachRuleV060Changed(t *testing.T) {
 		"L01": {"unknown status at the `status` line", "group's front matter", "frozen document", "invalid YAML once"},
 		"L02": {"`id` that differs from the filename at the `id` line", "frozen document", "`id` that did not parse"},
 		"L03": {"every document holding the identifier is frozen"},
-		"L04": {"reference at its field's line", "group member", "term's `named_by`", "ref named in `depends` or `includes`"},
+		"L04": {"reference at its field's line", "group member", "term's `named_by`", "ref named in `depends` or `includes`", "identifier listed twice"},
 		"L05": {"each finding at its field's line", "with its article", "warning rather than an error in a frozen document"},
 		"L06": {"at the `includes` line"},
 		"L07": {"fault in `decided` at the `decided` line", "`as_of` after its `verified`", "frozen document", "against an empty one"},
@@ -1440,5 +1440,32 @@ func TestL17ReadsATargetsAnchorsOnce(t *testing.T) {
 	}
 	if took := time.Since(started); took > 2*time.Second {
 		t.Errorf("lint took %v over ten thousand links into one page", took)
+	}
+}
+
+// TestL04ReportsAnIdentifierListedTwice: each relationship is derived once,
+// so a second listing adds nothing, and was derived twice into the index and
+// the export with nothing reported.
+func TestL04ReportsAnIdentifierListedTwice(t *testing.T) {
+	r := repotest.New(t, map[string]string{
+		"adr/0001-a.md": "---\nid: ADR-0001\ntitle: A\nstatus: accepted\ncreated: 2026-01-01\ndecided: 2026-01-02\ndepends: []\nupdates: []\nobsoletes: []\n---\n\n# ADR-0001: A\n",
+		"adr/0002-b.md": "---\nid: ADR-0002\ntitle: B\nstatus: proposed\ncreated: 2026-01-01\ndecided:\ndepends: [ADR-0001, ADR-0001]\nupdates: [ADR-0001]\nobsoletes: []\n---\n\n# ADR-0002: B\n",
+		"spec/p.md":     "---\ntitle: P\nincludes: [ADR-0001, ADR-0001]\n---\n\n# P\n",
+	})
+	var got []string
+	for _, f := range lint.Run(lint.NewContext(r, nil, now)) {
+		if f.Rule == "L04" {
+			got = append(got, fmt.Sprintf("%s:%d: %s", f.Path, f.Line, f.Message))
+		}
+	}
+	want := []string{
+		"adr/0002-b.md:7: depends lists ADR-0001 more than once",
+		"spec/p.md:3: includes lists ADR-0001 more than once",
+	}
+	if !slices.Equal(got, want) {
+		t.Errorf("L04 =\n%s\nwant\n%s", strings.Join(got, "\n"), strings.Join(want, "\n"))
+	}
+	if d := r.ByID("ADR-0001"); !slices.Equal(d.DependedOnBy, []string{"ADR-0002"}) || !slices.Equal(d.IncludedIn, []string{"p"}) {
+		t.Errorf("depended on by %q and included in %q, want each once", d.DependedOnBy, d.IncludedIn)
 	}
 }
