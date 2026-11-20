@@ -868,18 +868,34 @@ func L17(ctx Context) []Finding {
 
 	// Every link target was read and re-parsed on each reference, which on a
 	// repository of any size dominated the whole rule set. A document the
-	// repository already holds is never re-read at all.
-	cached := map[string][]string{}
-	anchorsOf := func(resolved string, source []byte) []string {
-		if known := ctx.Repo().ByPath(resolved); known != nil {
-			return known.Anchors()
-		}
+	// repository already holds is never re-read at all. Each target's anchors
+	// are built once, as a set: built and searched again for each link, ten
+	// thousand links into a page of ten thousand headings cost a hundred
+	// million comparisons. A body too long to read has no set.
+	cached := map[string]map[string]bool{}
+	anchorsOf := func(resolved string, source []byte) map[string]bool {
 		if anchors, ok := cached[resolved]; ok {
 			return anchors
 		}
-		anchors := repo.AnchorsIn(source)
+		var listed []string
+		if known := ctx.Repo().ByPath(resolved); known != nil {
+			listed = known.Anchors()
+		} else {
+			listed = repo.AnchorsIn(source)
+		}
+		var anchors map[string]bool
+		if listed != nil {
+			anchors = make(map[string]bool, len(listed))
+			for _, a := range listed {
+				anchors[a] = true
+			}
+		}
 		cached[resolved] = anchors
 		return anchors
+	}
+	read := func(resolved string) bool {
+		_, ok := cached[resolved]
+		return ok
 	}
 
 	// A target outside root is still the repository's when git holds both,
@@ -926,7 +942,7 @@ func L17(ctx Context) []Finding {
 				// cost was one read per link rather than one per document. The
 				// anchor cache below only ever saved the parse.
 				switch known := ctx.Repo().ByPath(resolved); {
-				case cached[resolved] != nil:
+				case read(resolved):
 					// Already read and parsed for an earlier reference to the
 					// same target. The cache below only ever saved the parse,
 					// so a target linked from many places was re-read from disk
@@ -959,7 +975,7 @@ func L17(ctx Context) []Finding {
 			}
 			// A body too long to read has no anchor known, so a link into it
 			// is checked without its fragment.
-			if anchors := anchorsOf(resolved, source); anchors != nil && !slices.Contains(anchors, anchor) {
+			if anchors := anchorsOf(resolved, source); anchors != nil && !anchors[anchor] {
 				where := target
 				if where == "" {
 					where = "this document"

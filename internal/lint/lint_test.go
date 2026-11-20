@@ -1417,3 +1417,28 @@ func TestL17FindsTheRootALinkNames(t *testing.T) {
 		t.Errorf("findings = %q, want none", got)
 	}
 }
+
+// TestL17ReadsATargetsAnchorsOnce: each link into a document rebuilt the
+// target's anchors and searched them, so ten thousand links into a page of ten
+// thousand headings cost a hundred million comparisons.
+func TestL17ReadsATargetsAnchorsOnce(t *testing.T) {
+	var headings strings.Builder
+	for i := range 10000 {
+		fmt.Fprintf(&headings, "## h%d\n", i)
+	}
+	links := strings.Repeat("[a](target.md#h9999)\n", 2000)
+	files := map[string]string{"spec/target.md": "---\ntitle: Target\nincludes: []\n---\n\n# Target\n\n" + headings.String()}
+	for i := range 5 {
+		files[fmt.Sprintf("spec/from%d.md", i)] = fmt.Sprintf("---\ntitle: From %d\nincludes: []\n---\n\n# From %d\n\n", i, i) + links
+	}
+	r := repotest.New(t, files)
+	started := time.Now()
+	for _, f := range lint.Run(lint.NewContext(r, nil, now)) {
+		if f.Rule == "L17" {
+			t.Fatalf("a link to an anchor the target holds was reported: %v", f)
+		}
+	}
+	if took := time.Since(started); took > 2*time.Second {
+		t.Errorf("lint took %v over ten thousand links into one page", took)
+	}
+}
