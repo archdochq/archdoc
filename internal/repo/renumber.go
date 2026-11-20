@@ -74,6 +74,14 @@ func Renumber(r *Repo, from, to string, frozen func(*Document) bool) (changed, u
 	if unread := r.Unread(); len(unread) > 0 {
 		return nil, nil, fmt.Errorf("%s has a body longer than %d bytes, which is not read, so a reference to %s in it cannot be rewritten; shorten it first", unread[0], MaxBody, d.ID)
 	}
+	// A reference in front matter is found by the key it was read under, and
+	// a block that did not parse has none, so its references were passed over
+	// and left naming an identifier no document holds.
+	for _, o := range r.Documents() {
+		if !o.FrontMatter.Read() {
+			return nil, nil, fmt.Errorf("%s has front matter that is not read, so a reference to %s in it cannot be rewritten; fix it first", o.Path, d.ID)
+		}
+	}
 
 	number, err := targetNumber(r, d, to)
 	if err != nil {
