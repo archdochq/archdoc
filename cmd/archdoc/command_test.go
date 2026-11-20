@@ -1781,3 +1781,25 @@ func TestWritersRefuseABranchTheyCannotRead(t *testing.T) {
 		})
 	}
 }
+
+// TestTermRemoveRefusesATermDirectoryLinkedOutOfTheRoot: term/ linked
+// elsewhere is read through, and removing a term deleted the file on the other
+// end, where term add and term rename refuse the same tree.
+func TestTermRemoveRefusesATermDirectoryLinkedOutOfTheRoot(t *testing.T) {
+	r := repotest.New(t, map[string]string{repotest.TermPath("Widget"): repotest.Term("Widget", "A small thing.")})
+	dir := r.Config().Dir()
+	elsewhere := filepath.Join(t.TempDir(), "term")
+	if err := os.Rename(filepath.Join(dir, "term"), elsewhere); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(elsewhere, filepath.Join(dir, "term")); err != nil {
+		t.Skipf("symlinks unavailable: %v", err)
+	}
+	out, code := run(t, dir, "term", "remove", "Widget")
+	if code == exitOK || !strings.Contains(out, "resolves outside the repository") {
+		t.Errorf("exit = %d, want a refusal naming term:\n%s", code, out)
+	}
+	if _, err := os.Stat(filepath.Join(elsewhere, "widget.md")); err != nil {
+		t.Errorf("the term on the other end of the link was removed: %v", err)
+	}
+}

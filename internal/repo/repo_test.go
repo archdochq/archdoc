@@ -2088,3 +2088,26 @@ func TestContainsJudgesAMissingDirectoryByWhereItWouldBeMade(t *testing.T) {
 		t.Errorf("a directory to be made inside the root was refused: %v", err)
 	}
 }
+
+// TestInsideComparesARelativeRootWithAnAbsoluteLink: a link inside a relative
+// root with an absolute target resolved to an absolute path, which could not
+// be compared with the relative root and was refused as outside it.
+func TestInsideComparesARelativeRootWithAnAbsoluteLink(t *testing.T) {
+	t.Chdir(t.TempDir())
+	if err := os.MkdirAll(filepath.Join("out", "real"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	real, err := filepath.Abs(filepath.Join("out", "real"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(real, filepath.Join("out", "rfc")); err != nil {
+		t.Skipf("symlinks unavailable: %v", err)
+	}
+	if err := repo.Inside("out", filepath.Join("out", "rfc", "new"), "out"); err != nil {
+		t.Errorf("a link inside the root was refused: %v", err)
+	}
+	if err := repo.Inside("out", filepath.Join("out", "new"), "out"); err != nil {
+		t.Errorf("a directory inside the root was refused: %v", err)
+	}
+}

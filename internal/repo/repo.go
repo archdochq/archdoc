@@ -273,11 +273,21 @@ func Contains(root, full string) error {
 // be created there: a missing directory under a link out of root was passed,
 // and creating it put the write outside.
 func Inside(root, dir, what string) error {
+	// Absolute first: a link inside a relative root resolves to an absolute
+	// path, which Rel cannot compare with a relative one.
+	root, err := filepath.Abs(root)
+	if err != nil {
+		return err
+	}
 	base, err := filepath.EvalSymlinks(root)
 	if err != nil {
 		return nil
 	}
-	resolved, rest := dir, ""
+	resolved, err := filepath.Abs(dir)
+	if err != nil {
+		return err
+	}
+	rest := ""
 	for {
 		if r, err := filepath.EvalSymlinks(resolved); err == nil {
 			resolved = filepath.Join(r, rest)

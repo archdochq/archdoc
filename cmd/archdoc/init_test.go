@@ -808,3 +808,23 @@ func TestTheWorkflowOmitsWorkingDirectoryAtTheRoot(t *testing.T) {
 		t.Errorf("the workflow names a working-directory at the repository root:\n%s", workflow)
 	}
 }
+
+// TestInitRefusesADirectoryLinkedOutOfTheTree: only each file was checked for
+// being in the way, so rfc/ linked elsewhere had init create its .gitkeep on
+// the other end.
+func TestInitRefusesADirectoryLinkedOutOfTheTree(t *testing.T) {
+	dir, elsewhere := t.TempDir(), t.TempDir()
+	if err := os.Symlink(elsewhere, filepath.Join(dir, "rfc")); err != nil {
+		t.Skipf("symlinks unavailable: %v", err)
+	}
+	out, code := run(t, dir, "init", "--name", "T")
+	if code == exitOK || !strings.Contains(out, "resolves outside the repository") {
+		t.Errorf("exit = %d, want a refusal naming rfc:\n%s", code, out)
+	}
+	if entries, _ := os.ReadDir(elsewhere); len(entries) > 0 {
+		t.Errorf("init created %s on the other end of the link", entries[0].Name())
+	}
+	if _, err := os.Stat(filepath.Join(dir, "archdoc.json")); err == nil {
+		t.Error("archdoc.json was written although init was refused")
+	}
+}
