@@ -448,7 +448,8 @@ func TestATerminalTransitionIsNotRefusedForWhatItDoesNotFreeze(t *testing.T) {
 				editDocument(t, dir, "rfc/0002-cache.md", tc.old, tc.replacement)
 			}
 
-			out, code := run(t, dir, "accept", "RFC-0002")
+			// By path, as two documents claim RFC-0002 in one case.
+			out, code := run(t, dir, "accept", "rfc/0002-cache.md")
 			if code != exitOK {
 				t.Fatalf("exit = %d: %s", code, out)
 			}
@@ -1801,5 +1802,22 @@ func TestTermRemoveRefusesATermDirectoryLinkedOutOfTheRoot(t *testing.T) {
 	}
 	if _, err := os.Stat(filepath.Join(elsewhere, "widget.md")); err != nil {
 		t.Errorf("the term on the other end of the link was removed: %v", err)
+	}
+}
+
+// TestATransitionRefusesAnIdentifierTwoDocumentsClaim: ByID answered with
+// whichever path sorts first, so accept could freeze the other contributor's
+// document. As renumber does, the transition lists both and takes a path.
+func TestATransitionRefusesAnIdentifierTwoDocumentsClaim(t *testing.T) {
+	dir := repository(t)
+	if err := os.WriteFile(filepath.Join(dir, "rfc", "0002-sizing.md"), []byte(rfc("RFC-0002", "Sizing", "draft", "")), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	out, code := run(t, dir, "propose", "rfc-0002")
+	if code == exitOK || !strings.Contains(out, "rfc/0002-cache.md, rfc/0002-sizing.md") || !strings.Contains(out, "name the one to propose by path") {
+		t.Errorf("exit = %d, want a refusal listing both paths:\n%s", code, out)
+	}
+	if out, code := run(t, dir, "propose", "rfc/0002-sizing.md"); code != exitOK || !strings.Contains(out, "RFC-0002 is now proposed") {
+		t.Errorf("exit = %d, want the document named by path proposed:\n%s", code, out)
 	}
 }

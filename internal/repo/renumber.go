@@ -61,7 +61,7 @@ var referenceKeys = []string{"depends", "updates", "obsoletes", "includes", "doc
 // be corrected and the rename would leave it pointing at a file that is gone.
 // The refusal is complete: nothing is written unless everything can be.
 func Renumber(r *Repo, from, to string, frozen func(*Document) bool) (changed, unchanged []string, err error) {
-	d, err := selectDocument(r, from)
+	d, err := Select(r, from, "renumber")
 	if err != nil {
 		return nil, nil, err
 	}
@@ -215,15 +215,15 @@ func write(r *Repo, d *Document, newPath string, source []byte, edits map[string
 	return os.Remove(r.File(d.Path))
 }
 
-// selectDocument finds the document to rename, by path or by identifier.
+// Select finds the document a command is to act on, by path or by
+// identifier, action naming the act in a refusal.
 //
 // An identifier is not always unique: two pull requests branching from the same
 // commit both take the next free number, and after both merge two documents
-// carry it. That is the case this command exists for, and ByID answers it with
-// whichever path sorts first, so acting on the identifier alone would rename
-// the other contributor's document. A path is unambiguous, so it is offered as
-// the way through.
-func selectDocument(r *Repo, from string) (*Document, error) {
+// carry it. ByID answers it with whichever path sorts first, so acting on the
+// identifier alone would renumber, or accept, the other contributor's
+// document. A path is unambiguous, so it is offered as the way through.
+func Select(r *Repo, from, action string) (*Document, error) {
 	if strings.Contains(from, "/") || strings.HasSuffix(from, ".md") {
 		if d := r.ByPath(path.Clean(from)); d != nil {
 			return d, nil
@@ -247,8 +247,8 @@ func selectDocument(r *Repo, from string) (*Document, error) {
 		paths = append(paths, d.Path)
 	}
 	sort.Strings(paths)
-	return nil, fmt.Errorf("%d documents claim %s (%s); name the one to renumber by path",
-		len(matches), from, strings.Join(paths, ", "))
+	return nil, fmt.Errorf("%d documents claim %s (%s); name the one to %s by path",
+		len(matches), from, strings.Join(paths, ", "), action)
 }
 
 // targetNumber resolves the requested identifier, or picks the next free number

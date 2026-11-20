@@ -151,7 +151,7 @@ func askForDocument(cmd *cobra.Command, args []string, eligible []*repo.Document
 	options := make([]huh.Option[string], len(eligible))
 	for i, d := range eligible {
 		options[i] = huh.NewOption(
-			fmt.Sprintf("%s  %s  (%s)", d.ID, d.FrontMatter.Title, d.FrontMatter.Status), d.ID)
+			fmt.Sprintf("%s  %s  (%s)", d.ID, d.FrontMatter.Title, d.FrontMatter.Status), d.Path)
 	}
 	var chosen string
 	err := runForm(huh.NewForm(huh.NewGroup(
