@@ -562,3 +562,58 @@ func TestAllHeadingsReachesTheExport(t *testing.T) {
 		t.Errorf("with --all-headings contents holds %q", got)
 	}
 }
+
+// TestOutRefusesADirectoryLinkedOutOfTheTree covers a symbolic link in place
+// of a directory, which only the last component of each path was checked
+// for. A previous export had written rfc/ there, so the next wrote through it
+// and pruned on the other end. Nothing is written once one is found.
+func TestOutRefusesADirectoryLinkedOutOfTheTree(t *testing.T) {
+	dir := t.TempDir()
+	if out, code := run(t, dir, "init", "--name", "T"); code != exitOK {
+		t.Fatalf("init exited %d: %s", code, out)
+	}
+	for _, title := range []string{"First design", "Gone design"} {
+		if out, code := run(t, dir, "new", "rfc", title); code != exitOK {
+			t.Fatalf("new exited %d: %s", code, out)
+		}
+	}
+	target := filepath.Join(dir, "dist")
+	if out, code := run(t, dir, "export", "--out", target); code != exitOK {
+		t.Fatalf("export exited %d: %s", code, out)
+	}
+	if err := os.Remove(filepath.Join(dir, "rfc", "0002-gone-design.md")); err != nil {
+		t.Fatal(err)
+	}
+	// rfc/ swapped for a link to a directory holding the user's own files
+	// under the names the export writes and prunes.
+	victim := filepath.Join(t.TempDir(), "victim")
+	if err := os.Rename(filepath.Join(target, "rfc"), victim); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(victim, filepath.Join(target, "rfc")); err != nil {
+		t.Skipf("symlinks unavailable: %v", err)
+	}
+	const precious = "the user's own\n"
+	for _, name := range []string{"0001-first-design.json", "0002-gone-design.json"} {
+		if err := os.WriteFile(filepath.Join(victim, name), []byte(precious), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	index, err := os.ReadFile(filepath.Join(target, "index.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	out, code := run(t, dir, "export", "--out", target)
+	if code == exitOK || !strings.Contains(out, "resolves outside") {
+		t.Errorf("exit = %d, want a refusal naming the linked directory:\n%s", code, out)
+	}
+	for _, name := range []string{"0001-first-design.json", "0002-gone-design.json"} {
+		if got, err := os.ReadFile(filepath.Join(victim, name)); err != nil || string(got) != precious {
+			t.Errorf("%s on the other end of the link was written or removed (%v)", name, err)
+		}
+	}
+	if got, _ := os.ReadFile(filepath.Join(target, "index.json")); string(got) != string(index) {
+		t.Error("index.json was rewritten although the export was refused")
+	}
+}

@@ -125,6 +125,11 @@ func termRemove() *cobra.Command {
 			if err != nil {
 				return err
 			}
+			// term/ linked out of the root is read through, and removing
+			// through it deleted the file on the other end.
+			if err := repo.Contains(r.Config().RootDir(), r.File(docPath)); err != nil {
+				return err
+			}
 			if err := os.Remove(r.File(docPath)); err != nil {
 				return err
 			}

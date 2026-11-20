@@ -328,6 +328,11 @@ func write(cmd *cobra.Command, files []scaffold) error {
 		} else if !errors.Is(err, fs.ErrNotExist) {
 			return err
 		}
+		// A directory on the way linked out of the tree created the file on
+		// the other end, which the check above, of the file alone, passed.
+		if err := repo.Contains(f.dir, full); err != nil {
+			return err
+		}
 	}
 
 	out := cmd.OutOrStdout()

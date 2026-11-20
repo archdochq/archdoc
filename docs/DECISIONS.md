@@ -530,7 +530,12 @@ the result can delete content it never read.
   helper refuses a path that is a symlink, and one resolves every directory component before the write,
   because a root can be perfectly ordinary while a document directory inside it points elsewhere.
   `os.WriteFile` follows a link and truncates the target, and a symlink committed to a repository
-  survives clone.
+  survives clone. A directory not made yet is judged by the nearest one above it that exists, since a
+  missing directory under a link out of the root was passed and then made outside. `export --out`,
+  `update` and `init` check every path before writing any, as each wrote through a linked directory,
+  and export pruned on the other end of one; `term remove` checks the file it deletes. The paths are
+  made absolute first, since a link with an absolute target inside a relative `--out` could not be
+  compared with it.
 - **`init` plans every file before writing any of them**, tests for collisions with `Lstat` so a
   dangling link counts as something in the way, and creates with `O_EXCL` so the kernel performs the
   test. It validates the configuration it is about to write through the same code path that loads one,

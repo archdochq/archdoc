@@ -114,9 +114,36 @@ func writeTree(cmd *cobra.Command, r *repo.Repo, dir string, opts export.Options
 		index.Groups[i].Description = nil
 	}
 
+	// Every file the export writes or prunes, checked before any is touched:
+	// a directory in the tree linked out of it was written through, and the
+	// files on the other end pruned.
+	type file struct {
+		rel string
+		v   any
+	}
+	planned := []file{{"index.json", index}}
+	for _, d := range full.Documents {
+		planned = append(planned, file{strings.TrimSuffix(d.Path, ".md") + ".json", d})
+	}
+	if full.HasGlossary {
+		planned = append(planned, file{"glossary.json", full.Glossary})
+	}
+	if len(full.Groups) > 0 {
+		planned = append(planned, file{"groups.json", full.Groups})
+	}
+	touched := slices.Sorted(maps.Keys(previous))
+	for _, f := range planned {
+		touched = append(touched, f.rel)
+	}
+	for _, rel := range touched {
+		if err := repo.Inside(dir, filepath.Dir(filepath.Join(dir, filepath.FromSlash(rel))), dir); err != nil {
+			return err
+		}
+	}
+
 	written := []string{}
-	write := func(rel string, v any) error {
-		path := filepath.Join(dir, filepath.FromSlash(rel))
+	for _, f := range planned {
+		path := filepath.Join(dir, filepath.FromSlash(f.rel))
 		if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
 			return err
 		}
@@ -128,33 +155,13 @@ func writeTree(cmd *cobra.Command, r *repo.Repo, dir string, opts export.Options
 		// is the defect archdoc index had, and every other writer comes
 		// through here for the same reason.
 		var buf bytes.Buffer
-		if err := encode(&buf, v); err != nil {
+		if err := encode(&buf, f.v); err != nil {
 			return err
 		}
-		if err := repo.WriteFile(path, buf.Bytes(), rel); err != nil {
+		if err := repo.WriteFile(path, buf.Bytes(), f.rel); err != nil {
 			return err
 		}
-		written = append(written, rel)
-		return nil
-	}
-
-	if err := write("index.json", index); err != nil {
-		return err
-	}
-	for _, d := range full.Documents {
-		if err := write(strings.TrimSuffix(d.Path, ".md")+".json", d); err != nil {
-			return err
-		}
-	}
-	if full.HasGlossary {
-		if err := write("glossary.json", full.Glossary); err != nil {
-			return err
-		}
-	}
-	if len(full.Groups) > 0 {
-		if err := write("groups.json", full.Groups); err != nil {
-			return err
-		}
+		written = append(written, f.rel)
 	}
 	for _, rel := range written {
 		fmt.Fprintln(cmd.OutOrStdout(), filepath.Join(dir, filepath.FromSlash(rel)))

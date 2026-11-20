@@ -262,20 +262,46 @@ func (r *Repo) CreateFile(docPath string, source []byte, created *bool) error {
 // config.ValidateRoot already checks the root itself, and that is not enough: a
 // root can be perfectly ordinary while a document directory inside it points
 // elsewhere, and every write into that directory then lands outside the
-// repository while the tool reports a path inside it. A parent that does not
-// exist yet is fine, because it will be created inside root.
+// repository while the tool reports a path inside it.
 func Contains(root, full string) error {
-	dir, err := filepath.EvalSymlinks(filepath.Dir(full))
+	return Inside(root, filepath.Dir(full), "the repository")
+}
+
+// Inside reports whether dir sits inside root once every directory component
+// has been resolved, naming root as what in the refusal. A directory that does
+// not exist yet is judged by the nearest one above it that does, since it will
+// be created there: a missing directory under a link out of root was passed,
+// and creating it put the write outside.
+func Inside(root, dir, what string) error {
+	// Absolute first: a link inside a relative root resolves to an absolute
+	// path, which Rel cannot compare with a relative one.
+	root, err := filepath.Abs(root)
 	if err != nil {
-		return nil
+		return err
 	}
 	base, err := filepath.EvalSymlinks(root)
 	if err != nil {
 		return nil
 	}
-	rel, err := filepath.Rel(base, dir)
+	resolved, err := filepath.Abs(dir)
+	if err != nil {
+		return err
+	}
+	rest := ""
+	for {
+		if r, err := filepath.EvalSymlinks(resolved); err == nil {
+			resolved = filepath.Join(r, rest)
+			break
+		}
+		parent := filepath.Dir(resolved)
+		if parent == resolved {
+			return nil
+		}
+		resolved, rest = parent, filepath.Join(filepath.Base(resolved), rest)
+	}
+	rel, err := filepath.Rel(base, resolved)
 	if err != nil || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
-		return fmt.Errorf("%s resolves outside the repository, so nothing was written", filepath.Dir(full))
+		return fmt.Errorf("%s resolves outside %s, so nothing was written", dir, what)
 	}
 	return nil
 }
