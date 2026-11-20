@@ -335,27 +335,43 @@ func explicitAnchors(doc *markdown.Node) []string {
 	}
 	referenced := footnoteNumbers(doc)
 	var anchors []string
-	markdown.Walk(doc, func(n *markdown.Node) bool {
-		var text string
-		switch n.Type {
-		case markdown.FootnoteDefinition:
-			_, ok := referenced[n.Label]
-			return ok
-		case markdown.RawHTML:
-			if strings.HasPrefix(n.Text, "<!--") {
+	// A definition nothing references is not rendered, but one indented
+	// under it is a footnote of its own, rendered where it is referenced, so
+	// an unreferenced definition is searched for those alone.
+	var from func(root *markdown.Node)
+	from = func(root *markdown.Node) {
+		markdown.Walk(root, func(n *markdown.Node) bool {
+			var text string
+			switch n.Type {
+			case markdown.FootnoteDefinition:
+				if _, ok := referenced[n.Label]; ok || n == root {
+					return true
+				}
+				markdown.Walk(n, func(m *markdown.Node) bool {
+					if _, ok := referenced[m.Label]; m != n && m.Type == markdown.FootnoteDefinition && ok {
+						from(m)
+						return false
+					}
+					return true
+				})
 				return false
+			case markdown.RawHTML:
+				if strings.HasPrefix(n.Text, "<!--") {
+					return false
+				}
+				text = n.Text
+			case markdown.HTMLBlock:
+				text = stripComments(n.Text)
+			default:
+				return true
 			}
-			text = n.Text
-		case markdown.HTMLBlock:
-			text = stripComments(n.Text)
-		default:
-			return true
-		}
-		for _, m := range explicitAnchor.FindAllStringSubmatch(text, -1) {
-			anchors = append(anchors, html.UnescapeString(m[1]+m[2]))
-		}
-		return false
-	})
+			for _, m := range explicitAnchor.FindAllStringSubmatch(text, -1) {
+				anchors = append(anchors, html.UnescapeString(m[1]+m[2]))
+			}
+			return false
+		})
+	}
+	from(doc)
 	return anchors
 }
 
