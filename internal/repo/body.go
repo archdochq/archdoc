@@ -2,6 +2,7 @@ package repo
 
 import (
 	"fmt"
+	"html"
 	"regexp"
 	"slices"
 	"strings"
@@ -432,6 +433,29 @@ func (d *Document) Anchors() []string {
 	return append(anchors, explicitAnchors(d.outline)...)
 }
 
-// explicitAnchor matches an HTML anchor carrying an id or a name, which is how
-// a Markdown document names a target that is not a heading.
-var explicitAnchor = regexp.MustCompile(`(?i)<a\s+[^>]*\b(?:id|name)\s*=\s*(?:"([^"]+)"|'([^']+)')`)
+// anchorTag matches an <a> start tag, its attributes in CommonMark's grammar,
+// which is how a Markdown document names a target that is not a heading, and
+// anchorAttribute each attribute in it with its value, quoted or not. Read by
+// attribute, an id or a name is one only as an attribute's whole name: found
+// by pattern anywhere in the tag, data-id="x" and title="id='z'" were taken
+// for anchors and id=y, unquoted, was not.
+var (
+	anchorTag       = regexp.MustCompile(`(?i)<a((?:\s+[a-z_:][a-z0-9_.:-]*(?:\s*=\s*(?:[^"'=<>\x60\s]+|'[^']*'|"[^"]*"))?)*)\s*/?>`)
+	anchorAttribute = regexp.MustCompile(`(?i)\s+([a-z_:][a-z0-9_.:-]*)(?:\s*=\s*(?:([^"'=<>\x60\s]+)|'([^']*)'|"([^"]*)"))?`)
+)
+
+// tagAnchors is the id and name values of each <a> start tag in text.
+func tagAnchors(text string) []string {
+	var anchors []string
+	for _, tag := range anchorTag.FindAllStringSubmatch(text, -1) {
+		for _, a := range anchorAttribute.FindAllStringSubmatch(tag[1], -1) {
+			if name := strings.ToLower(a[1]); name != "id" && name != "name" {
+				continue
+			}
+			if value := a[2] + a[3] + a[4]; value != "" {
+				anchors = append(anchors, html.UnescapeString(value))
+			}
+		}
+	}
+	return anchors
+}

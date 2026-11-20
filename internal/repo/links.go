@@ -1,7 +1,6 @@
 package repo
 
 import (
-	"html"
 	"iter"
 	"net/url"
 	"regexp"
@@ -365,9 +364,7 @@ func explicitAnchors(doc *markdown.Node) []string {
 			default:
 				return true
 			}
-			for _, m := range explicitAnchor.FindAllStringSubmatch(text, -1) {
-				anchors = append(anchors, html.UnescapeString(m[1]+m[2]))
-			}
+			anchors = append(anchors, tagAnchors(text)...)
 			return false
 		})
 	}

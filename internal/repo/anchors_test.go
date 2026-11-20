@@ -421,3 +421,30 @@ func TestANestedFootnoteDefinitionIsRenderedAsItsOwn(t *testing.T) {
 		})
 	}
 }
+
+// TestAnExplicitAnchorIsAnAttributeNamedIDOrName: an id or a name counts only
+// as an attribute's whole name, its value quoted or not. Found by pattern
+// anywhere in the tag, data-id and an id inside another attribute's value were
+// taken for anchors, and an unquoted id was not.
+func TestAnExplicitAnchorIsAnAttributeNamedIDOrName(t *testing.T) {
+	for tag, want := range map[string][]string{
+		`<a id="x"></a>`:                {"x"},
+		`<a name='n'></a>`:              {"n"},
+		`<a id=y></a>`:                  {"y"},
+		`<A ID="up"></A>`:               {"up"},
+		`<a id = "s"></a>`:              {"s"},
+		`<a href="#" id="h" ></a>`:      {"h"},
+		`<a id="x" name="n"></a>`:       {"x", "n"},
+		`<a id="e&amp;f"></a>`:          {"e&f"},
+		`<a data-id="d"></a>`:           nil,
+		`<a title="id='z'"></a>`:        nil,
+		`<a id=""></a>`:                 nil,
+		`<abbr id="q">Q</abbr>`:         nil,
+		`<a title="a > b" id="gt"></a>`: {"gt"},
+	} {
+		got := page(t, "Text "+tag+" here.\n").Anchors()
+		if !slices.Equal(got[1:], want) && !(len(got) == 1 && want == nil) {
+			t.Errorf("%s: anchors = %q, want the page's and %q", tag, got, want)
+		}
+	}
+}
