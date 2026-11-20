@@ -77,7 +77,8 @@ func Rename(r *repo.Repo, from, to string, frozen func(*repo.Document) bool) (ol
 		return "", "", nil, fmt.Errorf("%q is not a term", from)
 	}
 	if d := r.ByPath(entry.Path); d != nil && !d.Read() {
-		return "", "", nil, fmt.Errorf("%s has a body longer than %d bytes, which is not read, so its H1 cannot be retitled; shorten it first", entry.Path, repo.MaxBody)
+		why, fix := d.NotRead()
+		return "", "", nil, fmt.Errorf("%s %s, so its H1 cannot be retitled; %s", entry.Path, why, fix)
 	}
 	if to == entry.Term {
 		return "", "", nil, fmt.Errorf("%q is already the term's name", to)
@@ -97,7 +98,8 @@ func Rename(r *repo.Repo, from, to string, frozen func(*repo.Document) bool) (ol
 	// its title's slug makes it do even where the slug does not.
 	if newPath = PathOf(to); newPath != entry.Path {
 		if unread := r.Unread(); len(unread) > 0 {
-			return "", "", nil, fmt.Errorf("%s has a body longer than %d bytes, which is not read, so a link to %s in it cannot be seen; shorten it first", unread[0], repo.MaxBody, entry.Path)
+			why, fix := r.ByPath(unread[0]).NotRead()
+			return "", "", nil, fmt.Errorf("%s %s, so a link to %s in it cannot be seen; %s", unread[0], why, entry.Path, fix)
 		}
 		if blocking := frozenLinks(r, entry, nil, frozen); len(blocking) > 0 {
 			return "", "", nil, fmt.Errorf("%s is linked from %s, which is frozen, and renaming %q moves the file to %s; the link could not be corrected",
@@ -191,7 +193,8 @@ func Remove(r *repo.Repo, term string, frozen func(*repo.Document) bool) (docPat
 		return "", fmt.Errorf("%q is not a term", term)
 	}
 	if unread := r.Unread(); len(unread) > 0 {
-		return "", fmt.Errorf("%s has a body longer than %d bytes, which is not read, so a link to %q in it cannot be seen; shorten it first", unread[0], repo.MaxBody, term)
+		why, fix := r.ByPath(unread[0]).NotRead()
+		return "", fmt.Errorf("%s %s, so a link to %q in it cannot be seen; %s", unread[0], why, term, fix)
 	}
 	anchors := []string{entry.Anchor}
 	for _, former := range entry.Formerly {

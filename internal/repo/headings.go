@@ -35,6 +35,18 @@ func (d *Document) readHeadings() {
 // MaxBody, when every reader finds nothing in it.
 func (d *Document) Read() bool { return !d.unread }
 
+// NotRead is why the body is not read, as a refusal names it, and the edit
+// that would let it be read. Both are empty where it is read.
+func (d *Document) NotRead() (why, fix string) {
+	switch {
+	case d.Read():
+		return "", ""
+	case d.readErr != "":
+		return "cannot be read: " + d.readErr, "repair it first"
+	}
+	return fmt.Sprintf("has a body longer than %d bytes, which is not read", MaxBody), "shorten it first"
+}
+
 // InHeading reports whether the file's line number holds a top-level
 // heading, a setext heading's underline included. An edit inside one changes
 // the text the section rules compare.

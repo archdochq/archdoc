@@ -72,7 +72,8 @@ func Renumber(r *Repo, from, to string, frozen func(*Document) bool) (changed, u
 		return nil, nil, fmt.Errorf("%s is frozen; write a new document that updates it rather than renaming it", d.ID)
 	}
 	if unread := r.Unread(); len(unread) > 0 {
-		return nil, nil, fmt.Errorf("%s has a body longer than %d bytes, which is not read, so a reference to %s in it cannot be rewritten; shorten it first", unread[0], MaxBody, d.ID)
+		why, fix := r.ByPath(unread[0]).NotRead()
+		return nil, nil, fmt.Errorf("%s %s, so a reference to %s in it cannot be rewritten; %s", unread[0], why, d.ID, fix)
 	}
 	// A reference in front matter is found by the key it was read under, and
 	// a block that did not parse has none, so its references were passed over
