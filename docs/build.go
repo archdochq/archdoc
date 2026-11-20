@@ -279,7 +279,7 @@ func linksResolve(name string, body []byte, listed map[string]bool) error {
 		if absolute.MatchString(l.Target) {
 			continue
 		}
-		target, _, _ := strings.Cut(l.Target, "#")
+		target := l.Path
 		if target != "" && !listed[target] {
 			return fmt.Errorf("%s:%d: %s is not a listed guide; link anything else by absolute URL", name, l.Line, l.Target)
 		}

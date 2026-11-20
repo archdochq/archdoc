@@ -366,7 +366,7 @@ func rewriteReferences(d *Document, rn rename) (rewritten []byte, touched bool, 
 		}
 	}
 	for _, l := range d.Links() {
-		target, _, _ := strings.Cut(l.Target, "#")
+		target := l.Path
 		// Skipped as L17 skips them: a URL is not a path, though its own path
 		// can climb back to the file.
 		if strings.Contains(target, "://") || strings.HasPrefix(l.Target, "mailto:") ||
@@ -375,8 +375,8 @@ func rewriteReferences(d *Document, rn rename) (rewritten []byte, touched bool, 
 		}
 		// The way the link was written is kept, and only the file name in it
 		// changes: the renamed file stays in the same directory. That needs
-		// the file name where the text as written puts it, which an encoded
-		// / or # moves; replacing it anyway would write another destination.
+		// the file name where the text as written puts it, which an encoded /
+		// moves; replacing it anyway would write another destination.
 		written, fragment, hasFragment := strings.Cut(lines[l.Line-1][l.Start:l.End], "#")
 		name := written[strings.LastIndex(written, "/")+1:]
 		// A name that does not decode cannot have resolved to the file.

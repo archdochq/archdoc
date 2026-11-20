@@ -213,7 +213,7 @@ func frozenLinks(r *repo.Repo, entry repo.GlossaryEntry, anchors []string, froze
 			continue
 		}
 		for _, l := range d.Links() {
-			target, anchor, _ := strings.Cut(l.Target, "#")
+			target, anchor := l.Path, l.Fragment
 			if path.Base(target) == File && slices.Contains(anchors, anchor) ||
 				path.Join(path.Dir(d.Path), target) == entry.Path {
 				blocking = append(blocking, d.Path)

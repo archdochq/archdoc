@@ -49,21 +49,21 @@ func (d *Document) links() (links, uses []Link) {
 		switch {
 		case n.Type == markdown.LinkReferenceDefinition:
 			line, column := at(n.DestinationSpan.Start)
-			links = append(links, Link{Text: n.Label, Target: decoded(n.Destination), Written: d.Body[n.DestinationSpan.Start:n.DestinationSpan.End], Type: LinkDefinition,
-				Line: line, Start: column, End: column + n.DestinationSpan.End - n.DestinationSpan.Start})
+			links = append(links, withParts(Link{Text: n.Label, Written: d.Body[n.DestinationSpan.Start:n.DestinationSpan.End], Type: LinkDefinition,
+				Line: line, Start: column, End: column + n.DestinationSpan.End - n.DestinationSpan.Start}, n.Destination))
 		case n.Type != markdown.Link && n.Type != markdown.Image, n.AutoLink:
 		case n.Reference:
 			line, column := at(n.TextSpan.End)
-			uses = append(uses, Link{Text: normalLabel(n.Label), Target: decoded(n.Destination), Type: LinkReference,
-				Line: line, Start: column, End: column})
+			uses = append(uses, withParts(Link{Text: normalLabel(n.Label), Type: LinkReference,
+				Line: line, Start: column, End: column}, n.Destination))
 		default:
 			kind := LinkInline
 			if n.Type == markdown.Image {
 				kind = LinkImage
 			}
 			line, column := at(n.DestinationSpan.Start)
-			links = append(links, Link{Text: text[textAt[n.TextSpan.Start]:textAt[n.TextSpan.End]], Target: decoded(n.Destination), Written: d.Body[n.DestinationSpan.Start:n.DestinationSpan.End], Type: kind,
-				Line: line, Start: column, End: column + n.DestinationSpan.End - n.DestinationSpan.Start})
+			links = append(links, withParts(Link{Text: text[textAt[n.TextSpan.Start]:textAt[n.TextSpan.End]], Written: d.Body[n.DestinationSpan.Start:n.DestinationSpan.End], Type: kind,
+				Line: line, Start: column, End: column + n.DestinationSpan.End - n.DestinationSpan.Start}, n.Destination))
 		}
 		return true
 	})
@@ -112,6 +112,15 @@ func decoded(destination string) string {
 		return d
 	}
 	return destination
+}
+
+// withParts sets a link's target, path and fragment from its destination,
+// split on the first # before either part is decoded: split after, a %23 in
+// the path ended it there and began the fragment.
+func withParts(l Link, destination string) Link {
+	path, fragment, _ := strings.Cut(destination, "#")
+	l.Target, l.Path, l.Fragment = decoded(destination), decoded(path), decoded(fragment)
+	return l
 }
 
 // normalLabel compares labels as CommonMark does: case folded, with each run

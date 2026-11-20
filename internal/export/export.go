@@ -471,7 +471,7 @@ func link(r *repo.Repo, d *repo.Document, l repo.Link) Link {
 	// The destination as written, for a consumer to find and replace; the
 	// anchor and the path as a reader follows them, decoded.
 	out := Link{Text: l.Text, Type: string(l.Type), Destination: l.Written, Line: l.Line}
-	target, anchor, _ := strings.Cut(l.Target, "#")
+	target, anchor := l.Path, l.Fragment
 	out.Anchor = anchor
 	// Anything carrying a scheme is somewhere else entirely, and an absolute
 	// path is not ours to resolve. "://" alone is not the test: mailto: and

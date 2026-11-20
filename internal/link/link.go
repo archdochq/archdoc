@@ -211,7 +211,7 @@ func linked(r *repo.Repo, d *repo.Document) map[string]position {
 		if l.Type == repo.LinkDefinition {
 			continue
 		}
-		target, anchor, _ := strings.Cut(l.Target, "#")
+		target, anchor := l.Path, l.Fragment
 		if target == "" {
 			continue
 		}
