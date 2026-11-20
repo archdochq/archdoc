@@ -924,3 +924,23 @@ func TestAnEmbedThatResolvesToNothingHoldsTheDocumentBack(t *testing.T) {
 		t.Errorf("findings = %v, want [[Nope]] reported as resolving to nothing", findings)
 	}
 }
+
+// TestSuggestReadsTheGlossaryOnce: each link into GLOSSARY.md rebuilt every
+// entry and searched them, anchors and former names, so two thousand terms
+// and two thousand links to them took seconds.
+func TestSuggestReadsTheGlossaryOnce(t *testing.T) {
+	files := map[string]string{}
+	var links strings.Builder
+	for i := range 2000 {
+		name := fmt.Sprintf("Term%d", i)
+		files[repotest.TermPath(name)] = repotest.Term(name, "A thing.")
+		fmt.Fprintf(&links, "[x](../GLOSSARY.md#term%d)\n", i)
+	}
+	files["spec/uses.md"] = "---\ntitle: Uses\nincludes: []\n---\n\n# Uses\n\n" + links.String()
+	r := repotest.New(t, files)
+	started := time.Now()
+	link.Suggest(r)
+	if took := time.Since(started); took > 2*time.Second {
+		t.Errorf("suggesting took %v over two thousand links into the glossary", took)
+	}
+}
