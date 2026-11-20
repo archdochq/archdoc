@@ -462,6 +462,7 @@ var Rules = []Rule{
 			{Release: "v0.6.0", Summary: "Reads a setext H1, and the definition from the line after its underline"},
 			{Release: "v0.6.0", Summary: "Passes over a document whose body is longer than 131,072 bytes, which L23 reports"},
 			{Release: "v0.6.0", Summary: "Reads the definition's blocks as goldmark reads them, passing over comment blocks and link reference definitions"},
+			{Release: "v0.6.0", Summary: "Takes the H1 as the first top-level heading where that is of level one, and reports no paragraph in a term without one"},
 		},
 	},
 	{
@@ -509,6 +510,7 @@ var Rules = []Rule{
 			{Release: "v0.6.0", Summary: "Gives a heading inside a blockquote, a list item or a referenced footnote definition an anchor, in the order GitHub renders the headings, and renders a heading's anchor from its pieces as goldmark reads them"},
 			{Release: "v0.6.0", Summary: "Checks a link into a document whose body is longer than 131,072 bytes without its fragment, and passes over the links in one"},
 			{Release: "v0.6.0", Summary: "Reads links, images and link reference definitions as goldmark reads them, a definition behind a blockquote's marker anywhere included"},
+			{Release: "v0.6.0", Summary: "Gives a setext heading an anchor, and none to a line that is not a heading on GitHub, such as `##` with no space after it"},
 		},
 	},
 	{
