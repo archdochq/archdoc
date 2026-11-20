@@ -29,7 +29,7 @@ func transitionCommands() []*cobra.Command {
 	commands := make([]*cobra.Command, len(moves))
 	for i, move := range moves {
 		commands[i] = &cobra.Command{
-			Use:   move.verb + " <id>",
+			Use:   move.verb + " <id|path>",
 			Short: move.short,
 			Args:  cobra.MaximumNArgs(1),
 			RunE: func(cmd *cobra.Command, args []string) error {
@@ -46,13 +46,13 @@ func transition(cmd *cobra.Command, args []string, verb string, to repo.Status) 
 		return err
 	}
 
-	id, err := askForDocument(cmd, args, eligibleFor(r, to), verb)
+	selector, err := askForDocument(cmd, args, eligibleFor(r, to), verb)
 	if err != nil {
 		return err
 	}
-	d := r.ByID(id)
-	if d == nil {
-		return fmt.Errorf("no document has the identifier %s", id)
+	d, err := repo.Select(r, canonical(selector), verb)
+	if err != nil {
+		return err
 	}
 
 	g, err := openGit(r)

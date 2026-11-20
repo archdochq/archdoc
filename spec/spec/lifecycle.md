@@ -29,9 +29,9 @@ M03, run by `archdoc lint --merge`, judges a pull request's changes of status by
 
 ## Transition commands
 
-`archdoc propose <id>`, `accept <id>`, `reject <id>` and `withdraw <id>` each:
+`archdoc propose <id|path>`, `accept <id|path>`, `reject <id|path>` and `withdraw <id|path>` each:
 
-1. Load the document. Fail if the identifier is unknown or the type is not RFC or ADR.
+1. Load the document, by identifier, in any case, or by path. Fail if the identifier is unknown or the type is not RFC or ADR. Fail listing the paths of the documents where more than one claims the identifier, as a path names one.
 2. Check the transition is permitted from the current status under the `strict` setting. Fail naming the transitions permitted from the current status.
 3. For `accept`: fail if the document has an `Open questions` section and it is non-empty, naming `Resolved questions`. `withdraw` performs no content checks.
 4. Rewrite `status` and, for a terminal transition, `decided` to today. Front matter is rewritten field by field, preserving order and comments. The body is not touched except in step 5.

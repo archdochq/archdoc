@@ -79,7 +79,7 @@ proposed  -> rejected
 proposed  -> withdrawn
 ```
 
-`archdoc propose <id>`, `accept <id>`, `reject <id>` and `withdraw <id>` make these moves. Each checks the transition, rewrites `status`, sets `decided` to today on a terminal move, and stops; committing is left to you. `reject` appends a Rejection rationale section for you to fill in. `accept` refuses a document with anything left under Open questions, and `accept` and `reject` refuse a document that lint reports an error about (other than L03, a shared number).
+`archdoc propose <id>`, `accept <id>`, `reject <id>` and `withdraw <id>` make these moves, each taking a path in place of an identifier two documents share. Each checks the transition, rewrites `status`, sets `decided` to today on a terminal move, and stops; committing is left to you. `reject` appends a Rejection rationale section for you to fill in. `accept` refuses a document with anything left under Open questions, and `accept` and `reject` refuse a document that lint reports an error about (other than L03, a shared number).
 
 ### Strict
 
