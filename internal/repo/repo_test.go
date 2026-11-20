@@ -2140,3 +2140,23 @@ func TestGlossaryGivesEachCallerItsOwnEntries(t *testing.T) {
 		t.Errorf("a caller's change reached the next caller: %q", again[0].Term)
 	}
 }
+
+// TestNestedBracketsAreMaskedInLinearTime: each bracket pair's span was
+// blanked in turn, so nested pairs were blanked again for every level, and a
+// line of them took time in its length squared.
+func TestNestedBracketsAreMaskedInLinearTime(t *testing.T) {
+	repo.ReadEveryBody(t)
+	body := "Text " + strings.Repeat("[", 120000) + strings.Repeat("]", 120000) + " RFC-0001\n"
+	started := time.Now()
+	var masked string
+	for line := range repo.ProseOf(body, 1) {
+		masked = line.Masked
+		break
+	}
+	if took := time.Since(started); took > 2*time.Second {
+		t.Errorf("masking took %v", took)
+	}
+	if want := "Text " + strings.Repeat(" ", 240000) + " RFC-0001"; masked != want {
+		t.Errorf("the brackets were not blanked, or the text after them was")
+	}
+}

@@ -292,14 +292,24 @@ func (d *Document) proseLines() []*string {
 		for _, m := range schemeAddress.FindAllIndex(line, -1) {
 			blank(line, m[0], m[1])
 		}
+		// Each matched pair counts one from its [ to past its ], and what any
+		// pair covers is blanked in one sweep: blanking each pair's span in
+		// turn blanked nested ones again for every level.
 		var open []int
+		depth := make([]int, len(line)+1)
 		for p := 0; p < len(line); p++ {
 			switch {
 			case line[p] == '[':
 				open = append(open, p)
 			case line[p] == ']' && len(open) > 0:
-				blank(line, open[len(open)-1], p+1)
+				depth[open[len(open)-1]]++
+				depth[p+1]--
 				open = open[:len(open)-1]
+			}
+		}
+		for p, d := 0, 0; p < len(line); p++ {
+			if d += depth[p]; d > 0 {
+				line[p] = ' '
 			}
 		}
 		s := string(line)
