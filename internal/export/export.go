@@ -468,8 +468,10 @@ func group(r *repo.Repo, d *repo.Document, opts Options) Group {
 // link resolves a destination against the document holding it, so a consumer
 // rewriting URLs does not have to know where the document sits.
 func link(r *repo.Repo, d *repo.Document, l repo.Link) Link {
-	out := Link{Text: l.Text, Type: string(l.Type), Destination: l.Target, Line: l.Line}
-	target, anchor, _ := strings.Cut(l.Target, "#")
+	// The destination as written, for a consumer to find and replace; the
+	// anchor and the path as a reader follows them, decoded.
+	out := Link{Text: l.Text, Type: string(l.Type), Destination: l.Written, Line: l.Line}
+	target, anchor := l.Path, l.Fragment
 	out.Anchor = anchor
 	// Anything carrying a scheme is somewhere else entirely, and an absolute
 	// path is not ours to resolve. "://" alone is not the test: mailto: and

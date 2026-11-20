@@ -256,7 +256,9 @@ Markdown:
 }
 ```
 
-`destination` is as written. `path` is resolved against the document's directory
+`destination` is as written, inside any `<...>`, with its escapes, entities and
+percent-encoding kept, so a consumer can find it in the file and replace it. `anchor` and
+`path` are decoded, as a reader follows the link. `path` is resolved against the document's directory
 and given relative to the root, and `resolves_to` is the identifier, or a spec
 page's name, of whatever is there.
 Both are absent for a bare `#anchor`, for a destination carrying a URI scheme

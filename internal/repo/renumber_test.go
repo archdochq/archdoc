@@ -446,7 +446,7 @@ func TestRenumberRewritesLinksInACRLFFile(t *testing.T) {
 // file once decoded, but the file name is not where the text as written puts
 // it, so replacing it there would write a different destination.
 func TestRenumberRefusesALinkItCannotRewriteAsWritten(t *testing.T) {
-	for _, link := range []string{"..%2Frfc%2F0001-storage.md", "../rfc/0001-storage.md%23x"} {
+	for _, link := range []string{"..%2Frfc%2F0001-storage.md"} {
 		r := repotest.New(t, slugTwins("\nSee [the RFC]("+link+").\n"))
 		before, err := os.ReadFile(r.File("adr/0002-other.md"))
 		if err != nil {
@@ -727,5 +727,22 @@ func TestRenumberRetitlesTheHeadingBeneathAnIDWrittenAcrossLines(t *testing.T) {
 		if !strings.Contains(text, want) {
 			t.Errorf("the renumbered file does not carry %q:\n%s", want, text)
 		}
+	}
+}
+
+// TestRenumberLeavesALinkToAFileNamedWithAHash: an encoded # is part of the
+// filename, so ../rfc/0001-storage.md%23x names another file. It was split on
+// the # once decoded, taken for a link to the renamed file, and refused.
+func TestRenumberLeavesALinkToAFileNamedWithAHash(t *testing.T) {
+	r := repotest.New(t, slugTwins("\nSee [the RFC](../rfc/0001-storage.md%23x).\n"))
+	before, err := os.ReadFile(r.File("adr/0002-other.md"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, _, err := repo.Renumber(r, "RFC-0001", "RFC-0005", nothingFrozen); err != nil {
+		t.Fatalf("Renumber: %v", err)
+	}
+	if after, _ := os.ReadFile(r.File("adr/0002-other.md")); string(after) != string(before) {
+		t.Errorf("a link to another file was rewritten:\n%s", after)
 	}
 }

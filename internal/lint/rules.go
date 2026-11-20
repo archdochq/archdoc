@@ -895,7 +895,7 @@ func L17(ctx Context) []Finding {
 	for _, d := range ctx.Repo().Documents() {
 		severity := severityFor(ctx, d)
 		for _, link := range d.Links() {
-			target, anchor, _ := strings.Cut(link.Target, "#")
+			target, anchor := link.Path, link.Fragment
 			if strings.HasPrefix(link.Target, "/") || uriScheme.MatchString(link.Target) {
 				continue // not relative, as export reads a destination too
 			}

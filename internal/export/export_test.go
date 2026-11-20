@@ -915,3 +915,32 @@ func TestAcknowledgedWarningsAreExported(t *testing.T) {
 		t.Errorf("acknowledged = %#v where archdoc.json has none, want {}", got)
 	}
 }
+
+// TestADestinationIsPublishedAsWritten pins what a consumer rewriting a
+// destination finds in the file. It was published decoded, which for a URL
+// holding %2F or %26 is a different URL; the anchor and the path stay decoded,
+// as a reader follows them, each on its own, so an encoded # stays in the path.
+func TestADestinationIsPublishedAsWritten(t *testing.T) {
+	r := repotest.New(t, map[string]string{
+		"rfc/0001-forms.md": rfc("RFC-0001", "Forms", "draft",
+			"## Abstract\n\n[url](https://e.com/a%2Fb?q=1%262), [escaped](a\\_b.md#x%20y), [spaced](<c d.md>), ![img](e&amp;f.png), [hash](b%23c.md#d) and [def][r].\n\n[r]: g%20h.md\n"),
+	})
+	byText := map[string]export.Link{}
+	for _, l := range export.Build(r, export.Options{}).Documents[0].Links {
+		byText[l.Text] = l
+	}
+	for text, want := range map[string]export.Link{
+		"url":     {Destination: "https://e.com/a%2Fb?q=1%262"},
+		"escaped": {Destination: "a\\_b.md#x%20y", Anchor: "x y", Path: "rfc/a_b.md"},
+		"spaced":  {Destination: "c d.md", Path: "rfc/c d.md"},
+		"img":     {Destination: "e&amp;f.png", Path: "rfc/e&f.png"},
+		"r":       {Destination: "g%20h.md", Path: "rfc/g h.md"},
+		"hash":    {Destination: "b%23c.md#d", Anchor: "d", Path: "rfc/b#c.md"},
+	} {
+		got := byText[text]
+		if got.Destination != want.Destination || got.Anchor != want.Anchor || got.Path != want.Path {
+			t.Errorf("%q: destination %q anchor %q path %q, want %q %q %q",
+				text, got.Destination, got.Anchor, got.Path, want.Destination, want.Anchor, want.Path)
+		}
+	}
+}
