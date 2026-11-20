@@ -31,6 +31,7 @@ func newRenumberCommand() *cobra.Command {
 			"Refuses when the document is frozen, or when a frozen document would have to change, " +
 			"because a reference inside a frozen document could never be corrected afterwards, " +
 			"when the configured branch cannot be read, so neither can be known, " +
+			"while any document's body or front matter is not read, so a reference in it cannot be seen, " +
 			"and when a file already holds the new name. A failure part way restores every file " +
 			"already written.\n\n" +
 			"With no arguments, asks which document to renumber among those that are not frozen.",

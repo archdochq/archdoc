@@ -746,3 +746,20 @@ func TestRenumberLeavesALinkToAFileNamedWithAHash(t *testing.T) {
 		t.Errorf("a link to another file was rewritten:\n%s", after)
 	}
 }
+
+// TestRenumberRefusesWhileFrontMatterIsNotRead: references in front matter
+// are found by key, and a block that does not parse has none, so a spec page
+// including the document kept the old identifier while renumber reported
+// success.
+func TestRenumberRefusesWhileFrontMatterIsNotRead(t *testing.T) {
+	r := repotest.New(t, map[string]string{
+		"rfc/0001-base.md": draft("RFC-0001", "Base"),
+		"spec/broken.md":   "---\ntitle: Broken: yes\nincludes: [RFC-0001]\n---\n\n# Broken\n",
+	})
+	if _, _, err := repo.Renumber(r, "RFC-0001", "RFC-0009", nothingFrozen); err == nil || !strings.Contains(err.Error(), "spec/broken.md") {
+		t.Errorf("err = %v, want a refusal naming spec/broken.md", err)
+	}
+	if _, err := os.Stat(r.File("rfc/0001-base.md")); err != nil {
+		t.Errorf("the document was moved despite the refusal: %v", err)
+	}
+}
