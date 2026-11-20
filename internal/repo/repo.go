@@ -168,7 +168,7 @@ type Document struct {
 	unread bool
 	// readErr is why the file could not be read at all, where it could not.
 	readErr string
-	repo   *Repo
+	repo    *Repo
 
 	// lines is derived from an immutable document, so it is computed once on
 	// first use. bodyLines was re-splitting the whole body on every section
