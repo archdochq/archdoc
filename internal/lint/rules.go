@@ -937,18 +937,13 @@ func L17(ctx Context) []Finding {
 					base, rel = boundary, filepath.ToSlash(inside)
 				}
 
-				// The file was read from disk once per reference to it, before
-				// anything asked whether its contents were even wanted, so the
-				// cost was one read per link rather than one per document. The
-				// anchor cache below only ever saved the parse.
+				// A file on disk is read once per target, not once per link to
+				// it, and only where an anchor asks for its contents.
 				switch known := ctx.Repo().ByPath(resolved); {
 				case read(resolved):
-					// Already read and parsed for an earlier reference to the
-					// same target. The cache below only ever saved the parse,
-					// so a target linked from many places was re-read from disk
-					// every time. This skips the per-reference existence check
-					// for that target, which is the assumption the
-					// repository-held arm already makes.
+					// Its anchors were built for an earlier link to the same
+					// target, which established that it exists, so neither the
+					// read nor the existence check is repeated.
 				case known != nil:
 					// Already read and already parsed, and the repository
 					// holding it is proof that it exists.

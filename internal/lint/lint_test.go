@@ -1418,9 +1418,9 @@ func TestL17FindsTheRootALinkNames(t *testing.T) {
 	}
 }
 
-// TestL17ReadsATargetsAnchorsOnce: each link into a document rebuilt the
-// target's anchors and searched them, so ten thousand links into a page of ten
-// thousand headings cost a hundred million comparisons.
+// TestL17ReadsATargetsAnchorsOnce: each link into a document the repository
+// holds rebuilt the target's anchors, walking its outline, so ten thousand
+// links into a page of ten thousand headings took seconds.
 func TestL17ReadsATargetsAnchorsOnce(t *testing.T) {
 	var headings strings.Builder
 	for i := range 10000 {
