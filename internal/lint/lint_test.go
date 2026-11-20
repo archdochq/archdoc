@@ -429,7 +429,7 @@ func TestTheRegistryRecordsEachRuleV060Changed(t *testing.T) {
 	// phrase of its text, so deleting one, or a rule's last, turns this red,
 	// and a rule absent here records no change in v0.6.0.
 	changed := map[string][]string{
-		"L01": {"unknown status at the `status` line", "group's front matter", "frozen document", "invalid YAML once"},
+		"L01": {"unknown status at the `status` line", "group's front matter", "frozen document", "invalid YAML once", "cannot be read"},
 		"L02": {"`id` that differs from the filename at the `id` line", "frozen document", "`id` that did not parse"},
 		"L03": {"every document holding the identifier is frozen"},
 		"L04": {"reference at its field's line", "group member", "term's `named_by`", "ref named in `depends` or `includes`", "identifier listed twice"},
@@ -1467,5 +1467,35 @@ func TestL04ReportsAnIdentifierListedTwice(t *testing.T) {
 	}
 	if d := r.ByID("ADR-0001"); !slices.Equal(d.DependedOnBy, []string{"ADR-0002"}) || !slices.Equal(d.IncludedIn, []string{"p"}) {
 		t.Errorf("depended on by %q and included in %q, want each once", d.DependedOnBy, d.IncludedIn)
+	}
+}
+
+// TestAnUnreadableDocumentIsReportedOnce: a file that cannot be read, such as
+// a symbolic link to nothing, stopped every command from opening the
+// repository. It is now a document L01 reports once, with nothing read from
+// it for another rule to find missing.
+func TestAnUnreadableDocumentIsReportedOnce(t *testing.T) {
+	r := repotest.New(t, map[string]string{
+		"spec/p.md":        "---\ntitle: P\nincludes: []\n---\n\n# P\n",
+		"rfc/0001-base.md": "---\nid: RFC-0001\ntitle: Base\nstatus: draft\ncreated: 2026-01-01\ndecided:\ndepends: []\nupdates: []\nobsoletes: []\n---\n\n# RFC-0001: Base\n",
+	})
+	if err := os.Symlink("nowhere.md", r.File("spec/gone.md")); err != nil {
+		t.Skipf("symlinks unavailable: %v", err)
+	}
+	r, err := repo.Open(r.Config())
+	if err != nil {
+		t.Fatalf("Open: %v", err)
+	}
+	var got []string
+	for _, f := range lint.Run(lint.NewContext(r, nil, now)) {
+		if f.Path == "spec/gone.md" {
+			got = append(got, fmt.Sprintf("%s %d %s", f.Rule, f.Line, f.Message))
+		}
+	}
+	if want := []string{"L01 1 cannot be read: no such file or directory"}; !slices.Equal(got, want) {
+		t.Errorf("findings = %q, want %q", got, want)
+	}
+	if _, _, err := repo.Renumber(r, "RFC-0001", "", func(*repo.Document) bool { return false }); err == nil || !strings.Contains(err.Error(), "spec/gone.md cannot be read") {
+		t.Errorf("renumber err = %v, want a refusal saying spec/gone.md cannot be read", err)
 	}
 }

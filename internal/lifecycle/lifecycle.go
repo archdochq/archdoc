@@ -55,8 +55,8 @@ func Apply(d *repo.Document, to repo.Status, now time.Time, g git.Repository) ([
 	if (to == repo.StatusAccepted || to == repo.StatusRejected) && !d.Read() {
 		// accept reads the open questions and reject appends a section after
 		// the body, and neither can see into a body that is not read.
-		return nil, fmt.Errorf("%s has a body longer than %d bytes, which is not read, so it cannot be %s; shorten it first",
-			d.Path, repo.MaxBody, to)
+		why, fix := d.NotRead()
+		return nil, fmt.Errorf("%s %s, so it cannot be %s; %s", d.Path, why, to, fix)
 	}
 	if err := openQuestions(d, to); err != nil {
 		return nil, err

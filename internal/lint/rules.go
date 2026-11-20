@@ -1120,7 +1120,8 @@ func L18(ctx Context) []Finding {
 func L23(ctx Context) []Finding {
 	var rep report
 	for _, d := range ctx.Repo().Documents() {
-		if !d.Read() {
+		// A file that could not be read at all is L01's to report.
+		if !d.Read() && len(d.Body) > repo.MaxBody {
 			rep.atf(severityFor(ctx, d), d, d.BodyLine,
 				"the body is %d bytes, longer than the %d bytes the tool reads, so nothing in it is read", len(d.Body), repo.MaxBody)
 		}

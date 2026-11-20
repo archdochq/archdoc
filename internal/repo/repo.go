@@ -166,7 +166,9 @@ type Document struct {
 	// unread records that the body is longer than MaxBody, so nothing reads
 	// it.
 	unread bool
-	repo   *Repo
+	// readErr is why the file could not be read at all, where it could not.
+	readErr string
+	repo    *Repo
 
 	// lines is derived from an immutable document, so it is computed once on
 	// first use. bodyLines was re-splitting the whole body on every section
@@ -416,9 +418,21 @@ func TypeOf(p string) (Type, bool) {
 func (d *Document) read(root string) error {
 	source, err := os.ReadFile(filepath.Join(root, filepath.FromSlash(d.Path)))
 	if err != nil {
-		return err
+		// A file that cannot be read, such as a symbolic link to nothing,
+		// is a fault in that document, not in the repository: returned, it
+		// stopped every command, lint included, from reading the rest.
+		var pathErr *fs.PathError
+		if errors.As(err, &pathErr) {
+			err = pathErr.Err
+		}
+		// Nothing is read from it, front matter or body, so no rule reads it
+		// as a document missing all it should hold.
+		d.parse(nil)
+		d.Problems = []Problem{{Line: 1, Message: "cannot be read: " + err.Error()}}
+		d.unread, d.outline, d.readErr = true, nil, err.Error()
+	} else {
+		d.parse(source)
 	}
-	d.parse(source)
 	return nil
 }
 
