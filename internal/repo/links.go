@@ -49,7 +49,7 @@ func (d *Document) links() (links, uses []Link) {
 		switch {
 		case n.Type == markdown.LinkReferenceDefinition:
 			line, column := at(n.DestinationSpan.Start)
-			links = append(links, Link{Text: n.Label, Target: decoded(n.Destination), Type: LinkDefinition,
+			links = append(links, Link{Text: n.Label, Target: decoded(n.Destination), Written: d.Body[n.DestinationSpan.Start:n.DestinationSpan.End], Type: LinkDefinition,
 				Line: line, Start: column, End: column + n.DestinationSpan.End - n.DestinationSpan.Start})
 		case n.Type != markdown.Link && n.Type != markdown.Image, n.AutoLink:
 		case n.Reference:
@@ -62,7 +62,7 @@ func (d *Document) links() (links, uses []Link) {
 				kind = LinkImage
 			}
 			line, column := at(n.DestinationSpan.Start)
-			links = append(links, Link{Text: text[textAt[n.TextSpan.Start]:textAt[n.TextSpan.End]], Target: decoded(n.Destination), Type: kind,
+			links = append(links, Link{Text: text[textAt[n.TextSpan.Start]:textAt[n.TextSpan.End]], Target: decoded(n.Destination), Written: d.Body[n.DestinationSpan.Start:n.DestinationSpan.End], Type: kind,
 				Line: line, Start: column, End: column + n.DestinationSpan.End - n.DestinationSpan.Start})
 		}
 		return true

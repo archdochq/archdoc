@@ -374,9 +374,13 @@ const (
 
 // Link is a relative markdown link found in a body.
 type Link struct {
-	Text   string
-	Target string
-	Type   LinkType
+	Text string
+	// Target is the destination as a reader follows it, its escapes,
+	// entities and percent-encoding decoded, and Written the bytes the file
+	// holds, which a consumer rewriting the destination replaces.
+	Target  string
+	Written string
+	Type    LinkType
 	// Line is 1-based within the file.
 	Line int
 	// Start and End are the columns of the destination as written, inside any
