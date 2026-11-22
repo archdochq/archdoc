@@ -59,7 +59,13 @@ func newUpdateCommand() *cobra.Command {
 					continue
 				}
 				changed = append(changed, f)
-				fmt.Fprint(out, unifiedDiff(f.rel, string(have), string(f.want)))
+				if diff := unifiedDiff(f.rel, string(have), string(f.want)); diff != "" {
+					fmt.Fprint(out, diff)
+				} else {
+					// The lines match, so the difference is the final newline,
+					// which a diff of lines does not show.
+					fmt.Fprintf(out, "%s: differs only in the final newline\n", f.rel)
+				}
 			}
 			for _, note := range notes {
 				fmt.Fprintln(cmd.ErrOrStderr(), note)

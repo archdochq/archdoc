@@ -79,7 +79,7 @@ The selector is an identifier or a path. Given an identifier carried by more tha
 
 ## `archdoc update [--check] [--yes]`
 
-Regenerates `PROCESS.md`, the workflow, and the guides under `agents/` where that directory exists. Shows a unified diff of everything that would change and asks before writing. `--check` shows and exits 2 without writing. `--yes` applies without asking. With neither and no terminal, it refuses. A file whose directory resolves outside the repository, as `agents/` linked from elsewhere does, is refused before anything is written. Prints every path written as `init` does.
+Regenerates `PROCESS.md`, the workflow, and the guides under `agents/` where that directory exists. Shows a unified diff of everything that would change, naming a file that differs only in its final newline, and asks before writing. `--check` shows and exits 2 without writing. `--yes` applies without asking. With neither and no terminal, it refuses. A file whose directory resolves outside the repository, as `agents/` linked from elsewhere does, is refused before anything is written. Prints every path written as `init` does.
 
 `AGENTS.md`, `README.md`, `archdoc.json`, `LICENSE`, `INDEX.md`, `GLOSSARY.md` and every document are not touched. `agents/` is refreshed and never created; where it is absent the command says on stderr that `archdoc agents` installs it. It also says on stderr that `AGENTS.md`, `README.md` and `archdoc.json` were not read.
 

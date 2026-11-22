@@ -380,3 +380,22 @@ func TestUpdateRefusesAGuidesDirectoryLinkedOutOfTheRepository(t *testing.T) {
 		t.Error("the guide on the other end of the link was rewritten")
 	}
 }
+
+// TestUpdateNamesAFileDifferingOnlyInItsFinalNewline: the diff of lines came
+// out empty, so --check exited 2 and the prompt asked to overwrite a file with
+// nothing shown.
+func TestUpdateNamesAFileDifferingOnlyInItsFinalNewline(t *testing.T) {
+	dir := scaffolded(t)
+	process := filepath.Join(dir, "PROCESS.md")
+	body, err := os.ReadFile(process)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(process, []byte(strings.TrimSuffix(string(body), "\n")), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	out, code := run(t, dir, "update", "--check")
+	if code != exitFindings || !strings.Contains(out, "PROCESS.md: differs only in the final newline") {
+		t.Errorf("exit = %d, want 2 naming PROCESS.md:\n%s", code, out)
+	}
+}
