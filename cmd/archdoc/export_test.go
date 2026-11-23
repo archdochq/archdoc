@@ -617,3 +617,45 @@ func TestOutRefusesADirectoryLinkedOutOfTheTree(t *testing.T) {
 		t.Error("index.json was rewritten although the export was refused")
 	}
 }
+
+// TestOutPrunesAfterAnExportThatFailed: index.json is the record of what an
+// export wrote, and was written first, so an export failing after it left a
+// record without the file of a document since removed, and no later export
+// pruned that file.
+func TestOutPrunesAfterAnExportThatFailed(t *testing.T) {
+	if os.Getuid() == 0 {
+		t.Skip("a read-only directory does not stop root")
+	}
+	dir := t.TempDir()
+	if out, code := run(t, dir, "init", "--name", "T"); code != exitOK {
+		t.Fatalf("init exited %d: %s", code, out)
+	}
+	for _, args := range [][]string{{"new", "rfc", "Doomed design"}, {"new", "adr", "Kept decision"}} {
+		if out, code := run(t, dir, args...); code != exitOK {
+			t.Fatalf("new exited %d: %s", code, out)
+		}
+	}
+	target := filepath.Join(dir, "dist")
+	if out, code := run(t, dir, "export", "--out", target); code != exitOK {
+		t.Fatalf("export exited %d: %s", code, out)
+	}
+	if err := os.Remove(filepath.Join(dir, "rfc", "0001-doomed-design.md")); err != nil {
+		t.Fatal(err)
+	}
+	locked := filepath.Join(target, "adr")
+	if err := os.Chmod(locked, 0o555); err != nil {
+		t.Fatal(err)
+	}
+	if _, code := run(t, dir, "export", "--out", target); code == exitOK {
+		t.Fatal("the export into a read-only directory succeeded")
+	}
+	if err := os.Chmod(locked, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if out, code := run(t, dir, "export", "--out", target); code != exitOK {
+		t.Fatalf("export exited %d: %s", code, out)
+	}
+	if _, err := os.Stat(filepath.Join(target, "rfc", "0001-doomed-design.json")); err == nil {
+		t.Error("the removed document's file was never pruned")
+	}
+}
