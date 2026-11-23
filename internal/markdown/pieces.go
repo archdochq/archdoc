@@ -310,7 +310,7 @@ func (b *builder) link(t Type, n ast.Node, dest text.SingleLineValue, title text
 	if !title.IsEmpty() {
 		o.HasTitle, o.TitleSpan = true, multiSpan(title)
 		p = o.TitleSpan.End + 1
-	} else if q := skipSpace(b.src, p); q < len(b.src) && strings.IndexByte(`"'(`, b.src[q]) >= 0 && b.src[q] != ')' {
+	} else if q := skipSpace(b.src, p); q < len(b.src) && strings.IndexByte(`"'(`, b.src[q]) >= 0 {
 		// An empty title, written "", '' or ().
 		o.HasTitle, o.TitleSpan = true, Span{q + 1, q + 1}
 		p = q + 2
