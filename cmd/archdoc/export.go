@@ -68,51 +68,16 @@ func writeTree(cmd *cobra.Command, r *repo.Repo, dir string, opts export.Options
 	// was read from.
 	previous, managed := previousFiles(dir)
 
-	// index.json never carries bodies whatever was asked: it exists to be the
-	// small one, and the bodies are in the per-document files beside it.
-	index := full
-	index.Documents = make([]export.Document, len(full.Documents))
-	for i, d := range full.Documents {
-		d.Source = ""
-		// Into a new slice. A Document copied by value shares its caller's
-		// Contents backing array, so dropping the bodies here would write
-		// through to the documents the per-document files are rendered from
-		// below, which is how --out came to emit every section body empty
-		// however it was invoked.
-		d.Contents = slices.Clone(d.Contents)
-		for j := range d.Contents {
-			d.Contents[j].Body = nil
-		}
-		// The same for every nested body, and the answers are pointers, so
-		// each is copied before its body is dropped.
-		d.Questions.Open = slices.Clone(d.Questions.Open)
-		for j := range d.Questions.Open {
-			d.Questions.Open[j].Body = nil
-		}
-		d.Questions.Resolved = slices.Clone(d.Questions.Resolved)
-		for j := range d.Questions.Resolved {
-			d.Questions.Resolved[j].Body = nil
-			if answer := d.Questions.Resolved[j].Answer; answer != nil {
-				d.Questions.Resolved[j].Answer = &export.Answer{Line: answer.Line}
-			}
-		}
-		d.Changelog = slices.Clone(d.Changelog)
-		for j := range d.Changelog {
-			d.Changelog[j].Body = nil
-		}
-		d.RejectionRationale = slices.Clone(d.RejectionRationale)
-		for j := range d.RejectionRationale {
-			d.RejectionRationale[j].Body = nil
-		}
-		index.Documents[i] = d
-	}
+	// index.json never carries bodies or sources whatever was asked: it
+	// exists to be the small one, and the per-document files beside it carry
+	// what was asked for. A second build rather than a copy of the first with the
+	// bodies blanked, which shared the first's backing arrays and once wrote
+	// through to the per-document files. Groups stay, without their prose:
+	// the index is where a consumer reads which group a document belongs to.
+	// HasGlossary stays too, so a consumer of the index alone knows whether a
+	// glossary.json exists.
+	index := export.Build(r, export.Options{NoBodies: true, AllHeadings: opts.AllHeadings, Commit: opts.Commit})
 	index.Glossary = nil
-	// Groups stay in the index, which is where a consumer reads which group a
-	// document belongs to, but without the prose.
-	index.Groups = slices.Clone(full.Groups)
-	for i := range index.Groups {
-		index.Groups[i].Description = nil
-	}
 
 	// Every file the export writes or prunes, checked before any is touched:
 	// a directory in the tree linked out of it was written through, and the
