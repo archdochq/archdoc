@@ -33,7 +33,7 @@ func (d *Document) links() (links, uses []Link) {
 	if d.outline == nil {
 		return nil, nil
 	}
-	starts := lineStarts(d.Body)
+	starts := d.starts
 	text, textAt := linkText(d.Body, d.outline)
 	at := func(offset int) (line, column int) {
 		i := lineIn(starts, offset)
@@ -135,7 +135,7 @@ func (d *Document) WikiLinks() []WikiLink {
 	if d.outline == nil {
 		return nil
 	}
-	starts := lineStarts(d.Body)
+	starts := d.starts
 	var links []WikiLink
 	eachTextRun(d.outline, func(run markdown.Span, heading bool) {
 		written := d.Body[run.Start:run.End]
@@ -243,7 +243,7 @@ func (d *Document) proseLines() []*string {
 			out[i] = ' '
 		}
 	}
-	starts := lineStarts(body)
+	starts := d.starts
 	literal := map[int]bool{}
 	markdown.Walk(d.outline, func(n *markdown.Node) bool {
 		switch n.Type {
