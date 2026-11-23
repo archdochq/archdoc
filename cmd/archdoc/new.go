@@ -156,8 +156,21 @@ func writeNew(full string, contents []byte) error {
 	if err != nil {
 		return err
 	}
-	defer f.Close()
-	_, err = f.Write(contents)
+	// The close is checked, as a filesystem may report a failed write only
+	// there, and a file that failed is removed: left, it was a truncated
+	// document, and a term rename taking the failure for success removed
+	// the only good copy.
+	if err := errors.Join(writeTo(f, contents), f.Close()); err != nil {
+		os.Remove(full)
+		return err
+	}
+	return nil
+}
+
+// writeTo writes a file just created, a variable so a test can fail a write part
+// way.
+var writeTo = func(f *os.File, contents []byte) error {
+	_, err := f.Write(contents)
 	return err
 }
 
