@@ -1853,3 +1853,12 @@ func TestACreateThatFailsLeavesNothing(t *testing.T) {
 		t.Error("term rename left the half-written new file")
 	}
 }
+
+// TestLinkApplyNeedsSuggest: --apply alone did nothing and exited 0, which
+// read as suggestions having been applied.
+func TestLinkApplyNeedsSuggest(t *testing.T) {
+	out, code := run(t, repository(t), "link", "--apply")
+	if code != exitUsage || !strings.Contains(out, "needs --suggest") {
+		t.Errorf("exit = %d, want a usage error naming --suggest:\n%s", code, out)
+	}
+}
