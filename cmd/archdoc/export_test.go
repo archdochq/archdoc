@@ -1,14 +1,18 @@
 package main
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
 	"io/fs"
 	"os"
 	"path/filepath"
+	"reflect"
 	"slices"
 	"strings"
 	"testing"
+
+	"archdoc.dev/internal/export"
 )
 
 func exported(t *testing.T, dir string, args ...string) map[string]any {
@@ -657,5 +661,71 @@ func TestOutPrunesAfterAnExportThatFailed(t *testing.T) {
 	}
 	if _, err := os.Stat(filepath.Join(target, "rfc", "0001-doomed-design.json")); err == nil {
 		t.Error("the removed document's file was never pruned")
+	}
+}
+
+// TestIndexIsTheExportWithoutItsProse holds index.json to the full export with
+// every body, source, group description and the glossary dropped, byte for
+// byte, on the fixture repository and on this repository's own specification.
+// The full export is asked for with every option that adds to it, so anything
+// leaking from it into the index shows here.
+func TestIndexIsTheExportWithoutItsProse(t *testing.T) {
+	root, err := filepath.Abs(filepath.Join("..", ".."))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for name, dir := range map[string]string{"testdata": filepath.Join(root, "testdata", "repo"), "spec": root} {
+		t.Run(name, func(t *testing.T) {
+			args := []string{"--source", "--all-headings", "--commit", "abc123"}
+			full, code := run(t, dir, append([]string{"export"}, args...)...)
+			if code != exitOK {
+				t.Fatalf("export exited %d: %s", code, full)
+			}
+			target := t.TempDir()
+			if out, code := run(t, dir, append([]string{"export", "--out", target}, args...)...); code != exitOK {
+				t.Fatalf("export --out exited %d: %s", code, out)
+			}
+			got, err := os.ReadFile(filepath.Join(target, "index.json"))
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			var want export.Repository
+			if err := json.Unmarshal([]byte(full), &want); err != nil {
+				t.Fatal(err)
+			}
+			want.Glossary = nil
+			dropProse(reflect.ValueOf(&want).Elem())
+			var buf bytes.Buffer
+			if err := encode(&buf, want); err != nil {
+				t.Fatal(err)
+			}
+			if !bytes.Equal(got, buf.Bytes()) {
+				t.Errorf("index.json is not the export without its prose\n got: %d bytes\nwant: %d bytes", len(got), buf.Len())
+			}
+		})
+	}
+}
+
+// dropProse zeroes every Body, Source and Description field under v.
+func dropProse(v reflect.Value) {
+	switch v.Kind() {
+	case reflect.Pointer:
+		if !v.IsNil() {
+			dropProse(v.Elem())
+		}
+	case reflect.Slice:
+		for i := range v.Len() {
+			dropProse(v.Index(i))
+		}
+	case reflect.Struct:
+		for i := range v.NumField() {
+			switch v.Type().Field(i).Name {
+			case "Body", "Source", "Description":
+				v.Field(i).SetZero()
+			default:
+				dropProse(v.Field(i))
+			}
+		}
 	}
 }
