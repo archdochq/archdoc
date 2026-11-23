@@ -26,7 +26,7 @@ jobs:
       # change landing with the code change it describes would otherwise be
       # checked by a tool that predates both. archdoc update will offer to
       # restore the download step; decline it. See ADR-0013.
-      - uses: actions/setup-go@v5
+      - uses: actions/setup-go@v7
         with:
           go-version-file: go.mod
       - name: Build ArchDoc from this commit
