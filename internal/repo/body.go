@@ -328,22 +328,13 @@ func (d *Document) Unclosed() bool {
 	}
 	end := len(strings.TrimRight(d.Body, " \t\r\n"))
 	for _, n := range d.outline.Children {
-		open := n.Type == markdown.CodeBlock && n.Fenced || n.Type == markdown.HTMLBlock && closedByMarker(n.Text)
+		open := n.Type == markdown.CodeBlock && n.Fenced || n.ClosedByMarker
 		if open && !n.Closed && n.End >= end {
 			return true
 		}
 	}
 	return false
 }
-
-// closedByMarker reports whether an HTML block is of a type only its end
-// marker closes: one opened by script, pre, style or textarea, a comment, a
-// processing instruction, a declaration or CDATA.
-func closedByMarker(html string) bool {
-	return markerClosed.MatchString(strings.TrimLeft(html, " \t"))
-}
-
-var markerClosed = regexp.MustCompile(`(?i)^(?:<(?:script|pre|style|textarea)(?:[ \t\r\n>]|$)|<!--|<\?|<![A-Za-z]|<!\[CDATA\[)`)
 
 // advance is the column after b, a tab running to the next multiple of four.
 func advance(col int, b byte) int {
