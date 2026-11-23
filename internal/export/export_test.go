@@ -944,3 +944,21 @@ func TestADestinationIsPublishedAsWritten(t *testing.T) {
 		}
 	}
 }
+
+// TestALinkToANameStartingWithTwoDotsIsInsideRoot: a resolved path starting
+// with .. was taken for one leaving root, so a link to ..notes.md had no path.
+func TestALinkToANameStartingWithTwoDotsIsInsideRoot(t *testing.T) {
+	r := repotest.New(t, map[string]string{
+		"rfc/0001-a.md": rfc("RFC-0001", "A", "draft", "## Abstract\n\nSee [n](../..notes.md) and [o](../../out.md).\n"),
+	})
+	byText := map[string]export.Link{}
+	for _, l := range export.Build(r, export.Options{}).Documents[0].Links {
+		byText[l.Text] = l
+	}
+	if got := byText["n"].Path; got != "..notes.md" {
+		t.Errorf("path of ../..notes.md = %q, want ..notes.md", got)
+	}
+	if got := byText["o"].Path; got != "" {
+		t.Errorf("path of ../../out.md = %q, want none, as it leaves root", got)
+	}
+}
