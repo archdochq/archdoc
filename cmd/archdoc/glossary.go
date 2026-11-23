@@ -1,7 +1,6 @@
 package main
 
 import (
-	"bytes"
 	"errors"
 	"fmt"
 	"io/fs"
@@ -54,7 +53,7 @@ func newGlossaryCommand() *cobra.Command {
 			}
 			_, statErr := os.Lstat(path)
 			_, hasGlossary := r.Glossary()
-			if bytes.Equal(committed, generated) || (errors.Is(statErr, fs.ErrNotExist) && !hasGlossary) {
+			if sameText(committed, generated) || (errors.Is(statErr, fs.ErrNotExist) && !hasGlossary) {
 				if asJSON {
 					printFindings(cmd.OutOrStdout(), nil, true)
 				}

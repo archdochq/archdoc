@@ -5,7 +5,7 @@ includes: [RFC-0011]
 
 # Index
 
-`archdoc index` generates `INDEX.md` under `root` and prints the path written. With `--check`, it generates to memory and compares the result with the file on disk: where they differ it prints a unified diff and exits 2, and where they match it exits 0, printing nothing, or `[]` under `--json`. With `--json`, a difference is reported as a single finding against `INDEX.md` and no diff is printed. `--json` without `--check` is a usage error.
+`archdoc index` generates `INDEX.md` under `root` and prints the path written. With `--check`, it generates to memory and compares the result with the file on disk, a CRLF line ending on disk matching an LF one, as git checks a file out with CRLF under `core.autocrlf`: where they differ it prints a unified diff and exits 2, and where they match it exits 0, printing nothing, or `[]` under `--json`. With `--json`, a difference is reported as a single finding against `INDEX.md` and no diff is printed. `--json` without `--check` is a usage error.
 
 ## Format
 

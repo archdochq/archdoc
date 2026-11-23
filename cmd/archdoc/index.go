@@ -49,7 +49,7 @@ func newIndexCommand() *cobra.Command {
 			if err != nil && !errors.Is(err, fs.ErrNotExist) {
 				return err
 			}
-			if bytes.Equal(committed, generated) {
+			if sameText(committed, generated) {
 				if asJSON {
 					printFindings(cmd.OutOrStdout(), nil, true)
 				}
@@ -74,4 +74,12 @@ func newIndexCommand() *cobra.Command {
 	cmd.Flags().BoolVar(&check, "check", false, "fail if the committed index is out of date")
 	cmd.Flags().BoolVar(&asJSON, "json", false, "with --check, report the difference as a JSON array")
 	return cmd
+}
+
+// sameText reports whether a file on disk holds what archdoc generates, a
+// line ending in CRLF matching one in LF: git checks out a generated file
+// with CRLF under core.autocrlf while reporting the tree clean, and a byte
+// comparison failed every check on such a checkout.
+func sameText(onDisk, generated []byte) bool {
+	return bytes.Equal(bytes.ReplaceAll(onDisk, []byte("\r\n"), []byte("\n")), generated)
 }
