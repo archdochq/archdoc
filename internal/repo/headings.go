@@ -28,7 +28,7 @@ func (d *Document) readHeadings() {
 	}
 	d.outline = markdown.Parse([]byte(d.Body))
 	d.starts = lineStarts(d.Body)
-	d.headings, d.allHeadings = headingsIn(d.Body, d.BodyLine, d.outline)
+	d.headings, d.allHeadings = headingsIn(d.Body, d.starts, d.BodyLine, d.outline)
 }
 
 // Read reports whether the body was read: false where it is longer than
@@ -82,7 +82,7 @@ func (d *Document) text() string {
 // headingsOf parses body and returns its top-level headings and every
 // heading's anchor, as headingsIn does.
 func headingsOf(body string, bodyLine int) (top, all []Heading) {
-	return headingsIn(body, bodyLine, markdown.Parse([]byte(body)))
+	return headingsIn(body, lineStarts(body), bodyLine, markdown.Parse([]byte(body)))
 }
 
 // lineStarts are the offsets in body at which each line after the first
@@ -101,9 +101,9 @@ func lineStarts(body string) []int {
 func lineIn(starts []int, at int) int { return sort.SearchInts(starts, at+1) }
 
 // headingsIn returns doc's top-level headings, which bound sections, and the
-// anchor of every heading, in the order GitHub assigns them.
-func headingsIn(body string, bodyLine int, doc *markdown.Node) (top, all []Heading) {
-	starts := lineStarts(body)
+// anchor of every heading, in the order GitHub assigns them, given the body's
+// lineStarts.
+func headingsIn(body string, starts []int, bodyLine int, doc *markdown.Node) (top, all []Heading) {
 	lineOf := func(at int) int { return lineIn(starts, at) }
 
 	numbers := footnoteNumbers(doc)
