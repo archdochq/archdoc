@@ -113,9 +113,8 @@ func (c Context) OnBranch(path string) (BranchFile, bool) {
 // read it, which must not be mistaken for the document being new: one means the
 // repository is unreadable, the other that the document is editable.
 type BranchFile struct {
-	Content []byte
-	Status  repo.Status
-	Err     error
+	Status repo.Status
+	Err    error
 }
 
 // Frozen reports whether a document has already reached the branch in a
@@ -246,7 +245,7 @@ func branchFiles(ctx Context) (map[string]BranchFile, error) {
 			if d := ctx.Repo().ByPath(byFullPath[full]); d != nil && d.Type.HasLifecycle() {
 				status = repo.StatusIn(committed)
 			}
-			files[byFullPath[full]] = BranchFile{Content: committed, Status: status}
+			files[byFullPath[full]] = BranchFile{Status: status}
 		}
 	}
 	// A settings file on the branch that does not parse left the documents
