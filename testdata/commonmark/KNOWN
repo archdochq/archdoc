@@ -71,6 +71,8 @@ archdoc/footnote-reference-after-bang-before-parentheses document/paragraph[0]/l
 archdoc/html-block-opening-footnote-definition document/footnote_definition[0]/html_block[0] goldmark keeps the space after a footnote definition's colon in an HTML block that opens the definition
 archdoc/code-span-on-a-lazy-line document/block_quote[0]/paragraph[0]/code[0] the reference keeps the leading space of a lazy line within a code span, which goldmark and commonmark.js remove
 archdoc/fence-info-ending-in-entity-space document/code_block[0] the reference drops a space written as an entity at the end of a fence's info string, which goldmark and commonmark.js keep
+archdoc/emphasis-closing-after-a-blockquote-marker document/block_quote[0]/paragraph[0]/text[0] goldmark closes emphasis with a delimiter after a blockquote's marker on the next line, which follows a line ending and so cannot close
+archdoc/emphasis-closing-after-a-blockquote-marker-and-a-hard-break document/block_quote[0]/paragraph[0]/text[0] goldmark closes emphasis with a delimiter after a blockquote's marker on the line after a hard break
 
 # Bodies the readers' tests read, which the outline replaces them in reading.
 archdoc/a-link-destination-is-read-as-git-hub-reads-it-11 document/paragraph[0]/text[0] goldmark reads a title written directly after a destination within < and >, where the reference and commonmark.js read no link
