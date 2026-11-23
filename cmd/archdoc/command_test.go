@@ -1821,3 +1821,35 @@ func TestATransitionRefusesAnIdentifierTwoDocumentsClaim(t *testing.T) {
 		t.Errorf("exit = %d, want the document named by path proposed:\n%s", code, out)
 	}
 }
+
+// TestACreateThatFailsLeavesNothing: a write failing part way left the
+// truncated file, and term rename, taking the failure for success where the
+// filesystem reported it only at close, removed the only good copy.
+func TestACreateThatFailsLeavesNothing(t *testing.T) {
+	original := writeTo
+	writeTo = func(f *os.File, contents []byte) error {
+		f.Write(contents[:len(contents)/2])
+		return errors.New("disk full")
+	}
+	t.Cleanup(func() { writeTo = original })
+
+	dir := repository(t)
+	if _, code := run(t, dir, "new", "rfc", "Half written"); code == exitOK {
+		t.Error("new reported success for a write that failed")
+	}
+	if matches, _ := filepath.Glob(filepath.Join(dir, "rfc", "*half-written*")); len(matches) > 0 {
+		t.Errorf("new left %s behind", matches[0])
+	}
+
+	term := filepath.Join(dir, filepath.FromSlash(repotest.TermPath("Wings")))
+	before := readFile(t, term)
+	if _, code := run(t, dir, "term", "rename", "Wings", "Fins"); code == exitOK {
+		t.Error("term rename reported success for a write that failed")
+	}
+	if got := readFile(t, term); got != before {
+		t.Error("the term's own file was changed or removed")
+	}
+	if _, err := os.Stat(filepath.Join(dir, filepath.FromSlash(repotest.TermPath("Fins")))); err == nil {
+		t.Error("term rename left the half-written new file")
+	}
+}
