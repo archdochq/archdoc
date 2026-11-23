@@ -384,7 +384,8 @@ func (b *builder) htmlBlock(o *Node, v *ast.HTMLBlock) {
 	_, _ = v.Value.WriteTo(&buf, b.src)
 	o.Text = withoutCarriageReturns(buf.String())
 	o.End = b.contentEnd(o.Start, o.Lines, b.lineEnd(o.Start))
-	if v.HTMLBlockKind <= ast.HTMLBlockKind5 {
+	o.ClosedByMarker = v.HTMLBlockKind <= ast.HTMLBlockKind5
+	if o.ClosedByMarker {
 		// The parser looks for the end marker in the whole of the first
 		// line, start marker included, so <!--> closes.
 		last := b.src[min(segs[len(segs)-1].Start, o.End):o.End]

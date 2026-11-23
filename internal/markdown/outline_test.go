@@ -113,6 +113,29 @@ func TestAnHTMLBlockKnowsWhetherItsEndMarkerClosedIt(t *testing.T) {
 	}
 }
 
+// TestAnHTMLBlockKnowsWhetherOnlyItsEndMarkerClosesIt: types 1 to 5 run to
+// their end marker, and types 6 and 7 end at a blank line.
+func TestAnHTMLBlockKnowsWhetherOnlyItsEndMarkerClosesIt(t *testing.T) {
+	for body, want := range map[string]bool{
+		"<script>\n":       true,
+		"<PRE\n":           true,
+		"<style x>\n":      true,
+		"<textarea>\n":     true,
+		"<!-- a\n":         true,
+		"<?php\n":          true,
+		"<!DOCTYPE html>":  true,
+		"<![CDATA[ a\n":    true,
+		"<div>\n":          false,
+		"</p>\n":           false,
+		"<custom>\n":       false,
+		"<a href=\"x\">\n": false,
+	} {
+		if n := nodes(body, HTMLBlock)[0]; n.ClosedByMarker != want {
+			t.Errorf("%q: closed by marker %v, want %v", body, n.ClosedByMarker, want)
+		}
+	}
+}
+
 func TestBreaksAndDefinitionsEndAtTheirLastByte(t *testing.T) {
 	wantSpans(t, "a\n\n***  \n\nb\n", ThematicBreak, "***")
 	wantSpans(t, "[a]: b.md \"t\"  \n[c]:\n  <d e.md>\n", LinkReferenceDefinition, "[a]: b.md \"t\"", "[c]:\n  <d e.md>")

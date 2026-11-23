@@ -106,6 +106,11 @@ type Node struct {
 	Align     string // a table cell: "left", "center", "right" or ""
 	Hard      bool   // a line break
 
+	// ClosedByMarker is an HTML block of CommonMark types 1 to 5, opened by
+	// script, pre, style or textarea, a comment, a processing instruction, a
+	// declaration or CDATA, which only its end marker closes.
+	ClosedByMarker bool
+
 	// Destination and Title are a link's, an image's or a link reference
 	// definition's, resolved. Label is a reference's or a definition's label
 	// as written, which the parser matches labels by, ignoring case and runs
