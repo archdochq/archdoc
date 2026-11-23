@@ -121,7 +121,7 @@ func writeTree(cmd *cobra.Command, r *repo.Repo, dir string, opts export.Options
 		rel string
 		v   any
 	}
-	planned := []file{{"index.json", index}}
+	var planned []file
 	for _, d := range full.Documents {
 		planned = append(planned, file{strings.TrimSuffix(d.Path, ".md") + ".json", d})
 	}
@@ -131,6 +131,11 @@ func writeTree(cmd *cobra.Command, r *repo.Repo, dir string, opts export.Options
 	if len(full.Groups) > 0 {
 		planned = append(planned, file{"groups.json", full.Groups})
 	}
+	// The index last: it is the record of what this export wrote, read by the
+	// next to prune what is gone, and written first, a run failing after it
+	// lost the record of the files it had not yet replaced, so they were
+	// never pruned.
+	planned = append(planned, file{"index.json", index})
 	touched := slices.Sorted(maps.Keys(previous))
 	for _, f := range planned {
 		touched = append(touched, f.rel)
