@@ -480,7 +480,9 @@ func link(r *repo.Repo, d *repo.Document, l repo.Link) Link {
 		return out
 	}
 	resolved := path.Clean(path.Join(path.Dir(d.Path), target))
-	if strings.HasPrefix(resolved, "..") {
+	// Leaving root is .. or a path through it, not a name starting with two
+	// dots, such as ..notes.md.
+	if resolved == ".." || strings.HasPrefix(resolved, "../") {
 		return out
 	}
 	out.Path = resolved

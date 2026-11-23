@@ -425,7 +425,7 @@ func printable(dir, rel string) string {
 	if resolved, err := filepath.EvalSymlinks(full); err == nil {
 		compare = resolved
 	}
-	if within, err := filepath.Rel(cwd, compare); err == nil && !strings.HasPrefix(within, "..") {
+	if within, err := filepath.Rel(cwd, compare); err == nil && within != ".." && !strings.HasPrefix(within, ".."+string(filepath.Separator)) {
 		return filepath.ToSlash(within)
 	}
 	return full
