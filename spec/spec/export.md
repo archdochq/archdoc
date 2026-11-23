@@ -33,7 +33,7 @@ Each glossary term has `name`, `anchor`, `path`, `definition`, `formerly` where 
 
 `groups` is every group in order of slug, and is empty where there are none. Each group has `slug`, `title`, `path`, `description`, `documents` and `links`. `description` is the body after the group's H1 as written, or the whole body where its first heading is not an H1, and is absent wherever contents bodies are. `documents` is the members as written, whether or not they resolve. `links` is the links in its body, in the shape a document's `links` has; a link to a group's file has `resolves_to` naming its slug. A group appears here and nowhere else: it is not published among the documents. A document's `groups` names the groups listing it, by slug.
 
-Bodies are raw Markdown. Nothing is rendered. `source` is the file exactly as it is on disk, front matter included, and is the only field that reproduces the document.
+Bodies are raw Markdown. Nothing is rendered. `source` is the file exactly as it is on disk, front matter included, and is the only field that reproduces the document. It reproduces only a file that is valid UTF-8, as a JSON string holds nothing else, and each byte of a file that is not is written as U+FFFD.
 
 ## `--out`
 
