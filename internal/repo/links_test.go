@@ -99,3 +99,12 @@ func TestNestedImagesAreReadInLinearTime(t *testing.T) {
 		t.Errorf("reading the links took %v", took)
 	}
 }
+
+// TestAWikiLinkHoldingAnEntityIsReadAsWritten: a wiki link is read from the
+// bytes as written, so an entity in one is part of its name, not an end to it.
+func TestAWikiLinkHoldingAnEntityIsReadAsWritten(t *testing.T) {
+	links := page(t, "See [[D&amp;]].\n").WikiLinks()
+	if len(links) != 1 || links[0].Name != "D&amp;" {
+		t.Errorf("wiki links = %+v, want one named D&amp;", links)
+	}
+}

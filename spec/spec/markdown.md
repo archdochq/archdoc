@@ -23,7 +23,7 @@ Links are read from the body's outline, as goldmark reads them: an inline link `
 
 A label beginning `^` is a footnote, and a footnote definition is not a link reference definition. `[text][label]`, `[text][]` and `[text]` are reference links where the label, or the text for the last two, matches a definition as goldmark matches them. A reference link is not listed among a document's links; its definition is, and the reference is listed among the document's references, with its definition's destination, on the line holding its text's closing bracket. An autolink is not listed.
 
-A `[[...]]` link is read from text as written, its pieces adjacent, so one holding emphasis, a code span or an entity is none: `[[`, a name holding no `[` or `]`, and `]]`, on one line, within text outside a link's or an image's text. A bracket escaped by a backslash ends none, so `\[[a]]` is no `[[...]]` link, and where the document defines the label inside, as in `[[RFC-0007]]` beside `[RFC-0007]: path`, goldmark reads a link within brackets and there is no `[[...]]` link. A `[[...]]` link in a heading is read, and marked as in one.
+A `[[...]]` link is read from text as written, its pieces adjacent, so one holding emphasis or a code span is none, and one holding an entity is read with the entity as written: `[[`, a name holding no `[` or `]`, and `]]`, on one line, within text outside a link's or an image's text. A bracket escaped by a backslash ends none, so `\[[a]]` is no `[[...]]` link, and where the document defines the label inside, as in `[[RFC-0007]]` beside `[RFC-0007]: path`, goldmark reads a link within brackets and there is no `[[...]]` link. A `[[...]]` link in a heading is read, and marked as in one.
 
 ## Sections
 
