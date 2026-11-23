@@ -1862,3 +1862,30 @@ func TestLinkApplyNeedsSuggest(t *testing.T) {
 		t.Errorf("exit = %d, want a usage error naming --suggest:\n%s", code, out)
 	}
 }
+
+// TestTheChecksPassACRLFCheckout: git checks a generated file out with CRLF
+// under core.autocrlf and reports the tree clean, and the checks, comparing
+// bytes, failed on every line.
+func TestTheChecksPassACRLFCheckout(t *testing.T) {
+	dir := repository(t)
+	for _, args := range [][]string{{"index"}, {"glossary"}} {
+		if out, code := run(t, dir, args...); code != exitOK {
+			t.Fatalf("%v exited %d: %s", args, code, out)
+		}
+	}
+	for _, name := range []string{"INDEX.md", "GLOSSARY.md"} {
+		path := filepath.Join(dir, name)
+		if err := os.WriteFile(path, []byte(strings.ReplaceAll(readFile(t, path), "\n", "\r\n")), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	for _, args := range [][]string{{"index", "--check"}, {"glossary", "--check"}} {
+		if out, code := run(t, dir, args...); code != exitOK {
+			t.Errorf("%v on a CRLF checkout exited %d:\n%s", args, code, out)
+		}
+	}
+	editDocument(t, dir, "rfc/0001-queues.md", "title: Job queues", "title: Work queues")
+	if _, code := run(t, dir, "index", "--check"); code != exitFindings {
+		t.Errorf("index --check passed a CRLF index that is out of date")
+	}
+}

@@ -1,7 +1,6 @@
 package main
 
 import (
-	"bytes"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -55,7 +54,7 @@ func newUpdateCommand() *cobra.Command {
 				if err != nil && !os.IsNotExist(err) {
 					return err
 				}
-				if bytes.Equal(have, f.want) {
+				if sameText(have, f.want) {
 					continue
 				}
 				changed = append(changed, f)
