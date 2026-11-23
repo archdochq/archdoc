@@ -277,7 +277,9 @@ than a destination, so rewriting the definition carries every use with it.
 
 `--source` adds the file exactly as it is on disk, front matter included. It is
 the only field that reproduces the document, because `contents` discards a
-heading's raw spelling and everything before the first heading.
+heading's raw spelling and everything before the first heading. It reproduces only
+a file that is valid UTF-8: JSON holds nothing else, so any other byte is written as
+U+FFFD.
 
 ## Groups
 

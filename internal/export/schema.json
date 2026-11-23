@@ -117,7 +117,7 @@
           "items": {"$ref": "#/$defs/rejection_rationale_section"}
         },
         "source": {"type": "string",
-                   "description": "The file exactly as it is on disk, front matter included. Present only with --source. The one field that reproduces the document."},
+                   "description": "The file exactly as it is on disk, front matter included. Present only with --source. The one field that reproduces the document, where the file is valid UTF-8; any other byte is written as U+FFFD."},
         "links": {"type": "array", "items": {"$ref": "#/$defs/link"}}
       }
     },
