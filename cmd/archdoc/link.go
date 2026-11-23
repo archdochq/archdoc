@@ -3,6 +3,7 @@ package main
 import (
 	"bufio"
 	"bytes"
+	"errors"
 	"fmt"
 	"io"
 	"maps"
@@ -25,6 +26,11 @@ func newLinkCommand() *cobra.Command {
 		Short: "Resolve wiki links, and optionally suggest new ones",
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
+			// Without --suggest there is nothing to apply, and doing nothing
+			// with exit 0 read as suggestions having been applied.
+			if apply && !suggest {
+				return errors.New("--apply accepts the suggestions of --suggest, so it needs --suggest")
+			}
 			r, err := openRepo()
 			if err != nil {
 				return err
